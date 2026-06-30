@@ -129,7 +129,14 @@ importers:
 
   packages/infrastructure-webhook: {}
 
-  packages/interface-api: {}
+  packages/interface-api:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../application
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/observability:
     dependencies:
