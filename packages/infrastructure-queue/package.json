@@ -9,6 +9,11 @@
       "default": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "@omniwa/application": "workspace:*",
+    "@omniwa/domain": "workspace:*",
+    "@omniwa/shared": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"

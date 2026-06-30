@@ -96,7 +96,17 @@ importers:
 
   packages/infrastructure-provider-baileys: {}
 
-  packages/infrastructure-queue: {}
+  packages/infrastructure-queue:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/infrastructure-secrets: {}
 
