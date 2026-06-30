@@ -7,6 +7,7 @@ export * from "./errors/domain-owner-context.js";
 export * from "./errors/failure-category.js";
 export * from "./errors/recoverability.js";
 export * from "./events/domain-event.js";
+export * from "./events/event-contract.js";
 export * from "./guardrails/guardrail-decision.js";
 export * from "./health/health-status.js";
 export * from "./identity/aggregate-ids.js";
