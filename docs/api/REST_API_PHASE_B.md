@@ -4,7 +4,8 @@
 
 This document records the implemented Phase B REST resource surface.
 
-It is not an OpenAPI specification. OpenAPI remains Phase C.
+The Phase C OpenAPI contract for this surface is available at
+`docs/api/openapi/omniwa-v1.openapi.json`.
 
 ## Authentication
 
@@ -123,5 +124,5 @@ entries that require it.
 - Collection routes that require projections are intentionally partial.
 - The standalone runtime still requires a real dispatcher to be injected before
   it can execute product behavior beyond safe unavailable fallback responses.
-- No OpenAPI, SDK, realtime stream, Groups, Chats, or Contacts implementation is
+- No SDK, realtime stream, Groups, Chats, or Contacts implementation is
   included in Phase B.

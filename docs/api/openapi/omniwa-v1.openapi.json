@@ -1,0 +1,2493 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "OmniWA Public REST API",
+    "version": "0.1.0",
+    "description": "Phase C OpenAPI contract for the implemented Phase B OmniWA REST resource surface. This contract documents public resources only; Application command and query names remain internal."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local OmniWA API runtime"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Runtime health and action-required resources."
+    },
+    {
+      "name": "Metrics",
+      "description": "Operational metric snapshots and queue health."
+    },
+    {
+      "name": "Instances",
+      "description": "WhatsApp instance lifecycle and safe session visibility."
+    },
+    {
+      "name": "Messages",
+      "description": "Outbound message submission and message status resources."
+    },
+    {
+      "name": "Media",
+      "description": "Media registration and media status resources."
+    },
+    {
+      "name": "Jobs",
+      "description": "Worker job visibility resources."
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhook subscription and delivery resources."
+    },
+    {
+      "name": "Provider",
+      "description": "Safe provider capability views."
+    },
+    {
+      "name": "Settings",
+      "description": "Administrative configuration resources."
+    },
+    {
+      "name": "Audit",
+      "description": "Audit record query resources."
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": ["Health"],
+        "operationId": "getHealth",
+        "summary": "Get health status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/health/readiness": {
+      "get": {
+        "tags": ["Health"],
+        "operationId": "getHealthReadiness",
+        "summary": "Get readiness status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/action-required": {
+      "get": {
+        "tags": ["Health"],
+        "operationId": "listActionRequiredItems",
+        "summary": "List action-required items",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/metrics": {
+      "get": {
+        "tags": ["Metrics"],
+        "operationId": "getMetrics",
+        "summary": "Get operational metrics snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/metrics/queue": {
+      "get": {
+        "tags": ["Metrics"],
+        "operationId": "getQueueMetrics",
+        "summary": "Get queue metrics snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/metrics/messages": {
+      "get": {
+        "tags": ["Metrics"],
+        "operationId": "getMessageMetrics",
+        "summary": "Get message metrics snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/metrics/webhooks": {
+      "get": {
+        "tags": ["Metrics"],
+        "operationId": "getWebhookMetrics",
+        "summary": "Get webhook metrics snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/metrics/media": {
+      "get": {
+        "tags": ["Metrics"],
+        "operationId": "getMediaMetrics",
+        "summary": "Get media metrics snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/queue": {
+      "get": {
+        "tags": ["Metrics"],
+        "operationId": "getQueueStatus",
+        "summary": "Get queue status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances": {
+      "get": {
+        "tags": ["Instances"],
+        "operationId": "listInstances",
+        "summary": "List instances",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Instances"],
+        "operationId": "createInstance",
+        "summary": "Create an instance",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/InstanceCreate"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}": {
+      "get": {
+        "tags": ["Instances"],
+        "operationId": "getInstance",
+        "summary": "Get instance status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Instances"],
+        "operationId": "updateInstance",
+        "summary": "Update instance metadata",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Instances"],
+        "operationId": "destroyInstance",
+        "summary": "Destroy an instance",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/connect": {
+      "post": {
+        "tags": ["Instances"],
+        "operationId": "connectInstance",
+        "summary": "Connect an instance",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/disconnect": {
+      "post": {
+        "tags": ["Instances"],
+        "operationId": "disconnectInstance",
+        "summary": "Disconnect an instance",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/qr/refresh": {
+      "post": {
+        "tags": ["Instances"],
+        "operationId": "refreshInstanceQr",
+        "summary": "Refresh QR pairing",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/reconnect": {
+      "post": {
+        "tags": ["Instances"],
+        "operationId": "requestInstanceReconnect",
+        "summary": "Request reconnect for an instance",
+        "description": "Partial route. Reconnect is scheduler-owned in the current Application catalog and is not exposed through the public API boundary.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/sessions": {
+      "get": {
+        "tags": ["Instances"],
+        "operationId": "listInstanceSessions",
+        "summary": "List instance sessions",
+        "description": "Partial route. Session list requires a dedicated read model; current safe visibility is available through instance status.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/messages": {
+      "get": {
+        "tags": ["Messages"],
+        "operationId": "listInstanceMessages",
+        "summary": "List messages for an instance",
+        "description": "Partial route. Message timeline requires a read projection that does not exist in the current codebase.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Messages"],
+        "operationId": "sendInstanceMessage",
+        "summary": "Send a message",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Message"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/messages/text": {
+      "post": {
+        "tags": ["Messages"],
+        "operationId": "sendInstanceTextMessage",
+        "summary": "Send a text message",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/TextMessage"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/messages/media": {
+      "post": {
+        "tags": ["Messages"],
+        "operationId": "sendInstanceMediaMessage",
+        "summary": "Send a media message",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MediaMessage"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/messages/{messageId}": {
+      "get": {
+        "tags": ["Messages"],
+        "operationId": "getMessage",
+        "summary": "Get message status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/messages/{messageId}/delivery-history": {
+      "get": {
+        "tags": ["Messages"],
+        "operationId": "getMessageDeliveryHistory",
+        "summary": "Get message delivery history",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/messages/{messageId}/retry": {
+      "post": {
+        "tags": ["Messages"],
+        "operationId": "retryMessage",
+        "summary": "Retry a message",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/messages/{messageId}/cancel": {
+      "post": {
+        "tags": ["Messages"],
+        "operationId": "cancelMessage",
+        "summary": "Cancel a message",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MessageId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/media": {
+      "post": {
+        "tags": ["Media"],
+        "operationId": "registerMedia",
+        "summary": "Register media",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MediaRegistration"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/media/{mediaId}": {
+      "get": {
+        "tags": ["Media"],
+        "operationId": "getMedia",
+        "summary": "Get media status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/MediaId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/jobs": {
+      "get": {
+        "tags": ["Jobs"],
+        "operationId": "listJobs",
+        "summary": "List jobs",
+        "description": "Partial route. Job list requires a read projection that does not exist in the current codebase.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{jobId}": {
+      "get": {
+        "tags": ["Jobs"],
+        "operationId": "getJob",
+        "summary": "Get job status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/JobId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/webhooks": {
+      "get": {
+        "tags": ["Webhooks"],
+        "operationId": "listWebhooks",
+        "summary": "List webhooks",
+        "description": "Partial route. Webhook list requires a read projection that does not exist in the current codebase.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Webhooks"],
+        "operationId": "registerWebhook",
+        "summary": "Register webhook subscription",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Webhook"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/webhooks/{webhookId}": {
+      "get": {
+        "tags": ["Webhooks"],
+        "operationId": "getWebhook",
+        "summary": "Get webhook status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Webhooks"],
+        "operationId": "updateWebhook",
+        "summary": "Update webhook subscription",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Webhooks"],
+        "operationId": "retireWebhook",
+        "summary": "Retire webhook subscription",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/webhooks/{webhookId}/activate": {
+      "post": {
+        "tags": ["Webhooks"],
+        "operationId": "activateWebhook",
+        "summary": "Activate webhook subscription",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/webhooks/{webhookId}/suspend": {
+      "post": {
+        "tags": ["Webhooks"],
+        "operationId": "suspendWebhook",
+        "summary": "Suspend webhook subscription",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WebhookId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/webhook-deliveries": {
+      "get": {
+        "tags": ["Webhooks"],
+        "operationId": "listWebhookDeliveries",
+        "summary": "List webhook deliveries",
+        "description": "Partial route. Webhook delivery list requires a read projection that does not exist in the current codebase.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/webhook-deliveries/{deliveryId}/history": {
+      "get": {
+        "tags": ["Webhooks"],
+        "operationId": "getWebhookDeliveryHistory",
+        "summary": "Get webhook delivery history",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/webhook-deliveries/{deliveryId}/retry": {
+      "post": {
+        "tags": ["Webhooks"],
+        "operationId": "retryWebhookDelivery",
+        "summary": "Retry webhook delivery",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/provider/capabilities": {
+      "get": {
+        "tags": ["Provider"],
+        "operationId": "getProviderCapabilities",
+        "summary": "Get provider capabilities",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/provider/capabilities/refresh": {
+      "post": {
+        "tags": ["Provider"],
+        "operationId": "refreshProviderCapabilities",
+        "summary": "Refresh provider capabilities",
+        "description": "Partial route. Provider capability refresh is scheduler-owned in the current Application catalog and is not exposed through the public API boundary.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/v1/settings": {
+      "get": {
+        "tags": ["Settings"],
+        "operationId": "getSettings",
+        "summary": "Get configuration status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/settings/validate": {
+      "post": {
+        "tags": ["Settings"],
+        "operationId": "validateSettings",
+        "summary": "Validate configuration snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/settings/activate": {
+      "post": {
+        "tags": ["Settings"],
+        "operationId": "activateSettings",
+        "summary": "Activate configuration snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/audit-records": {
+      "get": {
+        "tags": ["Audit"],
+        "operationId": "listAuditRecords",
+        "summary": "List audit records",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API key provisioned outside source code. MVP supports API, admin, and monitoring key kinds through runtime configuration."
+      }
+    },
+    "parameters": {
+      "XRequestIdHeader": {
+        "name": "x-request-id",
+        "in": "header",
+        "required": false,
+        "description": "Optional request identifier supplied by the client.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "XCorrelationIdHeader": {
+        "name": "x-correlation-id",
+        "in": "header",
+        "required": false,
+        "description": "Optional correlation identifier for distributed tracing.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "XTraceIdHeader": {
+        "name": "x-trace-id",
+        "in": "header",
+        "required": false,
+        "description": "Optional trace identifier propagated through observability boundaries.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "IdempotencyKeyHeader": {
+        "name": "idempotency-key",
+        "in": "header",
+        "required": false,
+        "description": "Stable client key for retry-safe command requests.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "description": "Opaque pagination cursor. Clients must not parse cursor contents.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Requested page size. Runtime may cap the effective limit.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "Sort": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "description": "Resource-specific sort expression. Unsupported fields must be rejected safely.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "InstanceId": {
+        "name": "instanceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/SafeResourceId"
+        }
+      },
+      "MessageId": {
+        "name": "messageId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/SafeResourceId"
+        }
+      },
+      "MediaId": {
+        "name": "mediaId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/SafeResourceId"
+        }
+      },
+      "JobId": {
+        "name": "jobId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/SafeResourceId"
+        }
+      },
+      "WebhookId": {
+        "name": "webhookId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/SafeResourceId"
+        }
+      },
+      "DeliveryId": {
+        "name": "deliveryId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/SafeResourceId"
+        }
+      }
+    },
+    "requestBodies": {
+      "Object": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ObjectRequest"
+            }
+          }
+        }
+      },
+      "InstanceCreate": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/InstanceCreateRequest"
+            },
+            "example": {
+              "displayName": "Demo instance"
+            }
+          }
+        }
+      },
+      "Message": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/GenericTextMessageRequest"
+                },
+                {
+                  "$ref": "#/components/schemas/GenericMediaMessageRequest"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "TextMessage": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/TextMessageRequest"
+            },
+            "example": {
+              "to": "contact_ref_demo",
+              "text": "Hello from OmniWA"
+            }
+          }
+        }
+      },
+      "MediaMessage": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/MediaMessageRequest"
+            },
+            "example": {
+              "to": "contact_ref_demo",
+              "mediaId": "media_demo",
+              "caption": "Media message"
+            }
+          }
+        }
+      },
+      "MediaRegistration": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/MediaRegistrationRequest"
+            },
+            "example": {
+              "mediaRef": "media_input_demo",
+              "contentType": "image/png"
+            }
+          }
+        }
+      },
+      "Webhook": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/WebhookRequest"
+            },
+            "example": {
+              "url": "https://example.invalid/omniwa/webhook",
+              "eventTypes": ["message.delivered"]
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Success": {
+        "description": "Successful resource response.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessEnvelope"
+            }
+          }
+        }
+      },
+      "CollectionSuccess": {
+        "description": "Successful collection response.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CollectionEnvelope"
+            }
+          }
+        }
+      },
+      "Accepted": {
+        "description": "Asynchronous operation accepted or queued.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessEnvelope"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Request validation failed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid API key.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Authenticated identity is not allowed to access this boundary.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Route or resource was not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Request conflicts with current resource state.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "Business or policy rule rejected the request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "NotImplemented": {
+        "description": "Route is reserved but not currently implemented by a safe read model or public boundary.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "error": {
+                "code": "projection_not_available",
+                "message": "The requested resource requires a read projection that is not available yet.",
+                "details": {
+                  "category": "not_implemented"
+                }
+              },
+              "meta": {
+                "requestId": "req_demo",
+                "correlationId": "corr_demo",
+                "timestamp": "2026-06-30T00:00:00.000Z"
+              }
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Runtime dependency or dispatcher is unavailable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Unexpected internal error. Response must not expose sensitive implementation details.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "SafeResourceId": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.:-]+$"
+      },
+      "ObjectRequest": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "InstanceCreateRequest": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "TextMessageRequest": {
+        "type": "object",
+        "required": ["to", "text"],
+        "additionalProperties": true,
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "text"
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque recipient reference. It must not expose raw phone numbers or provider-native payloads."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "GenericTextMessageRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TextMessageRequest"
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "text"
+              }
+            }
+          }
+        ]
+      },
+      "MediaMessageRequest": {
+        "type": "object",
+        "required": ["to"],
+        "additionalProperties": true,
+        "anyOf": [
+          {
+            "required": ["mediaId"]
+          },
+          {
+            "required": ["mediaRef"]
+          }
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["media", "image", "video", "document", "audio"]
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque recipient reference. It must not expose raw phone numbers or provider-native payloads."
+          },
+          "mediaId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mediaRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "caption": {
+            "type": "string"
+          }
+        }
+      },
+      "GenericMediaMessageRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MediaMessageRequest"
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["media", "image", "video", "document", "audio"]
+              }
+            }
+          }
+        ]
+      },
+      "MediaRegistrationRequest": {
+        "type": "object",
+        "additionalProperties": true,
+        "anyOf": [
+          {
+            "required": ["mediaRef"]
+          },
+          {
+            "required": ["url"]
+          },
+          {
+            "required": ["fileRef"]
+          }
+        ],
+        "properties": {
+          "mediaRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uri"
+          },
+          "fileRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contentType": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "WebhookRequest": {
+        "type": "object",
+        "required": ["url"],
+        "additionalProperties": true,
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uri"
+          },
+          "eventTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "SuccessEnvelope": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PublicData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        }
+      },
+      "CollectionEnvelope": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicData"
+            }
+          },
+          "meta": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResponseMeta"
+              },
+              {
+                "$ref": "#/components/schemas/PaginationMeta"
+              }
+            ]
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["error", "meta"],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["code", "message", "details"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "category": {
+                "type": "string",
+                "enum": [
+                  "authentication",
+                  "authorization",
+                  "business",
+                  "conflict",
+                  "infrastructure",
+                  "validation",
+                  "not_found",
+                  "not_implemented",
+                  "internal"
+                ]
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "ResponseMeta": {
+        "type": "object",
+        "required": ["requestId", "correlationId", "timestamp"],
+        "additionalProperties": true,
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "correlationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "pagination": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "nextCursor": {
+                "type": ["string", "null"]
+              },
+              "previousCursor": {
+                "type": ["string", "null"]
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "PublicData": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Public resource data returned by the Application boundary. It must not include secrets, raw provider payloads, raw phone numbers, raw JIDs, or session material."
+      }
+    }
+  }
+}

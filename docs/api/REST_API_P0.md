@@ -102,9 +102,10 @@ Error:
 | `POST /v1/instances/:id/messages/media` | JSON object with non-empty `to` and `mediaId` or `mediaRef` |
 | `POST /v1/webhooks`                     | JSON object with non-empty `url`                            |
 
-## Current Limitations
+## Phase A Limitations
 
-- No OpenAPI document exists yet for these routes.
+- Phase C now provides the OpenAPI contract at
+  `docs/api/openapi/omniwa-v1.openapi.json`.
 - No SDK exists yet.
 - Request body fields are validated at transport level but are not yet modeled as
   detailed DTO contracts.
@@ -113,7 +114,7 @@ Error:
 - `GET /v1/jobs` and `GET /v1/webhooks` require read projections that are not
   present in the current source.
 
-## Phase B Requirements
+## Historical Phase B Requirements
 
 Before SDK/OpenAPI work, Phase B should:
 
