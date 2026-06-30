@@ -150,7 +150,17 @@ importers:
 
   packages/infrastructure-secrets: {}
 
-  packages/infrastructure-webhook: {}
+  packages/infrastructure-webhook:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/interface-api:
     dependencies:
