@@ -13,12 +13,14 @@
   "scripts": {
     "arch:check": "node tooling/architecture/check-boundaries.mjs",
     "build": "tsc -b tsconfig.references.json",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm release:check",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm sdk:check && pnpm release:check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint \"{apps,packages,tooling}/**/*.{ts,mjs}\"",
     "openapi:check": "node tooling/api/check-openapi.mjs",
     "release:check": "node tooling/release/check-readiness.mjs",
+    "sdk:check": "node tooling/sdk/check-rust-sdk.mjs",
+    "sdk:generate": "node tooling/sdk/generate-rust-operations.mjs",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -b tsconfig.references.json --pretty false"
   },

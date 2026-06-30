@@ -1,0 +1,14 @@
+[package]
+name = "omniwa-sdk"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Official Rust SDK foundation for the OmniWA public REST API."
+repository = "https://github.com/hiepknor/omniwa"
+publish = false
+
+[lib]
+name = "omniwa_sdk"
+path = "src/lib.rs"
+
+[dependencies]

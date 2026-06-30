@@ -25,6 +25,7 @@ dist/
 coverage/
 .turbo/
 *.tsbuildinfo
+target/
 
 # Environment
 .env

@@ -2,8 +2,8 @@
 
 > Modern WhatsApp API platform built on WhiskeySockets/Baileys, designed for reliable automation, clean boundaries, and long-term extensibility.
 
-**Project status:** Engineering Planning Complete / Implementation Bootstrap  
-**Current phase:** Phase 8 - Implementation, Sprint 0 - Repository Bootstrap  
+**Project status:** Platform Evolution / SDK Foundation
+**Current phase:** Phase D - Official Rust SDK Foundation complete; Phase E - Query Projections next
 **Logo:** Placeholder. A project logo has not been added yet.
 
 ## Table of Contents
@@ -91,6 +91,8 @@ The key rule is simple: product behavior enters through the Application layer. A
 | Persistence          | Persistence boundaries, repository mapping, projections, physical storage, retention, backup, recovery, and persistence freeze.          | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md), [PERSISTENCE_OVERVIEW.md](docs/persistence/PERSISTENCE_OVERVIEW.md)                                      |
 | Infrastructure       | Runtime platform, process model, technology decisions, topology, observability, security, operations, DR, and infrastructure freeze.     | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md), [RUNTIME_PLATFORM.md](docs/infrastructure/RUNTIME_PLATFORM.md)                                  |
 | Engineering Planning | Implementation roadmap, package layout, coding standard, test strategy, CI/CD expectations, release strategy, and implementation freeze. | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [ENGINEERING_PLAN.md](docs/engineering/ENGINEERING_PLAN.md)                                        |
+| Platform Evolution   | Incremental plan to evolve OmniWA into a platform with REST, OpenAPI, SDK, TUI, Web, CLI, MCP, and integrations.                         | [EVOLUTION_PLAN.md](docs/platform-evolution/EVOLUTION_PLAN.md), [PHASE_D_RUST_SDK_FOUNDATION.md](docs/platform-evolution/PHASE_D_RUST_SDK_FOUNDATION.md)                  |
+| SDK                  | Official Rust SDK foundation generated from the public OpenAPI contract.                                                                 | [RUST_SDK_FOUNDATION.md](docs/sdk/RUST_SDK_FOUNDATION.md), [OpenAPI Contract](docs/api/OPENAPI_CONTRACT.md)                                                               |
 | AI Runtime Kit       | Repo-local operating guide, context summaries, skills, playbooks, templates, and implementation prompts for AI coding agents.            | [AGENTS.md](AGENTS.md), [AI Runtime Kit](.omniwa/README.md)                                                                                                               |
 | Conventions          | Naming, documentation, commits, versioning, branching, RFC, ADR, and agentmemory usage conventions.                                      | [PROJECT_CONVENTIONS.md](docs/PROJECT_CONVENTIONS.md)                                                                                                                     |
 | Glossary             | Shared product and domain vocabulary.                                                                                                    | [GLOSSARY.md](docs/GLOSSARY.md)                                                                                                                                           |
@@ -121,7 +123,9 @@ The key rule is simple: product behavior enters through the Application layer. A
 | Persistence          | Frozen  | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md)          |
 | Infrastructure       | Frozen  | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md) |
 | Engineering Planning | Frozen  | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md)    |
-| Implementation       | Current | Phase 8 - Sprint 0 Repository Bootstrap                                  |
+| OpenAPI Contract     | Current | [OPENAPI_CONTRACT.md](docs/api/OPENAPI_CONTRACT.md)                      |
+| Rust SDK Foundation  | Current | [RUST_SDK_FOUNDATION.md](docs/sdk/RUST_SDK_FOUNDATION.md)                |
+| Implementation       | Current | Platform Evolution Phase D complete                                      |
 
 ## Repository Structure
 
@@ -166,6 +170,9 @@ The repository has completed planning and now includes the Phase 8 Sprint 0 impl
 |   |-- shared/
 |   `-- testing/
 |-- scripts/
+|-- sdk/
+|   `-- rust/
+|       `-- omniwa-sdk/
 |-- tooling/
 |-- AGENTS.md
 |-- package.json
@@ -204,7 +211,7 @@ Product
   -> Release
 ```
 
-The project is currently at **Phase 8 - Implementation**, starting with Sprint 0 repository bootstrap. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
+The project is currently in **Platform Evolution**, after Phase 8 repository bootstrap. REST and OpenAPI foundations are present, and the official Rust SDK foundation has been added. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
 
 ## Contributing
 
@@ -216,7 +223,7 @@ A dedicated `CONTRIBUTING.md` has not been added yet. Contribution rules should 
 
 ## Roadmap
 
-The design and engineering planning phases are complete and frozen through Phase 7. The next step is Phase 8 implementation, beginning with repository bootstrap and foundation tooling before any business feature implementation.
+The design and engineering planning phases are complete and frozen through Phase 7. Platform evolution has completed REST/OpenAPI/SDK foundation work. The next platform step is Phase E query projections for TUI-critical read paths.
 
 For the broader product progression, see [ROADMAP.md](docs/ROADMAP.md). Detailed implementation tasks should be derived from [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [SPRINT_PLAN.md](docs/engineering/SPRINT_PLAN.md), and the AI Runtime Kit, not invented independently.
 
