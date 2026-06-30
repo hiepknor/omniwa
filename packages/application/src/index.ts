@@ -1,6 +1,7 @@
 export * from "./commands/command-catalog.js";
 export * from "./commands/command-model.js";
 export * from "./errors/application-error.js";
+export * from "./events/internal-event-bus.js";
 export * from "./idempotency/idempotency-scope.js";
 export * from "./messages/application-message.js";
 export * from "./ports/application-port.js";

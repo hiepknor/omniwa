@@ -107,6 +107,12 @@ importers:
 
   packages/testing:
     dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@omniwa/observability':
         specifier: workspace:*
         version: link:../observability
