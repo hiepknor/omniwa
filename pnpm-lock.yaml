@@ -32,7 +32,14 @@ importers:
 
   apps/api: {}
 
-  apps/background: {}
+  apps/background:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/health: {}
 
@@ -42,7 +49,17 @@ importers:
 
   apps/provider-runtime: {}
 
-  apps/scheduler: {}
+  apps/scheduler:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/webhook-dispatcher: {}
 
