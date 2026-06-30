@@ -95,7 +95,17 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/infrastructure-object-storage: {}
+  packages/infrastructure-object-storage:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/infrastructure-observability: {}
 
