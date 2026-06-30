@@ -14,3 +14,21 @@
 
 # Hook markers
 .codegraph/.dirty
+
+# Node / package manager
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log

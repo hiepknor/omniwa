@@ -1,0 +1,29 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/errors" },
+    { "path": "./packages/config" },
+    { "path": "./packages/observability" },
+    { "path": "./packages/domain" },
+    { "path": "./packages/application" },
+    { "path": "./packages/interface-api" },
+    { "path": "./packages/infrastructure-persistence" },
+    { "path": "./packages/infrastructure-queue" },
+    { "path": "./packages/infrastructure-provider-baileys" },
+    { "path": "./packages/infrastructure-object-storage" },
+    { "path": "./packages/infrastructure-webhook" },
+    { "path": "./packages/infrastructure-secrets" },
+    { "path": "./packages/infrastructure-observability" },
+    { "path": "./packages/testing" },
+    { "path": "./apps/api" },
+    { "path": "./apps/worker" },
+    { "path": "./apps/scheduler" },
+    { "path": "./apps/provider-runtime" },
+    { "path": "./apps/webhook-dispatcher" },
+    { "path": "./apps/projection-builder" },
+    { "path": "./apps/background" },
+    { "path": "./apps/metrics" },
+    { "path": "./apps/health" }
+  ]
+}

@@ -17,7 +17,8 @@ Your mission is to implement OmniWA exactly from the frozen product, architectur
 - Infrastructure is frozen.
 - Engineering planning is frozen.
 - The project is ready for Phase 8 - Implementation.
-- Source code has not been bootstrapped unless a later commit adds it.
+- Phase 8 Sprint 0 repository bootstrap skeleton is present.
+- Business feature implementation has not started unless a later commit adds it.
 
 ## Required Reading
 
@@ -135,4 +136,3 @@ Stop and escalate when:
 - tests require real WhatsApp credentials for normal PR validation.
 
 Use `.omniwa/templates/ISSUE.md`, `.omniwa/templates/ADR.md`, or the relevant review template to document the escalation.
-

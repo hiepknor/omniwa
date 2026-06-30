@@ -2,8 +2,8 @@
 
 > Modern WhatsApp API platform built on WhiskeySockets/Baileys, designed for reliable automation, clean boundaries, and long-term extensibility.
 
-**Project status:** Design Complete / Implementation Planning  
-**Current phase:** Phase 7 - Implementation Planning  
+**Project status:** Engineering Planning Complete / Implementation Bootstrap  
+**Current phase:** Phase 8 - Implementation, Sprint 0 - Repository Bootstrap  
 **Logo:** Placeholder. A project logo has not been added yet.
 
 ## Table of Contents
@@ -80,19 +80,20 @@ The key rule is simple: product behavior enters through the Application layer. A
 
 ## Documentation Portal
 
-| Area | Description | Document |
-| ---- | ----------- | -------- |
-| Vision | Product direction, mission, principles, positioning, and non-goals. | [VISION.md](docs/VISION.md) |
-| Product | Scope, MVP persona, tenancy, guardrails, supported message types, and freeze baseline. | [PRODUCT_SCOPE.md](docs/PRODUCT_SCOPE.md), [DECISIONS.md](docs/DECISIONS.md), [FREEZE_PHASE_0.md](docs/FREEZE_PHASE_0.md) |
-| Architecture | Architecture style, ADRs, system context, modules, runtime model, and architecture freeze. | [ARCHITECTURE_FREEZE.md](docs/architecture/ARCHITECTURE_FREEZE.md), [ARCHITECTURE_STYLE.md](docs/architecture/ARCHITECTURE_STYLE.md), [ADR Index](docs/architecture/adr/) |
-| Domain | Strategic and tactical DDD model, bounded contexts, aggregates, events, repositories, services, and domain freeze. | [DOMAIN_FREEZE.md](docs/domain/DOMAIN_FREEZE.md), [DOMAIN_OVERVIEW.md](docs/domain/DOMAIN_OVERVIEW.md) |
-| Application | Use cases, workflows, commands, queries, application services, transaction, validation, authorization, and application freeze. | [APPLICATION_FREEZE.md](docs/application/APPLICATION_FREEZE.md), [APPLICATION_OVERVIEW.md](docs/application/APPLICATION_OVERVIEW.md) |
-| API | API surface, resource model, auth, versioning, request/response/error models, async model, webhooks, and API freeze. | [API_FREEZE.md](docs/api/API_FREEZE.md), [API_OVERVIEW.md](docs/api/API_OVERVIEW.md) |
-| Persistence | Persistence boundaries, repository mapping, projections, physical storage, retention, backup, recovery, and persistence freeze. | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md), [PERSISTENCE_OVERVIEW.md](docs/persistence/PERSISTENCE_OVERVIEW.md) |
-| Infrastructure | Runtime platform, process model, technology decisions, topology, observability, security, operations, DR, and infrastructure freeze. | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md), [RUNTIME_PLATFORM.md](docs/infrastructure/RUNTIME_PLATFORM.md) |
-| Implementation Handoff | Entry criteria and constraints for Phase 7 implementation planning. | [PHASE7_HANDOFF.md](docs/PHASE7_HANDOFF.md) |
-| Conventions | Naming, documentation, commits, versioning, branching, RFC, ADR, and agentmemory usage conventions. | [PROJECT_CONVENTIONS.md](docs/PROJECT_CONVENTIONS.md) |
-| Glossary | Shared product and domain vocabulary. | [GLOSSARY.md](docs/GLOSSARY.md) |
+| Area                 | Description                                                                                                                              | Document                                                                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vision               | Product direction, mission, principles, positioning, and non-goals.                                                                      | [VISION.md](docs/VISION.md)                                                                                                                                               |
+| Product              | Scope, MVP persona, tenancy, guardrails, supported message types, and freeze baseline.                                                   | [PRODUCT_SCOPE.md](docs/PRODUCT_SCOPE.md), [DECISIONS.md](docs/DECISIONS.md), [FREEZE_PHASE_0.md](docs/FREEZE_PHASE_0.md)                                                 |
+| Architecture         | Architecture style, ADRs, system context, modules, runtime model, and architecture freeze.                                               | [ARCHITECTURE_FREEZE.md](docs/architecture/ARCHITECTURE_FREEZE.md), [ARCHITECTURE_STYLE.md](docs/architecture/ARCHITECTURE_STYLE.md), [ADR Index](docs/architecture/adr/) |
+| Domain               | Strategic and tactical DDD model, bounded contexts, aggregates, events, repositories, services, and domain freeze.                       | [DOMAIN_FREEZE.md](docs/domain/DOMAIN_FREEZE.md), [DOMAIN_OVERVIEW.md](docs/domain/DOMAIN_OVERVIEW.md)                                                                    |
+| Application          | Use cases, workflows, commands, queries, application services, transaction, validation, authorization, and application freeze.           | [APPLICATION_FREEZE.md](docs/application/APPLICATION_FREEZE.md), [APPLICATION_OVERVIEW.md](docs/application/APPLICATION_OVERVIEW.md)                                      |
+| API                  | API surface, resource model, auth, versioning, request/response/error models, async model, webhooks, and API freeze.                     | [API_FREEZE.md](docs/api/API_FREEZE.md), [API_OVERVIEW.md](docs/api/API_OVERVIEW.md)                                                                                      |
+| Persistence          | Persistence boundaries, repository mapping, projections, physical storage, retention, backup, recovery, and persistence freeze.          | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md), [PERSISTENCE_OVERVIEW.md](docs/persistence/PERSISTENCE_OVERVIEW.md)                                      |
+| Infrastructure       | Runtime platform, process model, technology decisions, topology, observability, security, operations, DR, and infrastructure freeze.     | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md), [RUNTIME_PLATFORM.md](docs/infrastructure/RUNTIME_PLATFORM.md)                                  |
+| Engineering Planning | Implementation roadmap, package layout, coding standard, test strategy, CI/CD expectations, release strategy, and implementation freeze. | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [ENGINEERING_PLAN.md](docs/engineering/ENGINEERING_PLAN.md)                                        |
+| AI Runtime Kit       | Repo-local operating guide, context summaries, skills, playbooks, templates, and implementation prompts for AI coding agents.            | [AGENTS.md](AGENTS.md), [AI Runtime Kit](.omniwa/README.md)                                                                                                               |
+| Conventions          | Naming, documentation, commits, versioning, branching, RFC, ADR, and agentmemory usage conventions.                                      | [PROJECT_CONVENTIONS.md](docs/PROJECT_CONVENTIONS.md)                                                                                                                     |
+| Glossary             | Shared product and domain vocabulary.                                                                                                    | [GLOSSARY.md](docs/GLOSSARY.md)                                                                                                                                           |
 
 ## Recommended Reading Order
 
@@ -105,36 +106,70 @@ The key rule is simple: product behavior enters through the Application layer. A
 7. Read [API_FREEZE.md](docs/api/API_FREEZE.md) before defining external contracts.
 8. Read [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md) before planning storage, repositories, projections, or retention.
 9. Read [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md) before planning runtime, operations, deployment, observability, or security.
-10. Read [PHASE7_HANDOFF.md](docs/PHASE7_HANDOFF.md) before implementation planning.
+10. Read [PHASE7_HANDOFF.md](docs/PHASE7_HANDOFF.md) and [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md) before implementation.
+11. AI coding agents should read [AGENTS.md](AGENTS.md) and the [AI Runtime Kit](.omniwa/README.md) before making changes.
 
 ## Current Project Status
 
-| Area | Status | Reference |
-| ---- | ------ | --------- |
-| Product | Frozen | [FREEZE_PHASE_0.md](docs/FREEZE_PHASE_0.md) |
-| Architecture | Frozen | [ARCHITECTURE_FREEZE.md](docs/architecture/ARCHITECTURE_FREEZE.md) |
-| Domain | Frozen | [DOMAIN_FREEZE.md](docs/domain/DOMAIN_FREEZE.md) |
-| Application | Frozen | [APPLICATION_FREEZE.md](docs/application/APPLICATION_FREEZE.md) |
-| API | Frozen | [API_FREEZE.md](docs/api/API_FREEZE.md) |
-| Persistence | Frozen | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md) |
-| Infrastructure | Frozen | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md) |
-| Implementation Planning | Current | [PHASE7_HANDOFF.md](docs/PHASE7_HANDOFF.md) |
-| Coding | Not started | Source directories have not been created yet. |
+| Area                 | Status  | Reference                                                                |
+| -------------------- | ------- | ------------------------------------------------------------------------ |
+| Product              | Frozen  | [FREEZE_PHASE_0.md](docs/FREEZE_PHASE_0.md)                              |
+| Architecture         | Frozen  | [ARCHITECTURE_FREEZE.md](docs/architecture/ARCHITECTURE_FREEZE.md)       |
+| Domain               | Frozen  | [DOMAIN_FREEZE.md](docs/domain/DOMAIN_FREEZE.md)                         |
+| Application          | Frozen  | [APPLICATION_FREEZE.md](docs/application/APPLICATION_FREEZE.md)          |
+| API                  | Frozen  | [API_FREEZE.md](docs/api/API_FREEZE.md)                                  |
+| Persistence          | Frozen  | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md)          |
+| Infrastructure       | Frozen  | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md) |
+| Engineering Planning | Frozen  | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md)    |
+| Implementation       | Current | Phase 8 - Sprint 0 Repository Bootstrap                                  |
 
 ## Repository Structure
 
-The repository is currently documentation-first. Implementation source directories such as `apps/` or `packages/` have not been created yet; they are expected to be planned in Phase 7.
+The repository has completed planning and now includes the Phase 8 Sprint 0 implementation skeleton. Product/design documents remain the source of truth, while `AGENTS.md` and `.omniwa/` provide the AI agent operating layer for implementation work.
 
 ```text
 .
+|-- .omniwa/
+|-- apps/
+|   |-- api/
+|   |-- background/
+|   |-- health/
+|   |-- metrics/
+|   |-- projection-builder/
+|   |-- provider-runtime/
+|   |-- scheduler/
+|   |-- webhook-dispatcher/
+|   `-- worker/
 |-- docs/
 |   |-- api/
 |   |-- application/
 |   |-- architecture/
 |   |   `-- adr/
 |   |-- domain/
+|   |-- engineering/
 |   |-- infrastructure/
 |   `-- persistence/
+|-- packages/
+|   |-- application/
+|   |-- config/
+|   |-- domain/
+|   |-- errors/
+|   |-- infrastructure-object-storage/
+|   |-- infrastructure-observability/
+|   |-- infrastructure-persistence/
+|   |-- infrastructure-provider-baileys/
+|   |-- infrastructure-queue/
+|   |-- infrastructure-secrets/
+|   |-- infrastructure-webhook/
+|   |-- interface-api/
+|   |-- observability/
+|   |-- shared/
+|   `-- testing/
+|-- scripts/
+|-- tooling/
+|-- AGENTS.md
+|-- package.json
+|-- pnpm-workspace.yaml
 `-- README.md
 ```
 
@@ -163,17 +198,17 @@ Product
   -> API
   -> Persistence
   -> Infrastructure
-  -> Implementation Planning
+  -> Engineering Planning
   -> Implementation
   -> Testing
   -> Release
 ```
 
-The project is currently at **Implementation Planning**. Phase 7 should define source structure, coding principles, module implementation order, testing strategy, and CI/CD expectations while preserving all frozen decisions.
+The project is currently at **Phase 8 - Implementation**, starting with Sprint 0 repository bootstrap. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
 
 ## Contributing
 
-Before contributing, read the relevant freeze documents and [PHASE7_HANDOFF.md](docs/PHASE7_HANDOFF.md). Pull requests should preserve traceability back to approved product, architecture, domain, application, API, persistence, and infrastructure documents.
+Before contributing, read the relevant freeze documents, [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), and [AGENTS.md](AGENTS.md). Pull requests should preserve traceability back to approved product, architecture, domain, application, API, persistence, infrastructure, and engineering documents.
 
 Do not change frozen scope, architecture, domain model, API contract, persistence decisions, or infrastructure constraints without the appropriate ADR or affected-phase review. Implementation work must respect the dependency rules, data safety rules, and non-negotiable constraints documented in the freeze files.
 
@@ -181,9 +216,9 @@ A dedicated `CONTRIBUTING.md` has not been added yet. Contribution rules should 
 
 ## Roadmap
 
-The design phases are complete and frozen through Infrastructure. The next step is Phase 7 - Implementation Planning, focused on repository/source structure, implementation order, architecture fitness checks, testing strategy, and CI/CD expectations.
+The design and engineering planning phases are complete and frozen through Phase 7. The next step is Phase 8 implementation, beginning with repository bootstrap and foundation tooling before any business feature implementation.
 
-For the broader product progression, see [ROADMAP.md](docs/ROADMAP.md). Detailed implementation tasks should be derived from [PHASE7_HANDOFF.md](docs/PHASE7_HANDOFF.md), not invented independently.
+For the broader product progression, see [ROADMAP.md](docs/ROADMAP.md). Detailed implementation tasks should be derived from [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [SPRINT_PLAN.md](docs/engineering/SPRINT_PLAN.md), and the AI Runtime Kit, not invented independently.
 
 ## License
 
