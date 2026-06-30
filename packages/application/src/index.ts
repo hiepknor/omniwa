@@ -15,6 +15,7 @@ export * from "./ports/webhook-transport.js";
 export * from "./queries/query-catalog.js";
 export * from "./queries/query-model.js";
 export * from "./services/application-service-catalog.js";
+export * from "./services/authorization-audit-service.js";
 export * from "./transactions/unit-of-work.js";
 export * from "./workflows/workflow-catalog.js";
 export * from "./workflows/workflow-state.js";
