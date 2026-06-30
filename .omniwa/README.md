@@ -23,13 +23,13 @@ README.md
 
 ## Directory Map
 
-| Path | Purpose |
-|---|---|
-| `context/` | Short summaries of frozen design areas for quick agent onboarding. |
-| `skills/` | Small reusable task modes for core work, implementation, review, and release. |
-| `playbooks/` | Workflows for common implementation activities. |
-| `templates/` | Blank templates for ADRs, issues, PRs, reviews, sprint reports, and release checks. |
-| `prompts/` | Implementation sprint prompts only. No design-phase prompts live here. |
+| Path               | Purpose                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `context/`         | Short summaries of frozen design areas for quick agent onboarding.                           |
+| `skills/`          | Small reusable task modes for core work, implementation, review, and release.                |
+| `playbooks/`       | Workflows for common implementation activities.                                              |
+| `templates/`       | Blank templates for ADRs, issues, PRs, reviews, sprint reports, and release checks.          |
+| `prompts/`         | Implementation sprint prompts only. No design-phase prompts live here.                       |
 | `SKILL_MAPPING.md` | Task routing table from work type to skill, playbook, template, freeze docs, and ADR policy. |
 
 ## Ten Minute Agent Path
@@ -44,6 +44,36 @@ README.md
 8. Read the referenced freeze documents.
 9. Plan with traceability.
 10. Implement only after the boundary checks are clear.
+11. Review the working diff.
+12. Perform self review against the relevant boundary and safety rules.
+13. Run required gates.
+14. Review staged diff before commit.
+
+## Required Control Loop
+
+Every implementation task uses this control loop:
+
+```text
+Classify Task
+  -> Read Required Context
+  -> Build Traceability
+  -> Select Skill + Playbook + Template
+  -> Plan
+  -> Pre-flight Validation
+  -> Implement
+  -> Review Diff
+  -> Self Review
+  -> Run Gates
+  -> Review Staged Diff
+  -> Update Docs / Memory
+  -> Commit / Report Done
+```
+
+`Review Diff` is mechanical: scope, changed files, generated artifacts, secrets, env files, and freeze/ADR drift.
+
+`Self Review` is technical: layer boundaries, dependency direction, business-rule placement, test depth, redaction, error mapping, and residual risk.
+
+`Review Staged Diff` is the final commit gate: the staged files must match the intended change exactly.
 
 ## Agent Agnostic Design
 
@@ -56,4 +86,3 @@ No file in this kit assumes a specific AI runtime, MCP server, IDE, shell, packa
 When implementation pressure conflicts with a freeze document, the freeze wins.
 
 When a needed decision is missing, stop and produce an issue or ADR proposal. Do not encode a guessed architecture decision in code.
-

@@ -13,9 +13,12 @@ Fix an urgent defect with minimal scope while preserving frozen decisions and sa
 5. Reproduce or characterize the failure.
 6. Patch the smallest approved boundary.
 7. Add regression coverage.
-8. Validate architecture, security, and affected tests.
-9. Prepare rollback or forward-fix notes.
-10. Document follow-up work.
+8. Review working diff for accidental scope expansion, secrets, generated artifacts, and freeze/ADR drift.
+9. Self-review the fix for boundary, data safety, and regression risk.
+10. Validate architecture, security, and affected tests.
+11. Review staged diff before commit.
+12. Prepare rollback or forward-fix notes.
+13. Document follow-up work.
 
 ## Guardrails
 
@@ -29,4 +32,3 @@ Fix an urgent defect with minimal scope while preserving frozen decisions and sa
 - Regression coverage exists or a documented reason explains the gap.
 - Rollback/forward-fix is clear.
 - Follow-up issue exists for non-urgent cleanup.
-

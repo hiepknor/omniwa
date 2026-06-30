@@ -12,9 +12,12 @@ Improve structure without changing approved behavior or frozen decisions.
 4. Use `skills/core` and `skills/review`.
 5. Confirm tests exist before broad movement.
 6. Make small mechanical changes.
-7. Run tests and architecture checks frequently.
-8. Update non-freeze docs if navigation or usage changes.
-9. Confirm behavior, contracts, and traceability are unchanged.
+7. Review diff frequently to confirm the change remains mechanical and scoped.
+8. Self-review for hidden behavior changes and boundary drift.
+9. Run tests and architecture checks frequently.
+10. Update non-freeze docs if navigation or usage changes.
+11. Review staged diff before commit.
+12. Confirm behavior, contracts, and traceability are unchanged.
 
 ## Guardrails
 
@@ -27,7 +30,8 @@ Improve structure without changing approved behavior or frozen decisions.
 ## Done
 
 - Behavior is unchanged.
+- Working diff and staged diff were reviewed.
+- Self review found no behavior or boundary drift.
 - Tests and architecture checks pass.
 - Import boundaries remain valid.
 - Any discovered design gap is filed separately.
-

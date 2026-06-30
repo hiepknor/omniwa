@@ -50,19 +50,37 @@ For implementation tasks, also read:
 Use this workflow for every non-trivial task:
 
 ```text
-Read Context
-  -> Select Skills
-  -> Load Playbook
+Classify Task
+  -> Read Required Context
+  -> Build Traceability
+  -> Select Skill + Playbook + Template
   -> Plan
-  -> Validate
+  -> Pre-flight Validation
   -> Implement
-  -> Review
-  -> Test
-  -> Update Docs
-  -> Done
+  -> Review Diff
+  -> Self Review
+  -> Run Gates
+  -> Review Staged Diff
+  -> Update Docs / Memory
+  -> Commit / Report Done
 ```
 
 Do not skip validation just because a change is small. Small changes can still violate a frozen boundary.
+
+Review Diff and Self Review are different gates:
+
+- Review Diff checks mechanical scope: changed files, generated artifacts, freeze/ADR drift, secrets, env files, and unexpected edits.
+- Self Review checks technical quality: boundaries, business-rule placement, test coverage, data safety, error handling, and residual risk.
+- Review Staged Diff is the final commit gate: verify exactly what will be committed.
+
+Minimum diff commands before commit:
+
+```text
+git diff --name-only
+git diff --stat
+git diff --cached --name-only
+git diff --cached --stat
+```
 
 ## Non-negotiable Rules
 
@@ -121,6 +139,7 @@ A task is done only when:
 - sensitive data rules are preserved,
 - documentation is updated when behavior or operating instructions change,
 - no freeze document or ADR was modified without approval,
+- diff review, self review, and staged diff review are complete,
 - review findings are resolved or explicitly accepted.
 
 ## Escalation Rules
