@@ -82,7 +82,11 @@ importers:
 
   packages/infrastructure-observability: {}
 
-  packages/infrastructure-persistence: {}
+  packages/infrastructure-persistence:
+    dependencies:
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/infrastructure-provider-baileys: {}
 
