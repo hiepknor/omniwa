@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
     "declaration": true,
     "declarationMap": true,
     "esModuleInterop": true,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
     "isolatedModules": true,
     "lib": ["ES2022"],
     "module": "NodeNext",
@@ -16,9 +18,33 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@omniwa/application": ["packages/application/src/index.ts"],
+      "@omniwa/config": ["packages/config/src/index.ts"],
+      "@omniwa/domain": ["packages/domain/src/index.ts"],
+      "@omniwa/errors": ["packages/errors/src/index.ts"],
+      "@omniwa/infrastructure-object-storage": [
+        "packages/infrastructure-object-storage/src/index.ts"
+      ],
+      "@omniwa/infrastructure-observability": [
+        "packages/infrastructure-observability/src/index.ts"
+      ],
+      "@omniwa/infrastructure-persistence": ["packages/infrastructure-persistence/src/index.ts"],
+      "@omniwa/infrastructure-provider-baileys": [
+        "packages/infrastructure-provider-baileys/src/index.ts"
+      ],
+      "@omniwa/infrastructure-queue": ["packages/infrastructure-queue/src/index.ts"],
+      "@omniwa/infrastructure-secrets": ["packages/infrastructure-secrets/src/index.ts"],
+      "@omniwa/infrastructure-webhook": ["packages/infrastructure-webhook/src/index.ts"],
+      "@omniwa/interface-api": ["packages/interface-api/src/index.ts"],
+      "@omniwa/observability": ["packages/observability/src/index.ts"],
+      "@omniwa/shared": ["packages/shared/src/index.ts"],
+      "@omniwa/testing": ["packages/testing/src/index.ts"]
+    },
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2022",
+    "types": ["node"],
     "useDefineForClassFields": true,
     "verbatimModuleSyntax": true
   }

@@ -14,6 +14,7 @@
 
 # Hook markers
 .codegraph/.dirty
+.codegraph/.gitignore
 
 # Node / package manager
 node_modules/
