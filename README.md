@@ -2,8 +2,8 @@
 
 > Modern WhatsApp API platform built on WhiskeySockets/Baileys, designed for reliable automation, clean boundaries, and long-term extensibility.
 
-**Project status:** Platform Evolution / Realtime Foundation
-**Current phase:** Phase F - Realtime Event Stream complete; Phase G - Durable Persistence next
+**Project status:** Platform Evolution / Durable Persistence
+**Current phase:** Phase G - Durable Persistence complete; Phase H - Groups Domain Addendum next
 **Logo:** Placeholder. A project logo has not been added yet.
 
 ## Table of Contents
@@ -91,7 +91,7 @@ The key rule is simple: product behavior enters through the Application layer. A
 | Persistence          | Persistence boundaries, repository mapping, projections, physical storage, retention, backup, recovery, and persistence freeze.          | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md), [PERSISTENCE_OVERVIEW.md](docs/persistence/PERSISTENCE_OVERVIEW.md)                                      |
 | Infrastructure       | Runtime platform, process model, technology decisions, topology, observability, security, operations, DR, and infrastructure freeze.     | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md), [RUNTIME_PLATFORM.md](docs/infrastructure/RUNTIME_PLATFORM.md)                                  |
 | Engineering Planning | Implementation roadmap, package layout, coding standard, test strategy, CI/CD expectations, release strategy, and implementation freeze. | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [ENGINEERING_PLAN.md](docs/engineering/ENGINEERING_PLAN.md)                                        |
-| Platform Evolution   | Incremental plan to evolve OmniWA into a platform with REST, OpenAPI, SDK, TUI, Web, CLI, MCP, and integrations.                         | [EVOLUTION_PLAN.md](docs/platform-evolution/EVOLUTION_PLAN.md), [PHASE_F_REALTIME_EVENT_STREAM.md](docs/platform-evolution/PHASE_F_REALTIME_EVENT_STREAM.md)              |
+| Platform Evolution   | Incremental plan to evolve OmniWA into a platform with REST, OpenAPI, SDK, TUI, Web, CLI, MCP, and integrations.                         | [EVOLUTION_PLAN.md](docs/platform-evolution/EVOLUTION_PLAN.md), [PHASE_G_DURABLE_PERSISTENCE.md](docs/platform-evolution/PHASE_G_DURABLE_PERSISTENCE.md)                  |
 | SDK                  | Official Rust SDK foundation generated from the public OpenAPI contract.                                                                 | [RUST_SDK_FOUNDATION.md](docs/sdk/RUST_SDK_FOUNDATION.md), [OpenAPI Contract](docs/api/OPENAPI_CONTRACT.md)                                                               |
 | AI Runtime Kit       | Repo-local operating guide, context summaries, skills, playbooks, templates, and implementation prompts for AI coding agents.            | [AGENTS.md](AGENTS.md), [AI Runtime Kit](.omniwa/README.md)                                                                                                               |
 | Conventions          | Naming, documentation, commits, versioning, branching, RFC, ADR, and agentmemory usage conventions.                                      | [PROJECT_CONVENTIONS.md](docs/PROJECT_CONVENTIONS.md)                                                                                                                     |
@@ -127,7 +127,8 @@ The key rule is simple: product behavior enters through the Application layer. A
 | Rust SDK Foundation  | Current | [RUST_SDK_FOUNDATION.md](docs/sdk/RUST_SDK_FOUNDATION.md)                                    |
 | Query Projections    | Current | [PHASE_E_QUERY_PROJECTIONS.md](docs/platform-evolution/PHASE_E_QUERY_PROJECTIONS.md)         |
 | Realtime Foundation  | Current | [PHASE_F_REALTIME_EVENT_STREAM.md](docs/platform-evolution/PHASE_F_REALTIME_EVENT_STREAM.md) |
-| Implementation       | Current | Platform Evolution Phase F complete                                                          |
+| Durable Persistence  | Current | [PHASE_G_DURABLE_PERSISTENCE.md](docs/platform-evolution/PHASE_G_DURABLE_PERSISTENCE.md)     |
+| Implementation       | Current | Platform Evolution Phase G complete                                                          |
 
 ## Repository Structure
 
@@ -213,7 +214,7 @@ Product
   -> Release
 ```
 
-The project is currently in **Platform Evolution**, after Phase 8 repository bootstrap. REST, OpenAPI, official Rust SDK foundation, projection read routes, and SSE realtime foundation for platform clients are present. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
+The project is currently in **Platform Evolution**, after Phase 8 repository bootstrap. REST, OpenAPI, official Rust SDK foundation, projection read routes, SSE realtime foundation, and durable JSON persistence adapters for platform runtime state are present. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
 
 ## Contributing
 
@@ -225,7 +226,7 @@ A dedicated `CONTRIBUTING.md` has not been added yet. Contribution rules should 
 
 ## Roadmap
 
-The design and engineering planning phases are complete and frozen through Phase 7. Platform evolution has completed REST/OpenAPI/SDK foundation work, Phase E query projections for TUI-critical read paths, and Phase F realtime event stream foundation. The next platform step is Phase G durable persistence review and adapter work.
+The design and engineering planning phases are complete and frozen through Phase 7. Platform evolution has completed REST/OpenAPI/SDK foundation work, Phase E query projections, Phase F realtime event stream foundation, and Phase G durable persistence adapter work. The next platform step is Phase H Groups Domain Addendum.
 
 For the broader product progression, see [ROADMAP.md](docs/ROADMAP.md). Detailed implementation tasks should be derived from [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [SPRINT_PLAN.md](docs/engineering/SPRINT_PLAN.md), and the AI Runtime Kit, not invented independently.
 
