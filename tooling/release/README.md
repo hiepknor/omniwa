@@ -1,6 +1,10 @@
 # Release Tooling
 
-Placeholder for future release and changelog helpers.
+Release tooling validates whether the repository has the minimum evidence required before a release candidate or production-readiness review.
+
+Current tooling:
+
+- `check-readiness.mjs` checks freeze documents, release evidence files, release evidence tests, root quality-gate scripts, and workspace package manifests.
 
 Rules:
 
