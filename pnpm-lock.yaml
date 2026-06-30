@@ -48,7 +48,14 @@ importers:
 
   apps/worker: {}
 
-  packages/application: {}
+  packages/application:
+    dependencies:
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/config:
     dependencies:
