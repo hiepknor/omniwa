@@ -266,6 +266,10 @@ function matchRoute(
     );
   }
 
+  if (method === "GET" && matches(segments, ["v1", "dashboard"])) {
+    return adapterQuery("monitoring", "GetDashboardSummary", undefined, "eventual_projection");
+  }
+
   if (method === "GET" && matches(segments, ["v1", "metrics", "queue"])) {
     return adapterQuery("monitoring", "GetQueueMetricsSnapshot", undefined, "eventual_projection");
   }
@@ -332,17 +336,11 @@ function matchRoute(
   }
 
   if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "sessions"])) {
-    return partialRoute(
-      "session_list_not_available",
-      "Session list requires a dedicated read model; current safe session visibility is available through instance status.",
-    );
+    return adapterQuery("public", "ListInstanceSessions", segments[2], "eventual_projection");
   }
 
   if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "messages"])) {
-    return partialRoute(
-      "instance_message_list_not_available",
-      "Instance message timeline requires a read projection that does not exist in the current codebase.",
-    );
+    return adapterQuery("public", "ListInstanceMessages", segments[2], "retention_bound");
   }
 
   if (method === "POST" && matches(segments, ["v1", "instances", ":instanceId", "messages"])) {
@@ -388,10 +386,7 @@ function matchRoute(
   }
 
   if (method === "GET" && matches(segments, ["v1", "jobs"])) {
-    return partialRoute(
-      "jobs_list_not_available",
-      "Job list requires a read projection that does not exist in the current codebase.",
-    );
+    return adapterQuery("monitoring", "ListWorkerJobs", undefined, "eventual_projection");
   }
 
   if (method === "GET" && matches(segments, ["v1", "jobs", ":jobId"])) {
@@ -403,10 +398,7 @@ function matchRoute(
   }
 
   if (method === "GET" && matches(segments, ["v1", "webhooks"])) {
-    return partialRoute(
-      "webhook_list_not_available",
-      "Webhook list requires a read projection that does not exist in the current codebase.",
-    );
+    return adapterQuery("public", "ListWebhookSubscriptions", undefined, "eventual_projection");
   }
 
   if (method === "POST" && matches(segments, ["v1", "webhooks"])) {
@@ -449,10 +441,7 @@ function matchRoute(
   }
 
   if (method === "GET" && matches(segments, ["v1", "webhook-deliveries"])) {
-    return partialRoute(
-      "webhook_delivery_list_not_available",
-      "Webhook delivery list requires a read projection that does not exist in the current codebase.",
-    );
+    return adapterQuery("public", "ListWebhookDeliveries", undefined, "retention_bound");
   }
 
   if (

@@ -2,8 +2,8 @@
 
 ## Purpose
 
-`docs/api/openapi/omniwa-v1.openapi.json` is the Phase C public REST
-contract for the implemented Phase B route surface.
+`docs/api/openapi/omniwa-v1.openapi.json` is the public REST contract for the
+implemented platform route surface.
 
 This file is the compatibility source for future SDK generation, API Explorer
 work, third-party integrations, CLI, MCP, and OmniWA TUI.
@@ -17,7 +17,8 @@ The contract covers:
 - request id, correlation id, trace id, and idempotency headers,
 - success, collection, accepted, and error envelopes,
 - cursor pagination primitives,
-- implemented Phase B routes,
+- implemented Phase B route surface,
+- Phase E projection read routes for platform clients,
 - reserved partial routes that currently return safe `501` error envelopes.
 
 The contract does not define:
@@ -51,7 +52,7 @@ The validation checks:
 
 - the OpenAPI document shape,
 - `ApiKeyAuth`,
-- route coverage for Phase B,
+- route coverage for the current platform API surface,
 - success/error/pagination schemas,
 - unique operation ids,
 - no direct use of internal Application command/query names as operation ids,
@@ -62,16 +63,10 @@ The validation checks:
 ## Partial Routes
 
 The following resources are intentionally present in the contract but reserved
-with `501` responses until the required read models or public ownership are
-implemented:
+with `501` responses until public ownership changes are approved:
 
 | Route                                       | Reason                                                                  |
 | ------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /v1/jobs`                              | Job list projection does not exist yet.                                 |
-| `GET /v1/webhooks`                          | Webhook list projection does not exist yet.                             |
-| `GET /v1/webhook-deliveries`                | Webhook delivery list projection does not exist yet.                    |
-| `GET /v1/instances/{instanceId}/messages`   | Message timeline projection does not exist yet.                         |
-| `GET /v1/instances/{instanceId}/sessions`   | Session list read model does not exist yet.                             |
 | `POST /v1/instances/{instanceId}/reconnect` | Reconnect is scheduler-owned in the current Application catalog.        |
 | `POST /v1/provider/capabilities/refresh`    | Provider refresh is scheduler-owned in the current Application catalog. |
 

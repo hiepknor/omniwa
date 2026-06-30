@@ -2,7 +2,10 @@ use crate::auth::ApiKey;
 use crate::error::{ApiFailure, SdkError};
 use crate::generated::operations::Operation;
 use crate::idempotency::IdempotencyKey;
-use crate::resources::{health::HealthClient, instances::InstancesClient, messages::MessagesClient};
+use crate::resources::{
+    dashboard::DashboardClient, health::HealthClient, instances::InstancesClient, jobs::JobsClient,
+    messages::MessagesClient, webhooks::WebhooksClient,
+};
 use crate::transport::{SdkRequest, SdkResponse, Transport};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -55,12 +58,24 @@ where
         HealthClient::new(self)
     }
 
+    pub fn dashboard(&self) -> DashboardClient<'_, TTransport> {
+        DashboardClient::new(self)
+    }
+
     pub fn instances(&self) -> InstancesClient<'_, TTransport> {
         InstancesClient::new(self)
     }
 
     pub fn messages(&self) -> MessagesClient<'_, TTransport> {
         MessagesClient::new(self)
+    }
+
+    pub fn jobs(&self) -> JobsClient<'_, TTransport> {
+        JobsClient::new(self)
+    }
+
+    pub fn webhooks(&self) -> WebhooksClient<'_, TTransport> {
+        WebhooksClient::new(self)
     }
 
     pub fn execute(
@@ -140,7 +155,10 @@ fn build_headers(
 ) -> Vec<(String, String)> {
     let mut headers = vec![
         ("accept".to_owned(), "application/json".to_owned()),
-        ("x-api-key".to_owned(), api_key.expose_header_value().to_owned()),
+        (
+            "x-api-key".to_owned(),
+            api_key.expose_header_value().to_owned(),
+        ),
     ];
 
     if has_body {

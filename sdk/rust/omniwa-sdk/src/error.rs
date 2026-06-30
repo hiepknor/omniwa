@@ -53,7 +53,11 @@ impl Display for SdkError {
             SdkError::Transport { message } => write!(formatter, "transport error: {message}"),
             SdkError::Api(failure) => {
                 let code = failure.code.as_deref().unwrap_or("unknown_api_error");
-                write!(formatter, "OmniWA API error {code} ({})", failure.status_code)
+                write!(
+                    formatter,
+                    "OmniWA API error {code} ({})",
+                    failure.status_code
+                )
             }
         }
     }

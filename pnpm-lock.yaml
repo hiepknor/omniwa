@@ -52,7 +52,17 @@ importers:
 
   apps/metrics: {}
 
-  apps/projection-builder: {}
+  apps/projection-builder:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@omniwa/infrastructure-persistence':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-persistence
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/provider-runtime: {}
 

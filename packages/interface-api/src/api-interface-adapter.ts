@@ -575,11 +575,15 @@ function isBoundaryAllowedForQuery(
       return [
         "GetInstanceStatus",
         "ListInstances",
+        "ListInstanceSessions",
         "GetMessageStatus",
         "GetMessageDeliveryHistory",
+        "ListInstanceMessages",
         "GetMediaStatus",
         "GetWebhookStatus",
         "GetWebhookDeliveryHistory",
+        "ListWebhookSubscriptions",
+        "ListWebhookDeliveries",
       ].includes(queryName);
     case "admin":
       return true;
@@ -595,6 +599,8 @@ function isBoundaryAllowedForQuery(
         "GetMediaMetricsSnapshot",
         "GetActionRequiredItems",
         "GetWorkerJobStatus",
+        "GetDashboardSummary",
+        "ListWorkerJobs",
       ].includes(queryName);
     case "internal_runtime":
       return false;
@@ -673,14 +679,18 @@ function getRequiredScopesForQuery(queryName: ApplicationQueryName): readonly Ap
   switch (queryName) {
     case "GetInstanceStatus":
     case "ListInstances":
+    case "ListInstanceSessions":
       return ["instances:read"];
     case "GetMessageStatus":
     case "GetMessageDeliveryHistory":
+    case "ListInstanceMessages":
       return ["messages:read"];
     case "GetMediaStatus":
       return ["media:read"];
     case "GetWebhookStatus":
     case "GetWebhookDeliveryHistory":
+    case "ListWebhookSubscriptions":
+    case "ListWebhookDeliveries":
       return ["webhooks:read"];
     case "GetHealthStatus":
     case "GetActionRequiredItems":
@@ -690,12 +700,14 @@ function getRequiredScopesForQuery(queryName: ApplicationQueryName): readonly Ap
     case "GetConfigurationStatus":
       return ["config:read"];
     case "GetOperationalMetricsSnapshot":
+    case "GetDashboardSummary":
     case "GetQueueMetricsSnapshot":
     case "GetWebhookMetricsSnapshot":
     case "GetMessageMetricsSnapshot":
     case "GetMediaMetricsSnapshot":
       return ["metrics:read"];
     case "GetWorkerJobStatus":
+    case "ListWorkerJobs":
       return ["jobs:read"];
     case "GetProviderCapabilityStatus":
       return ["provider:read"];

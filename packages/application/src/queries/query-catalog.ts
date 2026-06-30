@@ -32,14 +32,19 @@ export type ApplicationQueryDefinition = Readonly<{
 export const applicationQueryDefinitions = [
   query("GetInstanceStatus", "status", "strong_owner", true, false),
   query("ListInstances", "history", "eventual_projection", true, false),
+  query("ListInstanceSessions", "history", "eventual_projection", true, false),
   query("GetMessageStatus", "status", "strong_owner", true, false),
   query("GetMessageDeliveryHistory", "history", "retention_bound", true, true),
+  query("ListInstanceMessages", "history", "retention_bound", true, true),
   query("GetMediaStatus", "status", "strong_owner", true, false),
   query("GetWebhookStatus", "status", "strong_owner", true, false),
   query("GetWebhookDeliveryHistory", "history", "retention_bound", true, true),
+  query("ListWebhookSubscriptions", "history", "eventual_projection", true, false),
+  query("ListWebhookDeliveries", "history", "retention_bound", true, true),
   query("GetHealthStatus", "status", "eventual_projection", true, false),
   query("QueryAuditRecords", "history", "retention_bound", true, true),
   query("GetConfigurationStatus", "configuration", "strong_owner", true, false),
+  query("GetDashboardSummary", "metrics", "eventual_projection", true, false),
   query("GetOperationalMetricsSnapshot", "metrics", "eventual_projection", true, false),
   query("GetQueueMetricsSnapshot", "metrics", "eventual_projection", true, false),
   query("GetWebhookMetricsSnapshot", "metrics", "eventual_projection", true, false),
@@ -47,6 +52,7 @@ export const applicationQueryDefinitions = [
   query("GetMediaMetricsSnapshot", "metrics", "eventual_projection", true, false),
   query("GetActionRequiredItems", "monitoring", "eventual_projection", true, false),
   query("GetWorkerJobStatus", "monitoring", "strong_owner", true, false),
+  query("ListWorkerJobs", "monitoring", "eventual_projection", true, false),
   query("GetProviderCapabilityStatus", "monitoring", "strong_owner", true, false),
 ] as const satisfies readonly ApplicationQueryDefinition[];
 

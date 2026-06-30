@@ -2,8 +2,8 @@
 
 > Modern WhatsApp API platform built on WhiskeySockets/Baileys, designed for reliable automation, clean boundaries, and long-term extensibility.
 
-**Project status:** Platform Evolution / SDK Foundation
-**Current phase:** Phase D - Official Rust SDK Foundation complete; Phase E - Query Projections next
+**Project status:** Platform Evolution / Query Projections
+**Current phase:** Phase E - Query Projections complete; Phase F - Realtime Foundation next
 **Logo:** Placeholder. A project logo has not been added yet.
 
 ## Table of Contents
@@ -91,7 +91,7 @@ The key rule is simple: product behavior enters through the Application layer. A
 | Persistence          | Persistence boundaries, repository mapping, projections, physical storage, retention, backup, recovery, and persistence freeze.          | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md), [PERSISTENCE_OVERVIEW.md](docs/persistence/PERSISTENCE_OVERVIEW.md)                                      |
 | Infrastructure       | Runtime platform, process model, technology decisions, topology, observability, security, operations, DR, and infrastructure freeze.     | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md), [RUNTIME_PLATFORM.md](docs/infrastructure/RUNTIME_PLATFORM.md)                                  |
 | Engineering Planning | Implementation roadmap, package layout, coding standard, test strategy, CI/CD expectations, release strategy, and implementation freeze. | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [ENGINEERING_PLAN.md](docs/engineering/ENGINEERING_PLAN.md)                                        |
-| Platform Evolution   | Incremental plan to evolve OmniWA into a platform with REST, OpenAPI, SDK, TUI, Web, CLI, MCP, and integrations.                         | [EVOLUTION_PLAN.md](docs/platform-evolution/EVOLUTION_PLAN.md), [PHASE_D_RUST_SDK_FOUNDATION.md](docs/platform-evolution/PHASE_D_RUST_SDK_FOUNDATION.md)                  |
+| Platform Evolution   | Incremental plan to evolve OmniWA into a platform with REST, OpenAPI, SDK, TUI, Web, CLI, MCP, and integrations.                         | [EVOLUTION_PLAN.md](docs/platform-evolution/EVOLUTION_PLAN.md), [PHASE_E_QUERY_PROJECTIONS.md](docs/platform-evolution/PHASE_E_QUERY_PROJECTIONS.md)                      |
 | SDK                  | Official Rust SDK foundation generated from the public OpenAPI contract.                                                                 | [RUST_SDK_FOUNDATION.md](docs/sdk/RUST_SDK_FOUNDATION.md), [OpenAPI Contract](docs/api/OPENAPI_CONTRACT.md)                                                               |
 | AI Runtime Kit       | Repo-local operating guide, context summaries, skills, playbooks, templates, and implementation prompts for AI coding agents.            | [AGENTS.md](AGENTS.md), [AI Runtime Kit](.omniwa/README.md)                                                                                                               |
 | Conventions          | Naming, documentation, commits, versioning, branching, RFC, ADR, and agentmemory usage conventions.                                      | [PROJECT_CONVENTIONS.md](docs/PROJECT_CONVENTIONS.md)                                                                                                                     |
@@ -113,19 +113,20 @@ The key rule is simple: product behavior enters through the Application layer. A
 
 ## Current Project Status
 
-| Area                 | Status  | Reference                                                                |
-| -------------------- | ------- | ------------------------------------------------------------------------ |
-| Product              | Frozen  | [FREEZE_PHASE_0.md](docs/FREEZE_PHASE_0.md)                              |
-| Architecture         | Frozen  | [ARCHITECTURE_FREEZE.md](docs/architecture/ARCHITECTURE_FREEZE.md)       |
-| Domain               | Frozen  | [DOMAIN_FREEZE.md](docs/domain/DOMAIN_FREEZE.md)                         |
-| Application          | Frozen  | [APPLICATION_FREEZE.md](docs/application/APPLICATION_FREEZE.md)          |
-| API                  | Frozen  | [API_FREEZE.md](docs/api/API_FREEZE.md)                                  |
-| Persistence          | Frozen  | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md)          |
-| Infrastructure       | Frozen  | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md) |
-| Engineering Planning | Frozen  | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md)    |
-| OpenAPI Contract     | Current | [OPENAPI_CONTRACT.md](docs/api/OPENAPI_CONTRACT.md)                      |
-| Rust SDK Foundation  | Current | [RUST_SDK_FOUNDATION.md](docs/sdk/RUST_SDK_FOUNDATION.md)                |
-| Implementation       | Current | Platform Evolution Phase D complete                                      |
+| Area                 | Status  | Reference                                                                            |
+| -------------------- | ------- | ------------------------------------------------------------------------------------ |
+| Product              | Frozen  | [FREEZE_PHASE_0.md](docs/FREEZE_PHASE_0.md)                                          |
+| Architecture         | Frozen  | [ARCHITECTURE_FREEZE.md](docs/architecture/ARCHITECTURE_FREEZE.md)                   |
+| Domain               | Frozen  | [DOMAIN_FREEZE.md](docs/domain/DOMAIN_FREEZE.md)                                     |
+| Application          | Frozen  | [APPLICATION_FREEZE.md](docs/application/APPLICATION_FREEZE.md)                      |
+| API                  | Frozen  | [API_FREEZE.md](docs/api/API_FREEZE.md)                                              |
+| Persistence          | Frozen  | [PERSISTENCE_FREEZE.md](docs/persistence/PERSISTENCE_FREEZE.md)                      |
+| Infrastructure       | Frozen  | [INFRASTRUCTURE_FREEZE.md](docs/infrastructure/INFRASTRUCTURE_FREEZE.md)             |
+| Engineering Planning | Frozen  | [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md)                |
+| OpenAPI Contract     | Current | [OPENAPI_CONTRACT.md](docs/api/OPENAPI_CONTRACT.md)                                  |
+| Rust SDK Foundation  | Current | [RUST_SDK_FOUNDATION.md](docs/sdk/RUST_SDK_FOUNDATION.md)                            |
+| Query Projections    | Current | [PHASE_E_QUERY_PROJECTIONS.md](docs/platform-evolution/PHASE_E_QUERY_PROJECTIONS.md) |
+| Implementation       | Current | Platform Evolution Phase E complete                                                  |
 
 ## Repository Structure
 
@@ -211,7 +212,7 @@ Product
   -> Release
 ```
 
-The project is currently in **Platform Evolution**, after Phase 8 repository bootstrap. REST and OpenAPI foundations are present, and the official Rust SDK foundation has been added. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
+The project is currently in **Platform Evolution**, after Phase 8 repository bootstrap. REST, OpenAPI, official Rust SDK foundation, and projection read routes for platform clients are present. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
 
 ## Contributing
 
@@ -223,7 +224,7 @@ A dedicated `CONTRIBUTING.md` has not been added yet. Contribution rules should 
 
 ## Roadmap
 
-The design and engineering planning phases are complete and frozen through Phase 7. Platform evolution has completed REST/OpenAPI/SDK foundation work. The next platform step is Phase E query projections for TUI-critical read paths.
+The design and engineering planning phases are complete and frozen through Phase 7. Platform evolution has completed REST/OpenAPI/SDK foundation work and Phase E query projections for TUI-critical read paths. The next platform step is Phase F realtime foundation.
 
 For the broader product progression, see [ROADMAP.md](docs/ROADMAP.md). Detailed implementation tasks should be derived from [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [SPRINT_PLAN.md](docs/engineering/SPRINT_PLAN.md), and the AI Runtime Kit, not invented independently.
 

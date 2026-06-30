@@ -2,7 +2,7 @@ use crate::client::{OmniwaClient, RequestBody, RequestOptions};
 use crate::error::SdkError;
 use crate::generated::operations::{
     CONNECT_INSTANCE, CREATE_INSTANCE, DISCONNECT_INSTANCE, GET_INSTANCE, LIST_INSTANCES,
-    REFRESH_INSTANCE_QR, UPDATE_INSTANCE,
+    LIST_INSTANCE_SESSIONS, REFRESH_INSTANCE_QR, UPDATE_INSTANCE,
 };
 use crate::transport::{SdkResponse, Transport};
 
@@ -26,6 +26,16 @@ where
     pub fn get(&self, instance_id: &str) -> Result<SdkResponse, SdkError> {
         self.client.execute(
             GET_INSTANCE,
+            &[("instanceId", instance_id)],
+            &[],
+            None,
+            RequestOptions::default(),
+        )
+    }
+
+    pub fn list_sessions(&self, instance_id: &str) -> Result<SdkResponse, SdkError> {
+        self.client.execute(
+            LIST_INSTANCE_SESSIONS,
             &[("instanceId", instance_id)],
             &[],
             None,

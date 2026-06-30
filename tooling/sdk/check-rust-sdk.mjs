@@ -20,9 +20,12 @@ const requiredFiles = Object.freeze([
   "sdk/rust/omniwa-sdk/src/generated/mod.rs",
   "sdk/rust/omniwa-sdk/src/generated/operations.rs",
   "sdk/rust/omniwa-sdk/src/resources/mod.rs",
+  "sdk/rust/omniwa-sdk/src/resources/dashboard.rs",
   "sdk/rust/omniwa-sdk/src/resources/health.rs",
   "sdk/rust/omniwa-sdk/src/resources/instances.rs",
+  "sdk/rust/omniwa-sdk/src/resources/jobs.rs",
   "sdk/rust/omniwa-sdk/src/resources/messages.rs",
+  "sdk/rust/omniwa-sdk/src/resources/webhooks.rs",
   "sdk/rust/omniwa-sdk/tests/fixture_client.rs",
 ]);
 

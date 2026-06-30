@@ -7,6 +7,7 @@ const expectedOperations = Object.freeze([
   ["get", "/v1/health/readiness"],
   ["get", "/v1/action-required"],
   ["get", "/v1/metrics"],
+  ["get", "/v1/dashboard"],
   ["get", "/v1/metrics/queue"],
   ["get", "/v1/metrics/messages"],
   ["get", "/v1/metrics/webhooks"],
@@ -56,11 +57,13 @@ const internalApplicationNames = Object.freeze([
   "GetHealthStatus",
   "GetActionRequiredItems",
   "GetOperationalMetricsSnapshot",
+  "GetDashboardSummary",
   "GetQueueMetricsSnapshot",
   "GetMessageMetricsSnapshot",
   "GetWebhookMetricsSnapshot",
   "GetMediaMetricsSnapshot",
   "ListInstances",
+  "ListInstanceSessions",
   "CreateInstance",
   "GetInstanceStatus",
   "UpdateInstanceMetadata",
@@ -70,6 +73,7 @@ const internalApplicationNames = Object.freeze([
   "RefreshQrPairing",
   "SendTextMessage",
   "SendMediaMessage",
+  "ListInstanceMessages",
   "GetMessageStatus",
   "GetMessageDeliveryHistory",
   "RetryMessageSend",
@@ -77,13 +81,16 @@ const internalApplicationNames = Object.freeze([
   "RegisterMedia",
   "GetMediaStatus",
   "GetWorkerJobStatus",
+  "ListWorkerJobs",
   "RegisterWebhookSubscription",
+  "ListWebhookSubscriptions",
   "GetWebhookStatus",
   "UpdateWebhookSubscription",
   "ActivateWebhookSubscription",
   "SuspendWebhookSubscription",
   "RetireWebhookSubscription",
   "GetWebhookDeliveryHistory",
+  "ListWebhookDeliveries",
   "RetryWebhookDelivery",
   "GetProviderCapabilityStatus",
   "GetConfigurationStatus",
@@ -95,6 +102,15 @@ const internalApplicationNames = Object.freeze([
 const findings = [];
 const spec = JSON.parse(await readFile(specPath, "utf8"));
 
+const phaseEResolvedProjectionOperations = Object.freeze([
+  ["get", "/v1/dashboard"],
+  ["get", "/v1/instances/{instanceId}/sessions"],
+  ["get", "/v1/instances/{instanceId}/messages"],
+  ["get", "/v1/jobs"],
+  ["get", "/v1/webhooks"],
+  ["get", "/v1/webhook-deliveries"],
+]);
+
 checkOpenApiShape(spec);
 checkSecurityScheme(spec);
 checkRequiredSchemas(spec);
@@ -102,6 +118,7 @@ checkRouteCoverage(spec);
 checkOperationIds(spec);
 checkResponses(spec);
 checkPaginationContract(spec);
+checkPhaseEResolvedProjectionResponses(spec);
 
 if (findings.length > 0) {
   console.error("OpenAPI contract check failed:");
@@ -228,6 +245,28 @@ function checkPaginationContract(openApiSpec) {
   for (const parameterName of ["Cursor", "Limit", "Sort"]) {
     if (!isRecord(openApiSpec.components?.parameters?.[parameterName])) {
       findings.push(`Missing pagination/filter parameter: ${parameterName}.`);
+    }
+  }
+}
+
+function checkPhaseEResolvedProjectionResponses(openApiSpec) {
+  for (const [method, path] of phaseEResolvedProjectionOperations) {
+    const responses = openApiSpec.paths?.[path]?.[method]?.responses;
+
+    if (!isRecord(responses)) {
+      continue;
+    }
+
+    if (!isRecord(responses["200"])) {
+      findings.push(
+        `Phase E projection route must expose 200 response: ${method.toUpperCase()} ${path}.`,
+      );
+    }
+
+    if (isRecord(responses["501"])) {
+      findings.push(
+        `Phase E projection route must not remain partial: ${method.toUpperCase()} ${path}.`,
+      );
     }
   }
 }

@@ -50,6 +50,12 @@ pub const DISCONNECT_INSTANCE: Operation = Operation {
     path: "/v1/instances/{instanceId}/disconnect",
 };
 
+pub const GET_DASHBOARD_SUMMARY: Operation = Operation {
+    operation_id: "getDashboardSummary",
+    method: "GET",
+    path: "/v1/dashboard",
+};
+
 pub const GET_HEALTH: Operation = Operation {
     operation_id: "getHealth",
     method: "GET",
@@ -298,6 +304,7 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     CREATE_INSTANCE,
     DESTROY_INSTANCE,
     DISCONNECT_INSTANCE,
+    GET_DASHBOARD_SUMMARY,
     GET_HEALTH,
     GET_HEALTH_READINESS,
     GET_INSTANCE,
@@ -349,6 +356,7 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "createInstance" => Some(CREATE_INSTANCE),
         "destroyInstance" => Some(DESTROY_INSTANCE),
         "disconnectInstance" => Some(DISCONNECT_INSTANCE),
+        "getDashboardSummary" => Some(GET_DASHBOARD_SUMMARY),
         "getHealth" => Some(GET_HEALTH),
         "getHealthReadiness" => Some(GET_HEALTH_READINESS),
         "getInstance" => Some(GET_INSTANCE),

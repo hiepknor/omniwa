@@ -688,11 +688,11 @@
           }
         ],
         "responses": {
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
-          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         }
       }
@@ -702,7 +702,7 @@
         "tags": ["Instances"],
         "operationId": "listInstanceSessions",
         "summary": "List instance sessions",
-        "description": "Partial route. Session list requires a dedicated read model; current safe visibility is available through instance status.",
+        "description": "List session projection rows for one instance.",
         "parameters": [
           {
             "$ref": "#/components/parameters/InstanceId"
@@ -724,11 +724,17 @@
           }
         ],
         "responses": {
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
           }
         }
       }
@@ -738,7 +744,7 @@
         "tags": ["Messages"],
         "operationId": "listInstanceMessages",
         "summary": "List messages for an instance",
-        "description": "Partial route. Message timeline requires a read projection that does not exist in the current codebase.",
+        "description": "List message timeline projection rows for one instance.",
         "parameters": [
           {
             "$ref": "#/components/parameters/InstanceId"
@@ -763,11 +769,17 @@
           }
         ],
         "responses": {
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
           }
         }
       },
@@ -1150,7 +1162,7 @@
         "tags": ["Jobs"],
         "operationId": "listJobs",
         "summary": "List jobs",
-        "description": "Partial route. Job list requires a read projection that does not exist in the current codebase.",
+        "description": "List worker job projection rows.",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestIdHeader"
@@ -1172,11 +1184,17 @@
           }
         ],
         "responses": {
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
           }
         }
       }
@@ -1224,7 +1242,7 @@
         "tags": ["Webhooks"],
         "operationId": "listWebhooks",
         "summary": "List webhooks",
-        "description": "Partial route. Webhook list requires a read projection that does not exist in the current codebase.",
+        "description": "List webhook subscription projection rows.",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestIdHeader"
@@ -1243,11 +1261,17 @@
           }
         ],
         "responses": {
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
           }
         }
       },
@@ -1497,7 +1521,7 @@
         "tags": ["Webhooks"],
         "operationId": "listWebhookDeliveries",
         "summary": "List webhook deliveries",
-        "description": "Partial route. Webhook delivery list requires a read projection that does not exist in the current codebase.",
+        "description": "List webhook delivery projection rows.",
         "parameters": [
           {
             "$ref": "#/components/parameters/XRequestIdHeader"
@@ -1519,11 +1543,17 @@
           }
         ],
         "responses": {
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
           }
         }
       }
@@ -1657,11 +1687,11 @@
           }
         ],
         "responses": {
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
-          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         }
       }
@@ -1814,6 +1844,38 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/dashboard": {
+      "get": {
+        "tags": ["Metrics"],
+        "operationId": "getDashboardSummary",
+        "summary": "Get dashboard summary",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"

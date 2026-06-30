@@ -14,12 +14,17 @@ import { err, ok } from "@omniwa/shared";
 export const readProjectionNames = [
   "InstanceStatusProjection",
   "InstanceListProjection",
+  "SessionListProjection",
   "MessageStatusProjection",
   "MessageDeliveryHistoryProjection",
+  "MessageTimelineProjection",
   "MediaStatusProjection",
   "WebhookStatusProjection",
   "WebhookDeliveryHistoryProjection",
+  "WebhookListProjection",
+  "WebhookDeliveryListProjection",
   "WorkerJobStatusProjection",
+  "WorkerJobListProjection",
   "HealthStatusProjection",
   "ActionRequiredProjection",
   "ProviderCapabilityProjection",
@@ -27,6 +32,7 @@ export const readProjectionNames = [
   "AuditRecordProjection",
   "MetricsSnapshotProjection",
   "OperationalDashboardProjection",
+  "DashboardSummaryProjection",
   "QueueMetricsProjection",
   "WebhookMetricsProjection",
   "MessageMetricsProjection",
@@ -82,8 +88,17 @@ export const readProjectionDefinitions = Object.freeze([
   projection(
     "InstanceListProjection",
     "instance",
-    ["Instance", "HealthStatus"],
+    ["Instance", "Session", "HealthStatus"],
     ["ListInstances"],
+    "eventual_projection",
+    true,
+    false,
+  ),
+  projection(
+    "SessionListProjection",
+    "session",
+    ["Session", "Instance", "HealthStatus"],
+    ["ListInstanceSessions"],
     "eventual_projection",
     true,
     false,
@@ -102,6 +117,15 @@ export const readProjectionDefinitions = Object.freeze([
     "messaging",
     ["Message", "WorkerJob"],
     ["GetMessageDeliveryHistory"],
+    "retention_bound",
+    true,
+    true,
+  ),
+  projection(
+    "MessageTimelineProjection",
+    "messaging",
+    ["Message", "MediaAsset", "WorkerJob"],
+    ["ListInstanceMessages"],
     "retention_bound",
     true,
     true,
@@ -134,11 +158,38 @@ export const readProjectionDefinitions = Object.freeze([
     true,
   ),
   projection(
+    "WebhookListProjection",
+    "webhook_delivery",
+    ["WebhookSubscription", "WebhookDelivery", "HealthStatus"],
+    ["ListWebhookSubscriptions"],
+    "eventual_projection",
+    true,
+    false,
+  ),
+  projection(
+    "WebhookDeliveryListProjection",
+    "webhook_delivery",
+    ["WebhookDelivery", "WebhookSubscription"],
+    ["ListWebhookDeliveries"],
+    "retention_bound",
+    true,
+    true,
+  ),
+  projection(
     "WorkerJobStatusProjection",
     "operations",
     ["WorkerJob"],
     ["GetWorkerJobStatus"],
     "strong_owner",
+    true,
+    false,
+  ),
+  projection(
+    "WorkerJobListProjection",
+    "operations",
+    ["WorkerJob"],
+    ["ListWorkerJobs"],
+    "eventual_projection",
     true,
     false,
   ),
@@ -201,6 +252,15 @@ export const readProjectionDefinitions = Object.freeze([
     "observability",
     ["HealthStatus", "WorkerJob", "TelemetrySignal", "Message", "WebhookDelivery"],
     ["GetOperationalMetricsSnapshot", "GetActionRequiredItems"],
+    "eventual_projection",
+    true,
+    false,
+  ),
+  projection(
+    "DashboardSummaryProjection",
+    "observability",
+    ["HealthStatus", "TelemetrySignal", "WorkerJob", "Message", "WebhookDelivery", "Instance"],
+    ["GetDashboardSummary"],
     "eventual_projection",
     true,
     false,
@@ -319,6 +379,14 @@ export class InMemoryReadProjectionStore
 
   listStoredProjections(): readonly StoredReadProjection[] {
     return Object.freeze([...this.records.values()]);
+  }
+
+  listStoredProjectionsByName(projectionName: ReadProjectionName): readonly StoredReadProjection[] {
+    return Object.freeze(
+      [...this.records.values()].filter(
+        (projection) => projection.projectionName === projectionName,
+      ),
+    );
   }
 
   clear(): void {

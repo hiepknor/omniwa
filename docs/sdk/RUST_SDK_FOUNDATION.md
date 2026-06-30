@@ -10,7 +10,8 @@ transport internals directly.
 
 ## Current Scope
 
-Phase D creates the SDK foundation:
+Phase D creates the SDK foundation, and Phase E extends wrappers for projection
+read routes:
 
 - `sdk/rust/omniwa-sdk` Rust crate.
 - generated operation catalog from the Phase C OpenAPI contract.
@@ -20,7 +21,8 @@ Phase D creates the SDK foundation:
 - cursor pagination primitives.
 - transport abstraction.
 - fixture transport for SDK contract tests.
-- resource wrappers for initial Health, Instances, and Messages calls.
+- resource wrappers for Health, Dashboard, Instances, Messages, Jobs, and
+  Webhooks calls.
 
 ## Generated Contract
 
@@ -59,10 +61,9 @@ The SDK does not contain:
 - webhook delivery logic,
 - TUI presentation logic.
 
-## Current Limitation
+## Validation
 
-The current execution environment does not have `cargo` or `rustc`, so Rust
-compile tests cannot be executed here. The crate includes fixture tests under:
+The crate includes fixture tests under:
 
 ```text
 sdk/rust/omniwa-sdk/tests/
@@ -79,8 +80,7 @@ cargo test
 
 - Add an HTTP transport implementation after choosing the runtime HTTP client.
 - Add generated low-level request/response models beyond operation metadata.
-- Expand resource wrappers for Media, Webhooks, Jobs, Metrics, Settings, and
-  Audit.
+- Expand resource wrappers for Media, Metrics, Settings, and Audit.
 - Add SSE streaming module after Phase F.
 - Add Groups/Chats/Contacts modules only after their platform phases are
   approved.

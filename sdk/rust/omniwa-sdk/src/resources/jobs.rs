@@ -1,13 +1,13 @@
 use crate::client::{OmniwaClient, RequestOptions};
 use crate::error::SdkError;
-use crate::generated::operations::{GET_HEALTH, GET_HEALTH_READINESS};
+use crate::generated::operations::{GET_JOB, LIST_JOBS};
 use crate::transport::{SdkResponse, Transport};
 
-pub struct HealthClient<'a, TTransport> {
+pub struct JobsClient<'a, TTransport> {
     client: &'a OmniwaClient<TTransport>,
 }
 
-impl<'a, TTransport> HealthClient<'a, TTransport>
+impl<'a, TTransport> JobsClient<'a, TTransport>
 where
     TTransport: Transport,
 {
@@ -15,15 +15,15 @@ where
         Self { client }
     }
 
-    pub fn get(&self) -> Result<SdkResponse, SdkError> {
+    pub fn list(&self) -> Result<SdkResponse, SdkError> {
         self.client
-            .execute(GET_HEALTH, &[], &[], None, RequestOptions::default())
+            .execute(LIST_JOBS, &[], &[], None, RequestOptions::default())
     }
 
-    pub fn readiness(&self) -> Result<SdkResponse, SdkError> {
+    pub fn get(&self, job_id: &str) -> Result<SdkResponse, SdkError> {
         self.client.execute(
-            GET_HEALTH_READINESS,
-            &[],
+            GET_JOB,
+            &[("jobId", job_id)],
             &[],
             None,
             RequestOptions::default(),

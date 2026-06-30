@@ -1,0 +1,54 @@
+use crate::client::{OmniwaClient, RequestOptions};
+use crate::error::SdkError;
+use crate::generated::operations::{
+    GET_WEBHOOK, GET_WEBHOOK_DELIVERY_HISTORY, LIST_WEBHOOKS, LIST_WEBHOOK_DELIVERIES,
+};
+use crate::transport::{SdkResponse, Transport};
+
+pub struct WebhooksClient<'a, TTransport> {
+    client: &'a OmniwaClient<TTransport>,
+}
+
+impl<'a, TTransport> WebhooksClient<'a, TTransport>
+where
+    TTransport: Transport,
+{
+    pub(crate) fn new(client: &'a OmniwaClient<TTransport>) -> Self {
+        Self { client }
+    }
+
+    pub fn list(&self) -> Result<SdkResponse, SdkError> {
+        self.client
+            .execute(LIST_WEBHOOKS, &[], &[], None, RequestOptions::default())
+    }
+
+    pub fn get(&self, webhook_id: &str) -> Result<SdkResponse, SdkError> {
+        self.client.execute(
+            GET_WEBHOOK,
+            &[("webhookId", webhook_id)],
+            &[],
+            None,
+            RequestOptions::default(),
+        )
+    }
+
+    pub fn list_deliveries(&self) -> Result<SdkResponse, SdkError> {
+        self.client.execute(
+            LIST_WEBHOOK_DELIVERIES,
+            &[],
+            &[],
+            None,
+            RequestOptions::default(),
+        )
+    }
+
+    pub fn delivery_history(&self, delivery_id: &str) -> Result<SdkResponse, SdkError> {
+        self.client.execute(
+            GET_WEBHOOK_DELIVERY_HISTORY,
+            &[("deliveryId", delivery_id)],
+            &[],
+            None,
+            RequestOptions::default(),
+        )
+    }
+}

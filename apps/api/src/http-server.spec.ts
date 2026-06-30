@@ -132,20 +132,24 @@ describe("API HTTP transport", () => {
     const dispatcher = new CapturingDispatcher();
 
     await request(dispatcher, "GET", "/v1/metrics", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/dashboard", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/queue", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/messages", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/webhooks", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/media", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/queue", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/jobs", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/jobs/job_1", { apiKey: "monitoring-secret" });
 
     expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
       "GetOperationalMetricsSnapshot",
+      "GetDashboardSummary",
       "GetQueueMetricsSnapshot",
       "GetMessageMetricsSnapshot",
       "GetWebhookMetricsSnapshot",
       "GetMediaMetricsSnapshot",
       "GetQueueMetricsSnapshot",
+      "ListWorkerJobs",
       "GetWorkerJobStatus",
     ]);
   });
@@ -251,6 +255,8 @@ describe("API HTTP transport", () => {
   it("maps message, media, and webhook resource routes to existing commands and queries", async () => {
     const dispatcher = new CapturingDispatcher();
 
+    await request(dispatcher, "GET", "/v1/instances/inst_allowed/messages");
+    await request(dispatcher, "GET", "/v1/instances/inst_allowed/sessions");
     await request(dispatcher, "GET", "/v1/messages/msg_1");
     await request(dispatcher, "GET", "/v1/messages/msg_1/delivery-history");
     await request(dispatcher, "POST", "/v1/messages/msg_1/retry", {
@@ -264,6 +270,7 @@ describe("API HTTP transport", () => {
       headers: { "idempotency-key": "register-media-1" },
     });
     await request(dispatcher, "GET", "/v1/media/media_1");
+    await request(dispatcher, "GET", "/v1/webhooks");
     await request(dispatcher, "GET", "/v1/webhooks/wh_1");
     await request(dispatcher, "PATCH", "/v1/webhooks/wh_1", {
       body: { url: "https://example.test/webhook" },
@@ -275,13 +282,18 @@ describe("API HTTP transport", () => {
     await request(dispatcher, "POST", "/v1/webhook-deliveries/whd_1/retry", {
       headers: { "idempotency-key": "retry-webhook-delivery-1" },
     });
+    await request(dispatcher, "GET", "/v1/webhook-deliveries");
     await request(dispatcher, "GET", "/v1/webhook-deliveries/whd_1/history");
 
     expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "ListInstanceMessages",
+      "ListInstanceSessions",
       "GetMessageStatus",
       "GetMessageDeliveryHistory",
       "GetMediaStatus",
+      "ListWebhookSubscriptions",
       "GetWebhookStatus",
+      "ListWebhookDeliveries",
       "GetWebhookDeliveryHistory",
     ]);
     expect(dispatcher.commandEnvelopes.map((envelope) => envelope.name)).toEqual([
@@ -331,11 +343,8 @@ describe("API HTTP transport", () => {
     ]);
   });
 
-  it("keeps routes without current projections present but explicitly partial", async () => {
+  it("keeps scheduler-owned routes explicitly partial", async () => {
     const dispatcher = new CapturingDispatcher();
-    const jobsResponse = await request(dispatcher, "GET", "/v1/jobs");
-    const webhooksResponse = await request(dispatcher, "GET", "/v1/webhooks");
-    const deliveriesResponse = await request(dispatcher, "GET", "/v1/webhook-deliveries");
     const reconnectResponse = await request(
       dispatcher,
       "POST",
@@ -348,16 +357,6 @@ describe("API HTTP transport", () => {
       { apiKey: "admin-secret" },
     );
 
-    expect(jobsResponse.statusCode).toBe(501);
-    expect("error" in jobsResponse.body ? jobsResponse.body.error.code : undefined).toBe(
-      "jobs_list_not_available",
-    );
-    expect("error" in webhooksResponse.body ? webhooksResponse.body.error.code : undefined).toBe(
-      "webhook_list_not_available",
-    );
-    expect(
-      "error" in deliveriesResponse.body ? deliveriesResponse.body.error.code : undefined,
-    ).toBe("webhook_delivery_list_not_available");
     expect("error" in reconnectResponse.body ? reconnectResponse.body.error.code : undefined).toBe(
       "reconnect_public_route_not_available",
     );

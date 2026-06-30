@@ -81,11 +81,9 @@ impl FixtureTransport {
 impl Transport for FixtureTransport {
     fn send(&self, request: SdkRequest) -> Result<SdkResponse, SdkError> {
         let operation_id = request.operation_id.clone();
-        let response = self
-            .responses
-            .get(&operation_id)
-            .cloned()
-            .ok_or_else(|| SdkError::transport(format!("No fixture for operation {operation_id}.")))?;
+        let response = self.responses.get(&operation_id).cloned().ok_or_else(|| {
+            SdkError::transport(format!("No fixture for operation {operation_id}."))
+        })?;
 
         self.requests.borrow_mut().push(request);
 

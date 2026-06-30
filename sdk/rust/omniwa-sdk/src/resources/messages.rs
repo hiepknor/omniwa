@@ -1,8 +1,8 @@
 use crate::client::{OmniwaClient, RequestBody, RequestOptions};
 use crate::error::SdkError;
 use crate::generated::operations::{
-    CANCEL_MESSAGE, GET_MESSAGE, GET_MESSAGE_DELIVERY_HISTORY, RETRY_MESSAGE,
-    SEND_INSTANCE_MEDIA_MESSAGE, SEND_INSTANCE_MESSAGE, SEND_INSTANCE_TEXT_MESSAGE,
+    CANCEL_MESSAGE, GET_MESSAGE, GET_MESSAGE_DELIVERY_HISTORY, LIST_INSTANCE_MESSAGES,
+    RETRY_MESSAGE, SEND_INSTANCE_MEDIA_MESSAGE, SEND_INSTANCE_MESSAGE, SEND_INSTANCE_TEXT_MESSAGE,
 };
 use crate::transport::{SdkResponse, Transport};
 
@@ -16,6 +16,16 @@ where
 {
     pub(crate) fn new(client: &'a OmniwaClient<TTransport>) -> Self {
         Self { client }
+    }
+
+    pub fn list_for_instance(&self, instance_id: &str) -> Result<SdkResponse, SdkError> {
+        self.client.execute(
+            LIST_INSTANCE_MESSAGES,
+            &[("instanceId", instance_id)],
+            &[],
+            None,
+            RequestOptions::default(),
+        )
     }
 
     pub fn send_json(

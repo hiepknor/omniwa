@@ -1,9 +1,12 @@
 use omniwa_sdk::{
-    ApiKey, FixtureTransport, IdempotencyKey, OmniwaClient, OmniwaClientConfig, RequestOptions,
-    SdkResponse, generated::operations::ALL_OPERATIONS,
+    generated::operations::ALL_OPERATIONS, ApiKey, FixtureTransport, IdempotencyKey, OmniwaClient,
+    OmniwaClientConfig, RequestOptions, SdkResponse,
 };
 
-fn client_with_fixture(operation_id: &str, response: SdkResponse) -> OmniwaClient<FixtureTransport> {
+fn client_with_fixture(
+    operation_id: &str,
+    response: SdkResponse,
+) -> OmniwaClient<FixtureTransport> {
     let api_key = ApiKey::new("test-api-key").expect("valid API key");
     let config = OmniwaClientConfig::new("http://localhost:3000", api_key).expect("valid config");
     let transport = FixtureTransport::new().with_response(operation_id, response);
@@ -13,7 +16,7 @@ fn client_with_fixture(operation_id: &str, response: SdkResponse) -> OmniwaClien
 
 #[test]
 fn generated_operation_catalog_is_not_empty() {
-    assert!(ALL_OPERATIONS.len() > 40);
+    assert!(ALL_OPERATIONS.len() >= 48);
 }
 
 #[test]
@@ -70,4 +73,25 @@ fn api_error_maps_to_sdk_error() {
     let error = client.instances().list().expect_err("API error");
 
     assert!(format!("{error}").contains("OmniWA API error"));
+}
+
+#[test]
+fn projection_read_clients_use_generated_operations() {
+    let dashboard_client = client_with_fixture(
+        "getDashboardSummary",
+        SdkResponse::json(
+            200,
+            r#"{"data":{"status":"ok"},"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z"}}"#,
+        ),
+    );
+    let jobs_client = client_with_fixture(
+        "listJobs",
+        SdkResponse::json(
+            200,
+            r#"{"data":[],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z"}}"#,
+        ),
+    );
+
+    assert_eq!(dashboard_client.dashboard().get().unwrap().status_code, 200);
+    assert_eq!(jobs_client.jobs().list().unwrap().status_code, 200);
 }

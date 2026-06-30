@@ -35,6 +35,26 @@ describe("in-memory read projection store", () => {
       ownerContext: "audit",
       retentionBound: true,
     });
+    expect(getReadProjectionDefinition("MessageTimelineProjection")).toMatchObject({
+      ownerContext: "messaging",
+      queries: ["ListInstanceMessages"],
+      consistency: "retention_bound",
+      retentionBound: true,
+    });
+    expect(getReadProjectionDefinition("SessionListProjection")).toMatchObject({
+      ownerContext: "session",
+      queries: ["ListInstanceSessions"],
+      consistency: "eventual_projection",
+    });
+    expect(getReadProjectionDefinition("WorkerJobListProjection")).toMatchObject({
+      ownerContext: "operations",
+      queries: ["ListWorkerJobs"],
+    });
+    expect(getReadProjectionDefinition("DashboardSummaryProjection")).toMatchObject({
+      ownerContext: "observability",
+      queries: ["GetDashboardSummary"],
+      rebuildable: true,
+    });
   });
 
   it("projects and reads safe models with explicit freshness", async () => {
@@ -84,6 +104,31 @@ describe("in-memory read projection store", () => {
     ).toMatchObject({
       version: "v1",
     });
+  });
+
+  it("lists stored projections by projection name for projection-builder inspection", async () => {
+    const store = createInMemoryReadProjectionStore();
+
+    await store.project(
+      {
+        projectionName: "WorkerJobListProjection",
+        projectionKey: "jobs",
+        model: [{ jobId: "job-1", status: "queued" }],
+      },
+      context,
+    );
+    await store.project(
+      {
+        projectionName: "DashboardSummaryProjection",
+        projectionKey: "dashboard",
+        model: { healthy: true },
+      },
+      context,
+    );
+
+    expect(store.listStoredProjectionsByName("WorkerJobListProjection")).toHaveLength(1);
+    expect(store.listStoredProjectionsByName("DashboardSummaryProjection")).toHaveLength(1);
+    expect(store.listStoredProjectionsByName("MessageTimelineProjection")).toHaveLength(0);
   });
 
   it("returns a safe port failure when projection state is unavailable", async () => {
