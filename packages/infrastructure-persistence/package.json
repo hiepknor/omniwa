@@ -10,7 +10,9 @@
     }
   },
   "dependencies": {
-    "@omniwa/domain": "workspace:*"
+    "@omniwa/application": "workspace:*",
+    "@omniwa/domain": "workspace:*",
+    "@omniwa/shared": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
