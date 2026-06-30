@@ -22,9 +22,17 @@ import {
   type ApplicationInterfaceDispatcher,
 } from "@omniwa/interface-api";
 
+import {
+  createEmptyRealtimeEventSource,
+  encodeServerSentEvents,
+  type RealtimeEventSource,
+} from "./realtime-event-stream.js";
+
 const apiPrefix = "v1";
 const jsonContentType = "application/json; charset=utf-8";
+const eventStreamContentType = "text/event-stream; charset=utf-8";
 const maxRequestBodyBytes = 1_000_000;
+const defaultSseReplayLimit = 100;
 
 export type ApiKeyConfig = Readonly<{
   key: string;
@@ -35,6 +43,8 @@ export type ApiHttpServerOptions = Readonly<{
   dispatcher?: ApplicationInterfaceDispatcher;
   adapter?: ApiInterfaceAdapter;
   apiKeys?: readonly ApiKeyConfig[];
+  eventSource?: RealtimeEventSource;
+  sseReplayLimit?: number;
   now?: () => Date;
   requestRefGenerator?: () => string;
 }>;
@@ -51,6 +61,14 @@ export type ApiHttpResponse = Readonly<{
   headers: Readonly<Record<string, string>>;
   body: SuccessEnvelope | ErrorEnvelope;
 }>;
+
+export type ApiSseResponse = Readonly<{
+  statusCode: number;
+  headers: Readonly<Record<string, string>>;
+  body: string;
+}>;
+
+export type ApiEventStreamResponse = ApiSseResponse | ApiHttpResponse;
 
 export type SuccessEnvelope = Readonly<{
   data: unknown;
@@ -190,8 +208,88 @@ export async function handleApiHttpRequest(
   return mapAdapterResponse(adapterResponse, timestamp);
 }
 
+export async function handleApiEventStreamRequest(
+  request: ApiHttpRequest,
+  options: ApiHttpServerOptions = {},
+): Promise<ApiEventStreamResponse> {
+  const now = options.now ?? (() => new Date());
+  const timestamp = now().toISOString();
+  const requestRef = options.requestRefGenerator?.() ?? `http:${randomUUID()}`;
+  const headers = normalizeHeaders(request.headers ?? {});
+  const requestId = getHeader(headers, "x-request-id") ?? requestRef;
+  const correlationId = getHeader(headers, "x-correlation-id") ?? `corr:${requestId}`;
+  const metaBase = createMeta(requestId, correlationId, timestamp);
+  const parsedUrl = parseUrl(request.url);
+  const segments = parsedUrl === undefined ? undefined : splitPath(parsedUrl.pathname);
+
+  if (
+    request.method.toUpperCase() !== "GET" ||
+    parsedUrl === undefined ||
+    segments === undefined ||
+    !matches(segments, ["v1", "events", "stream"])
+  ) {
+    return createErrorHttpResponse(
+      notFound("route_not_found", "Route is not part of the public API surface."),
+      metaBase,
+    );
+  }
+
+  const credential = authenticateHeader(headers, options.apiKeys ?? readApiKeysFromEnv());
+
+  if (credential === undefined) {
+    return createErrorHttpResponse(
+      {
+        category: "authentication",
+        code: "missing_or_invalid_api_key",
+        message: "API request requires a valid x-api-key header.",
+        statusCode: 401,
+      },
+      metaBase,
+    );
+  }
+
+  if (!credential.scopes.includes("admin:*") && !credential.scopes.includes("events:read")) {
+    return createErrorHttpResponse(
+      {
+        category: "authorization",
+        code: "missing_scope",
+        message: "API credential is missing required scope.",
+        statusCode: 403,
+      },
+      metaBase,
+    );
+  }
+
+  const cursor = parsedUrl.searchParams.get("cursor") ?? getHeader(headers, "last-event-id");
+  const eventSource = options.eventSource ?? createEmptyRealtimeEventSource();
+  const events = eventSource.replay({
+    ...(cursor === null || cursor === undefined || cursor.trim().length === 0
+      ? {}
+      : { cursor: cursor.trim() }),
+    limit: options.sseReplayLimit ?? defaultSseReplayLimit,
+  });
+
+  return Object.freeze({
+    statusCode: 200,
+    headers: createSseHeaders(metaBase),
+    body: encodeServerSentEvents({
+      events,
+      requestId,
+      correlationId,
+      timestamp,
+    }),
+  });
+}
+
 export function createApiHttpServer(options: ApiHttpServerOptions = {}): Server {
   return createServer(async (request, response) => {
+    if (isEventStreamIncomingRequest(request)) {
+      const apiResponse = await handleIncomingEventStreamRequest(request, options);
+
+      writeEventStreamResponse(response, apiResponse);
+      return;
+    }
+
     const apiResponse = await handleIncomingRequest(request, options);
 
     writeHttpResponse(response, apiResponse);
@@ -255,6 +353,10 @@ function matchRoute(
 
   if (method === "GET" && matches(segments, ["v1", "action-required"])) {
     return adapterQuery("health", "GetActionRequiredItems", undefined, "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "events"])) {
+    return adapterQuery("public", "ListEvents", undefined, "retention_bound");
   }
 
   if (method === "GET" && matches(segments, ["v1", "metrics"])) {
@@ -700,6 +802,28 @@ async function handleIncomingRequest(
   });
 }
 
+async function handleIncomingEventStreamRequest(
+  request: IncomingMessage,
+  options: ApiHttpServerOptions,
+): Promise<ApiEventStreamResponse> {
+  const now = options.now ?? (() => new Date());
+  const headers = normalizeIncomingHeaders(request);
+  const requestRef = options.requestRefGenerator?.() ?? `http:${randomUUID()}`;
+
+  return handleApiEventStreamRequest(
+    {
+      method: request.method ?? "GET",
+      url: request.url ?? "/",
+      headers,
+    },
+    {
+      ...options,
+      requestRefGenerator: () => requestRef,
+      now,
+    },
+  );
+}
+
 function createErrorHttpResponse(error: HttpFailure, meta: HttpResponseMeta): ApiHttpResponse {
   return Object.freeze({
     statusCode: error.statusCode,
@@ -729,6 +853,17 @@ function createMeta(requestId: string, correlationId: string, timestamp: string)
 function createJsonHeaders(meta: HttpResponseMeta): Readonly<Record<string, string>> {
   return Object.freeze({
     "content-type": jsonContentType,
+    "x-request-id": meta.requestId,
+    "x-correlation-id": meta.correlationId,
+  });
+}
+
+function createSseHeaders(meta: HttpResponseMeta): Readonly<Record<string, string>> {
+  return Object.freeze({
+    "content-type": eventStreamContentType,
+    "cache-control": "no-cache",
+    connection: "keep-alive",
+    "x-accel-buffering": "no",
     "x-request-id": meta.requestId,
     "x-correlation-id": meta.correlationId,
   });
@@ -778,6 +913,20 @@ function writeHttpResponse(response: ServerResponse, apiResponse: ApiHttpRespons
   response.end(JSON.stringify(apiResponse.body));
 }
 
+function writeEventStreamResponse(
+  response: ServerResponse,
+  apiResponse: ApiEventStreamResponse,
+): void {
+  response.writeHead(apiResponse.statusCode, apiResponse.headers);
+
+  if (typeof apiResponse.body === "string") {
+    response.end(apiResponse.body);
+    return;
+  }
+
+  response.end(JSON.stringify(apiResponse.body));
+}
+
 function normalizeIncomingHeaders(
   request: IncomingMessage,
 ): Readonly<Record<string, string | undefined>> {
@@ -788,6 +937,17 @@ function normalizeIncomingHeaders(
   }
 
   return Object.freeze(normalized);
+}
+
+function isEventStreamIncomingRequest(request: IncomingMessage): boolean {
+  if ((request.method ?? "GET").toUpperCase() !== "GET") {
+    return false;
+  }
+
+  const parsedUrl = parseUrl(request.url ?? "/");
+  const segments = parsedUrl === undefined ? undefined : splitPath(parsedUrl.pathname);
+
+  return segments !== undefined && matches(segments, ["v1", "events", "stream"]);
 }
 
 function normalizeHeaders(
@@ -864,6 +1024,7 @@ function parseScopes(value: string | undefined): readonly ApiScope[] {
       "webhooks:read",
       "webhooks:retry",
       "health:read",
+      "events:read",
     ]);
   }
 
@@ -886,6 +1047,7 @@ function isApiScope(value: string): value is ApiScope {
     "webhooks:read",
     "webhooks:retry",
     "health:read",
+    "events:read",
     "metrics:read",
     "config:read",
     "config:write",

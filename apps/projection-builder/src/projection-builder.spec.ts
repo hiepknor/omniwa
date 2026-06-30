@@ -24,6 +24,9 @@ describe("projection builder runtime", () => {
     expect(runtime.definitions.map((definition) => definition.name)).toContain(
       "MessageTimelineProjection",
     );
+    expect(runtime.definitions.map((definition) => definition.name)).toContain(
+      "EventLogProjection",
+    );
   });
 
   it("projects and reads derived platform client views", async () => {

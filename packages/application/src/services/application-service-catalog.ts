@@ -153,6 +153,7 @@ export const applicationServiceDefinitions = [
       "GetDashboardSummary",
       "GetOperationalMetricsSnapshot",
       "GetActionRequiredItems",
+      "ListEvents",
     ],
     false,
     true,

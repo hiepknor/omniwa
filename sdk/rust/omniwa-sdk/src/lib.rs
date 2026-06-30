@@ -10,6 +10,7 @@ pub mod generated;
 pub mod idempotency;
 pub mod pagination;
 pub mod resources;
+pub mod streaming;
 pub mod transport;
 
 pub use auth::ApiKey;
@@ -17,4 +18,5 @@ pub use client::{OmniwaClient, OmniwaClientConfig, RequestBody, RequestOptions};
 pub use error::{ApiFailure, SdkError};
 pub use idempotency::IdempotencyKey;
 pub use pagination::{CursorPage, Page};
+pub use streaming::{parse_sse_events, SseEvent};
 pub use transport::{FixtureTransport, SdkRequest, SdkResponse, Transport};

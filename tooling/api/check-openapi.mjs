@@ -6,6 +6,8 @@ const expectedOperations = Object.freeze([
   ["get", "/v1/health"],
   ["get", "/v1/health/readiness"],
   ["get", "/v1/action-required"],
+  ["get", "/v1/events"],
+  ["get", "/v1/events/stream"],
   ["get", "/v1/metrics"],
   ["get", "/v1/dashboard"],
   ["get", "/v1/metrics/queue"],
@@ -56,6 +58,7 @@ const expectedOperations = Object.freeze([
 const internalApplicationNames = Object.freeze([
   "GetHealthStatus",
   "GetActionRequiredItems",
+  "ListEvents",
   "GetOperationalMetricsSnapshot",
   "GetDashboardSummary",
   "GetQueueMetricsSnapshot",

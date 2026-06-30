@@ -170,6 +170,12 @@ pub const LIST_AUDIT_RECORDS: Operation = Operation {
     path: "/v1/audit-records",
 };
 
+pub const LIST_EVENTS: Operation = Operation {
+    operation_id: "listEvents",
+    method: "GET",
+    path: "/v1/events",
+};
+
 pub const LIST_INSTANCE_MESSAGES: Operation = Operation {
     operation_id: "listInstanceMessages",
     method: "GET",
@@ -272,6 +278,12 @@ pub const SEND_INSTANCE_TEXT_MESSAGE: Operation = Operation {
     path: "/v1/instances/{instanceId}/messages/text",
 };
 
+pub const STREAM_EVENTS: Operation = Operation {
+    operation_id: "streamEvents",
+    method: "GET",
+    path: "/v1/events/stream",
+};
+
 pub const SUSPEND_WEBHOOK: Operation = Operation {
     operation_id: "suspendWebhook",
     method: "POST",
@@ -324,6 +336,7 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     GET_WEBHOOK_METRICS,
     LIST_ACTION_REQUIRED_ITEMS,
     LIST_AUDIT_RECORDS,
+    LIST_EVENTS,
     LIST_INSTANCE_MESSAGES,
     LIST_INSTANCES,
     LIST_INSTANCE_SESSIONS,
@@ -341,6 +354,7 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     SEND_INSTANCE_MEDIA_MESSAGE,
     SEND_INSTANCE_MESSAGE,
     SEND_INSTANCE_TEXT_MESSAGE,
+    STREAM_EVENTS,
     SUSPEND_WEBHOOK,
     UPDATE_INSTANCE,
     UPDATE_WEBHOOK,
@@ -376,6 +390,7 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "getWebhookMetrics" => Some(GET_WEBHOOK_METRICS),
         "listActionRequiredItems" => Some(LIST_ACTION_REQUIRED_ITEMS),
         "listAuditRecords" => Some(LIST_AUDIT_RECORDS),
+        "listEvents" => Some(LIST_EVENTS),
         "listInstanceMessages" => Some(LIST_INSTANCE_MESSAGES),
         "listInstances" => Some(LIST_INSTANCES),
         "listInstanceSessions" => Some(LIST_INSTANCE_SESSIONS),
@@ -393,6 +408,7 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "sendInstanceMediaMessage" => Some(SEND_INSTANCE_MEDIA_MESSAGE),
         "sendInstanceMessage" => Some(SEND_INSTANCE_MESSAGE),
         "sendInstanceTextMessage" => Some(SEND_INSTANCE_TEXT_MESSAGE),
+        "streamEvents" => Some(STREAM_EVENTS),
         "suspendWebhook" => Some(SUSPEND_WEBHOOK),
         "updateInstance" => Some(UPDATE_INSTANCE),
         "updateWebhook" => Some(UPDATE_WEBHOOK),

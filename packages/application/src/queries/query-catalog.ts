@@ -41,6 +41,7 @@ export const applicationQueryDefinitions = [
   query("GetWebhookDeliveryHistory", "history", "retention_bound", true, true),
   query("ListWebhookSubscriptions", "history", "eventual_projection", true, false),
   query("ListWebhookDeliveries", "history", "retention_bound", true, true),
+  query("ListEvents", "history", "retention_bound", true, true),
   query("GetHealthStatus", "status", "eventual_projection", true, false),
   query("QueryAuditRecords", "history", "retention_bound", true, true),
   query("GetConfigurationStatus", "configuration", "strong_owner", true, false),

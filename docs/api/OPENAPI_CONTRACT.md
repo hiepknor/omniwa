@@ -19,6 +19,7 @@ The contract covers:
 - cursor pagination primitives,
 - implemented Phase B route surface,
 - Phase E projection read routes for platform clients,
+- Phase F Events resources and SSE stream contract,
 - reserved partial routes that currently return safe `501` error envelopes.
 
 The contract does not define:
@@ -28,7 +29,7 @@ The contract does not define:
 - provider-native payloads,
 - database schema,
 - business rules outside the frozen Application/Domain boundary,
-- Groups, Chats, Contacts, Broadcast, or realtime streams.
+- Groups, Chats, Contacts, or Broadcast.
 
 ## Compatibility Rules
 
@@ -54,6 +55,7 @@ The validation checks:
 - `ApiKeyAuth`,
 - route coverage for the current platform API surface,
 - success/error/pagination schemas,
+- `text/event-stream` contract for `GET /v1/events/stream`,
 - unique operation ids,
 - no direct use of internal Application command/query names as operation ids,
 - auth error coverage for every operation.

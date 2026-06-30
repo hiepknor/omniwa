@@ -195,6 +195,7 @@ export const applicationWorkflowDefinitions = [
       "GetWebhookDeliveryHistory",
       "ListWebhookSubscriptions",
       "ListWebhookDeliveries",
+      "ListEvents",
       "GetHealthStatus",
       "QueryAuditRecords",
       "GetConfigurationStatus",

@@ -88,15 +88,16 @@ describe("application command and query model", () => {
   });
 
   it("catalogs every frozen application query as side-effect free", () => {
-    expect(applicationQueryNames).toHaveLength(24);
+    expect(applicationQueryNames).toHaveLength(25);
     expect(new Set(applicationQueryNames).size).toBe(applicationQueryNames.length);
     expect(
       applicationQueryGroups.map((group) => getApplicationQueriesByGroup(group).length),
-    ).toEqual([5, 8, 1, 6, 4]);
+    ).toEqual([5, 9, 1, 6, 4]);
     expect(applicationQueryDefinitions.every((definition) => definition.sideEffectFree)).toBe(true);
     expect(isApplicationQueryName("GetInstanceStatus")).toBe(true);
     expect(isApplicationQueryName("GetDashboardSummary")).toBe(true);
     expect(isApplicationQueryName("ListWorkerJobs")).toBe(true);
+    expect(isApplicationQueryName("ListEvents")).toBe(true);
     expect(isApplicationQueryName("RepairProjection")).toBe(false);
   });
 

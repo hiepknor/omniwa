@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 export * from "./http-server.js";
+export * from "./realtime-event-stream.js";
 
 import { createApiHttpServer } from "./http-server.js";
 

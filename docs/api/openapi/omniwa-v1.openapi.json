@@ -4,7 +4,7 @@
   "info": {
     "title": "OmniWA Public REST API",
     "version": "0.1.0",
-    "description": "Phase C OpenAPI contract for the implemented Phase B OmniWA REST resource surface. This contract documents public resources only; Application command and query names remain internal."
+    "description": "Public REST and SSE contract for the implemented OmniWA platform route surface. This contract documents public resources only; Application command and query names remain internal."
   },
   "servers": [
     {
@@ -53,6 +53,10 @@
     {
       "name": "Settings",
       "description": "Administrative configuration resources."
+    },
+    {
+      "name": "Events",
+      "description": "Safe product event log and realtime stream resources."
     },
     {
       "name": "Audit",
@@ -1888,6 +1892,91 @@
           }
         }
       }
+    },
+    "/v1/events": {
+      "get": {
+        "tags": ["Events"],
+        "operationId": "listEvents",
+        "summary": "List retained event log entries",
+        "description": "Polling fallback for clients that cannot use the SSE event stream.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/events/stream": {
+      "get": {
+        "tags": ["Events"],
+        "operationId": "streamEvents",
+        "summary": "Stream safe product events",
+        "description": "Read-only Server-Sent Events stream. Emits safe redacted event envelopes only; WebSocket remains deferred.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/LastEventIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream of safe event envelopes.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2019,6 +2108,15 @@
         "schema": {
           "$ref": "#/components/schemas/SafeResourceId"
         }
+      },
+      "LastEventIdHeader": {
+        "name": "Last-Event-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Optional SSE resume cursor from the last received event id."
       }
     },
     "requestBodies": {

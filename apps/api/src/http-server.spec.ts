@@ -9,7 +9,16 @@ import {
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
 import { describe, expect, it } from "vitest";
 
-import { handleApiHttpRequest, type ApiHttpResponse, type ApiKeyConfig } from "./http-server.js";
+import {
+  handleApiEventStreamRequest,
+  handleApiHttpRequest,
+  type ApiHttpResponse,
+  type ApiKeyConfig,
+} from "./http-server.js";
+import {
+  createRealtimeEventEnvelope,
+  createStaticRealtimeEventSource,
+} from "./realtime-event-stream.js";
 
 const publicCredential: ApiCredential = {
   kind: "api_key",
@@ -28,6 +37,7 @@ const publicCredential: ApiCredential = {
     "webhooks:read",
     "webhooks:retry",
     "health:read",
+    "events:read",
   ],
   allowedInstanceRefs: ["inst_allowed"],
 };
@@ -133,6 +143,7 @@ describe("API HTTP transport", () => {
 
     await request(dispatcher, "GET", "/v1/metrics", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/dashboard", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/events");
     await request(dispatcher, "GET", "/v1/metrics/queue", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/messages", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/webhooks", { apiKey: "monitoring-secret" });
@@ -144,6 +155,7 @@ describe("API HTTP transport", () => {
     expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
       "GetOperationalMetricsSnapshot",
       "GetDashboardSummary",
+      "ListEvents",
       "GetQueueMetricsSnapshot",
       "GetMessageMetricsSnapshot",
       "GetWebhookMetricsSnapshot",
@@ -172,6 +184,109 @@ describe("API HTTP transport", () => {
     expect("data" in response.body ? response.body.data : undefined).toMatchObject({
       kind: "query_outcome",
       outcome: "result",
+    });
+  });
+
+  it("serves safe SSE event stream snapshots with cursor resume", async () => {
+    const eventSource = createStaticRealtimeEventSource([
+      createRealtimeEventEnvelope({
+        id: "evt_1",
+        cursor: "cursor_1",
+        type: "message.delivered.v1",
+        timestamp: "2026-06-30T00:00:00.000Z",
+        dataClassification: "internal",
+        source: "messaging",
+        resourceRef: "msg_1",
+        correlationId: "corr-event-1",
+        payload: {
+          messageId: "msg_1",
+          status: "delivered",
+        },
+      }),
+      createRealtimeEventEnvelope({
+        id: "evt_2",
+        cursor: "cursor_2",
+        type: "worker.job.completed.v1",
+        timestamp: "2026-06-30T00:00:01.000Z",
+        dataClassification: "internal",
+        source: "operations",
+        resourceRef: "job_1",
+        payload: {
+          jobId: "job_1",
+          status: "completed",
+        },
+      }),
+    ]);
+
+    const response = await handleApiEventStreamRequest(
+      {
+        method: "GET",
+        url: "/v1/events/stream?cursor=cursor_1",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-stream",
+          "x-correlation-id": "corr-stream",
+        },
+      },
+      {
+        apiKeys,
+        eventSource,
+        now: fixedNow,
+        requestRefGenerator: () => "http-stream",
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers).toMatchObject({
+      "content-type": "text/event-stream; charset=utf-8",
+      "x-request-id": "req-stream",
+      "x-correlation-id": "corr-stream",
+    });
+    expect(typeof response.body === "string" ? response.body : "").toContain("id: cursor_2");
+    expect(typeof response.body === "string" ? response.body : "").toContain(
+      "event: worker.job.completed.v1",
+    );
+    expect(typeof response.body === "string" ? response.body : "").not.toContain("cursor_1");
+    expect(typeof response.body === "string" ? response.body : "").toContain(": heartbeat");
+  });
+
+  it("requires events read scope for SSE streams", async () => {
+    const response = await handleApiEventStreamRequest(
+      {
+        method: "GET",
+        url: "/v1/events/stream",
+        headers: {
+          "x-api-key": "limited-secret",
+          "x-request-id": "req-stream-denied",
+          "x-correlation-id": "corr-stream-denied",
+        },
+      },
+      {
+        apiKeys: [
+          {
+            key: "limited-secret",
+            credential: {
+              kind: "api_key",
+              keyId: "limited",
+              scopes: ["instances:read"],
+            },
+          },
+        ],
+        now: fixedNow,
+        requestRefGenerator: () => "http-stream-denied",
+      },
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(
+      typeof response.body !== "string" && "error" in response.body
+        ? response.body.error
+        : undefined,
+    ).toMatchObject({
+      code: "missing_scope",
+      details: {
+        category: "authorization",
+      },
     });
   });
 

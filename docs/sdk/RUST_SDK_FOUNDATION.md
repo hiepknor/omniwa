@@ -10,8 +10,8 @@ transport internals directly.
 
 ## Current Scope
 
-Phase D creates the SDK foundation, and Phase E extends wrappers for projection
-read routes:
+Phase D creates the SDK foundation, Phase E extends wrappers for projection
+read routes, and Phase F adds realtime stream primitives:
 
 - `sdk/rust/omniwa-sdk` Rust crate.
 - generated operation catalog from the Phase C OpenAPI contract.
@@ -21,8 +21,9 @@ read routes:
 - cursor pagination primitives.
 - transport abstraction.
 - fixture transport for SDK contract tests.
-- resource wrappers for Health, Dashboard, Instances, Messages, Jobs, and
-  Webhooks calls.
+- resource wrappers for Health, Dashboard, Events, Instances, Messages, Jobs,
+  and Webhooks calls.
+- SSE parser helper for event stream fixtures and future HTTP streaming.
 
 ## Generated Contract
 
@@ -81,6 +82,5 @@ cargo test
 - Add an HTTP transport implementation after choosing the runtime HTTP client.
 - Add generated low-level request/response models beyond operation metadata.
 - Expand resource wrappers for Media, Metrics, Settings, and Audit.
-- Add SSE streaming module after Phase F.
 - Add Groups/Chats/Contacts modules only after their platform phases are
   approved.

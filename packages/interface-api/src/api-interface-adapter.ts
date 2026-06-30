@@ -66,6 +66,7 @@ export const apiScopes = [
   "webhooks:read",
   "webhooks:retry",
   "health:read",
+  "events:read",
   "metrics:read",
   "config:read",
   "config:write",
@@ -584,6 +585,7 @@ function isBoundaryAllowedForQuery(
         "GetWebhookDeliveryHistory",
         "ListWebhookSubscriptions",
         "ListWebhookDeliveries",
+        "ListEvents",
       ].includes(queryName);
     case "admin":
       return true;
@@ -695,6 +697,8 @@ function getRequiredScopesForQuery(queryName: ApplicationQueryName): readonly Ap
     case "GetHealthStatus":
     case "GetActionRequiredItems":
       return ["health:read"];
+    case "ListEvents":
+      return ["events:read"];
     case "QueryAuditRecords":
       return ["audit:read"];
     case "GetConfigurationStatus":

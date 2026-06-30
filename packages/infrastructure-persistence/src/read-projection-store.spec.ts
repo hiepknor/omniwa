@@ -55,6 +55,12 @@ describe("in-memory read projection store", () => {
       queries: ["GetDashboardSummary"],
       rebuildable: true,
     });
+    expect(getReadProjectionDefinition("EventLogProjection")).toMatchObject({
+      ownerContext: "observability",
+      queries: ["ListEvents"],
+      consistency: "retention_bound",
+      retentionBound: true,
+    });
   });
 
   it("projects and reads safe models with explicit freshness", async () => {

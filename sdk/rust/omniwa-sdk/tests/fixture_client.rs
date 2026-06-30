@@ -1,6 +1,6 @@
 use omniwa_sdk::{
-    generated::operations::ALL_OPERATIONS, ApiKey, FixtureTransport, IdempotencyKey, OmniwaClient,
-    OmniwaClientConfig, RequestOptions, SdkResponse,
+    generated::operations::ALL_OPERATIONS, parse_sse_events, ApiKey, FixtureTransport,
+    IdempotencyKey, OmniwaClient, OmniwaClientConfig, RequestOptions, SdkResponse,
 };
 
 fn client_with_fixture(
@@ -16,7 +16,7 @@ fn client_with_fixture(
 
 #[test]
 fn generated_operation_catalog_is_not_empty() {
-    assert!(ALL_OPERATIONS.len() >= 48);
+    assert!(ALL_OPERATIONS.len() >= 50);
 }
 
 #[test]
@@ -94,4 +94,24 @@ fn projection_read_clients_use_generated_operations() {
 
     assert_eq!(dashboard_client.dashboard().get().unwrap().status_code, 200);
     assert_eq!(jobs_client.jobs().list().unwrap().status_code, 200);
+}
+
+#[test]
+fn events_client_streams_sse_fixture() {
+    let client = client_with_fixture(
+        "streamEvents",
+        SdkResponse {
+            status_code: 200,
+            headers: vec![("content-type".to_owned(), "text/event-stream".to_owned())],
+            body: "id: cursor_1\nevent: message.delivered.v1\ndata: {\"cursor\":\"cursor_1\"}\n\n"
+                .to_owned(),
+        },
+    );
+
+    let response = client.events().stream().expect("fixture response");
+    let events = parse_sse_events(&response.body).expect("valid SSE");
+
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].id.as_deref(), Some("cursor_1"));
+    assert_eq!(events[0].event.as_deref(), Some("message.delivered.v1"));
 }
