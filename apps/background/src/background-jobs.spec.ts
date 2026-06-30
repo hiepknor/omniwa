@@ -14,6 +14,7 @@ import {
   type QueueRecoveryCapableProvider,
   type QueueRecoveryResult,
 } from "./background-jobs.js";
+import type { BackupValidationCapable, RecoveryValidationReport } from "./recovery-validation.js";
 
 const context: ApplicationPortContext = {
   requestContext: createRequestContext({
@@ -76,6 +77,54 @@ describe("BackgroundJobRunner", () => {
       },
     });
   });
+
+  it("runs backup validation when a validator is provided", async () => {
+    const backupValidation = new BackupValidationFake({
+      status: "failed",
+      checkedAtEpochMilliseconds: 1_800_000_000_000,
+      safeManifestRef: "backup:latest",
+      backupAgeMilliseconds: 25 * 60 * 60 * 1000,
+      safeRestoreProbeRef: "restore-probe:latest",
+      findings: [
+        {
+          code: "backup_age_exceeds_target",
+          severity: "critical",
+          safeDetailCode: "backup_age_exceeds_target",
+        },
+      ],
+    });
+    const runner = new BackgroundJobRunner({
+      queueProvider: new QueueProviderFake(),
+      backupValidation,
+    });
+
+    const result = await runner.run(getBackupValidationDefinition(), context);
+
+    expectOk(result);
+    expect(result.value).toEqual({
+      jobId: "BG-BACKUP-VALIDATION",
+      kind: "backup_validation",
+      status: "completed",
+      reasonCode: "backup_validation_action_required",
+      validationStatus: "failed",
+      findingCount: 1,
+    });
+    expect(backupValidation.validationRuns).toBe(1);
+  });
+
+  it("skips safely when backup validation is not configured", async () => {
+    const runner = new BackgroundJobRunner({ queueProvider: new QueueProviderFake() });
+
+    const result = await runner.run(getBackupValidationDefinition(), context);
+
+    expectOk(result);
+    expect(result.value).toEqual({
+      jobId: "BG-BACKUP-VALIDATION",
+      kind: "backup_validation",
+      status: "skipped",
+      reasonCode: "backup_validation_not_supported",
+    });
+  });
 });
 
 function expectOk<T>(result: ApplicationPortResult<T>): asserts result is { ok: true; value: T } {
@@ -85,10 +134,24 @@ function expectOk<T>(result: ApplicationPortResult<T>): asserts result is { ok: 
 }
 
 function getQueueRecoveryDefinition() {
-  const definition = backgroundJobDefinitions[0];
+  const definition = backgroundJobDefinitions.find(
+    (candidate) => candidate.kind === "queue_recovery",
+  );
 
   if (definition === undefined) {
     throw new Error("Queue recovery definition is missing.");
+  }
+
+  return definition;
+}
+
+function getBackupValidationDefinition() {
+  const definition = backgroundJobDefinitions.find(
+    (candidate) => candidate.kind === "backup_validation",
+  );
+
+  if (definition === undefined) {
+    throw new Error("Backup validation definition is missing.");
   }
 
   return definition;
@@ -162,5 +225,17 @@ class RecoverableQueueProviderFake extends QueueProviderFake {
     }
 
     return Promise.resolve(this.result);
+  }
+}
+
+class BackupValidationFake implements BackupValidationCapable {
+  validationRuns = 0;
+
+  constructor(private readonly report: RecoveryValidationReport) {}
+
+  validateLatestBackup(): Promise<ApplicationPortResult<RecoveryValidationReport>> {
+    this.validationRuns += 1;
+
+    return Promise.resolve(ok(this.report));
   }
 }
