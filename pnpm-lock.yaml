@@ -59,7 +59,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/domain: {}
+  packages/domain:
+    dependencies:
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/errors:
     dependencies:
