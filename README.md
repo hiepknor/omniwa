@@ -187,4 +187,6 @@ For the broader product progression, see [ROADMAP.md](docs/ROADMAP.md). Detailed
 
 ## License
 
-The project license has not been finalized. A `LICENSE` file should be added before public release.
+Copyright 2026 hiepknor.
+
+Licensed under the [Apache License 2.0](LICENSE).
