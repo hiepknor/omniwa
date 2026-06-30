@@ -6,5 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@omniwa/application": "workspace:*",
+    "@omniwa/interface-api": "workspace:*"
   }
 }

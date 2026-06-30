@@ -30,7 +30,14 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@types/node@26.0.1)(vite@8.1.0(@types/node@26.0.1))
 
-  apps/api: {}
+  apps/api:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@omniwa/interface-api':
+        specifier: workspace:*
+        version: link:../../packages/interface-api
 
   apps/background:
     dependencies:
