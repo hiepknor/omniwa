@@ -77,15 +77,15 @@ x-api-key: <secret>
 
 Runtime environment variables:
 
-| Variable                           | Purpose                                                         | Default          |
-| ---------------------------------- | --------------------------------------------------------------- | ---------------- |
-| `OMNIWA_API_KEY`                   | Required shared secret for the default runtime key              | unset            |
-| `OMNIWA_API_KEY_ID`                | Safe key identifier used in actor references                    | `env-api-key`    |
-| `OMNIWA_API_KEY_KIND`              | `api_key`, `admin_key`, `monitoring_key`, or `internal_runtime` | `api_key`        |
-| `OMNIWA_API_KEY_SCOPES`            | Comma-separated API scopes                                      | P0 public scopes |
-| `OMNIWA_API_KEY_ALLOWED_INSTANCES` | Optional comma-separated instance refs                          | unrestricted     |
-| `OMNIWA_API_HOST`                  | API bind host                                                   | `127.0.0.1`      |
-| `OMNIWA_API_PORT`                  | API bind port                                                   | `3000`           |
+| Variable                           | Purpose                                                         | Default                    |
+| ---------------------------------- | --------------------------------------------------------------- | -------------------------- |
+| `OMNIWA_API_KEY`                   | Required shared secret for the default runtime key              | unset                      |
+| `OMNIWA_API_KEY_ID`                | Safe key identifier used in actor references                    | `env-api-key`              |
+| `OMNIWA_API_KEY_KIND`              | `api_key`, `admin_key`, `monitoring_key`, or `internal_runtime` | `api_key`                  |
+| `OMNIWA_API_KEY_SCOPES`            | Comma-separated API scopes                                      | Current public REST scopes |
+| `OMNIWA_API_KEY_ALLOWED_INSTANCES` | Optional comma-separated instance refs                          | unrestricted               |
+| `OMNIWA_API_HOST`                  | API bind host                                                   | `127.0.0.1`                |
+| `OMNIWA_API_PORT`                  | API bind port                                                   | `3000`                     |
 
 No secret is hardcoded in source.
 

@@ -249,6 +249,49 @@ function matchRoute(
     return adapterQuery("health", "GetHealthStatus", undefined, "eventual_projection");
   }
 
+  if (method === "GET" && matches(segments, ["v1", "health", "readiness"])) {
+    return adapterQuery("health", "GetHealthStatus", undefined, "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "action-required"])) {
+    return adapterQuery("health", "GetActionRequiredItems", undefined, "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "metrics"])) {
+    return adapterQuery(
+      "monitoring",
+      "GetOperationalMetricsSnapshot",
+      undefined,
+      "eventual_projection",
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "metrics", "queue"])) {
+    return adapterQuery("monitoring", "GetQueueMetricsSnapshot", undefined, "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "metrics", "messages"])) {
+    return adapterQuery(
+      "monitoring",
+      "GetMessageMetricsSnapshot",
+      undefined,
+      "eventual_projection",
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "metrics", "webhooks"])) {
+    return adapterQuery(
+      "monitoring",
+      "GetWebhookMetricsSnapshot",
+      undefined,
+      "eventual_projection",
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "metrics", "media"])) {
+    return adapterQuery("monitoring", "GetMediaMetricsSnapshot", undefined, "eventual_projection");
+  }
+
   if (method === "GET" && matches(segments, ["v1", "instances"])) {
     return adapterQuery("public", "ListInstances", undefined, "eventual_projection");
   }
@@ -261,6 +304,14 @@ function matchRoute(
     return adapterQuery("public", "GetInstanceStatus", segments[2], "strong_owner");
   }
 
+  if (method === "PATCH" && matches(segments, ["v1", "instances", ":instanceId"])) {
+    return adapterCommand("public", "UpdateInstanceMetadata", segments[2], validateObjectBody);
+  }
+
+  if (method === "DELETE" && matches(segments, ["v1", "instances", ":instanceId"])) {
+    return adapterCommand("admin", "DestroyInstance", segments[2], validateOptionalObjectBody);
+  }
+
   if (method === "POST" && matches(segments, ["v1", "instances", ":instanceId", "connect"])) {
     return adapterCommand("public", "ConnectInstance", segments[2], validateObjectBody);
   }
@@ -271,6 +322,31 @@ function matchRoute(
 
   if (method === "POST" && matches(segments, ["v1", "instances", ":instanceId", "qr", "refresh"])) {
     return adapterCommand("public", "RefreshQrPairing", segments[2], validateObjectBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "instances", ":instanceId", "reconnect"])) {
+    return partialRoute(
+      "reconnect_public_route_not_available",
+      "Reconnect is currently scheduler-owned in the Application catalog and is not exposed through the public API boundary.",
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "sessions"])) {
+    return partialRoute(
+      "session_list_not_available",
+      "Session list requires a dedicated read model; current safe session visibility is available through instance status.",
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "messages"])) {
+    return partialRoute(
+      "instance_message_list_not_available",
+      "Instance message timeline requires a read projection that does not exist in the current codebase.",
+    );
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "instances", ":instanceId", "messages"])) {
+    return sendMessageRoute(segments[2]);
   }
 
   if (
@@ -287,6 +363,30 @@ function matchRoute(
     return adapterCommand("public", "SendMediaMessage", segments[2], validateSendMediaBody);
   }
 
+  if (method === "GET" && matches(segments, ["v1", "messages", ":messageId"])) {
+    return adapterQuery("public", "GetMessageStatus", segments[2], "strong_owner");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "messages", ":messageId", "delivery-history"])) {
+    return adapterQuery("public", "GetMessageDeliveryHistory", segments[2], "retention_bound");
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "messages", ":messageId", "retry"])) {
+    return adapterCommand("public", "RetryMessageSend", segments[2], validateOptionalObjectBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "messages", ":messageId", "cancel"])) {
+    return adapterCommand("public", "CancelMessage", segments[2], validateOptionalObjectBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "media"])) {
+    return adapterCommand("public", "RegisterMedia", undefined, validateMediaRegistrationBody);
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "media", ":mediaId"])) {
+    return adapterQuery("public", "GetMediaStatus", segments[2], "strong_owner");
+  }
+
   if (method === "GET" && matches(segments, ["v1", "jobs"])) {
     return partialRoute(
       "jobs_list_not_available",
@@ -298,6 +398,10 @@ function matchRoute(
     return adapterQuery("monitoring", "GetWorkerJobStatus", segments[2], "strong_owner");
   }
 
+  if (method === "GET" && matches(segments, ["v1", "queue"])) {
+    return adapterQuery("monitoring", "GetQueueMetricsSnapshot", undefined, "eventual_projection");
+  }
+
   if (method === "GET" && matches(segments, ["v1", "webhooks"])) {
     return partialRoute(
       "webhook_list_not_available",
@@ -307,6 +411,94 @@ function matchRoute(
 
   if (method === "POST" && matches(segments, ["v1", "webhooks"])) {
     return adapterCommand("public", "RegisterWebhookSubscription", undefined, validateWebhookBody);
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "webhooks", ":webhookId"])) {
+    return adapterQuery("public", "GetWebhookStatus", segments[2], "strong_owner");
+  }
+
+  if (method === "PATCH" && matches(segments, ["v1", "webhooks", ":webhookId"])) {
+    return adapterCommand("public", "UpdateWebhookSubscription", segments[2], validateObjectBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "webhooks", ":webhookId", "activate"])) {
+    return adapterCommand(
+      "public",
+      "ActivateWebhookSubscription",
+      segments[2],
+      validateOptionalObjectBody,
+    );
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "webhooks", ":webhookId", "suspend"])) {
+    return adapterCommand(
+      "public",
+      "SuspendWebhookSubscription",
+      segments[2],
+      validateOptionalObjectBody,
+    );
+  }
+
+  if (method === "DELETE" && matches(segments, ["v1", "webhooks", ":webhookId"])) {
+    return adapterCommand(
+      "public",
+      "RetireWebhookSubscription",
+      segments[2],
+      validateOptionalObjectBody,
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "webhook-deliveries"])) {
+    return partialRoute(
+      "webhook_delivery_list_not_available",
+      "Webhook delivery list requires a read projection that does not exist in the current codebase.",
+    );
+  }
+
+  if (
+    method === "GET" &&
+    matches(segments, ["v1", "webhook-deliveries", ":deliveryId", "history"])
+  ) {
+    return adapterQuery("public", "GetWebhookDeliveryHistory", segments[2], "retention_bound");
+  }
+
+  if (
+    method === "POST" &&
+    matches(segments, ["v1", "webhook-deliveries", ":deliveryId", "retry"])
+  ) {
+    return adapterCommand(
+      "public",
+      "RetryWebhookDelivery",
+      segments[2],
+      validateOptionalObjectBody,
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "provider", "capabilities"])) {
+    return adapterQuery("admin", "GetProviderCapabilityStatus", undefined, "strong_owner");
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "provider", "capabilities", "refresh"])) {
+    return partialRoute(
+      "provider_refresh_public_route_not_available",
+      "Provider capability refresh is currently scheduler-owned in the Application catalog and is not exposed through the public API boundary.",
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "settings"])) {
+    return adapterQuery("admin", "GetConfigurationStatus", undefined, "strong_owner");
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "settings", "validate"])) {
+    return adapterCommand("admin", "ValidateConfigurationSnapshot", undefined, validateObjectBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "settings", "activate"])) {
+    return adapterCommand("admin", "ActivateConfigurationSnapshot", undefined, validateObjectBody);
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "audit-records"])) {
+    return adapterQuery("admin", "QueryAuditRecords", undefined, "retention_bound");
   }
 
   return undefined;
@@ -364,6 +556,22 @@ function partialRoute(
         message,
         statusCode: 501,
       },
+    }),
+  };
+}
+
+function sendMessageRoute(targetRef: string | undefined): Readonly<{
+  build(context: RouteContext, body: unknown): RouteMatch;
+  bodyValidation: BodyValidation;
+}> {
+  return {
+    bodyValidation: {
+      required: true,
+      validate: validateSendMessageBody,
+    },
+    build: (context, body) => ({
+      kind: "adapter",
+      request: createCommandRequest("public", getSendMessageCommandName(body), targetRef, context),
     }),
   };
 }
@@ -658,7 +866,14 @@ function parseScopes(value: string | undefined): readonly ApiScope[] {
       "instances:write",
       "instances:connect",
       "messages:send",
+      "messages:read",
+      "messages:retry",
+      "messages:cancel",
+      "media:write",
+      "media:read",
       "webhooks:write",
+      "webhooks:read",
+      "webhooks:retry",
       "health:read",
     ]);
   }
@@ -753,6 +968,10 @@ function validateObjectBody(body: unknown): HttpFailure | undefined {
   return validation("invalid_body", "Request body must be a JSON object.");
 }
 
+function validateOptionalObjectBody(body: unknown): HttpFailure | undefined {
+  return body === undefined ? undefined : validateObjectBody(body);
+}
+
 function validateCreateInstanceBody(body: unknown): HttpFailure | undefined {
   const objectFailure = validateObjectBody(body);
 
@@ -765,6 +984,47 @@ function validateCreateInstanceBody(body: unknown): HttpFailure | undefined {
   }
 
   return optionalStringField(body, "displayName");
+}
+
+function validateSendMessageBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  const type = body.type;
+
+  if (type === "text") {
+    return validateSendTextBody(body);
+  }
+
+  if (
+    type === "media" ||
+    type === "image" ||
+    type === "video" ||
+    type === "document" ||
+    type === "audio"
+  ) {
+    return validateSendMediaBody(body);
+  }
+
+  return validation(
+    "unsupported_message_type",
+    "Request body field 'type' must be text, media, image, video, document, or audio.",
+  );
+}
+
+function getSendMessageCommandName(body: unknown): "SendTextMessage" | "SendMediaMessage" {
+  if (isPlainObject(body) && body.type === "text") {
+    return "SendTextMessage";
+  }
+
+  return "SendMediaMessage";
 }
 
 function validateSendTextBody(body: unknown): HttpFailure | undefined {
@@ -798,6 +1058,28 @@ function validateSendMediaBody(body: unknown): HttpFailure | undefined {
       ? undefined
       : validation("invalid_body", "Request body requires mediaId or mediaRef."))
   );
+}
+
+function validateMediaRegistrationBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  if (
+    typeof body.mediaRef === "string" ||
+    typeof body.url === "string" ||
+    typeof body.fileRef === "string"
+  ) {
+    return undefined;
+  }
+
+  return validation("invalid_body", "Request body requires mediaRef, url, or fileRef.");
 }
 
 function validateWebhookBody(body: unknown): HttpFailure | undefined {

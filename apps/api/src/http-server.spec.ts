@@ -19,16 +19,47 @@ const publicCredential: ApiCredential = {
     "instances:write",
     "instances:connect",
     "messages:send",
+    "messages:read",
+    "messages:retry",
+    "messages:cancel",
+    "media:write",
+    "media:read",
     "webhooks:write",
+    "webhooks:read",
+    "webhooks:retry",
     "health:read",
   ],
   allowedInstanceRefs: ["inst_allowed"],
+};
+
+const monitoringCredential: ApiCredential = {
+  kind: "monitoring_key",
+  keyId: "test-monitoring-key",
+  scopes: ["health:read", "metrics:read", "jobs:read"],
+};
+
+const adminCredential: ApiCredential = {
+  kind: "admin_key",
+  keyId: "test-admin-key",
+  scopes: ["admin:*"],
 };
 
 const apiKey: ApiKeyConfig = {
   key: "test-secret",
   credential: publicCredential,
 };
+
+const monitoringApiKey: ApiKeyConfig = {
+  key: "monitoring-secret",
+  credential: monitoringCredential,
+};
+
+const adminApiKey: ApiKeyConfig = {
+  key: "admin-secret",
+  credential: adminCredential,
+};
+
+const apiKeys = [apiKey, monitoringApiKey, adminApiKey] as const;
 
 describe("API HTTP transport", () => {
   it("serves health through the interface adapter", async () => {
@@ -83,6 +114,40 @@ describe("API HTTP transport", () => {
       actorRef: "api_key:test-public-key",
       requestedConsistency: "eventual_projection",
     });
+  });
+
+  it("maps health readiness and action-required resources to health queries", async () => {
+    const dispatcher = new CapturingDispatcher();
+
+    await request(dispatcher, "GET", "/v1/health/readiness");
+    await request(dispatcher, "GET", "/v1/action-required");
+
+    expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "GetHealthStatus",
+      "GetActionRequiredItems",
+    ]);
+  });
+
+  it("maps monitoring metrics and queue resources through the monitoring boundary", async () => {
+    const dispatcher = new CapturingDispatcher();
+
+    await request(dispatcher, "GET", "/v1/metrics", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/metrics/queue", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/metrics/messages", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/metrics/webhooks", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/metrics/media", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/queue", { apiKey: "monitoring-secret" });
+    await request(dispatcher, "GET", "/v1/jobs/job_1", { apiKey: "monitoring-secret" });
+
+    expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "GetOperationalMetricsSnapshot",
+      "GetQueueMetricsSnapshot",
+      "GetMessageMetricsSnapshot",
+      "GetWebhookMetricsSnapshot",
+      "GetMediaMetricsSnapshot",
+      "GetQueueMetricsSnapshot",
+      "GetWorkerJobStatus",
+    ]);
   });
 
   it("wraps success responses in the public envelope", async () => {
@@ -153,14 +218,152 @@ describe("API HTTP transport", () => {
     ]);
   });
 
+  it("maps the generic message resource to text or media commands by validated body type", async () => {
+    const dispatcher = new CapturingDispatcher();
+
+    await request(dispatcher, "POST", "/v1/instances/inst_allowed/messages", {
+      body: {
+        type: "text",
+        to: "12025550123",
+        text: "hello",
+      },
+      headers: {
+        "idempotency-key": "send-generic-text-1",
+      },
+    });
+    await request(dispatcher, "POST", "/v1/instances/inst_allowed/messages", {
+      body: {
+        type: "image",
+        to: "12025550123",
+        mediaId: "media_1",
+      },
+      headers: {
+        "idempotency-key": "send-generic-media-1",
+      },
+    });
+
+    expect(dispatcher.commandEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "SendTextMessage",
+      "SendMediaMessage",
+    ]);
+  });
+
+  it("maps message, media, and webhook resource routes to existing commands and queries", async () => {
+    const dispatcher = new CapturingDispatcher();
+
+    await request(dispatcher, "GET", "/v1/messages/msg_1");
+    await request(dispatcher, "GET", "/v1/messages/msg_1/delivery-history");
+    await request(dispatcher, "POST", "/v1/messages/msg_1/retry", {
+      headers: { "idempotency-key": "retry-message-1" },
+    });
+    await request(dispatcher, "POST", "/v1/messages/msg_1/cancel", {
+      headers: { "idempotency-key": "cancel-message-1" },
+    });
+    await request(dispatcher, "POST", "/v1/media", {
+      body: { mediaRef: "upload-ref-1" },
+      headers: { "idempotency-key": "register-media-1" },
+    });
+    await request(dispatcher, "GET", "/v1/media/media_1");
+    await request(dispatcher, "GET", "/v1/webhooks/wh_1");
+    await request(dispatcher, "PATCH", "/v1/webhooks/wh_1", {
+      body: { url: "https://example.test/webhook" },
+      headers: { "idempotency-key": "update-webhook-1" },
+    });
+    await request(dispatcher, "POST", "/v1/webhooks/wh_1/activate", {
+      headers: { "idempotency-key": "activate-webhook-1" },
+    });
+    await request(dispatcher, "POST", "/v1/webhook-deliveries/whd_1/retry", {
+      headers: { "idempotency-key": "retry-webhook-delivery-1" },
+    });
+    await request(dispatcher, "GET", "/v1/webhook-deliveries/whd_1/history");
+
+    expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "GetMessageStatus",
+      "GetMessageDeliveryHistory",
+      "GetMediaStatus",
+      "GetWebhookStatus",
+      "GetWebhookDeliveryHistory",
+    ]);
+    expect(dispatcher.commandEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "RetryMessageSend",
+      "CancelMessage",
+      "RegisterMedia",
+      "UpdateWebhookSubscription",
+      "ActivateWebhookSubscription",
+      "RetryWebhookDelivery",
+    ]);
+  });
+
+  it("maps admin settings, audit, provider, and destroy routes through the admin boundary", async () => {
+    const dispatcher = new CapturingDispatcher();
+
+    await request(dispatcher, "GET", "/v1/settings", { apiKey: "admin-secret" });
+    await request(dispatcher, "POST", "/v1/settings/validate", {
+      apiKey: "admin-secret",
+      body: { snapshotRef: "cfg_candidate" },
+      headers: { "idempotency-key": "validate-settings-1" },
+    });
+    await request(dispatcher, "POST", "/v1/settings/activate", {
+      apiKey: "admin-secret",
+      body: { snapshotRef: "cfg_candidate" },
+      headers: { "idempotency-key": "activate-settings-1" },
+    });
+    await request(dispatcher, "GET", "/v1/audit-records", { apiKey: "admin-secret" });
+    await request(dispatcher, "GET", "/v1/provider/capabilities", { apiKey: "admin-secret" });
+    await request(dispatcher, "DELETE", "/v1/instances/inst_allowed", {
+      apiKey: "admin-secret",
+    });
+
+    expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "GetConfigurationStatus",
+      "QueryAuditRecords",
+      "GetProviderCapabilityStatus",
+    ]);
+    expect(dispatcher.commandEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "ValidateConfigurationSnapshot",
+      "ActivateConfigurationSnapshot",
+      "DestroyInstance",
+    ]);
+    expect(dispatcher.commandEnvelopes.map((envelope) => envelope.actorRef)).toEqual([
+      "admin_key:test-admin-key",
+      "admin_key:test-admin-key",
+      "admin_key:test-admin-key",
+    ]);
+  });
+
   it("keeps routes without current projections present but explicitly partial", async () => {
     const dispatcher = new CapturingDispatcher();
-    const response = await request(dispatcher, "GET", "/v1/jobs");
+    const jobsResponse = await request(dispatcher, "GET", "/v1/jobs");
+    const webhooksResponse = await request(dispatcher, "GET", "/v1/webhooks");
+    const deliveriesResponse = await request(dispatcher, "GET", "/v1/webhook-deliveries");
+    const reconnectResponse = await request(
+      dispatcher,
+      "POST",
+      "/v1/instances/inst_allowed/reconnect",
+    );
+    const providerRefreshResponse = await request(
+      dispatcher,
+      "POST",
+      "/v1/provider/capabilities/refresh",
+      { apiKey: "admin-secret" },
+    );
 
-    expect(response.statusCode).toBe(501);
-    expect("error" in response.body ? response.body.error.code : undefined).toBe(
+    expect(jobsResponse.statusCode).toBe(501);
+    expect("error" in jobsResponse.body ? jobsResponse.body.error.code : undefined).toBe(
       "jobs_list_not_available",
     );
+    expect("error" in webhooksResponse.body ? webhooksResponse.body.error.code : undefined).toBe(
+      "webhook_list_not_available",
+    );
+    expect(
+      "error" in deliveriesResponse.body ? deliveriesResponse.body.error.code : undefined,
+    ).toBe("webhook_delivery_list_not_available");
+    expect("error" in reconnectResponse.body ? reconnectResponse.body.error.code : undefined).toBe(
+      "reconnect_public_route_not_available",
+    );
+    expect(
+      "error" in providerRefreshResponse.body ? providerRefreshResponse.body.error.code : undefined,
+    ).toBe("provider_refresh_public_route_not_available");
     expect(dispatcher.queryEnvelopes).toHaveLength(0);
   });
 });
@@ -170,6 +373,7 @@ function request(
   method: string,
   url: string,
   input: Readonly<{
+    apiKey?: string;
     body?: unknown;
     headers?: Readonly<Record<string, string>>;
   }> = {},
@@ -179,7 +383,7 @@ function request(
       method,
       url,
       headers: {
-        "x-api-key": "test-secret",
+        "x-api-key": input.apiKey ?? "test-secret",
         "x-request-id": "req-test",
         "x-correlation-id": "corr-test",
         ...(input.headers ?? {}),
@@ -188,7 +392,7 @@ function request(
     },
     {
       dispatcher,
-      apiKeys: [apiKey],
+      apiKeys,
       now: fixedNow,
       requestRefGenerator: () => "http-test",
     },
