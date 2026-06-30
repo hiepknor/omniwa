@@ -13,6 +13,10 @@ import type {
   GuardrailDecision,
   GuardrailDecisionId,
   GuardrailDecisionRepositoryPort,
+  Group,
+  GroupId,
+  GroupRepositoryPort,
+  GroupStatus,
   HealthCategory,
   HealthStatus,
   HealthStatusId,
@@ -32,6 +36,7 @@ import type {
   MessageId,
   MessageRepositoryPort,
   MessageStatus,
+  Jid,
   ProviderId,
   ProviderProfile,
   ProviderProfileRepositoryPort,
@@ -212,6 +217,23 @@ export class InMemoryMediaAssetRepository
 
   markRequiringCleanup(mediaId: MediaId): void {
     this.cleanupRequiredMediaIds.add(this.keyFor(mediaId));
+  }
+}
+
+export class InMemoryGroupRepository
+  extends InMemoryAggregateRepository<Group, GroupId>
+  implements GroupRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Group[]> {
+    return Promise.resolve(this.findAll((group) => keyOf(group.instanceId) === keyOf(instanceId)));
+  }
+
+  findByStatus(status: GroupStatus): Promise<readonly Group[]> {
+    return Promise.resolve(this.findAll((group) => group.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Group | undefined> {
+    return Promise.resolve(this.list().find((group) => keyOf(group.jid) === keyOf(jid)));
   }
 }
 
@@ -419,6 +441,7 @@ export type InMemoryRepositorySet = Readonly<{
   sessionRepository: InMemorySessionRepository;
   messageRepository: InMemoryMessageRepository;
   mediaAssetRepository: InMemoryMediaAssetRepository;
+  groupRepository: InMemoryGroupRepository;
   webhookSubscriptionRepository: InMemoryWebhookSubscriptionRepository;
   webhookDeliveryRepository: InMemoryWebhookDeliveryRepository;
   guardrailDecisionRepository: InMemoryGuardrailDecisionRepository;
@@ -437,6 +460,7 @@ export function createInMemoryRepositorySet(): InMemoryRepositorySet {
     sessionRepository: new InMemorySessionRepository(),
     messageRepository: new InMemoryMessageRepository(),
     mediaAssetRepository: new InMemoryMediaAssetRepository(),
+    groupRepository: new InMemoryGroupRepository(),
     webhookSubscriptionRepository: new InMemoryWebhookSubscriptionRepository(),
     webhookDeliveryRepository: new InMemoryWebhookDeliveryRepository(),
     guardrailDecisionRepository: new InMemoryGuardrailDecisionRepository(),

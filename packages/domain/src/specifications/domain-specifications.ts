@@ -1,5 +1,6 @@
 import type { ConfigurationSnapshot } from "../configuration/configuration-snapshot.js";
 import type { GuardrailDecision } from "../guardrails/guardrail-decision.js";
+import type { GroupProviderCapability } from "../group/group-provider-capability.js";
 import type { MediaAsset } from "../media/media-asset.js";
 import { mediaCategories, type MediaCategory } from "../media/media-category.js";
 import type { MessageType } from "../messaging/message-type.js";
@@ -135,6 +136,28 @@ export function isProviderCapabilitySupported(
     ownerContext: "provider_integration",
     reasonCode: "provider_capability_not_supported",
     message: "Provider profile does not support the approved product capability.",
+    recoverability: "operator_correctable",
+  });
+}
+
+export function isGroupProviderCapabilitySupported(
+  profile: ProviderProfile | undefined,
+  capability: GroupProviderCapability,
+): SpecificationResult {
+  const supported =
+    profile !== undefined &&
+    (profile.status === "supported" || profile.status === "degraded") &&
+    profile.supportedGroupCapabilities.includes(capability);
+
+  if (supported) {
+    return passSpecification();
+  }
+
+  return failSpecification({
+    category: "unsupported_capability",
+    ownerContext: "group",
+    reasonCode: "group_provider_capability_not_supported",
+    message: "Provider profile does not support the approved group capability.",
     recoverability: "operator_correctable",
   });
 }

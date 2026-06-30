@@ -16,7 +16,7 @@ fn client_with_fixture(
 
 #[test]
 fn generated_operation_catalog_is_not_empty() {
-    assert!(ALL_OPERATIONS.len() >= 50);
+    assert!(ALL_OPERATIONS.len() >= 62);
 }
 
 #[test]
@@ -114,4 +114,22 @@ fn events_client_streams_sse_fixture() {
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].id.as_deref(), Some("cursor_1"));
     assert_eq!(events[0].event.as_deref(), Some("message.delivered.v1"));
+}
+
+#[test]
+fn groups_client_uses_resource_operations() {
+    let client = client_with_fixture(
+        "listInstanceGroups",
+        SdkResponse::json(
+            200,
+            r#"{"data":[],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z"}}"#,
+        ),
+    );
+
+    let response = client
+        .groups()
+        .list_for_instance("instance_demo")
+        .expect("fixture response");
+
+    assert_eq!(response.status_code, 200);
 }

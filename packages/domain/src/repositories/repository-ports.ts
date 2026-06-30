@@ -2,12 +2,14 @@ import type { AuditRecord } from "../audit/audit-record.js";
 import type { ConfigurationSnapshot } from "../configuration/configuration-snapshot.js";
 import type { DomainOwnerContext } from "../errors/domain-owner-context.js";
 import type { GuardrailDecision } from "../guardrails/guardrail-decision.js";
+import type { Group } from "../group/group.js";
 import type { HealthStatus } from "../health/health-status.js";
 import type {
   AccessDecisionId,
   AuditRecordId,
   ConfigurationSnapshotId,
   GuardrailDecisionId,
+  GroupId,
   HealthStatusId,
   InstanceId,
   JobId,
@@ -21,6 +23,7 @@ import type {
 } from "../identity/aggregate-ids.js";
 import type { IdempotencyKey } from "../idempotency/idempotency-key.js";
 import type { Instance } from "../instance/instance.js";
+import type { Jid } from "../references/jid.js";
 import type { MediaAsset } from "../media/media-asset.js";
 import type { Message } from "../messaging/message.js";
 import type { TelemetrySignal } from "../observability/telemetry-signal.js";
@@ -29,6 +32,7 @@ import type { ProviderProfile } from "../provider/provider-profile.js";
 import type { AccessDecision } from "../security/access-decision.js";
 import type { Session } from "../session/session.js";
 import type { HealthCategory } from "../status/health-category.js";
+import type { GroupStatus } from "../status/group-status.js";
 import type { InstanceStatus } from "../status/instance-status.js";
 import type { JobStatus } from "../status/job-status.js";
 import type { MediaAssetStatus } from "../status/media-asset-status.js";
@@ -75,6 +79,12 @@ export interface MediaAssetRepositoryPort extends AggregateRepositoryPort<MediaA
   findByStatus(status: MediaAssetStatus): Promise<readonly MediaAsset[]>;
   findRequiringCleanup(): Promise<readonly MediaAsset[]>;
   findByMessage(messageId: MessageId): Promise<readonly MediaAsset[]>;
+}
+
+export interface GroupRepositoryPort extends AggregateRepositoryPort<Group, GroupId> {
+  findByInstance(instanceId: InstanceId): Promise<readonly Group[]>;
+  findByStatus(status: GroupStatus): Promise<readonly Group[]>;
+  findByJid(jid: Jid): Promise<Group | undefined>;
 }
 
 export interface WebhookSubscriptionRepositoryPort extends AggregateRepositoryPort<

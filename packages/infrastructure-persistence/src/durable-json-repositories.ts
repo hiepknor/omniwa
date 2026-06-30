@@ -15,6 +15,10 @@ import type {
   GuardrailDecision,
   GuardrailDecisionId,
   GuardrailDecisionRepositoryPort,
+  Group,
+  GroupId,
+  GroupRepositoryPort,
+  GroupStatus,
   HealthCategory,
   HealthStatus,
   HealthStatusId,
@@ -34,6 +38,7 @@ import type {
   MessageId,
   MessageRepositoryPort,
   MessageStatus,
+  Jid,
   ProviderId,
   ProviderProfile,
   ProviderProfileRepositoryPort,
@@ -275,6 +280,23 @@ export class DurableJsonMediaAssetRepository
   }
 }
 
+export class DurableJsonGroupRepository
+  extends DurableJsonAggregateRepository<Group, GroupId>
+  implements GroupRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Group[]> {
+    return Promise.resolve(this.findAll((group) => keyOf(group.instanceId) === keyOf(instanceId)));
+  }
+
+  findByStatus(status: GroupStatus): Promise<readonly Group[]> {
+    return Promise.resolve(this.findAll((group) => group.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Group | undefined> {
+    return Promise.resolve(this.list().find((group) => keyOf(group.jid) === keyOf(jid)));
+  }
+}
+
 export class DurableJsonWebhookSubscriptionRepository
   extends DurableJsonAggregateRepository<WebhookSubscription, WebhookId>
   implements WebhookSubscriptionRepositoryPort
@@ -477,6 +499,7 @@ export type DurableJsonRepositorySet = Readonly<{
   sessionRepository: DurableJsonSessionRepository;
   messageRepository: DurableJsonMessageRepository;
   mediaAssetRepository: DurableJsonMediaAssetRepository;
+  groupRepository: DurableJsonGroupRepository;
   webhookSubscriptionRepository: DurableJsonWebhookSubscriptionRepository;
   webhookDeliveryRepository: DurableJsonWebhookDeliveryRepository;
   guardrailDecisionRepository: DurableJsonGuardrailDecisionRepository;
@@ -497,6 +520,7 @@ export function createDurableJsonRepositorySet(baseDirectory: string): DurableJs
     mediaAssetRepository: new DurableJsonMediaAssetRepository(
       join(baseDirectory, "media-assets.json"),
     ),
+    groupRepository: new DurableJsonGroupRepository(join(baseDirectory, "groups.json")),
     webhookSubscriptionRepository: new DurableJsonWebhookSubscriptionRepository(
       join(baseDirectory, "webhook-subscriptions.json"),
     ),

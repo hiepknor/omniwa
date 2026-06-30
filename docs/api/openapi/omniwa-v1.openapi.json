@@ -1977,6 +1977,593 @@
           }
         }
       }
+    },
+    "/v1/instances/{instanceId}/groups": {
+      "get": {
+        "tags": ["Groups"],
+        "operationId": "listInstanceGroups",
+        "summary": "List groups for an instance",
+        "description": "List group projection rows for one instance.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/v1/instances/{instanceId}/groups/refresh": {
+      "post": {
+        "tags": ["Groups"],
+        "operationId": "refreshInstanceGroups",
+        "summary": "Refresh group list for an instance",
+        "description": "Request provider-backed group discovery behind capability checks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        }
+      }
+    },
+    "/v1/groups/{groupId}": {
+      "get": {
+        "tags": ["Groups"],
+        "operationId": "getGroup",
+        "summary": "Get group status",
+        "description": "Read one group status projection.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Groups"],
+        "operationId": "updateGroup",
+        "summary": "Update group metadata",
+        "description": "Request subject or description update behind provider capability checks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/GroupMetadata"
+        }
+      }
+    },
+    "/v1/groups/{groupId}/local-state": {
+      "patch": {
+        "tags": ["Groups"],
+        "operationId": "updateGroupLocalState",
+        "summary": "Update group local state",
+        "description": "Request mute/archive/pin local state update.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/GroupLocalState"
+        }
+      }
+    },
+    "/v1/groups/{groupId}/members": {
+      "get": {
+        "tags": ["Groups"],
+        "operationId": "listGroupMembers",
+        "summary": "List group members",
+        "description": "List group member projection rows.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Groups"],
+        "operationId": "addGroupMember",
+        "summary": "Add group member",
+        "description": "Request member addition behind provider capability checks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/GroupMember"
+        }
+      }
+    },
+    "/v1/groups/{groupId}/messages/text": {
+      "post": {
+        "tags": ["Groups"],
+        "operationId": "sendGroupTextMessage",
+        "summary": "Send text message to group",
+        "description": "Send text into a group without exposing internal command names.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/GroupTextMessage"
+        }
+      }
+    },
+    "/v1/groups/{groupId}/members/{memberJid}": {
+      "delete": {
+        "tags": ["Groups"],
+        "operationId": "removeGroupMember",
+        "summary": "Remove group member",
+        "description": "Request member removal behind provider capability checks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/MemberJid"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        }
+      }
+    },
+    "/v1/groups/{groupId}/members/{memberJid}/promote": {
+      "post": {
+        "tags": ["Groups"],
+        "operationId": "promoteGroupMember",
+        "summary": "Promote group member",
+        "description": "Request member promotion behind provider capability checks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/MemberJid"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        }
+      }
+    },
+    "/v1/groups/{groupId}/members/{memberJid}/demote": {
+      "post": {
+        "tags": ["Groups"],
+        "operationId": "demoteGroupMember",
+        "summary": "Demote group member",
+        "description": "Request member demotion behind provider capability checks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/MemberJid"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        }
+      }
+    },
+    "/v1/groups/{groupId}/invite-link/refresh": {
+      "post": {
+        "tags": ["Groups"],
+        "operationId": "refreshGroupInviteLink",
+        "summary": "Refresh group invite link",
+        "description": "Request invite link refresh behind provider capability checks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Object"
+        }
+      }
     }
   },
   "components": {
@@ -2117,6 +2704,23 @@
           "type": "string"
         },
         "description": "Optional SSE resume cursor from the last received event id."
+      },
+      "GroupId": {
+        "name": "groupId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/SafeResourceId"
+        }
+      },
+      "MemberJid": {
+        "name": "memberJid",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "requestBodies": {
@@ -2213,6 +2817,58 @@
             "example": {
               "url": "https://example.invalid/omniwa/webhook",
               "eventTypes": ["message.delivered"]
+            }
+          }
+        }
+      },
+      "GroupTextMessage": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GroupTextMessageRequest"
+            },
+            "example": {
+              "text": "Hello group from OmniWA"
+            }
+          }
+        }
+      },
+      "GroupMember": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GroupMemberRequest"
+            },
+            "example": {
+              "jid": "12025550123@s.whatsapp.net"
+            }
+          }
+        }
+      },
+      "GroupMetadata": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GroupMetadataRequest"
+            },
+            "example": {
+              "subject": "New group subject"
+            }
+          }
+        }
+      },
+      "GroupLocalState": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GroupLocalStateRequest"
+            },
+            "example": {
+              "archived": true
             }
           }
         }
@@ -2647,6 +3303,57 @@
         "type": "object",
         "additionalProperties": true,
         "description": "Public resource data returned by the Application boundary. It must not include secrets, raw provider payloads, raw phone numbers, raw JIDs, or session material."
+      },
+      "GroupTextMessageRequest": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      },
+      "GroupMemberRequest": {
+        "type": "object",
+        "required": ["jid"],
+        "properties": {
+          "jid": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      },
+      "GroupMetadataRequest": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      },
+      "GroupLocalStateRequest": {
+        "type": "object",
+        "properties": {
+          "muted": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
       }
     }
   }

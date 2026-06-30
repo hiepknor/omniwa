@@ -2,6 +2,7 @@ import { transitionStatus, type StatusTransitionMap } from "../aggregates/status
 import { createSafeDomainCode } from "../common/safe-domain-code.js";
 import { appendDomainEvent, type DomainEvent } from "../events/domain-event.js";
 import type { FailureCategory } from "../errors/failure-category.js";
+import type { GroupProviderCapability } from "../group/group-provider-capability.js";
 import type { ProviderId } from "../identity/aggregate-ids.js";
 import type { MessageType } from "../messaging/message-type.js";
 import type { ProviderProfileStatus } from "../status/provider-profile-status.js";
@@ -19,6 +20,7 @@ export type ProviderProfile = Readonly<{
   providerKind: string;
   status: ProviderProfileStatus;
   supportedMessageTypes: readonly MessageType[];
+  supportedGroupCapabilities: readonly GroupProviderCapability[];
   failureCategory?: FailureCategory;
   domainEvents: readonly DomainEvent[];
 }>;
@@ -29,6 +31,7 @@ export function createProviderProfile(id: ProviderId, providerKind: string): Pro
     providerKind: createSafeDomainCode(providerKind, "ProviderProfile.providerKind"),
     status: "candidate",
     supportedMessageTypes: Object.freeze([]),
+    supportedGroupCapabilities: Object.freeze([]),
     domainEvents: [],
   });
 }
@@ -36,9 +39,11 @@ export function createProviderProfile(id: ProviderId, providerKind: string): Pro
 export function markProviderSupported(
   profile: ProviderProfile,
   supportedMessageTypes: readonly MessageType[],
+  supportedGroupCapabilities: readonly GroupProviderCapability[] = [],
 ): ProviderProfile {
   return transitionProviderProfile(profile, "supported", "ProviderProfileSupported", {
     supportedMessageTypes,
+    supportedGroupCapabilities,
   });
 }
 
@@ -70,6 +75,7 @@ function transitionProviderProfile(
   eventName?: Parameters<typeof appendDomainEvent>[3],
   patch: Readonly<{
     supportedMessageTypes?: readonly MessageType[];
+    supportedGroupCapabilities?: readonly GroupProviderCapability[];
     failureCategory?: FailureCategory;
   }> = {},
 ): ProviderProfile {
@@ -79,6 +85,9 @@ function transitionProviderProfile(
     status: transitionStatus(profile.status, status, providerProfileTransitions, "ProviderProfile"),
     supportedMessageTypes: Object.freeze([
       ...(patch.supportedMessageTypes ?? profile.supportedMessageTypes),
+    ]),
+    supportedGroupCapabilities: Object.freeze([
+      ...(patch.supportedGroupCapabilities ?? profile.supportedGroupCapabilities),
     ]),
     ...optionalValue("failureCategory", patch.failureCategory, profile.failureCategory),
     domainEvents:

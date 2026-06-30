@@ -4,6 +4,9 @@ export type InstanceId = DomainIdentity<"InstanceId">;
 export type SessionId = DomainIdentity<"SessionId">;
 export type MessageId = DomainIdentity<"MessageId">;
 export type MediaId = DomainIdentity<"MediaId">;
+export type GroupId = DomainIdentity<"GroupId">;
+export type GroupActionId = DomainIdentity<"GroupActionId">;
+export type InviteLinkId = DomainIdentity<"InviteLinkId">;
 export type WebhookId = DomainIdentity<"WebhookId">;
 export type WebhookDeliveryId = DomainIdentity<"WebhookDeliveryId">;
 export type GuardrailDecisionId = DomainIdentity<"GuardrailDecisionId">;
@@ -25,6 +28,14 @@ export const createMessageId = (value: string): MessageId =>
   createDomainIdentity(value, "MessageId");
 
 export const createMediaId = (value: string): MediaId => createDomainIdentity(value, "MediaId");
+
+export const createGroupId = (value: string): GroupId => createDomainIdentity(value, "GroupId");
+
+export const createGroupActionId = (value: string): GroupActionId =>
+  createDomainIdentity(value, "GroupActionId");
+
+export const createInviteLinkId = (value: string): InviteLinkId =>
+  createDomainIdentity(value, "InviteLinkId");
 
 export const createWebhookId = (value: string): WebhookId =>
   createDomainIdentity(value, "WebhookId");

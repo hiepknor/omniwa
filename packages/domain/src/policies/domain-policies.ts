@@ -1,4 +1,5 @@
 import type { ConfigurationSnapshot } from "../configuration/configuration-snapshot.js";
+import type { GroupProviderCapability } from "../group/group-provider-capability.js";
 import type { MediaAsset } from "../media/media-asset.js";
 import type { MessageType } from "../messaging/message-type.js";
 import type { WorkerJob } from "../operations/worker-job.js";
@@ -20,6 +21,7 @@ import {
   canRetryWebhookDelivery,
   canSendMessage,
   isAuditEvidenceSafe,
+  isGroupProviderCapabilitySupported,
   isProviderCapabilitySupported,
   isSessionUsable,
   isTelemetryProjectionSafe,
@@ -182,6 +184,17 @@ export function evaluateProviderCapabilityPolicy(
 ): PolicyDecision {
   return decisionFromSpecification(
     isProviderCapabilitySupported(profile, messageType),
+    "allow",
+    "reject",
+  );
+}
+
+export function evaluateGroupProviderCapabilityPolicy(
+  profile: ProviderProfile | undefined,
+  capability: GroupProviderCapability,
+): PolicyDecision {
+  return decisionFromSpecification(
+    isGroupProviderCapabilitySupported(profile, capability),
     "allow",
     "reject",
   );

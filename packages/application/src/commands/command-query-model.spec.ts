@@ -28,11 +28,11 @@ const requestContext = createRequestContext({
 
 describe("application command and query model", () => {
   it("catalogs every frozen application command exactly once", () => {
-    expect(applicationCommandNames).toHaveLength(49);
+    expect(applicationCommandNames).toHaveLength(58);
     expect(new Set(applicationCommandNames).size).toBe(applicationCommandNames.length);
     expect(
       applicationCommandGroups.map((group) => getApplicationCommandsByGroup(group).length),
-    ).toEqual([10, 9, 5, 9, 6, 4, 4, 2]);
+    ).toEqual([10, 9, 5, 9, 9, 6, 4, 4, 2]);
     expect(applicationCommandDefinitions.every((definition) => definition.name.length > 0)).toBe(
       true,
     );
@@ -88,16 +88,17 @@ describe("application command and query model", () => {
   });
 
   it("catalogs every frozen application query as side-effect free", () => {
-    expect(applicationQueryNames).toHaveLength(25);
+    expect(applicationQueryNames).toHaveLength(28);
     expect(new Set(applicationQueryNames).size).toBe(applicationQueryNames.length);
     expect(
       applicationQueryGroups.map((group) => getApplicationQueriesByGroup(group).length),
-    ).toEqual([5, 9, 1, 6, 4]);
+    ).toEqual([6, 11, 1, 6, 4]);
     expect(applicationQueryDefinitions.every((definition) => definition.sideEffectFree)).toBe(true);
     expect(isApplicationQueryName("GetInstanceStatus")).toBe(true);
     expect(isApplicationQueryName("GetDashboardSummary")).toBe(true);
     expect(isApplicationQueryName("ListWorkerJobs")).toBe(true);
     expect(isApplicationQueryName("ListEvents")).toBe(true);
+    expect(isApplicationQueryName("ListInstanceGroups")).toBe(true);
     expect(isApplicationQueryName("RepairProjection")).toBe(false);
   });
 

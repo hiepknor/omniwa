@@ -4,17 +4,21 @@ import {
   activateConfigurationSnapshot,
   activateSession,
   activateWebhookSubscription,
+  activateGroup,
   captureTelemetrySignal,
   classifyDegraded,
   createAccessDecisionId,
   createAuditRecordId,
   createConfigurationSnapshotId,
   createGuardrailDecisionId,
+  createGroup,
+  createGroupId,
   createHealthStatus,
   createHealthStatusId,
   createIdempotencyKey,
   createInstance,
   createInstanceId,
+  createJid,
   createJobId,
   createMediaAsset,
   createMediaId,
@@ -81,6 +85,7 @@ describe("in-memory repository adapters", () => {
     const messageId = createMessageId("message-repo-1");
     const guardrailId = createGuardrailDecisionId("guardrail-repo-1");
     const mediaId = createMediaId("media-repo-1");
+    const groupId = createGroupId("group-repo-1");
 
     const session = activateSession(startSessionPairing(createSession(sessionId, instanceId)));
     const instance = markInstanceConnected(
@@ -104,12 +109,23 @@ describe("in-memory repository adapters", () => {
     const media = markMediaProcessed(
       markMediaProcessing(acceptMediaAsset(createMediaAsset(mediaId, "image", messageRetention))),
     );
+    const group = activateGroup(
+      createGroup({
+        id: groupId,
+        instanceId,
+        jid: createJid("12345@g.us"),
+        metadata: {
+          subject: "Repository Group",
+        },
+      }),
+    );
 
     await repositories.sessionRepository.save(session);
     await repositories.instanceRepository.save(instance);
     await repositories.guardrailDecisionRepository.save(guardrailDecision);
     await repositories.messageRepository.save(message);
     await repositories.mediaAssetRepository.save(media);
+    await repositories.groupRepository.save(group);
     repositories.mediaAssetRepository.markRequiringCleanup(mediaId);
 
     await expect(repositories.instanceRepository.load(instanceId)).resolves.toEqual(instance);
@@ -133,6 +149,11 @@ describe("in-memory repository adapters", () => {
     await expect(repositories.mediaAssetRepository.findRequiringCleanup()).resolves.toEqual([
       media,
     ]);
+    await expect(repositories.groupRepository.findByInstance(instanceId)).resolves.toEqual([group]);
+    await expect(repositories.groupRepository.findByStatus("active")).resolves.toEqual([group]);
+    await expect(repositories.groupRepository.findByJid(createJid("12345@g.us"))).resolves.toEqual(
+      group,
+    );
   });
 
   it("keeps implementation-only indexes outside aggregate state", async () => {

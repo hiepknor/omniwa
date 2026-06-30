@@ -5,6 +5,7 @@ export const repositoryPortNames = [
   "SessionRepositoryPort",
   "MessageRepositoryPort",
   "MediaAssetRepositoryPort",
+  "GroupRepositoryPort",
   "WebhookSubscriptionRepositoryPort",
   "WebhookDeliveryRepositoryPort",
   "GuardrailDecisionRepositoryPort",
@@ -175,6 +176,24 @@ export const repositoryAdapterPlans = Object.freeze([
       applicationRefs: ["UC-MED-001", "UC-MED-002", "UC-MED-005", "UC-MED-006"],
       apiResources: ["Media"],
       productCapability: "Media handling",
+    },
+  }),
+  plan({
+    repositoryPort: "GroupRepositoryPort",
+    aggregateRoot: "Group",
+    ownerContext: "group",
+    persistenceUnit: "Group State",
+    logicalStorage: "Group State Storage",
+    consistency: "application_coordinated",
+    allowedOperations: ["load", "save", "exists", "findByInstance", "findByStatus", "findByJid"],
+    snapshotCandidate: true,
+    archiveCandidate: true,
+    mappingBoundary:
+      "Group metadata, member roles, invite link references, local state, and audit-sensitive action refs without provider-native payload.",
+    traceability: {
+      applicationRefs: ["Phase H Groups commands", "ListInstanceGroups", "GetGroupStatus"],
+      apiResources: ["Group", "GroupMember", "GroupInviteLink"],
+      productCapability: "Groups management",
     },
   }),
   plan({

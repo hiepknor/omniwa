@@ -33,6 +33,7 @@ import type {
   AuditRecordId,
   ConfigurationSnapshotId,
   GuardrailDecisionId,
+  GroupId,
   HealthStatusId,
   InstanceId,
   JobId,
@@ -44,6 +45,9 @@ import type {
   WebhookDeliveryId,
   WebhookId,
 } from "../identity/aggregate-ids.js";
+import { createGroup, type Group, type GroupMetadata } from "../group/group.js";
+import type { GroupProviderCapability } from "../group/group-provider-capability.js";
+import type { Jid } from "../references/jid.js";
 import { createInstance, type Instance } from "../instance/instance.js";
 import {
   acceptMediaAsset,
@@ -147,6 +151,15 @@ export function createMediaAssetAggregate(input: {
   return input.diagnosticCapture === true ? requestDiagnosticCapture(media) : media;
 }
 
+export function createGroupAggregate(input: {
+  id: GroupId;
+  instanceId: InstanceId;
+  jid: Jid;
+  metadata: GroupMetadata;
+}): Group {
+  return createGroup(input);
+}
+
 export function createWebhookSubscriptionAggregate(input: {
   id: WebhookId;
   targetUrl: WebhookUrl;
@@ -193,12 +206,17 @@ export function createProviderProfileAggregate(input: {
   providerKind: string;
   status: "candidate" | "supported" | "degraded" | "unsupported";
   supportedMessageTypes?: readonly MessageType[];
+  supportedGroupCapabilities?: readonly GroupProviderCapability[];
   failureCategory?: FailureCategory;
 }): ProviderProfile {
   const profile = createProviderProfile(input.id, input.providerKind);
 
   if (input.status === "supported") {
-    return markProviderSupported(profile, input.supportedMessageTypes ?? []);
+    return markProviderSupported(
+      profile,
+      input.supportedMessageTypes ?? [],
+      input.supportedGroupCapabilities ?? [],
+    );
   }
 
   if (input.status === "degraded") {

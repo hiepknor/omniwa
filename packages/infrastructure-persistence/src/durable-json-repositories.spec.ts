@@ -5,9 +5,13 @@ import { join } from "node:path";
 import {
   activateSession,
   activateWebhookSubscription,
+  activateGroup,
+  createGroup,
+  createGroupId,
   createIdempotencyKey,
   createInstance,
   createInstanceId,
+  createJid,
   createJobId,
   createMessageId,
   createOutboundMessageIntent,
@@ -52,6 +56,7 @@ describe("durable JSON repository adapters", () => {
     const instanceId = createInstanceId("instance-durable-1");
     const sessionId = createSessionId("session-durable-1");
     const messageId = createMessageId("message-durable-1");
+    const groupId = createGroupId("group-durable-1");
     const webhookId = createWebhookId("webhook-durable-1");
     const deliveryId = createWebhookDeliveryId("webhook-delivery-durable-1");
     const jobId = createJobId("job-durable-1");
@@ -66,6 +71,16 @@ describe("durable JSON repository adapters", () => {
       instanceId,
       type: "text",
     });
+    const group = activateGroup(
+      createGroup({
+        id: groupId,
+        instanceId,
+        jid: createJid("23456@g.us"),
+        metadata: {
+          subject: "Durable Group",
+        },
+      }),
+    );
     const webhook = activateWebhookSubscription(
       validateWebhookSubscription(
         createWebhookSubscription(webhookId, createWebhookUrl("https://webhook.example.test/a")),
@@ -82,6 +97,7 @@ describe("durable JSON repository adapters", () => {
     await firstRepositorySet.instanceRepository.save(instance);
     await firstRepositorySet.sessionRepository.save(session);
     await firstRepositorySet.messageRepository.save(message);
+    await firstRepositorySet.groupRepository.save(group);
     await firstRepositorySet.webhookSubscriptionRepository.save(webhook);
     await firstRepositorySet.webhookDeliveryRepository.save(webhookDelivery);
     await firstRepositorySet.workerJobRepository.save(workerJob);
@@ -109,6 +125,12 @@ describe("durable JSON repository adapters", () => {
     await expect(secondRepositorySet.sessionRepository.findByInstance(instanceId)).resolves.toEqual(
       [session],
     );
+    await expect(secondRepositorySet.groupRepository.findByInstance(instanceId)).resolves.toEqual([
+      group,
+    ]);
+    await expect(
+      secondRepositorySet.groupRepository.findByJid(createJid("23456@g.us")),
+    ).resolves.toEqual(group);
     await expect(
       secondRepositorySet.messageRepository.findByIdempotencyKey(
         createIdempotencyKey("message-durable-idempotency"),

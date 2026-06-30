@@ -445,6 +445,17 @@ function matchRoute(
     return adapterQuery("public", "ListInstanceMessages", segments[2], "retention_bound");
   }
 
+  if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "groups"])) {
+    return adapterQuery("public", "ListInstanceGroups", segments[2], "eventual_projection");
+  }
+
+  if (
+    method === "POST" &&
+    matches(segments, ["v1", "instances", ":instanceId", "groups", "refresh"])
+  ) {
+    return adapterCommand("public", "RefreshGroupList", segments[2], validateOptionalObjectBody);
+  }
+
   if (method === "POST" && matches(segments, ["v1", "instances", ":instanceId", "messages"])) {
     return sendMessageRoute(segments[2]);
   }
@@ -485,6 +496,68 @@ function matchRoute(
 
   if (method === "GET" && matches(segments, ["v1", "media", ":mediaId"])) {
     return adapterQuery("public", "GetMediaStatus", segments[2], "strong_owner");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "groups", ":groupId"])) {
+    return adapterQuery("public", "GetGroupStatus", segments[2], "strong_owner");
+  }
+
+  if (method === "PATCH" && matches(segments, ["v1", "groups", ":groupId"])) {
+    return adapterCommand("public", "UpdateGroupMetadata", segments[2], validateGroupMetadataBody);
+  }
+
+  if (method === "PATCH" && matches(segments, ["v1", "groups", ":groupId", "local-state"])) {
+    return adapterCommand(
+      "public",
+      "UpdateGroupLocalState",
+      segments[2],
+      validateGroupLocalStateBody,
+    );
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "groups", ":groupId", "members"])) {
+    return adapterQuery("public", "ListGroupMembers", segments[2], "eventual_projection");
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "groups", ":groupId", "messages", "text"])) {
+    return adapterCommand("public", "SendGroupTextMessage", segments[2], validateGroupTextBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "groups", ":groupId", "members"])) {
+    return adapterCommand("public", "AddGroupMember", segments[2], validateGroupMemberBody);
+  }
+
+  if (
+    method === "DELETE" &&
+    matches(segments, ["v1", "groups", ":groupId", "members", ":memberJid"])
+  ) {
+    return adapterCommand("public", "RemoveGroupMember", segments[2], validateOptionalObjectBody);
+  }
+
+  if (
+    method === "POST" &&
+    matches(segments, ["v1", "groups", ":groupId", "members", ":memberJid", "promote"])
+  ) {
+    return adapterCommand("public", "PromoteGroupMember", segments[2], validateOptionalObjectBody);
+  }
+
+  if (
+    method === "POST" &&
+    matches(segments, ["v1", "groups", ":groupId", "members", ":memberJid", "demote"])
+  ) {
+    return adapterCommand("public", "DemoteGroupMember", segments[2], validateOptionalObjectBody);
+  }
+
+  if (
+    method === "POST" &&
+    matches(segments, ["v1", "groups", ":groupId", "invite-link", "refresh"])
+  ) {
+    return adapterCommand(
+      "public",
+      "RefreshGroupInviteLink",
+      segments[2],
+      validateOptionalObjectBody,
+    );
   }
 
   if (method === "GET" && matches(segments, ["v1", "jobs"])) {
@@ -1209,6 +1282,80 @@ function validateSendMediaBody(body: unknown): HttpFailure | undefined {
       ? undefined
       : validation("invalid_body", "Request body requires mediaId or mediaRef."))
   );
+}
+
+function validateGroupTextBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  return requiredStringField(body, "text");
+}
+
+function validateGroupMemberBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  return requiredStringField(body, "jid");
+}
+
+function validateGroupMetadataBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  const subjectFailure = optionalStringField(body, "subject");
+  if (subjectFailure !== undefined) return subjectFailure;
+
+  const descriptionFailure = optionalStringField(body, "description");
+  if (descriptionFailure !== undefined) return descriptionFailure;
+
+  if (typeof body.subject === "string" || typeof body.description === "string") {
+    return undefined;
+  }
+
+  return validation("invalid_body", "Request body requires subject or description.");
+}
+
+function validateGroupLocalStateBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  if (
+    typeof body.muted === "boolean" ||
+    typeof body.archived === "boolean" ||
+    typeof body.pinned === "boolean"
+  ) {
+    return undefined;
+  }
+
+  return validation("invalid_body", "Request body requires muted, archived, or pinned boolean.");
 }
 
 function validateMediaRegistrationBody(body: unknown): HttpFailure | undefined {

@@ -33,6 +33,10 @@ const publicCredential: ApiCredential = {
     "messages:cancel",
     "media:write",
     "media:read",
+    "groups:read",
+    "groups:write",
+    "groups:message",
+    "groups:admin",
     "webhooks:write",
     "webhooks:read",
     "webhooks:retry",
@@ -419,6 +423,106 @@ describe("API HTTP transport", () => {
       "ActivateWebhookSubscription",
       "RetryWebhookDelivery",
     ]);
+  });
+
+  it("maps group resources to approved group commands and queries", async () => {
+    const dispatcher = new CapturingDispatcher();
+
+    await request(dispatcher, "GET", "/v1/instances/inst_allowed/groups");
+    await request(dispatcher, "POST", "/v1/instances/inst_allowed/groups/refresh", {
+      headers: { "idempotency-key": "refresh-groups-1" },
+    });
+    await request(dispatcher, "GET", "/v1/groups/group_1");
+    await request(dispatcher, "GET", "/v1/groups/group_1/members");
+    await request(dispatcher, "POST", "/v1/groups/group_1/messages/text", {
+      body: { text: "hello group" },
+      headers: { "idempotency-key": "send-group-text-1" },
+    });
+    await request(dispatcher, "PATCH", "/v1/groups/group_1", {
+      body: { subject: "New subject" },
+      headers: { "idempotency-key": "update-group-metadata-1" },
+    });
+    await request(dispatcher, "PATCH", "/v1/groups/group_1/local-state", {
+      body: { archived: true },
+      headers: { "idempotency-key": "archive-group-1" },
+    });
+    await request(dispatcher, "POST", "/v1/groups/group_1/members", {
+      body: { jid: "12025550123@s.whatsapp.net" },
+      headers: { "idempotency-key": "add-group-member-1" },
+    });
+    await request(dispatcher, "POST", "/v1/groups/group_1/members/member_1/promote", {
+      headers: { "idempotency-key": "promote-group-member-1" },
+    });
+    await request(dispatcher, "POST", "/v1/groups/group_1/members/member_1/demote", {
+      headers: { "idempotency-key": "demote-group-member-1" },
+    });
+    await request(dispatcher, "DELETE", "/v1/groups/group_1/members/member_1", {
+      headers: { "idempotency-key": "remove-group-member-1" },
+    });
+    await request(dispatcher, "POST", "/v1/groups/group_1/invite-link/refresh", {
+      headers: { "idempotency-key": "refresh-group-invite-1" },
+    });
+
+    expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "ListInstanceGroups",
+      "GetGroupStatus",
+      "ListGroupMembers",
+    ]);
+    expect(dispatcher.commandEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "RefreshGroupList",
+      "SendGroupTextMessage",
+      "UpdateGroupMetadata",
+      "UpdateGroupLocalState",
+      "AddGroupMember",
+      "PromoteGroupMember",
+      "DemoteGroupMember",
+      "RemoveGroupMember",
+      "RefreshGroupInviteLink",
+    ]);
+    expect(dispatcher.commandEnvelopes.every((envelope) => envelope.targetRef)).toBe(true);
+  });
+
+  it("requires group admin scope for member administration", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const response = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: "/v1/groups/group_1/members",
+        headers: {
+          "x-api-key": "limited-groups-secret",
+          "x-request-id": "req-groups-denied",
+          "x-correlation-id": "corr-groups-denied",
+          "idempotency-key": "add-group-member-denied",
+        },
+        body: {
+          jid: "12025550123@s.whatsapp.net",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys: [
+          {
+            key: "limited-groups-secret",
+            credential: {
+              kind: "api_key",
+              keyId: "limited-groups",
+              scopes: ["groups:read"],
+            },
+          },
+        ],
+        now: fixedNow,
+        requestRefGenerator: () => "http-groups-denied",
+      },
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect("error" in response.body ? response.body.error : undefined).toMatchObject({
+      code: "missing_scope",
+      details: {
+        category: "authorization",
+      },
+    });
+    expect(dispatcher.commandEnvelopes).toHaveLength(0);
   });
 
   it("maps admin settings, audit, provider, and destroy routes through the admin boundary", async () => {

@@ -5,6 +5,7 @@ export const domainOwnerContexts = [
   "session",
   "messaging",
   "media",
+  "group",
   "webhook_delivery",
   "guardrails",
   "provider_integration",

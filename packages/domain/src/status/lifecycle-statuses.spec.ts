@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createConfigurationSafety } from "./configuration-safety.js";
+import { createGroupStatus } from "./group-status.js";
 import { createHealthCategory } from "./health-category.js";
 import { createInstanceStatus } from "./instance-status.js";
 import { createJobStatus } from "./job-status.js";
@@ -14,6 +15,7 @@ describe("lifecycle status value objects", () => {
     expect(createSessionStatus("active")).toBe("active");
     expect(createMessageStatus("evaluated")).toBe("evaluated");
     expect(createMessageStatus("sent")).toBe("sent");
+    expect(createGroupStatus("active")).toBe("active");
     expect(createWebhookDeliveryStatus("dead_letter")).toBe("dead_letter");
     expect(createJobStatus("reserved")).toBe("reserved");
   });
@@ -22,6 +24,7 @@ describe("lifecycle status value objects", () => {
     expect(() => createInstanceStatus("open")).toThrow(TypeError);
     expect(() => createSessionStatus("baileys_connected")).toThrow(TypeError);
     expect(() => createMessageStatus("provider_acknowledged")).toThrow(TypeError);
+    expect(() => createGroupStatus("baileys_group_open")).toThrow(TypeError);
     expect(() => createWebhookDeliveryStatus("http_500")).toThrow(TypeError);
     expect(() => createJobStatus("bullmq_failed")).toThrow(TypeError);
   });

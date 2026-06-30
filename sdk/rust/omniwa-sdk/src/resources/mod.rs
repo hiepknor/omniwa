@@ -1,5 +1,6 @@
 pub mod dashboard;
 pub mod events;
+pub mod groups;
 pub mod health;
 pub mod instances;
 pub mod jobs;

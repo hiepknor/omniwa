@@ -5,6 +5,7 @@ export const applicationWorkflowGroups = [
   "instance",
   "messaging",
   "media",
+  "group",
   "webhook",
   "provider",
   "administration",
@@ -104,6 +105,29 @@ export const applicationWorkflowDefinitions = [
     "CleanupMediaRetention",
   ]),
 
+  workflow("WF-GRP-001", "Group Discovery Sync", "group", true, true, false, "moderate", [
+    "RefreshGroupList",
+  ]),
+  workflow("WF-GRP-002", "Send Group Text Message", "group", true, true, false, "moderate", [
+    "SendGroupTextMessage",
+  ]),
+  workflow("WF-GRP-003", "Group Member Administration", "group", true, true, false, "strong", [
+    "AddGroupMember",
+    "RemoveGroupMember",
+    "PromoteGroupMember",
+    "DemoteGroupMember",
+  ]),
+  workflow(
+    "WF-GRP-004",
+    "Group Metadata Invite And Local State",
+    "group",
+    true,
+    true,
+    false,
+    "moderate",
+    ["UpdateGroupMetadata", "RefreshGroupInviteLink", "UpdateGroupLocalState"],
+  ),
+
   workflow(
     "WF-WEB-001",
     "Webhook Subscription Management",
@@ -190,6 +214,9 @@ export const applicationWorkflowDefinitions = [
       "GetMessageStatus",
       "GetMessageDeliveryHistory",
       "ListInstanceMessages",
+      "ListInstanceGroups",
+      "GetGroupStatus",
+      "ListGroupMembers",
       "GetMediaStatus",
       "GetWebhookStatus",
       "GetWebhookDeliveryHistory",

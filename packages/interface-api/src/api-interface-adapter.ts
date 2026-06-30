@@ -62,6 +62,10 @@ export const apiScopes = [
   "messages:cancel",
   "media:write",
   "media:read",
+  "groups:read",
+  "groups:write",
+  "groups:message",
+  "groups:admin",
   "webhooks:write",
   "webhooks:read",
   "webhooks:retry",
@@ -580,6 +584,9 @@ function isBoundaryAllowedForQuery(
         "GetMessageStatus",
         "GetMessageDeliveryHistory",
         "ListInstanceMessages",
+        "ListInstanceGroups",
+        "GetGroupStatus",
+        "ListGroupMembers",
         "GetMediaStatus",
         "GetWebhookStatus",
         "GetWebhookDeliveryHistory",
@@ -624,12 +631,24 @@ function getRequiredScopesForCommand(commandName: ApplicationCommandName): reado
     case "SendTextMessage":
     case "SendMediaMessage":
       return ["messages:send"];
+    case "SendGroupTextMessage":
+      return ["groups:message"];
     case "RetryMessageSend":
       return ["messages:retry"];
     case "CancelMessage":
       return ["messages:cancel"];
     case "RegisterMedia":
       return ["media:write"];
+    case "RefreshGroupList":
+    case "UpdateGroupMetadata":
+    case "UpdateGroupLocalState":
+      return ["groups:write"];
+    case "AddGroupMember":
+    case "RemoveGroupMember":
+    case "PromoteGroupMember":
+    case "DemoteGroupMember":
+    case "RefreshGroupInviteLink":
+      return ["groups:admin"];
     case "RegisterWebhookSubscription":
     case "UpdateWebhookSubscription":
     case "ActivateWebhookSubscription":
@@ -687,6 +706,10 @@ function getRequiredScopesForQuery(queryName: ApplicationQueryName): readonly Ap
     case "GetMessageDeliveryHistory":
     case "ListInstanceMessages":
       return ["messages:read"];
+    case "ListInstanceGroups":
+    case "GetGroupStatus":
+    case "ListGroupMembers":
+      return ["groups:read"];
     case "GetMediaStatus":
       return ["media:read"];
     case "GetWebhookStatus":

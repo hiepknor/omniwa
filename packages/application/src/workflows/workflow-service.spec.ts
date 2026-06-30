@@ -30,7 +30,7 @@ const requestContext = createRequestContext({
 
 describe("application workflows and services", () => {
   it("catalogs approved workflows and keeps query workflow read-only", () => {
-    expect(applicationWorkflowIds).toHaveLength(26);
+    expect(applicationWorkflowIds).toHaveLength(30);
     expect(new Set(applicationWorkflowIds).size).toBe(applicationWorkflowIds.length);
 
     const queryWorkflow = getWorkflowByQuery("GetInstanceStatus");
@@ -41,7 +41,7 @@ describe("application workflows and services", () => {
     });
 
     expect(applicationWorkflowDefinitions.filter((workflow) => workflow.longRunning)).toHaveLength(
-      12,
+      16,
     );
   });
 
@@ -64,6 +64,7 @@ describe("application workflows and services", () => {
     expect(queriesWithoutService).toEqual([]);
 
     expect(getApplicationServiceForCommand("SendTextMessage")).toBe("MessagingApplicationService");
+    expect(getApplicationServiceForCommand("AddGroupMember")).toBe("GroupApplicationService");
     expect(getPrimaryApplicationServiceForQuery("GetQueueMetricsSnapshot")).toBe(
       "OperationsApplicationService",
     );

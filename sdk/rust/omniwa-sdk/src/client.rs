@@ -3,7 +3,7 @@ use crate::error::{ApiFailure, SdkError};
 use crate::generated::operations::Operation;
 use crate::idempotency::IdempotencyKey;
 use crate::resources::{
-    dashboard::DashboardClient, events::EventsClient, health::HealthClient,
+    dashboard::DashboardClient, events::EventsClient, groups::GroupsClient, health::HealthClient,
     instances::InstancesClient, jobs::JobsClient, messages::MessagesClient,
     webhooks::WebhooksClient,
 };
@@ -65,6 +65,10 @@ where
 
     pub fn events(&self) -> EventsClient<'_, TTransport> {
         EventsClient::new(self)
+    }
+
+    pub fn groups(&self) -> GroupsClient<'_, TTransport> {
+        GroupsClient::new(self)
     }
 
     pub fn instances(&self) -> InstancesClient<'_, TTransport> {

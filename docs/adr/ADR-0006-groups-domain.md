@@ -2,11 +2,11 @@
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## Context
 
-Current docs defer group product capabilities and current source has no Group module, aggregate, repository port, command, query, route, or provider capability surface.
+Current source previously had no Group module, aggregate, repository port, command, query, route, SDK surface, or provider capability surface.
 
 The target platform includes TUI/Web/CLI screens that require Groups and Members. Keeping Groups deferred blocks platform completeness.
 
@@ -14,13 +14,15 @@ The target platform includes TUI/Web/CLI screens that require Groups and Members
 
 Add Groups as a first-class domain after REST/OpenAPI/SDK foundations are established.
 
-Initial model:
+Approved Phase H model:
 
 - `Group` aggregate root.
 - `GroupMember` entity inside Group.
-- `GroupAction` aggregate for async/audit-sensitive admin operations.
+- `GroupAction` entity inside Group for async/audit-sensitive admin operations.
 - `GroupMetadata` value object.
-- `InviteLink` entity if history/revoke is required; otherwise value object.
+- `InviteLink` entity inside Group. Invite link history/revoke can be split later if consistency pressure requires it.
+- Provider capability vocabulary for group listing, details, message send, member administration, invite link refresh, metadata update, and local state.
+- Public REST resources expose Groups without exposing Application command/query names.
 
 Group business rules remain in Domain/Application, not provider adapter or TUI.
 
@@ -49,3 +51,5 @@ Group business rules remain in Domain/Application, not provider adapter or TUI.
 5. Add projections and REST resources.
 6. Add SDK modules.
 7. Add TUI screens.
+
+Phase H completes steps 2, 3, 5, and 6 as additive platform surface. Provider runtime implementation remains guarded by the group capability vocabulary and is not added to provider adapters in this phase.

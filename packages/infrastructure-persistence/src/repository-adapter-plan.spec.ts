@@ -38,6 +38,7 @@ describe("repository adapter planning", () => {
   it("preserves aggregate ownership and safe persistence boundaries", () => {
     const messagePlan = getRepositoryAdapterPlan("MessageRepositoryPort");
     const sessionPlan = getRepositoryAdapterPlan("SessionRepositoryPort");
+    const groupPlan = getRepositoryAdapterPlan("GroupRepositoryPort");
     const webhookPlans = findRepositoryAdapterPlansByOwner("webhook_delivery");
 
     expect(messagePlan).toMatchObject({
@@ -48,6 +49,11 @@ describe("repository adapter planning", () => {
     });
     expect(messagePlan.forbiddenData).toContain("raw_message_body");
     expect(sessionPlan.forbiddenData).toContain("session_secret_plaintext");
+    expect(groupPlan).toMatchObject({
+      aggregateRoot: "Group",
+      ownerContext: "group",
+    });
+    expect(groupPlan.traceability.productCapability).toBe("Groups management");
     expect(webhookPlans.map((plan) => plan.repositoryPort)).toEqual([
       "WebhookSubscriptionRepositoryPort",
       "WebhookDeliveryRepositoryPort",

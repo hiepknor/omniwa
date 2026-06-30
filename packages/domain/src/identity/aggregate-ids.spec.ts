@@ -5,8 +5,11 @@ import {
   createAuditRecordId,
   createConfigurationSnapshotId,
   createGuardrailDecisionId,
+  createGroupActionId,
+  createGroupId,
   createHealthStatusId,
   createInstanceId,
+  createInviteLinkId,
   createJobId,
   createMediaId,
   createMessageId,
@@ -23,6 +26,9 @@ describe("aggregate identities", () => {
     expect(createSessionId("sess_01")).toBe("sess_01");
     expect(createMessageId("msg_01")).toBe("msg_01");
     expect(createMediaId("media_01")).toBe("media_01");
+    expect(createGroupId("group_01")).toBe("group_01");
+    expect(createGroupActionId("group_action_01")).toBe("group_action_01");
+    expect(createInviteLinkId("invite_01")).toBe("invite_01");
     expect(createWebhookId("webhook_01")).toBe("webhook_01");
     expect(createWebhookDeliveryId("webhook-delivery_01")).toBe("webhook-delivery_01");
     expect(createGuardrailDecisionId("guardrail_01")).toBe("guardrail_01");
