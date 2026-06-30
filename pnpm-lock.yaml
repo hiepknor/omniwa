@@ -107,7 +107,14 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/infrastructure-observability: {}
+  packages/infrastructure-observability:
+    dependencies:
+      '@omniwa/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/infrastructure-persistence:
     dependencies:

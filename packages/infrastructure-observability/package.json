@@ -12,5 +12,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@omniwa/observability": "workspace:*",
+    "@omniwa/shared": "workspace:*"
   }
 }
