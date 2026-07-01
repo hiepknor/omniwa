@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@omniwa/application": "workspace:*",
-    "@omniwa/interface-api": "workspace:*"
+    "@omniwa/infrastructure-persistence": "workspace:*",
+    "@omniwa/interface-api": "workspace:*",
+    "@omniwa/shared": "workspace:*"
   }
 }
