@@ -1257,6 +1257,7 @@ function parseLimit(
 function resourceTypeForOperation(name: string): string {
   if (name.includes("WebhookDelivery")) return "webhookDelivery";
   if (name.includes("Webhook")) return "webhook";
+  if (name.includes("GroupMember")) return "groupMember";
   if (name.includes("Group")) return "group";
   if (name.includes("Message")) return "message";
   if (name.includes("Media")) return "media";
@@ -1270,6 +1271,7 @@ function resourceTypeForQuery(name: string): string {
   if (name.includes("WebhookDelivery")) return "webhookDelivery";
   if (name.includes("Webhook")) return "webhook";
   if (name.includes("WorkerJob")) return "job";
+  if (name.includes("GroupMember")) return "groupMember";
   if (name.includes("Instance")) return "instance";
   if (name.includes("Session")) return "session";
   if (name.includes("Message")) return "message";
@@ -1395,7 +1397,7 @@ function mapAdapterResponse(
       statusCode: statusCodeForApiSuccess(response),
       headers: createJsonHeaders(meta),
       body: Object.freeze({
-        data: publicCollectionItems(response.data),
+        data: publicCollectionItems(response.data, contract.resourceType),
         meta: collectionMeta,
       }),
     });
@@ -1439,9 +1441,11 @@ function publicQueryData(
   contract: Extract<PublicResponseContract, { shape: "resource" }>,
 ): Readonly<Record<string, unknown>> {
   const queryMeta = publicQueryMeta(data, contract.resourceType);
+  const resourceData = publicResourceData(contract.resourceType, data, contract.resourceId);
 
   return Object.freeze({
     ...queryMeta,
+    ...resourceData,
     ...optional("resourceId", contract.resourceId),
   });
 }
@@ -1462,30 +1466,368 @@ function publicQueryMeta(data: unknown, resourceType: string): PublicQueryMeta {
   });
 }
 
-function publicCollectionItems(data: unknown): readonly unknown[] {
+function publicCollectionItems(data: unknown, resourceType: string): readonly unknown[] {
   if (Array.isArray(data)) {
-    return Object.freeze(data.map(sanitizePublicItem));
+    return Object.freeze(data.map((item) => publicResourceData(resourceType, item)));
   }
 
   const record = asRecord(data);
   const items = record.items;
 
   if (Array.isArray(items)) {
-    return Object.freeze(items.map(sanitizePublicItem));
+    return Object.freeze(items.map((item) => publicResourceData(resourceType, item)));
   }
 
   return Object.freeze([]);
 }
 
-function sanitizePublicItem(item: unknown): Readonly<Record<string, unknown>> {
+function publicResourceData(
+  resourceType: string,
+  item: unknown,
+  fallbackResourceId?: string,
+): Readonly<Record<string, unknown>> {
   const record = asRecord(item);
-  const sanitized = { ...record };
+  const schema = publicResourceSchemas[resourceType] ?? defaultPublicResourceSchema;
+  const output: Record<string, unknown> = {
+    resourceType,
+  };
+  const id = firstSafeString(record, schema.idFields) ?? fallbackResourceId;
 
-  delete sanitized.kind;
-  delete sanitized.commandRef;
-  delete sanitized.queryRef;
+  if (id !== undefined) {
+    output.id = id;
+  }
 
-  return Object.freeze(sanitized);
+  for (const field of schema.fields) {
+    const value = publicFieldValue(record, field);
+
+    if (value !== undefined) {
+      output[field.publicName] = value;
+    }
+  }
+
+  return Object.freeze(output);
+}
+
+type PublicResourceField = Readonly<{
+  publicName: string;
+  sourceNames: readonly string[];
+  kind?: "string" | "number" | "boolean" | "string_array";
+}>;
+
+type PublicResourceSchema = Readonly<{
+  idFields: readonly string[];
+  fields: readonly PublicResourceField[];
+}>;
+
+const defaultPublicResourceSchema: PublicResourceSchema = Object.freeze({
+  idFields: Object.freeze(["id", "resourceId"]),
+  fields: Object.freeze([
+    publicStringField("status"),
+    publicStringField("createdAt"),
+    publicStringField("updatedAt"),
+  ]),
+});
+
+const publicResourceSchemas: Readonly<Record<string, PublicResourceSchema>> = Object.freeze({
+  auditRecord: Object.freeze({
+    idFields: Object.freeze(["id", "auditRecordId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("category"),
+      publicStringField("status"),
+      publicStringField("action"),
+      publicStringField("auditedResourceType", ["resourceType"]),
+      publicStringField("resourceRef"),
+      publicStringField("createdAt"),
+    ]),
+  }),
+  chat: Object.freeze({
+    idFields: Object.freeze(["id", "chatId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("instanceId"),
+      publicStringField("status"),
+      publicStringField("displayName"),
+      publicStringField("type"),
+      publicNumberField("unreadCount"),
+      publicStringArrayField("labelIds"),
+      publicStringField("lastMessageAt"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  contact: Object.freeze({
+    idFields: Object.freeze(["id", "contactId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("instanceId"),
+      publicStringField("status"),
+      publicStringField("displayName"),
+      publicStringArrayField("labelIds"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  dashboard: Object.freeze({
+    idFields: Object.freeze(["id", "resourceId"]),
+    fields: Object.freeze([
+      publicNumberField("instanceCount"),
+      publicNumberField("connectedInstanceCount"),
+      publicNumberField("queuedJobCount"),
+      publicNumberField("failedWebhookCount"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  event: Object.freeze({
+    idFields: Object.freeze(["id", "eventId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("type"),
+      publicStringField("source"),
+      publicStringField("resourceRef"),
+      publicStringField("correlationId"),
+      publicStringField("timestamp"),
+    ]),
+  }),
+  group: Object.freeze({
+    idFields: Object.freeze(["id", "groupId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("instanceId"),
+      publicStringField("status"),
+      publicStringField("subject"),
+      publicStringField("description"),
+      publicNumberField("memberCount"),
+      publicNumberField("adminCount"),
+      publicBooleanField("muted"),
+      publicBooleanField("archived"),
+      publicBooleanField("pinned"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  groupMember: Object.freeze({
+    idFields: Object.freeze(["id", "memberId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("groupId"),
+      publicStringField("memberRef"),
+      publicStringField("role"),
+      publicStringField("status"),
+      publicStringField("displayName"),
+      publicStringField("joinedAt"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  health: Object.freeze({
+    idFields: Object.freeze(["id", "healthId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("status"),
+      publicStringField("category"),
+      publicStringField("subjectRef"),
+      publicStringField("checkedAt"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  instance: Object.freeze({
+    idFields: Object.freeze(["id", "instanceId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("status"),
+      publicStringField("displayName"),
+      publicStringField("createdAt"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  job: Object.freeze({
+    idFields: Object.freeze(["id", "jobId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("status"),
+      publicStringField("workType"),
+      publicStringField("ownerContext", ["ownerContext", "owner"]),
+      publicStringField("resourceRef", ["resourceRef", "targetRef"]),
+      publicNumberField("attemptCount"),
+      publicStringField("createdAt"),
+      publicStringField("updatedAt"),
+      publicStringField("nextRunAt"),
+    ]),
+  }),
+  label: Object.freeze({
+    idFields: Object.freeze(["id", "labelId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("instanceId"),
+      publicStringField("status"),
+      publicStringField("name"),
+      publicStringField("color"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  media: Object.freeze({
+    idFields: Object.freeze(["id", "mediaId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("instanceId"),
+      publicStringField("status"),
+      publicStringField("mediaType"),
+      publicStringField("contentType"),
+      publicNumberField("sizeBytes"),
+      publicStringField("createdAt"),
+      publicStringField("expiresAt"),
+    ]),
+  }),
+  message: Object.freeze({
+    idFields: Object.freeze(["id", "messageId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("instanceId"),
+      publicStringField("chatId"),
+      publicStringField("groupId"),
+      publicStringField("status"),
+      publicStringField("type"),
+      publicStringField("direction"),
+      publicStringField("createdAt"),
+      publicStringField("updatedAt"),
+      publicStringField("deliveredAt"),
+      publicStringField("readAt"),
+    ]),
+  }),
+  metrics: Object.freeze({
+    idFields: Object.freeze(["id", "resourceId"]),
+    fields: Object.freeze([
+      publicNumberField("value"),
+      publicNumberField("count"),
+      publicStringField("status"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  provider: Object.freeze({
+    idFields: Object.freeze(["id", "providerId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("status"),
+      publicStringField("providerName"),
+      publicStringField("capability"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  session: Object.freeze({
+    idFields: Object.freeze(["id", "sessionId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("instanceId"),
+      publicStringField("status"),
+      publicStringField("createdAt"),
+      publicStringField("updatedAt"),
+      publicStringField("expiresAt"),
+    ]),
+  }),
+  settings: Object.freeze({
+    idFields: Object.freeze(["id", "settingsId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("status"),
+      publicStringField("profile"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  webhook: Object.freeze({
+    idFields: Object.freeze(["id", "webhookId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("status"),
+      publicStringArrayField("eventTypes"),
+      publicStringField("createdAt"),
+      publicStringField("updatedAt"),
+    ]),
+  }),
+  webhookDelivery: Object.freeze({
+    idFields: Object.freeze(["id", "deliveryId", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("webhookId"),
+      publicStringField("status"),
+      publicStringField("eventType"),
+      publicNumberField("attemptCount"),
+      publicStringField("createdAt"),
+      publicStringField("updatedAt"),
+      publicStringField("nextRetryAt"),
+    ]),
+  }),
+});
+
+function publicStringField(
+  publicName: string,
+  sourceNames?: readonly string[],
+): PublicResourceField {
+  return Object.freeze({
+    publicName,
+    sourceNames: Object.freeze(sourceNames ?? [publicName]),
+    kind: "string",
+  });
+}
+
+function publicNumberField(
+  publicName: string,
+  sourceNames?: readonly string[],
+): PublicResourceField {
+  return Object.freeze({
+    publicName,
+    sourceNames: Object.freeze(sourceNames ?? [publicName]),
+    kind: "number",
+  });
+}
+
+function publicBooleanField(
+  publicName: string,
+  sourceNames?: readonly string[],
+): PublicResourceField {
+  return Object.freeze({
+    publicName,
+    sourceNames: Object.freeze(sourceNames ?? [publicName]),
+    kind: "boolean",
+  });
+}
+
+function publicStringArrayField(
+  publicName: string,
+  sourceNames?: readonly string[],
+): PublicResourceField {
+  return Object.freeze({
+    publicName,
+    sourceNames: Object.freeze(sourceNames ?? [publicName]),
+    kind: "string_array",
+  });
+}
+
+function publicFieldValue(
+  record: Readonly<Record<string, unknown>>,
+  field: PublicResourceField,
+): unknown {
+  for (const sourceName of field.sourceNames) {
+    const value = record[sourceName];
+
+    if (field.kind === "number" && typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (field.kind === "boolean" && typeof value === "boolean") {
+      return value;
+    }
+
+    if (field.kind === "string_array" && Array.isArray(value)) {
+      const items = value.filter((item): item is string => typeof item === "string");
+
+      return items.length === value.length ? Object.freeze(items) : undefined;
+    }
+
+    if ((field.kind === undefined || field.kind === "string") && isSafePublicString(value)) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function firstSafeString(
+  record: Readonly<Record<string, unknown>>,
+  fieldNames: readonly string[],
+): string | undefined {
+  for (const fieldName of fieldNames) {
+    const value = record[fieldName];
+
+    if (isSafePublicString(value)) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function isSafePublicString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 && !hasControlCharacter(value);
 }
 
 function paginationMetaFromOptions(options: PublicCollectionQueryOptions): PublicPaginationMeta {

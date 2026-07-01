@@ -3723,9 +3723,810 @@
         }
       },
       "PublicData": {
+        "description": "Public resource data returned by the Application boundary. It must not include secrets, raw provider payloads, raw phone numbers, raw JIDs, or session material.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OperationData"
+          },
+          {
+            "$ref": "#/components/schemas/ResourceReadData"
+          },
+          {
+            "$ref": "#/components/schemas/InstanceResource"
+          },
+          {
+            "$ref": "#/components/schemas/MessageResource"
+          },
+          {
+            "$ref": "#/components/schemas/GroupResource"
+          },
+          {
+            "$ref": "#/components/schemas/GroupMemberResource"
+          },
+          {
+            "$ref": "#/components/schemas/JobResource"
+          },
+          {
+            "$ref": "#/components/schemas/WebhookResource"
+          },
+          {
+            "$ref": "#/components/schemas/WebhookDeliveryResource"
+          },
+          {
+            "$ref": "#/components/schemas/ChatResource"
+          },
+          {
+            "$ref": "#/components/schemas/ContactResource"
+          },
+          {
+            "$ref": "#/components/schemas/LabelResource"
+          },
+          {
+            "$ref": "#/components/schemas/MediaResource"
+          },
+          {
+            "$ref": "#/components/schemas/SessionResource"
+          },
+          {
+            "$ref": "#/components/schemas/EventResource"
+          },
+          {
+            "$ref": "#/components/schemas/AuditRecordResource"
+          },
+          {
+            "$ref": "#/components/schemas/HealthResource"
+          },
+          {
+            "$ref": "#/components/schemas/MetricsResource"
+          },
+          {
+            "$ref": "#/components/schemas/DashboardResource"
+          },
+          {
+            "$ref": "#/components/schemas/SettingsResource"
+          },
+          {
+            "$ref": "#/components/schemas/ProviderResource"
+          }
+        ]
+      },
+      "OperationData": {
         "type": "object",
-        "additionalProperties": true,
-        "description": "Public resource data returned by the Application boundary. It must not include secrets, raw provider payloads, raw phone numbers, raw JIDs, or session material."
+        "required": ["resourceType", "operationStatus", "accepted", "retryable"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "operationStatus": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "async": {
+            "type": "boolean"
+          },
+          "resultRef": {
+            "type": "string"
+          },
+          "reasonCode": {
+            "type": "string"
+          }
+        }
+      },
+      "ResourceReadData": {
+        "type": "object",
+        "required": ["resourceType", "readStatus"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "readStatus": {
+            "type": "string"
+          },
+          "consistency": {
+            "type": "string"
+          },
+          "freshness": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "resultRef": {
+            "type": "string"
+          },
+          "reasonCode": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicResourceData": {
+        "type": "object",
+        "required": ["resourceType"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InstanceResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["instance"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MessageResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["message"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "chatId": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["group"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "adminCount": {
+            "type": "integer"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupMemberResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["groupMember"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "memberRef": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JobResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["job"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "workType": {
+            "type": "string"
+          },
+          "ownerContext": {
+            "type": "string"
+          },
+          "resourceRef": {
+            "type": "string"
+          },
+          "attemptCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nextRunAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WebhookResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["webhook"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "eventTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WebhookDeliveryResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["webhookDelivery"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "webhookId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "attemptCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nextRetryAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChatResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["chat"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "unreadCount": {
+            "type": "integer"
+          },
+          "labelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ContactResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["contact"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "labelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LabelResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["label"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MediaResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["media"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SessionResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["session"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EventResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["event"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "resourceRef": {
+            "type": "string"
+          },
+          "correlationId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AuditRecordResource": {
+        "type": "object",
+        "required": ["resourceType", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["auditRecord"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "auditedResourceType": {
+            "type": "string"
+          },
+          "resourceRef": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "HealthResource": {
+        "type": "object",
+        "required": ["resourceType"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["health"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "subjectRef": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MetricsResource": {
+        "type": "object",
+        "required": ["resourceType"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["metrics"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "count": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DashboardResource": {
+        "type": "object",
+        "required": ["resourceType"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["dashboard"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "instanceCount": {
+            "type": "integer"
+          },
+          "connectedInstanceCount": {
+            "type": "integer"
+          },
+          "queuedJobCount": {
+            "type": "integer"
+          },
+          "failedWebhookCount": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SettingsResource": {
+        "type": "object",
+        "required": ["resourceType"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["settings"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProviderResource": {
+        "type": "object",
+        "required": ["resourceType"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["provider"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "providerName": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "GroupTextMessageRequest": {
         "type": "object",

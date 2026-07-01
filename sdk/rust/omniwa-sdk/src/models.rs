@@ -9,6 +9,80 @@ pub type PublicData = Value;
 pub type PublicObject = BTreeMap<String, Value>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PublicOperationData {
+    #[serde(rename = "resourceType")]
+    pub resource_type: String,
+    #[serde(default, rename = "resourceId")]
+    pub resource_id: Option<String>,
+    #[serde(rename = "operationStatus")]
+    pub operation_status: String,
+    pub accepted: bool,
+    pub retryable: bool,
+    #[serde(default, rename = "async")]
+    pub asynchronous: Option<bool>,
+    #[serde(default, rename = "resultRef")]
+    pub result_ref: Option<String>,
+    #[serde(default, rename = "reasonCode")]
+    pub reason_code: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PublicResourceReadData {
+    #[serde(rename = "resourceType")]
+    pub resource_type: String,
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default, rename = "resourceId")]
+    pub resource_id: Option<String>,
+    #[serde(rename = "readStatus")]
+    pub read_status: String,
+    #[serde(default)]
+    pub consistency: Option<String>,
+    #[serde(default)]
+    pub freshness: Option<Value>,
+    #[serde(default, rename = "resultRef")]
+    pub result_ref: Option<String>,
+    #[serde(default, rename = "reasonCode")]
+    pub reason_code: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InstanceResource {
+    #[serde(rename = "resourceType")]
+    pub resource_type: String,
+    pub id: String,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default, rename = "displayName")]
+    pub display_name: Option<String>,
+    #[serde(default, rename = "createdAt")]
+    pub created_at: Option<String>,
+    #[serde(default, rename = "updatedAt")]
+    pub updated_at: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GroupMemberResource {
+    #[serde(rename = "resourceType")]
+    pub resource_type: String,
+    pub id: String,
+    #[serde(default, rename = "groupId")]
+    pub group_id: Option<String>,
+    #[serde(default, rename = "memberRef")]
+    pub member_ref: Option<String>,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default, rename = "displayName")]
+    pub display_name: Option<String>,
+    #[serde(default, rename = "joinedAt")]
+    pub joined_at: Option<String>,
+    #[serde(default, rename = "updatedAt")]
+    pub updated_at: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ResponseMeta {
     #[serde(rename = "requestId")]
     pub request_id: String,

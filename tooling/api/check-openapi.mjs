@@ -166,6 +166,7 @@ const phaseEResolvedProjectionOperations = Object.freeze([
 checkOpenApiShape(spec);
 checkSecurityScheme(spec);
 checkRequiredSchemas(spec);
+checkPublicDataSchemas(spec);
 checkRouteCoverage(spec);
 checkOperationIds(spec);
 checkResponses(spec);
@@ -226,9 +227,54 @@ function checkRequiredSchemas(openApiSpec) {
     "ResponseMeta",
     "ApiError",
     "PaginationMeta",
+    "PublicData",
+    "OperationData",
+    "ResourceReadData",
+    "InstanceResource",
+    "MessageResource",
+    "GroupResource",
+    "GroupMemberResource",
+    "JobResource",
+    "WebhookResource",
   ]) {
     if (!isRecord(openApiSpec.components?.schemas?.[schemaName])) {
       findings.push(`Missing required schema: ${schemaName}.`);
+    }
+  }
+}
+
+function checkPublicDataSchemas(openApiSpec) {
+  const publicData = openApiSpec.components?.schemas?.PublicData;
+
+  if (!isRecord(publicData)) {
+    return;
+  }
+
+  if (!Array.isArray(publicData.oneOf) || publicData.oneOf.length === 0) {
+    findings.push("PublicData must be a typed oneOf union, not only a generic object.");
+    return;
+  }
+
+  const refs = new Set(
+    publicData.oneOf
+      .map((entry) => (isRecord(entry) && typeof entry.$ref === "string" ? entry.$ref : undefined))
+      .filter(Boolean),
+  );
+
+  for (const schemaName of [
+    "OperationData",
+    "ResourceReadData",
+    "InstanceResource",
+    "MessageResource",
+    "GroupResource",
+    "GroupMemberResource",
+    "JobResource",
+    "WebhookResource",
+  ]) {
+    const ref = `#/components/schemas/${schemaName}`;
+
+    if (!refs.has(ref)) {
+      findings.push(`PublicData oneOf must include ${schemaName}.`);
     }
   }
 }

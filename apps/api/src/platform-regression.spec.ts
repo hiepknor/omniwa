@@ -76,23 +76,26 @@ describe("platform production regression", () => {
     expect(sent.statusCode).toBe(202);
     expect("data" in instances.body ? instances.body.data : undefined).toEqual([
       {
-        instanceId: "inst_allowed",
-        displayName: "Primary instance",
+        resourceType: "instance",
+        id: "inst_allowed",
         status: "connected",
+        displayName: "Primary instance",
       },
     ]);
     expect("data" in jobs.body ? jobs.body.data : undefined).toEqual([
       {
-        jobId: "job_connect_1",
-        owner: "instance",
+        resourceType: "job",
+        id: "job_connect_1",
         status: "queued",
-        targetRef: "inst_allowed",
+        ownerContext: "instance",
+        resourceRef: "inst_allowed",
       },
       {
-        jobId: "job_message_2",
-        owner: "messaging",
+        resourceType: "job",
+        id: "job_message_2",
         status: "queued",
-        targetRef: "inst_allowed",
+        ownerContext: "messaging",
+        resourceRef: "inst_allowed",
       },
     ]);
     expect(dispatcher.commandEnvelopes.map((envelope) => envelope.name)).toEqual([

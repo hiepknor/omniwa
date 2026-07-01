@@ -370,6 +370,75 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(response.body)).not.toContain("query_outcome");
   });
 
+  it("maps collection items through stable public resource DTOs", async () => {
+    const dispatcher = new CapturingDispatcher({
+      ListInstances: {
+        items: [
+          {
+            kind: "query_outcome",
+            commandRef: "cmd_internal",
+            queryRef: "qry_internal",
+            instanceId: "inst_allowed",
+            status: "connected",
+            displayName: "Demo instance",
+            providerPayload: {
+              raw: true,
+            },
+            sessionSecret: "secret-material",
+          },
+        ],
+      },
+    });
+    const response = await request(dispatcher, "GET", "/v1/instances");
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toEqual([
+      {
+        resourceType: "instance",
+        id: "inst_allowed",
+        status: "connected",
+        displayName: "Demo instance",
+      },
+    ]);
+    expect(JSON.stringify(response.body)).not.toContain("query_outcome");
+    expect(JSON.stringify(response.body)).not.toContain("cmd_internal");
+    expect(JSON.stringify(response.body)).not.toContain("providerPayload");
+    expect(JSON.stringify(response.body)).not.toContain("sessionSecret");
+  });
+
+  it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
+    const dispatcher = new CapturingDispatcher({
+      ListGroupMembers: {
+        items: [
+          {
+            memberId: "member_public_ref",
+            groupId: "group_1",
+            jid: "123456789@s.whatsapp.net",
+            phoneNumber: "+15551234567",
+            role: "admin",
+            status: "active",
+            displayName: "Group admin",
+          },
+        ],
+      },
+    });
+    const response = await request(dispatcher, "GET", "/v1/groups/group_1/members");
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toEqual([
+      {
+        resourceType: "groupMember",
+        id: "member_public_ref",
+        groupId: "group_1",
+        role: "admin",
+        status: "active",
+        displayName: "Group admin",
+      },
+    ]);
+    expect(JSON.stringify(response.body)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(response.body)).not.toContain("+15551234567");
+  });
+
   it("rejects unsupported collection filters and sorts before Application dispatch", async () => {
     const dispatcher = new CapturingDispatcher();
     const unsupportedSort = await request(dispatcher, "GET", "/v1/instances?sort=secret");
@@ -925,6 +994,12 @@ class CapturingDispatcher implements ApplicationInterfaceDispatcher {
   readonly commandEnvelopes: ApplicationCommandEnvelope[] = [];
   readonly queryEnvelopes: ApplicationQueryEnvelope[] = [];
 
+  constructor(
+    private readonly queryPayloads: Readonly<
+      Record<string, Readonly<Record<string, unknown>>>
+    > = {},
+  ) {}
+
   executeCommand(envelope: ApplicationCommandEnvelope): ApplicationCommandOutcome {
     this.commandEnvelopes.push(envelope);
 
@@ -939,17 +1014,21 @@ class CapturingDispatcher implements ApplicationInterfaceDispatcher {
 
   executeQuery(envelope: ApplicationQueryEnvelope): ApplicationQueryOutcome {
     this.queryEnvelopes.push(envelope);
+    const payload = this.queryPayloads[envelope.name] ?? {};
 
-    return createApplicationQueryOutcome({
-      queryRef: envelope.queryRef,
-      outcome: "result",
-      consistency: envelope.requestedConsistency ?? "strong_owner",
-      freshness: {
-        stale: false,
-        refreshedAtEpochMilliseconds: 1,
-      },
-      resultRef: `${envelope.queryRef}:result`,
-    });
+    return Object.freeze({
+      ...createApplicationQueryOutcome({
+        queryRef: envelope.queryRef,
+        outcome: "result",
+        consistency: envelope.requestedConsistency ?? "strong_owner",
+        freshness: {
+          stale: false,
+          refreshedAtEpochMilliseconds: 1,
+        },
+        resultRef: `${envelope.queryRef}:result`,
+      }),
+      ...payload,
+    }) as ApplicationQueryOutcome;
   }
 }
 

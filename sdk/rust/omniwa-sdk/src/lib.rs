@@ -21,7 +21,8 @@ pub use error::{ApiFailure, SdkError};
 pub use idempotency::IdempotencyKey;
 pub use models::{
     ApiErrorBody, ApiErrorDetails, CollectionEnvelope, CollectionMeta, ErrorEnvelope,
-    PaginationMeta, PublicData, PublicObject, ResponseMeta, SuccessEnvelope,
+    GroupMemberResource, InstanceResource, PaginationMeta, PublicData, PublicObject,
+    PublicOperationData, PublicResourceReadData, ResponseMeta, SuccessEnvelope,
 };
 pub use pagination::{CursorPage, Page};
 pub use platform_clients::{

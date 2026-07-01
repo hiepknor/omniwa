@@ -1,7 +1,7 @@
 use omniwa_sdk::{
     generated::operations::ALL_OPERATIONS, parse_sse_events, ApiKey, FixtureTransport,
-    IdempotencyKey, OmniwaClient, OmniwaClientConfig, PublicData, RequestOptions, SdkError,
-    SdkResponse,
+    GroupMemberResource, IdempotencyKey, InstanceResource, OmniwaClient, OmniwaClientConfig,
+    PublicData, PublicOperationData, RequestOptions, SdkError, SdkResponse,
 };
 
 fn client_with_fixture(
@@ -219,4 +219,45 @@ fn collection_envelope_decodes_into_cursor_page() {
     assert_eq!(pagination.sort.as_deref(), Some("-createdAt"));
     assert_eq!(pagination.search.as_deref(), Some("demo"));
     assert_eq!(pagination.filters["status"], "connected");
+}
+
+#[test]
+fn public_resource_dtos_decode_without_json_shape_guessing() {
+    let operation_response = SdkResponse::json(
+        202,
+        r#"{"data":{"resourceType":"message","resourceId":"inst_demo","operationStatus":"queued","accepted":true,"retryable":false,"async":true,"resultRef":"cmd_demo:result"},"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z"}}"#,
+    );
+    let operation = operation_response
+        .success_envelope::<PublicOperationData>()
+        .expect("operation envelope");
+
+    assert_eq!(operation.data.resource_type, "message");
+    assert_eq!(operation.data.operation_status, "queued");
+    assert!(operation.data.accepted);
+    assert_eq!(operation.data.asynchronous, Some(true));
+
+    let instances_response = SdkResponse::json(
+        200,
+        r#"{"data":[{"resourceType":"instance","id":"inst_demo","status":"connected","displayName":"Demo instance"}],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z","pagination":{"nextCursor":null,"previousCursor":null,"hasMore":false,"limit":50}}}"#,
+    );
+    let instances = instances_response
+        .collection_envelope::<InstanceResource>()
+        .expect("instance collection envelope");
+
+    assert_eq!(instances.data[0].id, "inst_demo");
+    assert_eq!(
+        instances.data[0].display_name.as_deref(),
+        Some("Demo instance")
+    );
+
+    let members_response = SdkResponse::json(
+        200,
+        r#"{"data":[{"resourceType":"groupMember","id":"member_demo","groupId":"group_demo","role":"admin","status":"active","displayName":"Admin"}],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z","pagination":{"nextCursor":null,"previousCursor":null,"hasMore":false,"limit":50}}}"#,
+    );
+    let members = members_response
+        .collection_envelope::<GroupMemberResource>()
+        .expect("group member collection envelope");
+
+    assert_eq!(members.data[0].id, "member_demo");
+    assert_eq!(members.data[0].role.as_deref(), Some("admin"));
 }
