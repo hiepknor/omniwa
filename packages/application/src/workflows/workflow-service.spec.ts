@@ -65,6 +65,12 @@ describe("application workflows and services", () => {
 
     expect(getApplicationServiceForCommand("SendTextMessage")).toBe("MessagingApplicationService");
     expect(getApplicationServiceForCommand("AddGroupMember")).toBe("GroupApplicationService");
+    expect(getPrimaryApplicationServiceForQuery("GetChatStatus")).toBe(
+      "NavigationApplicationService",
+    );
+    expect(getPrimaryApplicationServiceForQuery("ListInstanceContacts")).toBe(
+      "NavigationApplicationService",
+    );
     expect(getPrimaryApplicationServiceForQuery("GetQueueMetricsSnapshot")).toBe(
       "OperationsApplicationService",
     );

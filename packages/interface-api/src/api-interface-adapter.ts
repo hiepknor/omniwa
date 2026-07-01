@@ -62,6 +62,9 @@ export const apiScopes = [
   "messages:cancel",
   "media:write",
   "media:read",
+  "chats:read",
+  "contacts:read",
+  "labels:read",
   "groups:read",
   "groups:write",
   "groups:message",
@@ -584,6 +587,15 @@ function isBoundaryAllowedForQuery(
         "GetMessageStatus",
         "GetMessageDeliveryHistory",
         "ListInstanceMessages",
+        "ListChats",
+        "ListInstanceChats",
+        "GetChatStatus",
+        "ListContacts",
+        "ListInstanceContacts",
+        "GetContactStatus",
+        "ListLabels",
+        "ListInstanceLabels",
+        "GetLabelStatus",
         "ListInstanceGroups",
         "GetGroupStatus",
         "ListGroupMembers",
@@ -706,6 +718,18 @@ function getRequiredScopesForQuery(queryName: ApplicationQueryName): readonly Ap
     case "GetMessageDeliveryHistory":
     case "ListInstanceMessages":
       return ["messages:read"];
+    case "ListChats":
+    case "ListInstanceChats":
+    case "GetChatStatus":
+      return ["chats:read"];
+    case "ListContacts":
+    case "ListInstanceContacts":
+    case "GetContactStatus":
+      return ["contacts:read"];
+    case "ListLabels":
+    case "ListInstanceLabels":
+    case "GetLabelStatus":
+      return ["labels:read"];
     case "ListInstanceGroups":
     case "GetGroupStatus":
     case "ListGroupMembers":

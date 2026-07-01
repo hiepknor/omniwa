@@ -20,6 +20,8 @@ The contract covers:
 - implemented Phase B route surface,
 - Phase E projection read routes for platform clients,
 - Phase F Events resources and SSE stream contract,
+- Phase H Groups resources,
+- Phase I Chat, Contact, and Label read resources,
 - reserved partial routes that currently return safe `501` error envelopes.
 
 The contract does not define:
@@ -29,7 +31,7 @@ The contract does not define:
 - provider-native payloads,
 - database schema,
 - business rules outside the frozen Application/Domain boundary,
-- Groups, Chats, Contacts, or Broadcast.
+- Broadcast.
 
 ## Compatibility Rules
 

@@ -7,9 +7,14 @@ import {
   activateGroup,
   captureTelemetrySignal,
   classifyDegraded,
+  createChat,
+  createChatId,
   createAccessDecisionId,
   createAuditRecordId,
   createConfigurationSnapshotId,
+  createContact,
+  createContactDisplayName,
+  createContactId,
   createGuardrailDecisionId,
   createGroup,
   createGroupId,
@@ -20,10 +25,13 @@ import {
   createInstanceId,
   createJid,
   createJobId,
+  createLabel,
+  createLabelId,
   createMediaAsset,
   createMediaId,
   createMessageId,
   createOutboundMessageIntent,
+  createPhoneNumber,
   createProviderId,
   createProviderProfile,
   createRetentionPolicy,
@@ -85,6 +93,9 @@ describe("in-memory repository adapters", () => {
     const messageId = createMessageId("message-repo-1");
     const guardrailId = createGuardrailDecisionId("guardrail-repo-1");
     const mediaId = createMediaId("media-repo-1");
+    const chatId = createChatId("chat-repo-1");
+    const contactId = createContactId("contact-repo-1");
+    const labelId = createLabelId("label-repo-1");
     const groupId = createGroupId("group-repo-1");
 
     const session = activateSession(startSessionPairing(createSession(sessionId, instanceId)));
@@ -109,6 +120,24 @@ describe("in-memory repository adapters", () => {
     const media = markMediaProcessed(
       markMediaProcessing(acceptMediaAsset(createMediaAsset(mediaId, "image", messageRetention))),
     );
+    const label = createLabel({
+      id: labelId,
+      instanceId,
+      name: "Repository Label",
+    });
+    const chat = createChat({
+      id: chatId,
+      instanceId,
+      jid: createJid("12345@s.whatsapp.net"),
+      labelIds: [labelId],
+    });
+    const contact = createContact({
+      id: contactId,
+      instanceId,
+      jid: createJid("12345@s.whatsapp.net"),
+      displayName: createContactDisplayName("Repository Contact"),
+      phoneNumber: createPhoneNumber("+12025550123"),
+    });
     const group = activateGroup(
       createGroup({
         id: groupId,
@@ -125,6 +154,9 @@ describe("in-memory repository adapters", () => {
     await repositories.guardrailDecisionRepository.save(guardrailDecision);
     await repositories.messageRepository.save(message);
     await repositories.mediaAssetRepository.save(media);
+    await repositories.labelRepository.save(label);
+    await repositories.chatRepository.save(chat);
+    await repositories.contactRepository.save(contact);
     await repositories.groupRepository.save(group);
     repositories.mediaAssetRepository.markRequiringCleanup(mediaId);
 
@@ -149,6 +181,23 @@ describe("in-memory repository adapters", () => {
     await expect(repositories.mediaAssetRepository.findRequiringCleanup()).resolves.toEqual([
       media,
     ]);
+    await expect(repositories.labelRepository.findByInstance(instanceId)).resolves.toEqual([label]);
+    await expect(repositories.labelRepository.findByStatus("active")).resolves.toEqual([label]);
+    await expect(repositories.chatRepository.findByInstance(instanceId)).resolves.toEqual([chat]);
+    await expect(repositories.chatRepository.findByStatus("open")).resolves.toEqual([chat]);
+    await expect(repositories.chatRepository.findByLabel(labelId)).resolves.toEqual([chat]);
+    await expect(
+      repositories.chatRepository.findByJid(createJid("12345@s.whatsapp.net")),
+    ).resolves.toEqual(chat);
+    await expect(repositories.contactRepository.findByInstance(instanceId)).resolves.toEqual([
+      contact,
+    ]);
+    await expect(repositories.contactRepository.findByStatus("discovered")).resolves.toEqual([
+      contact,
+    ]);
+    await expect(
+      repositories.contactRepository.findByJid(createJid("12345@s.whatsapp.net")),
+    ).resolves.toEqual(contact);
     await expect(repositories.groupRepository.findByInstance(instanceId)).resolves.toEqual([group]);
     await expect(repositories.groupRepository.findByStatus("active")).resolves.toEqual([group]);
     await expect(repositories.groupRepository.findByJid(createJid("12345@g.us"))).resolves.toEqual(

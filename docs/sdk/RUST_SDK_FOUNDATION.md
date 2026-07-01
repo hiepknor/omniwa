@@ -82,5 +82,5 @@ cargo test
 - Add an HTTP transport implementation after choosing the runtime HTTP client.
 - Add generated low-level request/response models beyond operation metadata.
 - Expand resource wrappers for Media, Metrics, Settings, and Audit.
-- Add Groups/Chats/Contacts modules only after their platform phases are
-  approved.
+- Add write-oriented Contact and Label helpers only after those public API
+  phases are approved.

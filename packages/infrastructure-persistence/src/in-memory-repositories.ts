@@ -6,9 +6,17 @@ import type {
   AuditRecord,
   AuditRecordId,
   AuditRecordRepositoryPort,
+  Chat,
+  ChatId,
+  ChatRepositoryPort,
+  ChatStatus,
   ConfigurationSnapshot,
   ConfigurationSnapshotId,
   ConfigurationSnapshotRepositoryPort,
+  Contact,
+  ContactId,
+  ContactRepositoryPort,
+  ContactStatus,
   DomainOwnerContext,
   GuardrailDecision,
   GuardrailDecisionId,
@@ -28,6 +36,10 @@ import type {
   InstanceStatus,
   JobId,
   JobStatus,
+  Label,
+  LabelId,
+  LabelRepositoryPort,
+  LabelStatus,
   MediaAsset,
   MediaAssetRepositoryPort,
   MediaAssetStatus,
@@ -217,6 +229,59 @@ export class InMemoryMediaAssetRepository
 
   markRequiringCleanup(mediaId: MediaId): void {
     this.cleanupRequiredMediaIds.add(this.keyFor(mediaId));
+  }
+}
+
+export class InMemoryChatRepository
+  extends InMemoryAggregateRepository<Chat, ChatId>
+  implements ChatRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Chat[]> {
+    return Promise.resolve(this.findAll((chat) => keyOf(chat.instanceId) === keyOf(instanceId)));
+  }
+
+  findByStatus(status: ChatStatus): Promise<readonly Chat[]> {
+    return Promise.resolve(this.findAll((chat) => chat.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Chat | undefined> {
+    return Promise.resolve(this.list().find((chat) => keyOf(chat.jid) === keyOf(jid)));
+  }
+
+  findByLabel(labelId: LabelId): Promise<readonly Chat[]> {
+    return Promise.resolve(this.findAll((chat) => chat.labelIds.includes(labelId)));
+  }
+}
+
+export class InMemoryContactRepository
+  extends InMemoryAggregateRepository<Contact, ContactId>
+  implements ContactRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Contact[]> {
+    return Promise.resolve(
+      this.findAll((contact) => keyOf(contact.instanceId) === keyOf(instanceId)),
+    );
+  }
+
+  findByStatus(status: ContactStatus): Promise<readonly Contact[]> {
+    return Promise.resolve(this.findAll((contact) => contact.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Contact | undefined> {
+    return Promise.resolve(this.list().find((contact) => keyOf(contact.jid) === keyOf(jid)));
+  }
+}
+
+export class InMemoryLabelRepository
+  extends InMemoryAggregateRepository<Label, LabelId>
+  implements LabelRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Label[]> {
+    return Promise.resolve(this.findAll((label) => keyOf(label.instanceId) === keyOf(instanceId)));
+  }
+
+  findByStatus(status: LabelStatus): Promise<readonly Label[]> {
+    return Promise.resolve(this.findAll((label) => label.status === status));
   }
 }
 
@@ -441,6 +506,9 @@ export type InMemoryRepositorySet = Readonly<{
   sessionRepository: InMemorySessionRepository;
   messageRepository: InMemoryMessageRepository;
   mediaAssetRepository: InMemoryMediaAssetRepository;
+  chatRepository: InMemoryChatRepository;
+  contactRepository: InMemoryContactRepository;
+  labelRepository: InMemoryLabelRepository;
   groupRepository: InMemoryGroupRepository;
   webhookSubscriptionRepository: InMemoryWebhookSubscriptionRepository;
   webhookDeliveryRepository: InMemoryWebhookDeliveryRepository;
@@ -460,6 +528,9 @@ export function createInMemoryRepositorySet(): InMemoryRepositorySet {
     sessionRepository: new InMemorySessionRepository(),
     messageRepository: new InMemoryMessageRepository(),
     mediaAssetRepository: new InMemoryMediaAssetRepository(),
+    chatRepository: new InMemoryChatRepository(),
+    contactRepository: new InMemoryContactRepository(),
+    labelRepository: new InMemoryLabelRepository(),
     groupRepository: new InMemoryGroupRepository(),
     webhookSubscriptionRepository: new InMemoryWebhookSubscriptionRepository(),
     webhookDeliveryRepository: new InMemoryWebhookDeliveryRepository(),

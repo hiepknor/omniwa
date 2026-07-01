@@ -4,6 +4,7 @@ import {
   requestAuditRecord,
   type AuditRecord,
 } from "../audit/audit-record.js";
+import { createChat, type Chat } from "../chat/chat.js";
 import {
   proposeConfigurationSnapshot,
   rejectGuardrailBypassConfiguration,
@@ -11,6 +12,7 @@ import {
   validateConfigurationSnapshot,
   type ConfigurationSnapshot,
 } from "../configuration/configuration-snapshot.js";
+import { createContact, type Contact, type ContactDisplayName } from "../contact/contact.js";
 import {
   blockGuardrailDecision,
   passGuardrailDecision,
@@ -31,12 +33,15 @@ import {
 import type {
   AccessDecisionId,
   AuditRecordId,
+  ChatId,
   ConfigurationSnapshotId,
+  ContactId,
   GuardrailDecisionId,
   GroupId,
   HealthStatusId,
   InstanceId,
   JobId,
+  LabelId,
   MediaId,
   MessageId,
   ProviderId,
@@ -47,7 +52,9 @@ import type {
 } from "../identity/aggregate-ids.js";
 import { createGroup, type Group, type GroupMetadata } from "../group/group.js";
 import type { GroupProviderCapability } from "../group/group-provider-capability.js";
+import { createLabel, type Label } from "../label/label.js";
 import type { Jid } from "../references/jid.js";
+import type { PhoneNumber } from "../references/phone-number.js";
 import { createInstance, type Instance } from "../instance/instance.js";
 import {
   acceptMediaAsset,
@@ -149,6 +156,34 @@ export function createMediaAssetAggregate(input: {
       : createMediaAsset(input.id, input.category, input.retentionPolicy);
 
   return input.diagnosticCapture === true ? requestDiagnosticCapture(media) : media;
+}
+
+export function createChatAggregate(input: {
+  id: ChatId;
+  instanceId: InstanceId;
+  jid: Jid;
+  labelIds?: readonly LabelId[];
+}): Chat {
+  return createChat(input);
+}
+
+export function createContactAggregate(input: {
+  id: ContactId;
+  instanceId: InstanceId;
+  jid: Jid;
+  displayName?: ContactDisplayName;
+  phoneNumber?: PhoneNumber;
+}): Contact {
+  return createContact(input);
+}
+
+export function createLabelAggregate(input: {
+  id: LabelId;
+  instanceId: InstanceId;
+  name: string;
+  colorCode?: string;
+}): Label {
+  return createLabel(input);
 }
 
 export function createGroupAggregate(input: {

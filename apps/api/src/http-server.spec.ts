@@ -33,6 +33,9 @@ const publicCredential: ApiCredential = {
     "messages:cancel",
     "media:write",
     "media:read",
+    "chats:read",
+    "contacts:read",
+    "labels:read",
     "groups:read",
     "groups:write",
     "groups:message",
@@ -422,6 +425,43 @@ describe("API HTTP transport", () => {
       "UpdateWebhookSubscription",
       "ActivateWebhookSubscription",
       "RetryWebhookDelivery",
+    ]);
+  });
+
+  it("maps chat, contact, and label resources to navigation queries", async () => {
+    const dispatcher = new CapturingDispatcher();
+
+    await request(dispatcher, "GET", "/v1/chats");
+    await request(dispatcher, "GET", "/v1/instances/inst_allowed/chats");
+    await request(dispatcher, "GET", "/v1/chats/chat_1");
+    await request(dispatcher, "GET", "/v1/contacts");
+    await request(dispatcher, "GET", "/v1/instances/inst_allowed/contacts");
+    await request(dispatcher, "GET", "/v1/contacts/contact_1");
+    await request(dispatcher, "GET", "/v1/labels");
+    await request(dispatcher, "GET", "/v1/instances/inst_allowed/labels");
+    await request(dispatcher, "GET", "/v1/labels/label_1");
+
+    expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
+      "ListChats",
+      "ListInstanceChats",
+      "GetChatStatus",
+      "ListContacts",
+      "ListInstanceContacts",
+      "GetContactStatus",
+      "ListLabels",
+      "ListInstanceLabels",
+      "GetLabelStatus",
+    ]);
+    expect(dispatcher.queryEnvelopes.map((envelope) => envelope.targetRef)).toEqual([
+      undefined,
+      "inst_allowed",
+      "chat_1",
+      undefined,
+      "inst_allowed",
+      "contact_1",
+      undefined,
+      "inst_allowed",
+      "label_1",
     ]);
   });
 

@@ -6,6 +6,11 @@ import {
   activateSession,
   activateWebhookSubscription,
   activateGroup,
+  createChat,
+  createChatId,
+  createContact,
+  createContactDisplayName,
+  createContactId,
   createGroup,
   createGroupId,
   createIdempotencyKey,
@@ -13,8 +18,11 @@ import {
   createInstanceId,
   createJid,
   createJobId,
+  createLabel,
+  createLabelId,
   createMessageId,
   createOutboundMessageIntent,
+  createPhoneNumber,
   createRetryPolicy,
   createSession,
   createSessionId,
@@ -56,6 +64,9 @@ describe("durable JSON repository adapters", () => {
     const instanceId = createInstanceId("instance-durable-1");
     const sessionId = createSessionId("session-durable-1");
     const messageId = createMessageId("message-durable-1");
+    const chatId = createChatId("chat-durable-1");
+    const contactId = createContactId("contact-durable-1");
+    const labelId = createLabelId("label-durable-1");
     const groupId = createGroupId("group-durable-1");
     const webhookId = createWebhookId("webhook-durable-1");
     const deliveryId = createWebhookDeliveryId("webhook-delivery-durable-1");
@@ -70,6 +81,24 @@ describe("durable JSON repository adapters", () => {
       id: messageId,
       instanceId,
       type: "text",
+    });
+    const label = createLabel({
+      id: labelId,
+      instanceId,
+      name: "Durable Label",
+    });
+    const chat = createChat({
+      id: chatId,
+      instanceId,
+      jid: createJid("34567@s.whatsapp.net"),
+      labelIds: [labelId],
+    });
+    const contact = createContact({
+      id: contactId,
+      instanceId,
+      jid: createJid("34567@s.whatsapp.net"),
+      displayName: createContactDisplayName("Durable Contact"),
+      phoneNumber: createPhoneNumber("+12025550124"),
     });
     const group = activateGroup(
       createGroup({
@@ -97,6 +126,9 @@ describe("durable JSON repository adapters", () => {
     await firstRepositorySet.instanceRepository.save(instance);
     await firstRepositorySet.sessionRepository.save(session);
     await firstRepositorySet.messageRepository.save(message);
+    await firstRepositorySet.labelRepository.save(label);
+    await firstRepositorySet.chatRepository.save(chat);
+    await firstRepositorySet.contactRepository.save(contact);
     await firstRepositorySet.groupRepository.save(group);
     await firstRepositorySet.webhookSubscriptionRepository.save(webhook);
     await firstRepositorySet.webhookDeliveryRepository.save(webhookDelivery);
@@ -125,6 +157,19 @@ describe("durable JSON repository adapters", () => {
     await expect(secondRepositorySet.sessionRepository.findByInstance(instanceId)).resolves.toEqual(
       [session],
     );
+    await expect(secondRepositorySet.labelRepository.findByStatus("active")).resolves.toEqual([
+      label,
+    ]);
+    await expect(secondRepositorySet.chatRepository.findByLabel(labelId)).resolves.toEqual([chat]);
+    await expect(
+      secondRepositorySet.chatRepository.findByJid(createJid("34567@s.whatsapp.net")),
+    ).resolves.toEqual(chat);
+    await expect(secondRepositorySet.contactRepository.findByInstance(instanceId)).resolves.toEqual(
+      [contact],
+    );
+    await expect(
+      secondRepositorySet.contactRepository.findByJid(createJid("34567@s.whatsapp.net")),
+    ).resolves.toEqual(contact);
     await expect(secondRepositorySet.groupRepository.findByInstance(instanceId)).resolves.toEqual([
       group,
     ]);

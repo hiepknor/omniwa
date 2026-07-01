@@ -1,8 +1,11 @@
+pub mod chats;
+pub mod contacts;
 pub mod dashboard;
 pub mod events;
 pub mod groups;
 pub mod health;
 pub mod instances;
 pub mod jobs;
+pub mod labels;
 pub mod messages;
 pub mod webhooks;

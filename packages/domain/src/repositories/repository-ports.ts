@@ -1,5 +1,7 @@
 import type { AuditRecord } from "../audit/audit-record.js";
+import type { Chat } from "../chat/chat.js";
 import type { ConfigurationSnapshot } from "../configuration/configuration-snapshot.js";
+import type { Contact } from "../contact/contact.js";
 import type { DomainOwnerContext } from "../errors/domain-owner-context.js";
 import type { GuardrailDecision } from "../guardrails/guardrail-decision.js";
 import type { Group } from "../group/group.js";
@@ -7,12 +9,15 @@ import type { HealthStatus } from "../health/health-status.js";
 import type {
   AccessDecisionId,
   AuditRecordId,
+  ChatId,
   ConfigurationSnapshotId,
+  ContactId,
   GuardrailDecisionId,
   GroupId,
   HealthStatusId,
   InstanceId,
   JobId,
+  LabelId,
   MediaId,
   MessageId,
   ProviderId,
@@ -23,6 +28,7 @@ import type {
 } from "../identity/aggregate-ids.js";
 import type { IdempotencyKey } from "../idempotency/idempotency-key.js";
 import type { Instance } from "../instance/instance.js";
+import type { Label } from "../label/label.js";
 import type { Jid } from "../references/jid.js";
 import type { MediaAsset } from "../media/media-asset.js";
 import type { Message } from "../messaging/message.js";
@@ -31,10 +37,13 @@ import type { WorkerJob } from "../operations/worker-job.js";
 import type { ProviderProfile } from "../provider/provider-profile.js";
 import type { AccessDecision } from "../security/access-decision.js";
 import type { Session } from "../session/session.js";
+import type { ChatStatus } from "../status/chat-status.js";
+import type { ContactStatus } from "../status/contact-status.js";
 import type { HealthCategory } from "../status/health-category.js";
 import type { GroupStatus } from "../status/group-status.js";
 import type { InstanceStatus } from "../status/instance-status.js";
 import type { JobStatus } from "../status/job-status.js";
+import type { LabelStatus } from "../status/label-status.js";
 import type { MediaAssetStatus } from "../status/media-asset-status.js";
 import type { MessageStatus } from "../status/message-status.js";
 import type { ProviderProfileStatus } from "../status/provider-profile-status.js";
@@ -79,6 +88,24 @@ export interface MediaAssetRepositoryPort extends AggregateRepositoryPort<MediaA
   findByStatus(status: MediaAssetStatus): Promise<readonly MediaAsset[]>;
   findRequiringCleanup(): Promise<readonly MediaAsset[]>;
   findByMessage(messageId: MessageId): Promise<readonly MediaAsset[]>;
+}
+
+export interface ChatRepositoryPort extends AggregateRepositoryPort<Chat, ChatId> {
+  findByInstance(instanceId: InstanceId): Promise<readonly Chat[]>;
+  findByStatus(status: ChatStatus): Promise<readonly Chat[]>;
+  findByJid(jid: Jid): Promise<Chat | undefined>;
+  findByLabel(labelId: LabelId): Promise<readonly Chat[]>;
+}
+
+export interface ContactRepositoryPort extends AggregateRepositoryPort<Contact, ContactId> {
+  findByInstance(instanceId: InstanceId): Promise<readonly Contact[]>;
+  findByStatus(status: ContactStatus): Promise<readonly Contact[]>;
+  findByJid(jid: Jid): Promise<Contact | undefined>;
+}
+
+export interface LabelRepositoryPort extends AggregateRepositoryPort<Label, LabelId> {
+  findByInstance(instanceId: InstanceId): Promise<readonly Label[]>;
+  findByStatus(status: LabelStatus): Promise<readonly Label[]>;
 }
 
 export interface GroupRepositoryPort extends AggregateRepositoryPort<Group, GroupId> {

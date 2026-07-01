@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   createAccessDecisionId,
   createAuditRecordId,
+  createChatId,
   createConfigurationSnapshotId,
+  createContactId,
   createGuardrailDecisionId,
   createGroupActionId,
   createGroupId,
@@ -11,6 +13,7 @@ import {
   createInstanceId,
   createInviteLinkId,
   createJobId,
+  createLabelId,
   createMediaId,
   createMessageId,
   createProviderId,
@@ -26,6 +29,9 @@ describe("aggregate identities", () => {
     expect(createSessionId("sess_01")).toBe("sess_01");
     expect(createMessageId("msg_01")).toBe("msg_01");
     expect(createMediaId("media_01")).toBe("media_01");
+    expect(createChatId("chat_01")).toBe("chat_01");
+    expect(createContactId("contact_01")).toBe("contact_01");
+    expect(createLabelId("label_01")).toBe("label_01");
     expect(createGroupId("group_01")).toBe("group_01");
     expect(createGroupActionId("group_action_01")).toBe("group_action_01");
     expect(createInviteLinkId("invite_01")).toBe("invite_01");

@@ -38,6 +38,9 @@ describe("repository adapter planning", () => {
   it("preserves aggregate ownership and safe persistence boundaries", () => {
     const messagePlan = getRepositoryAdapterPlan("MessageRepositoryPort");
     const sessionPlan = getRepositoryAdapterPlan("SessionRepositoryPort");
+    const chatPlan = getRepositoryAdapterPlan("ChatRepositoryPort");
+    const contactPlan = getRepositoryAdapterPlan("ContactRepositoryPort");
+    const labelPlan = getRepositoryAdapterPlan("LabelRepositoryPort");
     const groupPlan = getRepositoryAdapterPlan("GroupRepositoryPort");
     const webhookPlans = findRepositoryAdapterPlansByOwner("webhook_delivery");
 
@@ -49,6 +52,23 @@ describe("repository adapter planning", () => {
     });
     expect(messagePlan.forbiddenData).toContain("raw_message_body");
     expect(sessionPlan.forbiddenData).toContain("session_secret_plaintext");
+    expect(chatPlan).toMatchObject({
+      aggregateRoot: "Chat",
+      ownerContext: "chat",
+      consistency: "eventual_projection",
+    });
+    expect(chatPlan.allowedOperations).toContain("findByLabel");
+    expect(contactPlan).toMatchObject({
+      aggregateRoot: "Contact",
+      ownerContext: "contact",
+      consistency: "eventual_projection",
+    });
+    expect(contactPlan.forbiddenData).toContain("raw_phone_or_jid");
+    expect(labelPlan).toMatchObject({
+      aggregateRoot: "Label",
+      ownerContext: "label",
+      persistenceUnit: "Label Organization State",
+    });
     expect(groupPlan).toMatchObject({
       aggregateRoot: "Group",
       ownerContext: "group",

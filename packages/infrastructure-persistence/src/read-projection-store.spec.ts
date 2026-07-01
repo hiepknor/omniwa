@@ -41,6 +41,21 @@ describe("in-memory read projection store", () => {
       consistency: "retention_bound",
       retentionBound: true,
     });
+    expect(getReadProjectionDefinition("ChatListProjection")).toMatchObject({
+      ownerContext: "chat",
+      sourceAggregates: ["Chat", "Contact", "Group", "Label", "Message"],
+      queries: ["ListChats", "ListInstanceChats"],
+      consistency: "eventual_projection",
+    });
+    expect(getReadProjectionDefinition("ContactStatusProjection")).toMatchObject({
+      ownerContext: "contact",
+      queries: ["GetContactStatus"],
+      consistency: "strong_owner",
+    });
+    expect(getReadProjectionDefinition("LabelListProjection")).toMatchObject({
+      ownerContext: "label",
+      queries: ["ListLabels", "ListInstanceLabels"],
+    });
     expect(getReadProjectionDefinition("GroupListProjection")).toMatchObject({
       ownerContext: "group",
       sourceAggregates: ["Group", "Instance", "ProviderProfile", "HealthStatus"],

@@ -3,9 +3,9 @@ use crate::error::{ApiFailure, SdkError};
 use crate::generated::operations::Operation;
 use crate::idempotency::IdempotencyKey;
 use crate::resources::{
-    dashboard::DashboardClient, events::EventsClient, groups::GroupsClient, health::HealthClient,
-    instances::InstancesClient, jobs::JobsClient, messages::MessagesClient,
-    webhooks::WebhooksClient,
+    chats::ChatsClient, contacts::ContactsClient, dashboard::DashboardClient, events::EventsClient,
+    groups::GroupsClient, health::HealthClient, instances::InstancesClient, jobs::JobsClient,
+    labels::LabelsClient, messages::MessagesClient, webhooks::WebhooksClient,
 };
 use crate::transport::{SdkRequest, SdkResponse, Transport};
 
@@ -67,8 +67,20 @@ where
         EventsClient::new(self)
     }
 
+    pub fn chats(&self) -> ChatsClient<'_, TTransport> {
+        ChatsClient::new(self)
+    }
+
+    pub fn contacts(&self) -> ContactsClient<'_, TTransport> {
+        ContactsClient::new(self)
+    }
+
     pub fn groups(&self) -> GroupsClient<'_, TTransport> {
         GroupsClient::new(self)
+    }
+
+    pub fn labels(&self) -> LabelsClient<'_, TTransport> {
+        LabelsClient::new(self)
     }
 
     pub fn instances(&self) -> InstancesClient<'_, TTransport> {

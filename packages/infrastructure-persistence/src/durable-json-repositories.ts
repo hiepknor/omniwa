@@ -8,9 +8,17 @@ import type {
   AuditRecord,
   AuditRecordId,
   AuditRecordRepositoryPort,
+  Chat,
+  ChatId,
+  ChatRepositoryPort,
+  ChatStatus,
   ConfigurationSnapshot,
   ConfigurationSnapshotId,
   ConfigurationSnapshotRepositoryPort,
+  Contact,
+  ContactId,
+  ContactRepositoryPort,
+  ContactStatus,
   DomainOwnerContext,
   GuardrailDecision,
   GuardrailDecisionId,
@@ -30,6 +38,10 @@ import type {
   InstanceStatus,
   JobId,
   JobStatus,
+  Label,
+  LabelId,
+  LabelRepositoryPort,
+  LabelStatus,
   MediaAsset,
   MediaAssetRepositoryPort,
   MediaAssetStatus,
@@ -280,6 +292,59 @@ export class DurableJsonMediaAssetRepository
   }
 }
 
+export class DurableJsonChatRepository
+  extends DurableJsonAggregateRepository<Chat, ChatId>
+  implements ChatRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Chat[]> {
+    return Promise.resolve(this.findAll((chat) => keyOf(chat.instanceId) === keyOf(instanceId)));
+  }
+
+  findByStatus(status: ChatStatus): Promise<readonly Chat[]> {
+    return Promise.resolve(this.findAll((chat) => chat.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Chat | undefined> {
+    return Promise.resolve(this.list().find((chat) => keyOf(chat.jid) === keyOf(jid)));
+  }
+
+  findByLabel(labelId: LabelId): Promise<readonly Chat[]> {
+    return Promise.resolve(this.findAll((chat) => chat.labelIds.includes(labelId)));
+  }
+}
+
+export class DurableJsonContactRepository
+  extends DurableJsonAggregateRepository<Contact, ContactId>
+  implements ContactRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Contact[]> {
+    return Promise.resolve(
+      this.findAll((contact) => keyOf(contact.instanceId) === keyOf(instanceId)),
+    );
+  }
+
+  findByStatus(status: ContactStatus): Promise<readonly Contact[]> {
+    return Promise.resolve(this.findAll((contact) => contact.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Contact | undefined> {
+    return Promise.resolve(this.list().find((contact) => keyOf(contact.jid) === keyOf(jid)));
+  }
+}
+
+export class DurableJsonLabelRepository
+  extends DurableJsonAggregateRepository<Label, LabelId>
+  implements LabelRepositoryPort
+{
+  findByInstance(instanceId: InstanceId): Promise<readonly Label[]> {
+    return Promise.resolve(this.findAll((label) => keyOf(label.instanceId) === keyOf(instanceId)));
+  }
+
+  findByStatus(status: LabelStatus): Promise<readonly Label[]> {
+    return Promise.resolve(this.findAll((label) => label.status === status));
+  }
+}
+
 export class DurableJsonGroupRepository
   extends DurableJsonAggregateRepository<Group, GroupId>
   implements GroupRepositoryPort
@@ -499,6 +564,9 @@ export type DurableJsonRepositorySet = Readonly<{
   sessionRepository: DurableJsonSessionRepository;
   messageRepository: DurableJsonMessageRepository;
   mediaAssetRepository: DurableJsonMediaAssetRepository;
+  chatRepository: DurableJsonChatRepository;
+  contactRepository: DurableJsonContactRepository;
+  labelRepository: DurableJsonLabelRepository;
   groupRepository: DurableJsonGroupRepository;
   webhookSubscriptionRepository: DurableJsonWebhookSubscriptionRepository;
   webhookDeliveryRepository: DurableJsonWebhookDeliveryRepository;
@@ -520,6 +588,9 @@ export function createDurableJsonRepositorySet(baseDirectory: string): DurableJs
     mediaAssetRepository: new DurableJsonMediaAssetRepository(
       join(baseDirectory, "media-assets.json"),
     ),
+    chatRepository: new DurableJsonChatRepository(join(baseDirectory, "chats.json")),
+    contactRepository: new DurableJsonContactRepository(join(baseDirectory, "contacts.json")),
+    labelRepository: new DurableJsonLabelRepository(join(baseDirectory, "labels.json")),
     groupRepository: new DurableJsonGroupRepository(join(baseDirectory, "groups.json")),
     webhookSubscriptionRepository: new DurableJsonWebhookSubscriptionRepository(
       join(baseDirectory, "webhook-subscriptions.json"),

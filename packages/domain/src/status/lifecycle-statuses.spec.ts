@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { createChatStatus } from "./chat-status.js";
 import { createConfigurationSafety } from "./configuration-safety.js";
+import { createContactStatus } from "./contact-status.js";
 import { createGroupStatus } from "./group-status.js";
 import { createHealthCategory } from "./health-category.js";
 import { createInstanceStatus } from "./instance-status.js";
 import { createJobStatus } from "./job-status.js";
+import { createLabelStatus } from "./label-status.js";
 import { createMessageStatus } from "./message-status.js";
 import { createSessionStatus } from "./session-status.js";
 import { createWebhookDeliveryStatus } from "./webhook-delivery-status.js";
@@ -15,6 +18,9 @@ describe("lifecycle status value objects", () => {
     expect(createSessionStatus("active")).toBe("active");
     expect(createMessageStatus("evaluated")).toBe("evaluated");
     expect(createMessageStatus("sent")).toBe("sent");
+    expect(createChatStatus("archived")).toBe("archived");
+    expect(createContactStatus("blocked")).toBe("blocked");
+    expect(createLabelStatus("active")).toBe("active");
     expect(createGroupStatus("active")).toBe("active");
     expect(createWebhookDeliveryStatus("dead_letter")).toBe("dead_letter");
     expect(createJobStatus("reserved")).toBe("reserved");
@@ -24,6 +30,9 @@ describe("lifecycle status value objects", () => {
     expect(() => createInstanceStatus("open")).toThrow(TypeError);
     expect(() => createSessionStatus("baileys_connected")).toThrow(TypeError);
     expect(() => createMessageStatus("provider_acknowledged")).toThrow(TypeError);
+    expect(() => createChatStatus("baileys_unread")).toThrow(TypeError);
+    expect(() => createContactStatus("whatsapp_blocked_native")).toThrow(TypeError);
+    expect(() => createLabelStatus("ui_orange")).toThrow(TypeError);
     expect(() => createGroupStatus("baileys_group_open")).toThrow(TypeError);
     expect(() => createWebhookDeliveryStatus("http_500")).toThrow(TypeError);
     expect(() => createJobStatus("bullmq_failed")).toThrow(TypeError);

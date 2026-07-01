@@ -165,20 +165,20 @@ SDK errors must not expose:
 
 ## TUI Compatibility Matrix
 
-| TUI Screen   | Status  | Related Current Code                                      | Missing                                    |
-| ------------ | ------- | --------------------------------------------------------- | ------------------------------------------ |
-| Dashboard    | PARTIAL | `GetHealthStatus`, metrics queries, observability package | Dashboard projection, REST, SSE            |
-| Instances    | PARTIAL | Instance domain/repository, commands, `ListInstances`     | REST, durable persistence, list projection |
-| Sessions     | PARTIAL | Session domain/repository                                 | Session list/detail query/API              |
-| Chats        | MISSING | No source module                                          | Domain/projection/API                      |
-| Contacts     | MISSING | No source module                                          | Domain/projection/API                      |
-| Groups       | MISSING | No source module                                          | Domain/projection/API/provider support     |
-| Members      | MISSING | No source module                                          | GroupMember model/actions                  |
-| Messages     | PARTIAL | Message domain, send commands, status/history query       | REST, timeline/list projection             |
-| Queue        | PARTIAL | Queue provider, WorkerJob                                 | Queue overview projection/API              |
-| Jobs         | PARTIAL | WorkerJob domain, `GetWorkerJobStatus`                    | Job list/projection/API                    |
-| Webhooks     | PARTIAL | Webhook domain, transport/dispatcher                      | REST route app, list projection            |
-| Events       | PARTIAL | Domain event contracts                                    | EventLog projection/SSE                    |
-| Logs         | MISSING | Logger contracts                                          | Log storage/projection/API                 |
-| API Explorer | MISSING | No OpenAPI                                                | OpenAPI spec                               |
-| Settings     | PARTIAL | Configuration domain/commands/query                       | Admin REST routes                          |
+| TUI Screen   | Status  | Related Current Code                                       | Missing                                      |
+| ------------ | ------- | ---------------------------------------------------------- | -------------------------------------------- |
+| Dashboard    | PARTIAL | Dashboard/metrics projections, REST routes, SSE foundation | Typed DTOs, richer live dashboard model      |
+| Instances    | PARTIAL | Instance domain/repository, REST routes, projections       | Typed DTOs, production dispatcher/runtime    |
+| Sessions     | PARTIAL | Session domain/repository, instance-scoped list route      | Session detail resource, typed DTOs          |
+| Chats        | PARTIAL | Chat domain, repositories, projections, REST, SDK wrapper  | Search/filter DTOs, realtime chat updates    |
+| Contacts     | PARTIAL | Contact privacy model, projections, REST, SDK wrapper      | Contact write APIs, richer privacy states    |
+| Groups       | PARTIAL | Group domain, projections, REST, SDK wrapper               | Provider runtime implementation              |
+| Members      | PARTIAL | GroupMember owned by Group aggregate and REST routes       | Provider runtime implementation              |
+| Messages     | PARTIAL | Message domain, commands, REST routes, projections         | Typed DTOs, provider runtime implementation  |
+| Queue        | PARTIAL | Queue provider, WorkerJob, queue metrics route             | Queue control APIs, production queue adapter |
+| Jobs         | PARTIAL | WorkerJob domain, list/detail REST routes                  | Retry/cancel public job controls             |
+| Webhooks     | PARTIAL | Webhook domain, REST routes, list/delivery projections     | Production delivery runtime                  |
+| Events       | PARTIAL | Event log projection and SSE foundation                    | Event persistence integration                |
+| Logs         | MISSING | Logger contracts                                           | Log storage/projection/API                   |
+| API Explorer | PARTIAL | OpenAPI contract                                           | Explorer UI/client integration               |
+| Settings     | PARTIAL | Configuration domain/commands/query and admin REST routes  | Typed settings DTOs                          |

@@ -16,7 +16,7 @@ fn client_with_fixture(
 
 #[test]
 fn generated_operation_catalog_is_not_empty() {
-    assert!(ALL_OPERATIONS.len() >= 62);
+    assert!(ALL_OPERATIONS.len() >= 71);
 }
 
 #[test]
@@ -132,4 +132,47 @@ fn groups_client_uses_resource_operations() {
         .expect("fixture response");
 
     assert_eq!(response.status_code, 200);
+}
+
+#[test]
+fn navigation_clients_use_phase_i_resource_operations() {
+    let chat_client = client_with_fixture(
+        "listInstanceChats",
+        SdkResponse::json(
+            200,
+            r#"{"data":[],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z"}}"#,
+        ),
+    );
+    let contact_client = client_with_fixture(
+        "getContact",
+        SdkResponse::json(
+            200,
+            r#"{"data":{"id":"contact_demo"},"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z"}}"#,
+        ),
+    );
+    let label_client = client_with_fixture(
+        "listLabels",
+        SdkResponse::json(
+            200,
+            r#"{"data":[],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z"}}"#,
+        ),
+    );
+
+    assert_eq!(
+        chat_client
+            .chats()
+            .list_for_instance("instance_demo")
+            .unwrap()
+            .status_code,
+        200,
+    );
+    assert_eq!(
+        contact_client
+            .contacts()
+            .get("contact_demo")
+            .unwrap()
+            .status_code,
+        200,
+    );
+    assert_eq!(label_client.labels().list().unwrap().status_code, 200);
 }

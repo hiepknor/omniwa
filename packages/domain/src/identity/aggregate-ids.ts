@@ -4,6 +4,9 @@ export type InstanceId = DomainIdentity<"InstanceId">;
 export type SessionId = DomainIdentity<"SessionId">;
 export type MessageId = DomainIdentity<"MessageId">;
 export type MediaId = DomainIdentity<"MediaId">;
+export type ChatId = DomainIdentity<"ChatId">;
+export type ContactId = DomainIdentity<"ContactId">;
+export type LabelId = DomainIdentity<"LabelId">;
 export type GroupId = DomainIdentity<"GroupId">;
 export type GroupActionId = DomainIdentity<"GroupActionId">;
 export type InviteLinkId = DomainIdentity<"InviteLinkId">;
@@ -28,6 +31,13 @@ export const createMessageId = (value: string): MessageId =>
   createDomainIdentity(value, "MessageId");
 
 export const createMediaId = (value: string): MediaId => createDomainIdentity(value, "MediaId");
+
+export const createChatId = (value: string): ChatId => createDomainIdentity(value, "ChatId");
+
+export const createContactId = (value: string): ContactId =>
+  createDomainIdentity(value, "ContactId");
+
+export const createLabelId = (value: string): LabelId => createDomainIdentity(value, "LabelId");
 
 export const createGroupId = (value: string): GroupId => createDomainIdentity(value, "GroupId");
 

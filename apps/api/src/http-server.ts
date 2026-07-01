@@ -445,6 +445,18 @@ function matchRoute(
     return adapterQuery("public", "ListInstanceMessages", segments[2], "retention_bound");
   }
 
+  if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "chats"])) {
+    return adapterQuery("public", "ListInstanceChats", segments[2], "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "contacts"])) {
+    return adapterQuery("public", "ListInstanceContacts", segments[2], "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "labels"])) {
+    return adapterQuery("public", "ListInstanceLabels", segments[2], "eventual_projection");
+  }
+
   if (method === "GET" && matches(segments, ["v1", "instances", ":instanceId", "groups"])) {
     return adapterQuery("public", "ListInstanceGroups", segments[2], "eventual_projection");
   }
@@ -496,6 +508,30 @@ function matchRoute(
 
   if (method === "GET" && matches(segments, ["v1", "media", ":mediaId"])) {
     return adapterQuery("public", "GetMediaStatus", segments[2], "strong_owner");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "chats"])) {
+    return adapterQuery("public", "ListChats", undefined, "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "chats", ":chatId"])) {
+    return adapterQuery("public", "GetChatStatus", segments[2], "strong_owner");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "contacts"])) {
+    return adapterQuery("public", "ListContacts", undefined, "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "contacts", ":contactId"])) {
+    return adapterQuery("public", "GetContactStatus", segments[2], "strong_owner");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "labels"])) {
+    return adapterQuery("public", "ListLabels", undefined, "eventual_projection");
+  }
+
+  if (method === "GET" && matches(segments, ["v1", "labels", ":labelId"])) {
+    return adapterQuery("public", "GetLabelStatus", segments[2], "strong_owner");
   }
 
   if (method === "GET" && matches(segments, ["v1", "groups", ":groupId"])) {
@@ -1093,6 +1129,13 @@ function parseScopes(value: string | undefined): readonly ApiScope[] {
       "messages:cancel",
       "media:write",
       "media:read",
+      "chats:read",
+      "contacts:read",
+      "labels:read",
+      "groups:read",
+      "groups:write",
+      "groups:message",
+      "groups:admin",
       "webhooks:write",
       "webhooks:read",
       "webhooks:retry",
@@ -1116,6 +1159,13 @@ function isApiScope(value: string): value is ApiScope {
     "messages:cancel",
     "media:write",
     "media:read",
+    "chats:read",
+    "contacts:read",
+    "labels:read",
+    "groups:read",
+    "groups:write",
+    "groups:message",
+    "groups:admin",
     "webhooks:write",
     "webhooks:read",
     "webhooks:retry",

@@ -62,6 +62,18 @@ pub const DISCONNECT_INSTANCE: Operation = Operation {
     path: "/v1/instances/{instanceId}/disconnect",
 };
 
+pub const GET_CHAT: Operation = Operation {
+    operation_id: "getChat",
+    method: "GET",
+    path: "/v1/chats/{chatId}",
+};
+
+pub const GET_CONTACT: Operation = Operation {
+    operation_id: "getContact",
+    method: "GET",
+    path: "/v1/contacts/{contactId}",
+};
+
 pub const GET_DASHBOARD_SUMMARY: Operation = Operation {
     operation_id: "getDashboardSummary",
     method: "GET",
@@ -96,6 +108,12 @@ pub const GET_JOB: Operation = Operation {
     operation_id: "getJob",
     method: "GET",
     path: "/v1/jobs/{jobId}",
+};
+
+pub const GET_LABEL: Operation = Operation {
+    operation_id: "getLabel",
+    method: "GET",
+    path: "/v1/labels/{labelId}",
 };
 
 pub const GET_MEDIA: Operation = Operation {
@@ -188,6 +206,18 @@ pub const LIST_AUDIT_RECORDS: Operation = Operation {
     path: "/v1/audit-records",
 };
 
+pub const LIST_CHATS: Operation = Operation {
+    operation_id: "listChats",
+    method: "GET",
+    path: "/v1/chats",
+};
+
+pub const LIST_CONTACTS: Operation = Operation {
+    operation_id: "listContacts",
+    method: "GET",
+    path: "/v1/contacts",
+};
+
 pub const LIST_EVENTS: Operation = Operation {
     operation_id: "listEvents",
     method: "GET",
@@ -200,10 +230,28 @@ pub const LIST_GROUP_MEMBERS: Operation = Operation {
     path: "/v1/groups/{groupId}/members",
 };
 
+pub const LIST_INSTANCE_CHATS: Operation = Operation {
+    operation_id: "listInstanceChats",
+    method: "GET",
+    path: "/v1/instances/{instanceId}/chats",
+};
+
+pub const LIST_INSTANCE_CONTACTS: Operation = Operation {
+    operation_id: "listInstanceContacts",
+    method: "GET",
+    path: "/v1/instances/{instanceId}/contacts",
+};
+
 pub const LIST_INSTANCE_GROUPS: Operation = Operation {
     operation_id: "listInstanceGroups",
     method: "GET",
     path: "/v1/instances/{instanceId}/groups",
+};
+
+pub const LIST_INSTANCE_LABELS: Operation = Operation {
+    operation_id: "listInstanceLabels",
+    method: "GET",
+    path: "/v1/instances/{instanceId}/labels",
 };
 
 pub const LIST_INSTANCE_MESSAGES: Operation = Operation {
@@ -228,6 +276,12 @@ pub const LIST_JOBS: Operation = Operation {
     operation_id: "listJobs",
     method: "GET",
     path: "/v1/jobs",
+};
+
+pub const LIST_LABELS: Operation = Operation {
+    operation_id: "listLabels",
+    method: "GET",
+    path: "/v1/labels",
 };
 
 pub const LIST_WEBHOOK_DELIVERIES: Operation = Operation {
@@ -390,12 +444,15 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     DEMOTE_GROUP_MEMBER,
     DESTROY_INSTANCE,
     DISCONNECT_INSTANCE,
+    GET_CHAT,
+    GET_CONTACT,
     GET_DASHBOARD_SUMMARY,
     GET_GROUP,
     GET_HEALTH,
     GET_HEALTH_READINESS,
     GET_INSTANCE,
     GET_JOB,
+    GET_LABEL,
     GET_MEDIA,
     GET_MEDIA_METRICS,
     GET_MESSAGE,
@@ -411,13 +468,19 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     GET_WEBHOOK_METRICS,
     LIST_ACTION_REQUIRED_ITEMS,
     LIST_AUDIT_RECORDS,
+    LIST_CHATS,
+    LIST_CONTACTS,
     LIST_EVENTS,
     LIST_GROUP_MEMBERS,
+    LIST_INSTANCE_CHATS,
+    LIST_INSTANCE_CONTACTS,
     LIST_INSTANCE_GROUPS,
+    LIST_INSTANCE_LABELS,
     LIST_INSTANCE_MESSAGES,
     LIST_INSTANCES,
     LIST_INSTANCE_SESSIONS,
     LIST_JOBS,
+    LIST_LABELS,
     LIST_WEBHOOK_DELIVERIES,
     LIST_WEBHOOKS,
     PROMOTE_GROUP_MEMBER,
@@ -456,12 +519,15 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "demoteGroupMember" => Some(DEMOTE_GROUP_MEMBER),
         "destroyInstance" => Some(DESTROY_INSTANCE),
         "disconnectInstance" => Some(DISCONNECT_INSTANCE),
+        "getChat" => Some(GET_CHAT),
+        "getContact" => Some(GET_CONTACT),
         "getDashboardSummary" => Some(GET_DASHBOARD_SUMMARY),
         "getGroup" => Some(GET_GROUP),
         "getHealth" => Some(GET_HEALTH),
         "getHealthReadiness" => Some(GET_HEALTH_READINESS),
         "getInstance" => Some(GET_INSTANCE),
         "getJob" => Some(GET_JOB),
+        "getLabel" => Some(GET_LABEL),
         "getMedia" => Some(GET_MEDIA),
         "getMediaMetrics" => Some(GET_MEDIA_METRICS),
         "getMessage" => Some(GET_MESSAGE),
@@ -477,13 +543,19 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "getWebhookMetrics" => Some(GET_WEBHOOK_METRICS),
         "listActionRequiredItems" => Some(LIST_ACTION_REQUIRED_ITEMS),
         "listAuditRecords" => Some(LIST_AUDIT_RECORDS),
+        "listChats" => Some(LIST_CHATS),
+        "listContacts" => Some(LIST_CONTACTS),
         "listEvents" => Some(LIST_EVENTS),
         "listGroupMembers" => Some(LIST_GROUP_MEMBERS),
+        "listInstanceChats" => Some(LIST_INSTANCE_CHATS),
+        "listInstanceContacts" => Some(LIST_INSTANCE_CONTACTS),
         "listInstanceGroups" => Some(LIST_INSTANCE_GROUPS),
+        "listInstanceLabels" => Some(LIST_INSTANCE_LABELS),
         "listInstanceMessages" => Some(LIST_INSTANCE_MESSAGES),
         "listInstances" => Some(LIST_INSTANCES),
         "listInstanceSessions" => Some(LIST_INSTANCE_SESSIONS),
         "listJobs" => Some(LIST_JOBS),
+        "listLabels" => Some(LIST_LABELS),
         "listWebhookDeliveries" => Some(LIST_WEBHOOK_DELIVERIES),
         "listWebhooks" => Some(LIST_WEBHOOKS),
         "promoteGroupMember" => Some(PROMOTE_GROUP_MEMBER),
