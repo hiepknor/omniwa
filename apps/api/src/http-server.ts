@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import {
@@ -151,6 +151,8 @@ type PublicResponseContract =
 type PublicCollectionQueryOptions = Readonly<{
   limit: number;
   filters: Readonly<Record<string, string>>;
+  cursorOffset: number;
+  cursorContext: string;
   cursor?: string;
   sort?: string;
   search?: string;
@@ -1079,10 +1081,31 @@ function normalizeCollectionQueryOptions(
     filters[key] = value;
   }
 
+  const cursorContext = createCollectionCursorContext({
+    queryName,
+    limit,
+    filters,
+    sort,
+    search,
+  });
+  const cursorOffset = cursor === undefined ? 0 : decodeCollectionCursor(cursor, cursorContext);
+
+  if (cursorOffset === undefined) {
+    return {
+      ok: false,
+      failure: validation(
+        "invalid_cursor",
+        "Query parameter 'cursor' is invalid for this collection query.",
+      ),
+    };
+  }
+
   return {
     ok: true,
     value: Object.freeze({
       limit,
+      cursorOffset,
+      cursorContext,
       filters: Object.freeze(filters),
       ...optional("cursor", cursor),
       ...optional("sort", sort),
@@ -1123,6 +1146,63 @@ function createSafeCriteriaRef(
   }
 
   return `${base}:${parts.join(";")}`;
+}
+
+function createCollectionCursorContext(input: {
+  queryName: string;
+  limit: number;
+  filters: Readonly<Record<string, string>>;
+  sort: string | undefined;
+  search: string | undefined;
+}): string {
+  const parts = [`query=${input.queryName}`, `limit=${input.limit}`];
+
+  if (input.sort !== undefined) {
+    parts.push(`sort=${input.sort}`);
+  }
+
+  if (input.search !== undefined) {
+    parts.push(`search=${input.search}`);
+  }
+
+  for (const [key, value] of Object.entries(input.filters).sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    parts.push(`filter:${key}=${value}`);
+  }
+
+  return parts.join("|");
+}
+
+const collectionCursorPrefix = "omniwa_cursor_v1";
+
+function encodeCollectionCursor(offset: number, context: string): string {
+  const digest = createHash("sha256").update(context).digest("hex").slice(0, 16);
+
+  return `${collectionCursorPrefix}:${offset}:${digest}`;
+}
+
+function decodeCollectionCursor(cursor: string, expectedContext: string): number | undefined {
+  const [prefix, rawOffset, digest, ...extraParts] = cursor.split(":");
+
+  if (
+    prefix !== collectionCursorPrefix ||
+    rawOffset === undefined ||
+    digest === undefined ||
+    extraParts.length > 0
+  ) {
+    return undefined;
+  }
+
+  const parsedOffset = Number.parseInt(rawOffset, 10);
+
+  if (!/^\d+$/u.test(rawOffset) || !Number.isSafeInteger(parsedOffset)) {
+    return undefined;
+  }
+
+  const expectedDigest = createHash("sha256").update(expectedContext).digest("hex").slice(0, 16);
+
+  return digest === expectedDigest ? parsedOffset : undefined;
 }
 
 const defaultCollectionLimit = 50;
@@ -1387,17 +1467,22 @@ function mapAdapterResponse(
 
   if (contract.shape === "collection") {
     const queryMeta = publicQueryMeta(response.data, contract.resourceType);
+    const collectionPage = publicCollectionPage(
+      response.data,
+      contract.resourceType,
+      contract.queryOptions,
+    );
     const collectionMeta = Object.freeze({
       ...meta,
       query: queryMeta,
-      pagination: paginationMetaFromOptions(contract.queryOptions),
+      pagination: paginationMetaFromOptions(contract.queryOptions, collectionPage),
     });
 
     return Object.freeze({
       statusCode: statusCodeForApiSuccess(response),
       headers: createJsonHeaders(meta),
       body: Object.freeze({
-        data: publicCollectionItems(response.data, contract.resourceType),
+        data: collectionPage.items,
         meta: collectionMeta,
       }),
     });
@@ -1479,6 +1564,134 @@ function publicCollectionItems(data: unknown, resourceType: string): readonly un
   }
 
   return Object.freeze([]);
+}
+
+type PublicCollectionPage = Readonly<{
+  items: readonly unknown[];
+  nextCursor: string | null;
+  previousCursor: string | null;
+  hasMore: boolean;
+}>;
+
+function publicCollectionPage(
+  data: unknown,
+  resourceType: string,
+  queryOptions: PublicCollectionQueryOptions,
+): PublicCollectionPage {
+  const filteredItems = applyCollectionFilters(
+    publicCollectionItems(data, resourceType),
+    queryOptions,
+  );
+  const startOffset = Math.min(queryOptions.cursorOffset, filteredItems.length);
+  const endOffset = Math.min(startOffset + queryOptions.limit, filteredItems.length);
+  const pageItems = Object.freeze(filteredItems.slice(startOffset, endOffset));
+  const hasMore = endOffset < filteredItems.length;
+
+  return Object.freeze({
+    items: pageItems,
+    nextCursor: hasMore ? encodeCollectionCursor(endOffset, queryOptions.cursorContext) : null,
+    previousCursor:
+      startOffset > 0
+        ? encodeCollectionCursor(
+            Math.max(0, startOffset - queryOptions.limit),
+            queryOptions.cursorContext,
+          )
+        : null,
+    hasMore,
+  });
+}
+
+function applyCollectionFilters(
+  items: readonly unknown[],
+  queryOptions: PublicCollectionQueryOptions,
+): readonly Readonly<Record<string, unknown>>[] {
+  const filtered = items
+    .map(asRecord)
+    .filter((item) => itemMatchesFilters(item, queryOptions.filters))
+    .filter((item) => itemMatchesSearch(item, queryOptions.search));
+
+  return Object.freeze(sortCollectionItems(filtered, queryOptions.sort));
+}
+
+function itemMatchesFilters(
+  item: Readonly<Record<string, unknown>>,
+  filters: Readonly<Record<string, string>>,
+): boolean {
+  return Object.entries(filters).every(
+    ([key, value]) => publicComparableValue(item[key]) === value,
+  );
+}
+
+function itemMatchesSearch(
+  item: Readonly<Record<string, unknown>>,
+  search: string | undefined,
+): boolean {
+  if (search === undefined) {
+    return true;
+  }
+
+  const expected = search.toLocaleLowerCase("en-US");
+
+  return Object.values(item).some((value) => {
+    if (typeof value === "string") {
+      return value.toLocaleLowerCase("en-US").includes(expected);
+    }
+
+    if (Array.isArray(value)) {
+      return value.some(
+        (entry) => typeof entry === "string" && entry.toLocaleLowerCase("en-US").includes(expected),
+      );
+    }
+
+    return false;
+  });
+}
+
+function sortCollectionItems(
+  items: readonly Readonly<Record<string, unknown>>[],
+  sort: string | undefined,
+): readonly Readonly<Record<string, unknown>>[] {
+  if (sort === undefined) {
+    return [...items];
+  }
+
+  const descending = sort.startsWith("-");
+  const field = descending ? sort.slice(1) : sort;
+
+  return items
+    .map((item, index) => Object.freeze({ item, index }))
+    .sort((left, right) => {
+      const comparison = comparePublicValues(left.item[field], right.item[field]);
+
+      if (comparison !== 0) {
+        return descending ? -comparison : comparison;
+      }
+
+      return left.index - right.index;
+    })
+    .map((entry) => entry.item);
+}
+
+function comparePublicValues(left: unknown, right: unknown): number {
+  const leftValue = publicComparableValue(left);
+  const rightValue = publicComparableValue(right);
+
+  if (leftValue === undefined && rightValue === undefined) return 0;
+  if (leftValue === undefined) return 1;
+  if (rightValue === undefined) return -1;
+
+  return leftValue.localeCompare(rightValue, "en-US", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function publicComparableValue(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+
+  return undefined;
 }
 
 function publicResourceData(
@@ -1830,11 +2043,14 @@ function isSafePublicString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0 && !hasControlCharacter(value);
 }
 
-function paginationMetaFromOptions(options: PublicCollectionQueryOptions): PublicPaginationMeta {
+function paginationMetaFromOptions(
+  options: PublicCollectionQueryOptions,
+  page: PublicCollectionPage,
+): PublicPaginationMeta {
   return Object.freeze({
-    nextCursor: null,
-    previousCursor: options.cursor ?? null,
-    hasMore: false,
+    nextCursor: page.nextCursor,
+    previousCursor: page.previousCursor,
+    hasMore: page.hasMore,
     limit: options.limit,
     ...optional("sort", options.sort),
     ...optional("search", options.search),

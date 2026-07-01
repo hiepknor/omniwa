@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   handleApiEventStreamRequest,
   handleApiHttpRequest,
+  type HttpCollectionResponseMeta,
   type ApiHttpResponse,
   type ApiKeyConfig,
 } from "./http-server.js";
@@ -346,7 +347,7 @@ describe("API HTTP transport", () => {
     const response = await request(
       dispatcher,
       "GET",
-      "/v1/instances?limit=500&sort=-createdAt&status=connected&search=demo&cursor=cursor_1",
+      "/v1/instances?limit=500&sort=-createdAt&status=connected&search=demo",
     );
 
     expect(response.statusCode).toBe(200);
@@ -354,7 +355,7 @@ describe("API HTTP transport", () => {
     expect("data" in response.body ? response.body.meta : undefined).toMatchObject({
       pagination: {
         limit: 200,
-        previousCursor: "cursor_1",
+        previousCursor: null,
         hasMore: false,
         sort: "-createdAt",
         search: "demo",
@@ -364,10 +365,133 @@ describe("API HTTP transport", () => {
       },
     });
     expect(dispatcher.queryEnvelopes[0]).toMatchObject({
-      safeCriteriaRef:
-        "http:ListInstances:limit=200;cursor=cursor_1;sort=-createdAt;search=demo;status=connected",
+      safeCriteriaRef: "http:ListInstances:limit=200;sort=-createdAt;search=demo;status=connected",
     });
     expect(JSON.stringify(response.body)).not.toContain("query_outcome");
+  });
+
+  it("applies collection filters, search, sorting, and cursor pagination to public DTOs", async () => {
+    const dispatcher = new CapturingDispatcher({
+      ListInstances: {
+        items: [
+          {
+            instanceId: "inst_zulu",
+            status: "connected",
+            displayName: "Zulu",
+            createdAt: "2026-06-30T03:00:00.000Z",
+          },
+          {
+            instanceId: "inst_beta",
+            status: "connected",
+            displayName: "Beta demo",
+            createdAt: "2026-06-30T02:00:00.000Z",
+          },
+          {
+            instanceId: "inst_alpha",
+            status: "connected",
+            displayName: "Alpha demo",
+            createdAt: "2026-06-30T01:00:00.000Z",
+          },
+          {
+            instanceId: "inst_hidden",
+            status: "disconnected",
+            displayName: "Demo hidden",
+            createdAt: "2026-06-30T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+    const first = await request(
+      dispatcher,
+      "GET",
+      "/v1/instances?limit=1&status=connected&search=demo&sort=displayName",
+    );
+    const firstMeta = getCollectionMeta(first);
+    const nextCursor = firstMeta.pagination.nextCursor;
+
+    expect(first.statusCode).toBe(200);
+    expect("data" in first.body ? first.body.data : undefined).toEqual([
+      {
+        resourceType: "instance",
+        id: "inst_alpha",
+        status: "connected",
+        displayName: "Alpha demo",
+        createdAt: "2026-06-30T01:00:00.000Z",
+      },
+    ]);
+    expect(firstMeta?.pagination).toMatchObject({
+      limit: 1,
+      previousCursor: null,
+      hasMore: true,
+      sort: "displayName",
+      search: "demo",
+      filters: {
+        status: "connected",
+      },
+    });
+    expect(typeof nextCursor).toBe("string");
+    expect(nextCursor).toMatch(/^omniwa_cursor_v1:/u);
+
+    const second = await request(
+      dispatcher,
+      "GET",
+      `/v1/instances?limit=1&status=connected&search=demo&sort=displayName&cursor=${encodeURIComponent(
+        nextCursor ?? "",
+      )}`,
+    );
+    const secondMeta = getCollectionMeta(second);
+
+    expect(second.statusCode).toBe(200);
+    expect("data" in second.body ? second.body.data : undefined).toEqual([
+      {
+        resourceType: "instance",
+        id: "inst_beta",
+        status: "connected",
+        displayName: "Beta demo",
+        createdAt: "2026-06-30T02:00:00.000Z",
+      },
+    ]);
+    expect(secondMeta?.pagination.hasMore).toBe(false);
+    expect(secondMeta?.pagination.nextCursor).toBeNull();
+    expect(secondMeta?.pagination.previousCursor).toMatch(/^omniwa_cursor_v1:/u);
+  });
+
+  it("rejects cursors from a different collection query context before dispatch", async () => {
+    const dispatcher = new CapturingDispatcher({
+      ListInstances: {
+        items: [
+          {
+            instanceId: "inst_alpha",
+            status: "connected",
+            displayName: "Alpha demo",
+          },
+          {
+            instanceId: "inst_beta",
+            status: "connected",
+            displayName: "Beta demo",
+          },
+        ],
+      },
+    });
+    const first = await request(dispatcher, "GET", "/v1/instances?limit=1&status=connected");
+    const nextCursor = getCollectionMeta(first).pagination.nextCursor;
+    const dispatchedBeforeInvalidCursor = dispatcher.queryEnvelopes.length;
+    const invalid = await request(
+      dispatcher,
+      "GET",
+      `/v1/instances?limit=1&status=disconnected&cursor=${encodeURIComponent(nextCursor ?? "")}`,
+    );
+
+    expect(first.statusCode).toBe(200);
+    expect(nextCursor).toMatch(/^omniwa_cursor_v1:/u);
+    expect(invalid.statusCode).toBe(400);
+    expect("error" in invalid.body ? invalid.body.error : undefined).toMatchObject({
+      code: "invalid_cursor",
+      details: {
+        category: "validation",
+      },
+    });
+    expect(dispatcher.queryEnvelopes).toHaveLength(dispatchedBeforeInvalidCursor);
   });
 
   it("maps collection items through stable public resource DTOs", async () => {
@@ -988,6 +1112,14 @@ function request(
 
 function fixedNow(): Date {
   return new Date("2026-06-30T00:00:00.000Z");
+}
+
+function getCollectionMeta(response: ApiHttpResponse): HttpCollectionResponseMeta {
+  if ("data" in response.body && "pagination" in response.body.meta) {
+    return response.body.meta;
+  }
+
+  throw new Error("Expected collection response meta.");
 }
 
 class CapturingDispatcher implements ApplicationInterfaceDispatcher {
