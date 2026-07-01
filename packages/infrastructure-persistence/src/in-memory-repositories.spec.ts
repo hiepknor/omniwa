@@ -68,6 +68,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { createInMemoryRepositorySet } from "./in-memory-repositories.js";
+import { describeInstanceRepositoryContract } from "./repository-contracts.spec-helper.js";
 
 const retryPolicy = createRetryPolicy({
   maxAttempts: 3,
@@ -83,6 +84,11 @@ const messageRetention = createRetentionPolicy({
 const auditRetention = createRetentionPolicy({
   category: "audit_record",
   retentionDays: 180,
+});
+
+describeInstanceRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().instanceRepository,
 });
 
 describe("in-memory repository adapters", () => {
