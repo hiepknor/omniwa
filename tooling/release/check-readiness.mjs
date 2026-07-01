@@ -66,6 +66,8 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "docs/runbooks/OBSERVABILITY_AND_DEPENDENCY_READINESS.md",
   "apps/background/src/backup-restore-drill.ts",
   "docs/runbooks/BACKUP_RESTORE_RECOVERY_DRILL.md",
+  "tooling/regression/check-production-regression.mjs",
+  "docs/runbooks/PRODUCTION_REGRESSION_GATES.md",
 ]);
 
 export const requiredReleaseEvidenceTests = Object.freeze([
@@ -83,6 +85,8 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "apps/metrics/src/index.spec.ts",
   "apps/health/src/index.spec.ts",
   "apps/background/src/backup-restore-drill.spec.ts",
+  "apps/api/src/platform-regression.spec.ts",
+  "tooling/regression/check-production-regression.spec.ts",
 ]);
 
 const requiredRootScripts = Object.freeze([
@@ -95,6 +99,7 @@ const requiredRootScripts = Object.freeze([
   "openapi:compat",
   "sdk:check",
   "sdk:test",
+  "regression:check",
   "release:check",
   "check",
 ]);
@@ -137,9 +142,11 @@ export async function createReadinessFixture(projectRoot) {
       "openapi:compat": "node tooling/api/check-openapi-compatibility.mjs",
       "sdk:check": "node tooling/sdk/check-rust-sdk.mjs",
       "sdk:test": "cargo test -p omniwa-sdk",
+      "regression:check":
+        "node tooling/regression/check-production-regression.mjs && pnpm exec vitest run apps/api/src/platform-regression.spec.ts apps/api/src/http-server.spec.ts apps/api/src/api-key-auth.spec.ts apps/api/src/api-rate-limiter.spec.ts apps/api/src/resource-ownership.spec.ts apps/api/src/runtime-composition.spec.ts packages/interface-api/src/api-interface-adapter.spec.ts packages/application/src/commands/command-query-model.spec.ts packages/application/src/workflows/workflow-service.spec.ts packages/domain/src/services/phase-24-domain-contracts.spec.ts packages/infrastructure-persistence/src/durable-json-repositories.spec.ts packages/infrastructure-queue/src/in-memory-queue-provider.spec.ts packages/infrastructure-provider-baileys/src/baileys-messaging-provider.adapter.spec.ts apps/provider-runtime/src/provider-runtime.spec.ts apps/worker/src/worker-runtime.spec.ts packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/infrastructure-webhook/src/webhook-transport.adapter.spec.ts packages/infrastructure-webhook/src/webhook-dispatcher-runtime.spec.ts apps/webhook-dispatcher/src/webhook-dispatcher-app.spec.ts packages/observability/src/redaction.spec.ts packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts packages/infrastructure-object-storage/src/object-storage-media-store.adapter.spec.ts tooling/regression/check-production-regression.spec.ts",
       "release:check": "node tooling/release/check-readiness.mjs",
       check:
-        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm release:check",
+        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm regression:check && pnpm release:check",
     },
   });
 
@@ -231,6 +238,10 @@ async function checkRootPackage(projectRoot, findings) {
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm sdk:test")) {
     findings.push(createFinding("check_script_missing_sdk_test_gate", "blocker"));
+  }
+
+  if (typeof checkScript === "string" && !checkScript.includes("pnpm regression:check")) {
+    findings.push(createFinding("check_script_missing_regression_gate", "blocker"));
   }
 }
 

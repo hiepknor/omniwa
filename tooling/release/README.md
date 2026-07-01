@@ -6,7 +6,8 @@ Current tooling:
 
 - `check-readiness.mjs` checks freeze documents, release evidence files,
   release evidence tests, root quality-gate scripts, OpenAPI compatibility gate
-  wiring, SDK test gate wiring, and workspace package manifests.
+  wiring, SDK test gate wiring, production regression gate wiring, and workspace
+  package manifests.
 
 Rules:
 

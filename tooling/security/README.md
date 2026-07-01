@@ -1,6 +1,10 @@
 # Security Tooling
 
-Placeholder for future security and redaction checks.
+Security regression coverage is enforced through:
+
+- `pnpm regression:check`
+- `tooling/regression/check-production-regression.mjs`
+- `docs/runbooks/PRODUCTION_REGRESSION_GATES.md`
 
 Rules:
 

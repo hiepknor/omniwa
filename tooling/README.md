@@ -10,7 +10,9 @@ Current tooling:
   against the compatibility baseline to block breaking public `/v1` drift.
 - `architecture/check-boundaries.mjs` checks high-level package boundary violations.
 - `release/check-readiness.mjs` checks release-readiness evidence, freeze documents, root gates, and workspace manifests.
+- `regression/check-production-regression.mjs` checks production regression
+  gate wiring and required E2E/security regression evidence.
 - `sdk/check-rust-sdk.mjs` verifies generated Rust SDK operation metadata stays
   aligned with OpenAPI.
 
-Future tooling may include documentation drift checks, security/redaction checks, and release helpers.
+Future tooling may include documentation drift checks and release helpers.
