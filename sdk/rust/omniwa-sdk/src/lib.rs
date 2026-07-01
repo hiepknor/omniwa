@@ -8,6 +8,7 @@ pub mod client;
 pub mod error;
 pub mod generated;
 pub mod idempotency;
+pub mod models;
 pub mod pagination;
 pub mod platform_clients;
 pub mod resources;
@@ -18,6 +19,10 @@ pub use auth::ApiKey;
 pub use client::{OmniwaClient, OmniwaClientConfig, RequestBody, RequestOptions};
 pub use error::{ApiFailure, SdkError};
 pub use idempotency::IdempotencyKey;
+pub use models::{
+    ApiErrorBody, ApiErrorDetails, CollectionEnvelope, CollectionMeta, ErrorEnvelope,
+    PaginationMeta, PublicData, PublicObject, ResponseMeta, SuccessEnvelope,
+};
 pub use pagination::{CursorPage, Page};
 pub use platform_clients::{
     platform_client_profile, validate_platform_client_profile, PlatformClientKind,
@@ -25,4 +30,7 @@ pub use platform_clients::{
     PlatformClientSurfaceKind, PLATFORM_CLIENT_PROFILES,
 };
 pub use streaming::{parse_sse_events, SseEvent};
-pub use transport::{FixtureTransport, SdkRequest, SdkResponse, Transport};
+pub use transport::{
+    BlockingHttpTransport, BlockingHttpTransportConfig, FixtureTransport, SdkRequest, SdkResponse,
+    Transport,
+};

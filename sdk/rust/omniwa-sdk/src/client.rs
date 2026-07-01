@@ -126,16 +126,37 @@ where
             return Ok(response);
         }
 
-        Err(SdkError::Api(ApiFailure {
-            status_code: response.status_code,
+        Err(SdkError::Api(api_failure_from_response(response)))
+    }
+}
+
+fn api_failure_from_response(response: SdkResponse) -> ApiFailure {
+    let status_code = response.status_code;
+    let request_id = response.header("x-request-id").map(str::to_owned);
+    let correlation_id = response.header("x-correlation-id").map(str::to_owned);
+    let body = response.body.clone();
+
+    match response.error_envelope() {
+        Ok(envelope) => ApiFailure {
+            status_code,
+            code: Some(envelope.error.code),
+            message: Some(envelope.error.message),
+            category: envelope.error.details.category,
+            retryable: envelope.error.details.retryable,
+            request_id: Some(envelope.meta.request_id),
+            correlation_id: Some(envelope.meta.correlation_id),
+            body,
+        },
+        Err(_) => ApiFailure {
+            status_code,
             code: None,
             message: None,
             category: None,
             retryable: None,
-            request_id: response.header("x-request-id").map(str::to_owned),
-            correlation_id: response.header("x-correlation-id").map(str::to_owned),
-            body: response.body,
-        }))
+            request_id,
+            correlation_id,
+            body,
+        },
     }
 }
 

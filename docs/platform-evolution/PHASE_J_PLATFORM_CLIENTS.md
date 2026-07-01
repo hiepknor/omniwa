@@ -28,6 +28,18 @@ Build platform clients on top of the official SDK boundary only. Clients must no
 | Tests         | SDK fixture tests validate profiles and run representative TUI screen calls through SDK resources                    |
 | Docs          | README and platform status updated to reflect client foundation                                                      |
 
+## Post-Phase J SDK Hardening
+
+After Phase J, the SDK foundation was hardened for real client consumption:
+
+| Area       | Implemented                                                                |
+| ---------- | -------------------------------------------------------------------------- |
+| Transport  | Blocking HTTP transport for real REST calls behind the `Transport` trait   |
+| Envelopes  | Typed success, collection, and error envelopes for public API responses    |
+| Error Map  | Standard OmniWA error envelopes map into `SdkError::Api`                   |
+| Dependency | Root Cargo workspace enables Git dependency consumption during pre-release |
+| Tests      | Local HTTP fixture tests cover real HTTP success and API error handling    |
+
 ## Guardrails
 
 - Client profiles reference public OpenAPI operation IDs only.
@@ -43,8 +55,8 @@ Build platform clients on top of the official SDK boundary only. Clients must no
 - Real CLI command parser/runtime.
 - Real Web Dashboard application.
 - Real MCP server protocol runtime.
-- Typed SDK response models.
-- SDK real HTTP transport implementation.
+- Resource-specific generated SDK DTOs.
+- Async SDK transport.
 - Client packaging and release workflows.
 
 ## Verification Targets

@@ -1,6 +1,7 @@
 use omniwa_sdk::{
     generated::operations::ALL_OPERATIONS, parse_sse_events, ApiKey, FixtureTransport,
-    IdempotencyKey, OmniwaClient, OmniwaClientConfig, RequestOptions, SdkResponse,
+    IdempotencyKey, OmniwaClient, OmniwaClientConfig, PublicData, RequestOptions, SdkError,
+    SdkResponse,
 };
 
 fn client_with_fixture(
@@ -30,8 +31,13 @@ fn health_client_calls_fixture_with_api_key() {
     );
 
     let response = client.health().get().expect("fixture response");
+    let envelope = response
+        .success_envelope::<PublicData>()
+        .expect("typed success envelope");
 
     assert_eq!(response.status_code, 200);
+    assert_eq!(envelope.meta.request_id, "req_demo");
+    assert_eq!(envelope.data["status"], "ok");
 }
 
 #[test]
@@ -73,6 +79,19 @@ fn api_error_maps_to_sdk_error() {
     let error = client.instances().list().expect_err("API error");
 
     assert!(format!("{error}").contains("OmniWA API error"));
+    match error {
+        SdkError::Api(failure) => {
+            assert_eq!(failure.code.as_deref(), Some("missing_or_invalid_api_key"));
+            assert_eq!(
+                failure.message.as_deref(),
+                Some("API request requires a valid x-api-key header.")
+            );
+            assert_eq!(failure.category.as_deref(), Some("authentication"));
+            assert_eq!(failure.request_id.as_deref(), Some("req_demo"));
+            assert_eq!(failure.correlation_id.as_deref(), Some("corr_demo"));
+        }
+        unexpected => panic!("unexpected error: {unexpected:?}"),
+    }
 }
 
 #[test]
@@ -175,4 +194,20 @@ fn navigation_clients_use_phase_i_resource_operations() {
         200,
     );
     assert_eq!(label_client.labels().list().unwrap().status_code, 200);
+}
+
+#[test]
+fn collection_envelope_decodes_into_cursor_page() {
+    let response = SdkResponse::json(
+        200,
+        r#"{"data":[{"id":"one"},{"id":"two"}],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z","pagination":{"nextCursor":"next_1","previousCursor":null,"hasMore":true}}}"#,
+    );
+    let envelope = response
+        .collection_envelope::<PublicData>()
+        .expect("typed collection envelope");
+    let page = envelope.into_page();
+
+    assert_eq!(page.items.len(), 2);
+    assert_eq!(page.cursor.next_cursor.as_deref(), Some("next_1"));
+    assert!(page.cursor.has_more);
 }

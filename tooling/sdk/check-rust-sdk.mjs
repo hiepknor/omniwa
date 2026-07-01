@@ -9,12 +9,15 @@ const generatedOperationsPath = new URL(
 
 const requiredFiles = Object.freeze([
   "sdk/rust/omniwa-sdk/Cargo.toml",
+  "Cargo.toml",
+  "Cargo.lock",
   "sdk/rust/omniwa-sdk/README.md",
   "sdk/rust/omniwa-sdk/src/lib.rs",
   "sdk/rust/omniwa-sdk/src/auth.rs",
   "sdk/rust/omniwa-sdk/src/client.rs",
   "sdk/rust/omniwa-sdk/src/error.rs",
   "sdk/rust/omniwa-sdk/src/idempotency.rs",
+  "sdk/rust/omniwa-sdk/src/models.rs",
   "sdk/rust/omniwa-sdk/src/pagination.rs",
   "sdk/rust/omniwa-sdk/src/platform_clients.rs",
   "sdk/rust/omniwa-sdk/src/streaming.rs",
@@ -34,6 +37,7 @@ const requiredFiles = Object.freeze([
   "sdk/rust/omniwa-sdk/src/resources/messages.rs",
   "sdk/rust/omniwa-sdk/src/resources/webhooks.rs",
   "sdk/rust/omniwa-sdk/tests/fixture_client.rs",
+  "sdk/rust/omniwa-sdk/tests/http_transport.rs",
   "sdk/rust/omniwa-sdk/tests/platform_clients.rs",
 ]);
 

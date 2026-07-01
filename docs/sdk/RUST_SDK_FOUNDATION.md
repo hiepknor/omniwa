@@ -12,15 +12,19 @@ transport internals directly.
 
 Phase D creates the SDK foundation, Phase E extends wrappers for projection
 read routes, Phase F adds realtime stream primitives, Phase I extends
-navigation resources, and Phase J adds platform client profiles:
+navigation resources, Phase J adds platform client profiles, and the current
+SDK hardening step adds real HTTP transport plus typed envelope decoding:
 
 - `sdk/rust/omniwa-sdk` Rust crate.
+- root Cargo workspace for Git dependency consumption.
 - generated operation catalog from the Phase C OpenAPI contract.
 - API key primitive.
 - idempotency key primitive.
 - SDK error model.
 - cursor pagination primitives.
+- typed success, collection, and error envelope models.
 - transport abstraction.
+- blocking HTTP transport for real REST calls.
 - fixture transport for SDK contract tests.
 - resource wrappers for Health, Dashboard, Events, Instances, Messages, Jobs,
   Webhooks, Groups, Chats, Contacts, and Labels calls.
@@ -72,19 +76,30 @@ The crate includes fixture tests under:
 sdk/rust/omniwa-sdk/tests/
 ```
 
-When Rust is available, run:
+Run from the repository root:
 
 ```text
-cd sdk/rust/omniwa-sdk
 cargo test
 ```
 
+The crate can also be used from Git during pre-release development:
+
+```toml
+[dependencies]
+omniwa-sdk = { git = "https://github.com/hiepknor/omniwa.git", package = "omniwa-sdk" }
+```
+
+The crate remains `publish = false`; crates.io publishing is deferred until
+release compatibility and crate ownership policy are approved.
+
 ## Future Work
 
-- Add an HTTP transport implementation after choosing the runtime HTTP client.
-- Add generated low-level request/response models beyond operation metadata.
+- Add generated resource-specific request/response DTOs beyond generic public
+  envelope models.
+- Add async transport if a client runtime requires it.
 - Expand resource wrappers for Media, Metrics, Settings, and Audit.
 - Add write-oriented Contact and Label helpers only after those public API
   phases are approved.
+- Prepare crates.io publish workflow after release policy approval.
 - Add real TUI/CLI/Web/MCP runtimes only after their runtime dependency and
   packaging decisions are approved.

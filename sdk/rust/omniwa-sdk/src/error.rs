@@ -17,6 +17,7 @@ pub struct ApiFailure {
 pub enum SdkError {
     InvalidConfiguration { message: String },
     InvalidRequest { message: String },
+    Decode { message: String },
     Transport { message: String },
     Api(ApiFailure),
 }
@@ -30,6 +31,12 @@ impl SdkError {
 
     pub fn invalid_request(message: impl Into<String>) -> Self {
         Self::InvalidRequest {
+            message: message.into(),
+        }
+    }
+
+    pub fn decode(message: impl Into<String>) -> Self {
+        Self::Decode {
             message: message.into(),
         }
     }
@@ -50,6 +57,7 @@ impl Display for SdkError {
             SdkError::InvalidRequest { message } => {
                 write!(formatter, "invalid SDK request: {message}")
             }
+            SdkError::Decode { message } => write!(formatter, "SDK decode error: {message}"),
             SdkError::Transport { message } => write!(formatter, "transport error: {message}"),
             SdkError::Api(failure) => {
                 let code = failure.code.as_deref().unwrap_or("unknown_api_error");

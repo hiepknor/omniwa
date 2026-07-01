@@ -1,7 +1,9 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use crate::error::SdkError;
+use crate::models::{CollectionEnvelope, ErrorEnvelope, SuccessEnvelope};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SdkRequest {
@@ -51,6 +53,32 @@ impl SdkResponse {
             .find(|(header_name, _)| header_name.eq_ignore_ascii_case(name))
             .map(|(_, value)| value.as_str())
     }
+
+    pub fn json_body<T>(&self) -> Result<T, SdkError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        serde_json::from_str(&self.body)
+            .map_err(|error| SdkError::decode(format!("Failed to decode JSON response: {error}")))
+    }
+
+    pub fn success_envelope<T>(&self) -> Result<SuccessEnvelope<T>, SdkError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        self.json_body()
+    }
+
+    pub fn collection_envelope<T>(&self) -> Result<CollectionEnvelope<T>, SdkError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        self.json_body()
+    }
+
+    pub fn error_envelope(&self) -> Result<ErrorEnvelope, SdkError> {
+        self.json_body()
+    }
 }
 
 pub trait Transport {
@@ -89,4 +117,86 @@ impl Transport for FixtureTransport {
 
         Ok(response)
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct BlockingHttpTransport {
+    agent: ureq::Agent,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BlockingHttpTransportConfig {
+    pub timeout: Duration,
+}
+
+impl Default for BlockingHttpTransportConfig {
+    fn default() -> Self {
+        Self {
+            timeout: Duration::from_secs(30),
+        }
+    }
+}
+
+impl BlockingHttpTransport {
+    pub fn new() -> Self {
+        Self::with_config(BlockingHttpTransportConfig::default())
+    }
+
+    pub fn with_config(config: BlockingHttpTransportConfig) -> Self {
+        Self {
+            agent: ureq::AgentBuilder::new().timeout(config.timeout).build(),
+        }
+    }
+}
+
+impl Default for BlockingHttpTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Transport for BlockingHttpTransport {
+    fn send(&self, request: SdkRequest) -> Result<SdkResponse, SdkError> {
+        let mut http_request = self.agent.request(&request.method, &request.url);
+
+        for (name, value) in &request.headers {
+            http_request = http_request.set(name, value);
+        }
+
+        let response = match request.body.as_deref() {
+            Some(body) => http_request.send_string(body),
+            None => http_request.call(),
+        };
+
+        match response {
+            Ok(response) => sdk_response_from_http(response),
+            Err(ureq::Error::Status(_, response)) => sdk_response_from_http(response),
+            Err(error) => Err(SdkError::transport(format!(
+                "HTTP transport failed for {} {}: {error}",
+                request.method, request.url,
+            ))),
+        }
+    }
+}
+
+fn sdk_response_from_http(response: ureq::Response) -> Result<SdkResponse, SdkError> {
+    let status_code = response.status();
+    let headers = response
+        .headers_names()
+        .into_iter()
+        .filter_map(|name| {
+            response
+                .header(&name)
+                .map(|value| (name.to_ascii_lowercase(), value.to_owned()))
+        })
+        .collect();
+    let body = response.into_string().map_err(|error| {
+        SdkError::transport(format!("Failed to read HTTP response body: {error}"))
+    })?;
+
+    Ok(SdkResponse {
+        status_code,
+        headers,
+        body,
+    })
 }
