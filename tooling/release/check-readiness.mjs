@@ -56,6 +56,14 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "docs/api/API_COMPATIBILITY_POLICY.md",
   "docs/api/API_CHANGELOG.md",
   "tooling/api/check-openapi-compatibility.mjs",
+  "packages/observability/src/metric-catalog.ts",
+  "packages/observability/src/alerts.ts",
+  "packages/infrastructure-observability/src/dependency-health.ts",
+  "packages/infrastructure-observability/src/metrics-exporter.ts",
+  "packages/infrastructure-observability/src/structured-log-backend.ts",
+  "apps/metrics/src/index.ts",
+  "apps/health/src/index.ts",
+  "docs/runbooks/OBSERVABILITY_AND_DEPENDENCY_READINESS.md",
 ]);
 
 export const requiredReleaseEvidenceTests = Object.freeze([
@@ -68,6 +76,10 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "packages/infrastructure-observability/src/in-memory-observability-runtime.spec.ts",
   "apps/background/src/recovery-validation.spec.ts",
   "tooling/api/check-openapi-compatibility.spec.ts",
+  "packages/observability/src/metric-catalog.spec.ts",
+  "packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts",
+  "apps/metrics/src/index.spec.ts",
+  "apps/health/src/index.spec.ts",
 ]);
 
 const requiredRootScripts = Object.freeze([

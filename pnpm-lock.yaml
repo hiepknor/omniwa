@@ -54,9 +54,20 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
 
-  apps/health: {}
+  apps/health:
+    dependencies:
+      '@omniwa/infrastructure-observability':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-observability
 
-  apps/metrics: {}
+  apps/metrics:
+    dependencies:
+      '@omniwa/infrastructure-observability':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-observability
+      '@omniwa/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
 
   apps/projection-builder:
     dependencies:
