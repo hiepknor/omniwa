@@ -86,7 +86,17 @@ importers:
 
   apps/webhook-dispatcher: {}
 
-  apps/worker: {}
+  apps/worker:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   packages/application:
     dependencies:
