@@ -64,6 +64,8 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "apps/metrics/src/index.ts",
   "apps/health/src/index.ts",
   "docs/runbooks/OBSERVABILITY_AND_DEPENDENCY_READINESS.md",
+  "apps/background/src/backup-restore-drill.ts",
+  "docs/runbooks/BACKUP_RESTORE_RECOVERY_DRILL.md",
 ]);
 
 export const requiredReleaseEvidenceTests = Object.freeze([
@@ -80,6 +82,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts",
   "apps/metrics/src/index.spec.ts",
   "apps/health/src/index.spec.ts",
+  "apps/background/src/backup-restore-drill.spec.ts",
 ]);
 
 const requiredRootScripts = Object.freeze([
