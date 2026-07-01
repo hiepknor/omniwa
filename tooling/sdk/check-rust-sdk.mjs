@@ -16,6 +16,7 @@ const requiredFiles = Object.freeze([
   "sdk/rust/omniwa-sdk/src/error.rs",
   "sdk/rust/omniwa-sdk/src/idempotency.rs",
   "sdk/rust/omniwa-sdk/src/pagination.rs",
+  "sdk/rust/omniwa-sdk/src/platform_clients.rs",
   "sdk/rust/omniwa-sdk/src/streaming.rs",
   "sdk/rust/omniwa-sdk/src/transport.rs",
   "sdk/rust/omniwa-sdk/src/generated/mod.rs",
@@ -33,6 +34,7 @@ const requiredFiles = Object.freeze([
   "sdk/rust/omniwa-sdk/src/resources/messages.rs",
   "sdk/rust/omniwa-sdk/src/resources/webhooks.rs",
   "sdk/rust/omniwa-sdk/tests/fixture_client.rs",
+  "sdk/rust/omniwa-sdk/tests/platform_clients.rs",
 ]);
 
 const findings = [];

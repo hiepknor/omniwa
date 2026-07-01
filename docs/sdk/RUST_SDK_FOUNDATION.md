@@ -11,7 +11,8 @@ transport internals directly.
 ## Current Scope
 
 Phase D creates the SDK foundation, Phase E extends wrappers for projection
-read routes, and Phase F adds realtime stream primitives:
+read routes, Phase F adds realtime stream primitives, Phase I extends
+navigation resources, and Phase J adds platform client profiles:
 
 - `sdk/rust/omniwa-sdk` Rust crate.
 - generated operation catalog from the Phase C OpenAPI contract.
@@ -22,8 +23,9 @@ read routes, and Phase F adds realtime stream primitives:
 - transport abstraction.
 - fixture transport for SDK contract tests.
 - resource wrappers for Health, Dashboard, Events, Instances, Messages, Jobs,
-  and Webhooks calls.
+  Webhooks, Groups, Chats, Contacts, and Labels calls.
 - SSE parser helper for event stream fixtures and future HTTP streaming.
+- SDK-only client profiles for OmniWA TUI, CLI, Web Dashboard, and MCP Server.
 
 ## Generated Contract
 
@@ -84,3 +86,5 @@ cargo test
 - Expand resource wrappers for Media, Metrics, Settings, and Audit.
 - Add write-oriented Contact and Label helpers only after those public API
   phases are approved.
+- Add real TUI/CLI/Web/MCP runtimes only after their runtime dependency and
+  packaging decisions are approved.
