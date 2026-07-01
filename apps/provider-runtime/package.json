@@ -3,6 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@omniwa/application": "workspace:*",
+    "@omniwa/config": "workspace:*",
+    "@omniwa/domain": "workspace:*",
+    "@omniwa/errors": "workspace:*",
+    "@omniwa/observability": "workspace:*",
+    "@omniwa/shared": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"

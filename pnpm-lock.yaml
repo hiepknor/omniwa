@@ -70,7 +70,26 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
 
-  apps/provider-runtime: {}
+  apps/provider-runtime:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@omniwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@omniwa/errors':
+        specifier: workspace:*
+        version: link:../../packages/errors
+      '@omniwa/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/scheduler:
     dependencies:
