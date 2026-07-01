@@ -1,8 +1,12 @@
 import { createApplicationDispatcher } from "@omniwa/application";
-import { createInMemoryRepositorySet } from "@omniwa/infrastructure-persistence";
+import {
+  createDurableJsonEventLogStore,
+  createInMemoryRepositorySet,
+} from "@omniwa/infrastructure-persistence";
 
 import { createApiKeyVerifierFromPlaintext } from "./api-key-auth.js";
 import { readApiKeysFromEnv, type ApiHttpServerOptions, type ApiKeyConfig } from "./http-server.js";
+import { createEventLogRealtimeEventSource } from "./realtime-event-stream.js";
 
 export const apiRuntimeProfiles = ["local", "test", "production"] as const;
 
@@ -22,6 +26,11 @@ export function createApiRuntimeComposition(
   assertRuntimeProfileIsComposable(profile, apiKeys);
 
   const repositories = createInMemoryRepositorySet();
+  const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
+  const eventSource =
+    eventLogPath === undefined || eventLogPath.length === 0
+      ? undefined
+      : createEventLogRealtimeEventSource(createDurableJsonEventLogStore(eventLogPath));
   const dispatcher = createApplicationDispatcher({
     repositories: {
       instanceRepository: repositories.instanceRepository,
@@ -33,11 +42,19 @@ export function createApiRuntimeComposition(
     profile,
     options: Object.freeze({
       dispatcher,
+      ...optional("eventSource", eventSource),
       ...(apiKeys.length === 0
         ? { apiKeys }
         : { apiKeyVerifier: createApiKeyVerifierFromPlaintext(apiKeys) }),
     }),
   });
+}
+
+function optional<TKey extends string, TValue>(
+  key: TKey,
+  value: TValue | undefined,
+): Partial<Record<TKey, TValue>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
 }
 
 export function readRuntimeProfile(env: NodeJS.ProcessEnv = process.env): ApiRuntimeProfile {

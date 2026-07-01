@@ -11,6 +11,7 @@ import { createDomainEvent, createJobId, createRetryPolicy, type JobId } from "@
 import type { ApplicationPortContext, ApplicationPortResult } from "./application-port.js";
 import { createApplicationPortFailure } from "./application-port.js";
 import type { ApplicationNotification, EventBusPort, PublicationReceipt } from "./event-bus.js";
+import { createPlatformEventAppendInput, createPlatformEventRecord } from "./event-log.js";
 import type {
   QueueProviderPort,
   QueueReservation,
@@ -97,6 +98,47 @@ describe("application ports", () => {
     expect(result.ok).toBe(true);
     expect(captured.notifications).toEqual([notification]);
     expect(captured.domainFacts).toEqual([]);
+  });
+
+  it("keeps platform event log records safe and scalar-only", () => {
+    const event = createPlatformEventRecord({
+      id: "evt_1",
+      cursor: "eventlog:1",
+      type: "message.accepted.v1",
+      version: "v1",
+      timestamp: "2026-06-30T00:00:00.000Z",
+      dataClassification: "internal",
+      source: "messaging",
+      resourceRef: "msg_1",
+      correlationId: "corr_1",
+      payload: {
+        messageId: "msg_1",
+        accepted: true,
+      },
+    });
+
+    expect(event).toMatchObject({
+      id: "evt_1",
+      cursor: "eventlog:1",
+      version: "v1",
+      payload: {
+        messageId: "msg_1",
+        accepted: true,
+      },
+    });
+    expect(Object.isFrozen(event.payload)).toBe(true);
+    expect(() =>
+      createPlatformEventAppendInput({
+        id: "evt_2",
+        type: "message.accepted.v1",
+        timestamp: "2026-06-30T00:00:00.000Z",
+        dataClassification: "internal",
+        source: "messaging",
+        payload: {
+          unsafe: { nested: true } as never,
+        },
+      }),
+    ).toThrow(/safe scalars/u);
   });
 });
 

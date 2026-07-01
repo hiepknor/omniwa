@@ -316,16 +316,18 @@ export async function handleApiEventStreamRequest(
 
   const cursor = parsedUrl.searchParams.get("cursor") ?? getHeader(headers, "last-event-id");
   const eventSource = options.eventSource ?? createEmptyRealtimeEventSource();
-  const events = eventSource.replay({
+  const replayRequest = {
     ...(cursor === null || cursor === undefined || cursor.trim().length === 0
       ? {}
       : { cursor: cursor.trim() }),
     limit: options.sseReplayLimit ?? defaultSseReplayLimit,
-  });
+  };
+  const events = eventSource.replay(replayRequest);
+  const cursorInspection = eventSource.inspectCursor?.(replayRequest);
 
   return Object.freeze({
     statusCode: 200,
-    headers: createSseHeaders(metaBase),
+    headers: createSseHeaders(metaBase, cursorInspection),
     body: encodeServerSentEvents({
       events,
       requestId,
@@ -1092,7 +1094,10 @@ function createJsonHeaders(meta: HttpResponseMeta): Readonly<Record<string, stri
   });
 }
 
-function createSseHeaders(meta: HttpResponseMeta): Readonly<Record<string, string>> {
+function createSseHeaders(
+  meta: HttpResponseMeta,
+  cursorInspection?: Readonly<{ status: string }>,
+): Readonly<Record<string, string>> {
   return Object.freeze({
     "content-type": eventStreamContentType,
     "cache-control": "no-cache",
@@ -1100,6 +1105,9 @@ function createSseHeaders(meta: HttpResponseMeta): Readonly<Record<string, strin
     "x-accel-buffering": "no",
     "x-request-id": meta.requestId,
     "x-correlation-id": meta.correlationId,
+    ...(cursorInspection === undefined
+      ? {}
+      : { "x-omniwa-cursor-status": cursorInspection.status }),
   });
 }
 

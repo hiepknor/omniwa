@@ -1,3 +1,9 @@
+import type {
+  EventLogCursorStatus,
+  EventLogReplayPort,
+  PlatformEventRecord,
+} from "@omniwa/application";
+
 export type RealtimeEventDataClassification = "public" | "internal" | "confidential";
 
 export type SafeRealtimePayloadValue = string | number | boolean | null;
@@ -34,8 +40,15 @@ export type RealtimeReplayRequest = Readonly<{
   limit: number;
 }>;
 
+export type RealtimeCursorInspection = Readonly<{
+  status: EventLogCursorStatus;
+  oldestCursor?: string;
+  latestCursor?: string;
+}>;
+
 export type RealtimeEventSource = Readonly<{
   replay(request: RealtimeReplayRequest): readonly RealtimeEventEnvelope[];
+  inspectCursor?(request: RealtimeReplayRequest): RealtimeCursorInspection;
 }>;
 
 export type SseEncodingInput = Readonly<{
@@ -96,16 +109,54 @@ export function createStaticRealtimeEventSource(
 
   return Object.freeze({
     replay: (request) => {
+      const inspection = inspectStaticCursor(retainedEvents, request);
+
+      if (inspection.status === "not_found" || inspection.status === "expired") {
+        return Object.freeze([]);
+      }
+
       const startIndex =
         request.cursor === undefined
           ? 0
           : retainedEvents.findIndex((event) => event.cursor === request.cursor) + 1;
 
-      if (startIndex <= 0 && request.cursor !== undefined) {
+      return Object.freeze(retainedEvents.slice(startIndex, startIndex + request.limit));
+    },
+    inspectCursor: (request) => inspectStaticCursor(retainedEvents, request),
+  });
+}
+
+export function createEventLogRealtimeEventSource(
+  eventLog: EventLogReplayPort,
+): RealtimeEventSource {
+  return Object.freeze({
+    replay: (request) => {
+      const result = eventLog.replayEvents(request);
+
+      if (!result.ok) {
         return Object.freeze([]);
       }
 
-      return Object.freeze(retainedEvents.slice(startIndex, startIndex + request.limit));
+      return Object.freeze(result.value.events.map(eventLogRecordToRealtimeEnvelope));
+    },
+    inspectCursor: (request) => {
+      const result = eventLog.replayEvents(request);
+
+      if (!result.ok) {
+        return Object.freeze({
+          status: "not_found",
+        });
+      }
+
+      return Object.freeze({
+        status: result.value.cursorStatus,
+        ...(result.value.oldestCursor === undefined
+          ? {}
+          : { oldestCursor: result.value.oldestCursor }),
+        ...(result.value.latestCursor === undefined
+          ? {}
+          : { latestCursor: result.value.latestCursor }),
+      });
     },
   });
 }
@@ -142,4 +193,48 @@ function isSafePayloadValue(value: unknown): value is SafeRealtimePayloadValue {
     typeof value === "number" ||
     typeof value === "boolean"
   );
+}
+
+function inspectStaticCursor(
+  events: readonly RealtimeEventEnvelope[],
+  request: RealtimeReplayRequest,
+): RealtimeCursorInspection {
+  const oldestCursor = events[0]?.cursor;
+  const latestCursor = events.at(-1)?.cursor;
+
+  if (request.cursor === undefined) {
+    return Object.freeze({
+      status: "no_cursor",
+      ...(oldestCursor === undefined ? {} : { oldestCursor }),
+      ...(latestCursor === undefined ? {} : { latestCursor }),
+    });
+  }
+
+  if (events.some((event) => event.cursor === request.cursor)) {
+    return Object.freeze({
+      status: "ok",
+      ...(oldestCursor === undefined ? {} : { oldestCursor }),
+      ...(latestCursor === undefined ? {} : { latestCursor }),
+    });
+  }
+
+  return Object.freeze({
+    status: "not_found",
+    ...(oldestCursor === undefined ? {} : { oldestCursor }),
+    ...(latestCursor === undefined ? {} : { latestCursor }),
+  });
+}
+
+function eventLogRecordToRealtimeEnvelope(record: PlatformEventRecord): RealtimeEventEnvelope {
+  return createRealtimeEventEnvelope({
+    id: record.id,
+    cursor: record.cursor,
+    type: record.type,
+    timestamp: record.timestamp,
+    dataClassification: record.dataClassification,
+    source: record.source,
+    payload: record.payload,
+    ...(record.resourceRef === undefined ? {} : { resourceRef: record.resourceRef }),
+    ...(record.correlationId === undefined ? {} : { correlationId: record.correlationId }),
+  });
 }

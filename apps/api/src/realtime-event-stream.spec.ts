@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createInMemoryEventLogStore } from "@omniwa/infrastructure-persistence";
 
 import {
+  createEventLogRealtimeEventSource,
   createRealtimeEventEnvelope,
   createStaticRealtimeEventSource,
   encodeServerSentEvents,
@@ -24,6 +26,27 @@ describe("realtime event stream", () => {
     const source = createStaticRealtimeEventSource([event("evt_1", "cursor_1")]);
 
     expect(source.replay({ cursor: "expired_cursor", limit: 10 })).toEqual([]);
+    expect(source.inspectCursor?.({ cursor: "expired_cursor", limit: 10 })).toMatchObject({
+      status: "not_found",
+    });
+  });
+
+  it("replays durable event log records and exposes retention-aware cursor inspection", () => {
+    const eventLog = createInMemoryEventLogStore({ retentionLimit: 2 });
+    eventLog.appendEvent(eventLogInput("evt_1", "message.accepted.v1"));
+    eventLog.appendEvent(eventLogInput("evt_2", "message.delivered.v1"));
+    eventLog.appendEvent(eventLogInput("evt_3", "message.read.v1"));
+
+    const source = createEventLogRealtimeEventSource(eventLog);
+
+    expect(source.replay({ cursor: "eventlog:2", limit: 10 }).map((entry) => entry.cursor)).toEqual(
+      ["eventlog:3"],
+    );
+    expect(source.inspectCursor?.({ cursor: "eventlog:1", limit: 10 })).toMatchObject({
+      status: "expired",
+      oldestCursor: "eventlog:2",
+      latestCursor: "eventlog:3",
+    });
   });
 
   it("encodes safe SSE envelopes", () => {
@@ -71,4 +94,19 @@ function event(id: string, cursor: string) {
       status: "accepted",
     },
   });
+}
+
+function eventLogInput(id: string, type: string) {
+  return {
+    id,
+    type,
+    timestamp: "2026-06-30T00:00:00.000Z",
+    dataClassification: "internal" as const,
+    source: "messaging",
+    resourceRef: "msg_1",
+    payload: {
+      messageId: "msg_1",
+      status: "accepted",
+    },
+  };
 }

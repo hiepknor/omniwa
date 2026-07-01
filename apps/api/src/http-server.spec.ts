@@ -6,6 +6,7 @@ import {
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
 } from "@omniwa/application";
+import { createInMemoryEventLogStore } from "@omniwa/infrastructure-persistence";
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
 import { describe, expect, it } from "vitest";
 
@@ -17,6 +18,7 @@ import {
 } from "./http-server.js";
 import { InMemoryFixedWindowRateLimiter } from "./api-rate-limiter.js";
 import {
+  createEventLogRealtimeEventSource,
   createRealtimeEventEnvelope,
   createStaticRealtimeEventSource,
 } from "./realtime-event-stream.js";
@@ -383,6 +385,58 @@ describe("API HTTP transport", () => {
       "event: worker.job.completed.v1",
     );
     expect(typeof response.body === "string" ? response.body : "").not.toContain("cursor_1");
+    expect(typeof response.body === "string" ? response.body : "").toContain(": heartbeat");
+  });
+
+  it("serves durable EventLog-backed SSE streams with deterministic expired cursor metadata", async () => {
+    const eventLog = createInMemoryEventLogStore({ retentionLimit: 1 });
+    eventLog.appendEvent({
+      id: "evt_1",
+      type: "message.accepted.v1",
+      timestamp: "2026-06-30T00:00:00.000Z",
+      dataClassification: "internal",
+      source: "messaging",
+      resourceRef: "msg_1",
+      payload: {
+        messageId: "msg_1",
+      },
+    });
+    eventLog.appendEvent({
+      id: "evt_2",
+      type: "message.delivered.v1",
+      timestamp: "2026-06-30T00:00:01.000Z",
+      dataClassification: "internal",
+      source: "messaging",
+      resourceRef: "msg_1",
+      payload: {
+        messageId: "msg_1",
+      },
+    });
+
+    const response = await handleApiEventStreamRequest(
+      {
+        method: "GET",
+        url: "/v1/events/stream?cursor=eventlog:1",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-stream-expired",
+          "x-correlation-id": "corr-stream-expired",
+        },
+      },
+      {
+        apiKeys,
+        eventSource: createEventLogRealtimeEventSource(eventLog),
+        now: fixedNow,
+        requestRefGenerator: () => "http-stream-expired",
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers).toMatchObject({
+      "x-omniwa-cursor-status": "expired",
+    });
+    expect(typeof response.body === "string" ? response.body : "").not.toContain("evt_1");
+    expect(typeof response.body === "string" ? response.body : "").not.toContain("evt_2");
     expect(typeof response.body === "string" ? response.body : "").toContain(": heartbeat");
   });
 

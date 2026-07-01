@@ -1,7 +1,19 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { createApiRuntimeComposition, readRuntimeProfile } from "./runtime-composition.js";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 describe("API runtime composition", () => {
   it("composes local runtime with a real Application dispatcher", async () => {
@@ -41,6 +53,23 @@ describe("API runtime composition", () => {
     expect(composition.profile).toBe("test");
     expect(composition.options.apiKeys).toEqual([]);
     expect(composition.options.dispatcher).toBeDefined();
+  });
+
+  it("composes an EventLog-backed realtime source when configured", () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-event-log-"));
+    temporaryDirectories.push(directory);
+
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_RUNTIME_PROFILE: "test",
+      OMNIWA_EVENT_LOG_PATH: join(directory, "event-log.json"),
+    });
+
+    expect(composition.options.eventSource?.replay({ limit: 10 })).toEqual([]);
+    expect(
+      composition.options.eventSource?.inspectCursor?.({ cursor: "eventlog:1", limit: 10 }),
+    ).toMatchObject({
+      status: "not_found",
+    });
   });
 
   it("fails fast for production profile until production adapters are implemented", () => {
