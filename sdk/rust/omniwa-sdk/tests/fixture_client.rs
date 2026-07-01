@@ -200,14 +200,23 @@ fn navigation_clients_use_phase_i_resource_operations() {
 fn collection_envelope_decodes_into_cursor_page() {
     let response = SdkResponse::json(
         200,
-        r#"{"data":[{"id":"one"},{"id":"two"}],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z","pagination":{"nextCursor":"next_1","previousCursor":null,"hasMore":true}}}"#,
+        r#"{"data":[{"id":"one"},{"id":"two"}],"meta":{"requestId":"req_demo","correlationId":"corr_demo","timestamp":"2026-06-30T00:00:00.000Z","pagination":{"nextCursor":"next_1","previousCursor":null,"hasMore":true,"limit":200,"sort":"-createdAt","search":"demo","filters":{"status":"connected"}}}}"#,
     );
     let envelope = response
         .collection_envelope::<PublicData>()
         .expect("typed collection envelope");
+    let pagination = envelope
+        .meta
+        .pagination
+        .clone()
+        .expect("pagination metadata");
     let page = envelope.into_page();
 
     assert_eq!(page.items.len(), 2);
     assert_eq!(page.cursor.next_cursor.as_deref(), Some("next_1"));
     assert!(page.cursor.has_more);
+    assert_eq!(pagination.limit, Some(200));
+    assert_eq!(pagination.sort.as_deref(), Some("-createdAt"));
+    assert_eq!(pagination.search.as_deref(), Some("demo"));
+    assert_eq!(pagination.filters["status"], "connected");
 }

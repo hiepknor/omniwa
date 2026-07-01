@@ -27,6 +27,14 @@ pub struct PaginationMeta {
     pub previous_cursor: Option<String>,
     #[serde(rename = "hasMore", default)]
     pub has_more: bool,
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub sort: Option<String>,
+    #[serde(default)]
+    pub search: Option<String>,
+    #[serde(default)]
+    pub filters: PublicObject,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

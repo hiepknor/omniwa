@@ -130,6 +130,19 @@ describe("API HTTP transport", () => {
     const response = await request(dispatcher, "GET", "/v1/instances");
 
     expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toEqual([]);
+    expect("data" in response.body ? response.body.meta : undefined).toMatchObject({
+      pagination: {
+        limit: 50,
+        nextCursor: null,
+        previousCursor: null,
+        hasMore: false,
+      },
+      query: {
+        resourceType: "instance",
+        readStatus: "result",
+      },
+    });
     expect(dispatcher.queryEnvelopes[0]).toMatchObject({
       name: "ListInstances",
       actorRef: "api_key:test-public-key",
@@ -320,9 +333,65 @@ describe("API HTTP transport", () => {
       timestamp: "2026-06-30T00:00:00.000Z",
     });
     expect("data" in response.body ? response.body.data : undefined).toMatchObject({
-      kind: "query_outcome",
-      outcome: "result",
+      resourceType: "instance",
+      resourceId: "inst_allowed",
+      readStatus: "result",
+      consistency: "strong_owner",
     });
+    expect(JSON.stringify(response.body)).not.toContain("query_outcome");
+  });
+
+  it("normalizes collection query options with cursor metadata and safe criteria refs", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const response = await request(
+      dispatcher,
+      "GET",
+      "/v1/instances?limit=500&sort=-createdAt&status=connected&search=demo&cursor=cursor_1",
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toEqual([]);
+    expect("data" in response.body ? response.body.meta : undefined).toMatchObject({
+      pagination: {
+        limit: 200,
+        previousCursor: "cursor_1",
+        hasMore: false,
+        sort: "-createdAt",
+        search: "demo",
+        filters: {
+          status: "connected",
+        },
+      },
+    });
+    expect(dispatcher.queryEnvelopes[0]).toMatchObject({
+      safeCriteriaRef:
+        "http:ListInstances:limit=200;cursor=cursor_1;sort=-createdAt;search=demo;status=connected",
+    });
+    expect(JSON.stringify(response.body)).not.toContain("query_outcome");
+  });
+
+  it("rejects unsupported collection filters and sorts before Application dispatch", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const unsupportedSort = await request(dispatcher, "GET", "/v1/instances?sort=secret");
+    const unsupportedFilter = await request(dispatcher, "GET", "/v1/instances?owner=secret");
+
+    expect(unsupportedSort.statusCode).toBe(400);
+    expect("error" in unsupportedSort.body ? unsupportedSort.body.error : undefined).toMatchObject({
+      code: "unsupported_sort",
+      details: {
+        category: "validation",
+      },
+    });
+    expect(unsupportedFilter.statusCode).toBe(400);
+    expect(
+      "error" in unsupportedFilter.body ? unsupportedFilter.body.error : undefined,
+    ).toMatchObject({
+      code: "unsupported_filter",
+      details: {
+        category: "validation",
+      },
+    });
+    expect(dispatcher.queryEnvelopes).toHaveLength(0);
   });
 
   it("serves safe SSE event stream snapshots with cursor resume", async () => {
@@ -516,6 +585,14 @@ describe("API HTTP transport", () => {
     });
 
     expect(response.statusCode).toBe(202);
+    expect("data" in response.body ? response.body.data : undefined).toMatchObject({
+      resourceType: "message",
+      resourceId: "inst_allowed",
+      operationStatus: "queued",
+      accepted: true,
+      retryable: false,
+    });
+    expect(JSON.stringify(response.body)).not.toContain("command_outcome");
     expect(dispatcher.commandEnvelopes).toEqual([
       expect.objectContaining({
         name: "SendTextMessage",

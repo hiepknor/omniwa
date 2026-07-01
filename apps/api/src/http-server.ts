@@ -71,7 +71,7 @@ export type ApiHttpRequest = Readonly<{
 export type ApiHttpResponse = Readonly<{
   statusCode: number;
   headers: Readonly<Record<string, string>>;
-  body: SuccessEnvelope | ErrorEnvelope;
+  body: SuccessEnvelope | CollectionEnvelope | ErrorEnvelope;
 }>;
 
 export type ApiSseResponse = Readonly<{
@@ -87,6 +87,11 @@ export type SuccessEnvelope = Readonly<{
   meta: HttpResponseMeta;
 }>;
 
+export type CollectionEnvelope = Readonly<{
+  data: readonly unknown[];
+  meta: HttpCollectionResponseMeta;
+}>;
+
 export type ErrorEnvelope = Readonly<{
   error: Readonly<{
     code: string;
@@ -100,6 +105,55 @@ export type HttpResponseMeta = Readonly<{
   requestId: string;
   correlationId: string;
   timestamp: string;
+}>;
+
+export type HttpCollectionResponseMeta = HttpResponseMeta &
+  Readonly<{
+    pagination: PublicPaginationMeta;
+    query: PublicQueryMeta;
+  }>;
+
+export type PublicPaginationMeta = Readonly<{
+  nextCursor: string | null;
+  previousCursor: string | null;
+  hasMore: boolean;
+  limit: number;
+  sort?: string;
+  search?: string;
+  filters?: Readonly<Record<string, string>>;
+}>;
+
+export type PublicQueryMeta = Readonly<{
+  resourceType: string;
+  readStatus: string;
+  consistency?: string;
+  freshness?: unknown;
+  resultRef?: string;
+}>;
+
+type PublicResponseContract =
+  | Readonly<{
+      shape: "operation";
+      resourceType: string;
+      resourceId?: string;
+    }>
+  | Readonly<{
+      shape: "resource";
+      resourceType: string;
+      resourceId?: string;
+    }>
+  | Readonly<{
+      shape: "collection";
+      resourceType: string;
+      queryOptions: PublicCollectionQueryOptions;
+    }>;
+
+type PublicCollectionQueryOptions = Readonly<{
+  limit: number;
+  filters: Readonly<Record<string, string>>;
+  cursor?: string;
+  sort?: string;
+  search?: string;
 }>;
 
 type HttpFailureCategory =
@@ -126,6 +180,7 @@ type RouteMatch =
   | Readonly<{
       kind: "adapter";
       request: ApiRequest;
+      responseContract: PublicResponseContract;
       bodyValidation?: BodyValidation;
     }>
   | Readonly<{
@@ -143,6 +198,7 @@ type RouteContext = Readonly<{
   requestRef: string;
   requestId: string;
   correlationId: string;
+  searchParams: URLSearchParams;
   traceId?: string;
   credential: ApiCredential;
   idempotencyKey?: string;
@@ -160,6 +216,7 @@ export async function handleApiHttpRequest(
   const correlationId = getHeader(headers, "x-correlation-id") ?? `corr:${requestId}`;
   const traceId = getHeader(headers, "x-trace-id");
   const metaBase = createMeta(requestId, correlationId, timestamp);
+  const parsedRequestUrl = parseUrl(request.url);
   const route = matchRoute(request.method, request.url);
 
   if (route === undefined) {
@@ -197,6 +254,7 @@ export async function handleApiHttpRequest(
     requestRef,
     requestId,
     correlationId,
+    searchParams: parsedRequestUrl?.searchParams ?? new URLSearchParams(),
     credential,
     ...optional("traceId", traceId),
     ...optional("idempotencyKey", getHeader(headers, "idempotency-key")),
@@ -243,7 +301,7 @@ export async function handleApiHttpRequest(
     });
   const adapterResponse = await adapter.handle(match.request);
 
-  return mapAdapterResponse(adapterResponse, timestamp);
+  return mapAdapterResponse(adapterResponse, timestamp, match.request, match.responseContract);
 }
 
 export async function handleApiEventStreamRequest(
@@ -777,6 +835,7 @@ function adapterCommand(
     build: (context) => ({
       kind: "adapter",
       request: createCommandRequest(boundary, name, targetRef, context),
+      responseContract: createOperationResponseContract(name, targetRef),
     }),
   };
 }
@@ -790,10 +849,31 @@ function adapterQuery(
   build(context: RouteContext, body: unknown): RouteMatch;
 }> {
   return {
-    build: (context) => ({
-      kind: "adapter",
-      request: createQueryRequest(boundary, name, targetRef, requestedConsistency, context),
-    }),
+    build: (context) => {
+      const responseContract = createQueryResponseContract(name, targetRef, context.searchParams);
+
+      if (!responseContract.ok) {
+        return {
+          kind: "partial",
+          failure: responseContract.failure,
+        };
+      }
+
+      return {
+        kind: "adapter",
+        request: createQueryRequest(
+          boundary,
+          name,
+          targetRef,
+          requestedConsistency,
+          context,
+          responseContract.value.shape === "collection"
+            ? responseContract.value.queryOptions
+            : undefined,
+        ),
+        responseContract: responseContract.value,
+      };
+    },
   };
 }
 
@@ -828,6 +908,7 @@ function sendMessageRoute(targetRef: string | undefined): Readonly<{
     build: (context, body) => ({
       kind: "adapter",
       request: createCommandRequest("public", getSendMessageCommandName(body), targetRef, context),
+      responseContract: createOperationResponseContract(getSendMessageCommandName(body), targetRef),
     }),
   };
 }
@@ -860,6 +941,7 @@ function createQueryRequest(
   targetRef: string | undefined,
   requestedConsistency: ApiQueryRequest["requestedConsistency"],
   context: RouteContext,
+  queryOptions?: PublicCollectionQueryOptions,
 ): ApiQueryRequest {
   return Object.freeze({
     kind: "query",
@@ -870,11 +952,340 @@ function createQueryRequest(
     requestId: context.requestId,
     correlationId: context.correlationId,
     requestedConsistency,
-    safeCriteriaRef: targetRef === undefined ? `http:${name}` : `http:${name}:${targetRef}`,
+    safeCriteriaRef: createSafeCriteriaRef(name, targetRef, queryOptions),
     dataClassification: "internal",
     ...optional("targetRef", targetRef),
     ...optional("traceId", context.traceId),
   });
+}
+
+function createOperationResponseContract(
+  name: string,
+  targetRef: string | undefined,
+): PublicResponseContract {
+  return Object.freeze({
+    shape: "operation",
+    resourceType: resourceTypeForOperation(name),
+    ...optional("resourceId", targetRef),
+  });
+}
+
+function createQueryResponseContract(
+  name: string,
+  targetRef: string | undefined,
+  searchParams: URLSearchParams,
+): { ok: true; value: PublicResponseContract } | { ok: false; failure: HttpFailure } {
+  const resourceType = resourceTypeForQuery(name);
+
+  if (!isCollectionQuery(name)) {
+    return {
+      ok: true,
+      value: Object.freeze({
+        shape: "resource",
+        resourceType,
+        ...optional("resourceId", targetRef),
+      }),
+    };
+  }
+
+  const queryOptions = normalizeCollectionQueryOptions(name, searchParams);
+
+  if (!queryOptions.ok) {
+    return queryOptions;
+  }
+
+  return {
+    ok: true,
+    value: Object.freeze({
+      shape: "collection",
+      resourceType,
+      queryOptions: queryOptions.value,
+    }),
+  };
+}
+
+function normalizeCollectionQueryOptions(
+  queryName: string,
+  searchParams: URLSearchParams,
+): { ok: true; value: PublicCollectionQueryOptions } | { ok: false; failure: HttpFailure } {
+  const filters: Record<string, string> = {};
+  let cursor: string | undefined;
+  let limit = defaultCollectionLimit;
+  let sort: string | undefined;
+  let search: string | undefined;
+  const allowedFilters = allowedFilterFieldsForQuery(queryName);
+
+  for (const [key, value] of searchParams.entries()) {
+    if (key === "cursor") {
+      const cursorFailure = validateSafeQueryValue(value, "cursor", 256);
+
+      if (cursorFailure !== undefined) {
+        return { ok: false, failure: cursorFailure };
+      }
+
+      cursor = value;
+      continue;
+    }
+
+    if (key === "limit") {
+      const parsedLimit = parseLimit(value);
+
+      if (!parsedLimit.ok) {
+        return parsedLimit;
+      }
+
+      limit = Math.min(parsedLimit.value, maxCollectionLimit);
+      continue;
+    }
+
+    if (key === "sort") {
+      const sortFailure = validateSortExpression(queryName, value);
+
+      if (sortFailure !== undefined) {
+        return { ok: false, failure: sortFailure };
+      }
+
+      sort = value;
+      continue;
+    }
+
+    if (key === "search") {
+      const searchFailure = validateSafeQueryValue(value, "search", 100);
+
+      if (searchFailure !== undefined) {
+        return { ok: false, failure: searchFailure };
+      }
+
+      search = value;
+      continue;
+    }
+
+    if (!allowedFilters.includes(key)) {
+      return {
+        ok: false,
+        failure: validation(
+          "unsupported_filter",
+          `Query parameter '${key}' is not supported for this collection resource.`,
+        ),
+      };
+    }
+
+    const filterFailure = validateSafeQueryValue(value, key, 120);
+
+    if (filterFailure !== undefined) {
+      return { ok: false, failure: filterFailure };
+    }
+
+    filters[key] = value;
+  }
+
+  return {
+    ok: true,
+    value: Object.freeze({
+      limit,
+      filters: Object.freeze(filters),
+      ...optional("cursor", cursor),
+      ...optional("sort", sort),
+      ...optional("search", search),
+    }),
+  };
+}
+
+function createSafeCriteriaRef(
+  name: string,
+  targetRef: string | undefined,
+  queryOptions: PublicCollectionQueryOptions | undefined,
+): string {
+  const base = targetRef === undefined ? `http:${name}` : `http:${name}:${targetRef}`;
+
+  if (queryOptions === undefined) {
+    return base;
+  }
+
+  const parts = [`limit=${queryOptions.limit}`];
+
+  if (queryOptions.cursor !== undefined) {
+    parts.push(`cursor=${queryOptions.cursor}`);
+  }
+
+  if (queryOptions.sort !== undefined) {
+    parts.push(`sort=${queryOptions.sort}`);
+  }
+
+  if (queryOptions.search !== undefined) {
+    parts.push(`search=${queryOptions.search}`);
+  }
+
+  for (const [key, value] of Object.entries(queryOptions.filters).sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    parts.push(`${key}=${value}`);
+  }
+
+  return `${base}:${parts.join(";")}`;
+}
+
+const defaultCollectionLimit = 50;
+const maxCollectionLimit = 200;
+
+const collectionQueryNames = new Set([
+  "ListInstances",
+  "ListInstanceSessions",
+  "ListInstanceMessages",
+  "ListChats",
+  "ListInstanceChats",
+  "ListContacts",
+  "ListInstanceContacts",
+  "ListLabels",
+  "ListInstanceLabels",
+  "ListInstanceGroups",
+  "ListGroupMembers",
+  "ListEvents",
+  "ListWorkerJobs",
+  "ListWebhookSubscriptions",
+  "ListWebhookDeliveries",
+  "QueryAuditRecords",
+]);
+
+const allowedSortFieldsByQueryName: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  ListInstances: ["id", "status", "createdAt", "updatedAt", "displayName"],
+  ListInstanceSessions: ["id", "status", "createdAt", "updatedAt"],
+  ListInstanceMessages: ["id", "status", "type", "direction", "createdAt", "updatedAt"],
+  ListChats: ["id", "status", "updatedAt", "displayName"],
+  ListInstanceChats: ["id", "status", "updatedAt", "displayName"],
+  ListContacts: ["id", "status", "updatedAt", "displayName"],
+  ListInstanceContacts: ["id", "status", "updatedAt", "displayName"],
+  ListLabels: ["id", "status", "updatedAt", "name"],
+  ListInstanceLabels: ["id", "status", "updatedAt", "name"],
+  ListInstanceGroups: ["id", "status", "updatedAt", "subject"],
+  ListGroupMembers: ["jid", "role", "joinedAt"],
+  ListEvents: ["timestamp", "type", "source"],
+  ListWorkerJobs: ["id", "status", "workType", "createdAt", "updatedAt"],
+  ListWebhookSubscriptions: ["id", "status", "updatedAt"],
+  ListWebhookDeliveries: ["id", "status", "createdAt", "updatedAt"],
+  QueryAuditRecords: ["id", "status", "category", "createdAt"],
+});
+
+const allowedFilterFieldsByQueryName: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  ListInstances: ["status"],
+  ListInstanceSessions: ["status"],
+  ListInstanceMessages: ["status", "type", "direction"],
+  ListChats: ["status", "labelId"],
+  ListInstanceChats: ["status", "labelId"],
+  ListContacts: ["status"],
+  ListInstanceContacts: ["status"],
+  ListLabels: ["status"],
+  ListInstanceLabels: ["status"],
+  ListInstanceGroups: ["status"],
+  ListGroupMembers: ["role", "status"],
+  ListEvents: ["type", "source", "resourceRef"],
+  ListWorkerJobs: ["status", "workType", "ownerContext"],
+  ListWebhookSubscriptions: ["status"],
+  ListWebhookDeliveries: ["status", "webhookId"],
+  QueryAuditRecords: ["category", "status"],
+});
+
+function isCollectionQuery(name: string): boolean {
+  return collectionQueryNames.has(name);
+}
+
+function allowedFilterFieldsForQuery(queryName: string): readonly string[] {
+  return allowedFilterFieldsByQueryName[queryName] ?? [];
+}
+
+function validateSortExpression(queryName: string, value: string): HttpFailure | undefined {
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0 || trimmed.length > 80) {
+    return validation("invalid_sort", "Query parameter 'sort' must be a non-empty safe value.");
+  }
+
+  const field = trimmed.startsWith("-") ? trimmed.slice(1) : trimmed;
+  const allowedFields = allowedSortFieldsByQueryName[queryName] ?? [];
+
+  if (!/^[A-Za-z][A-Za-z0-9]*$/u.test(field) || !allowedFields.includes(field)) {
+    return validation(
+      "unsupported_sort",
+      "Query parameter 'sort' is not supported for this collection resource.",
+    );
+  }
+
+  return undefined;
+}
+
+function validateSafeQueryValue(
+  value: string,
+  label: string,
+  maxLength: number,
+): HttpFailure | undefined {
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0 || trimmed.length > maxLength || hasControlCharacter(trimmed)) {
+    return validation("invalid_query_parameter", `Query parameter '${label}' is invalid.`);
+  }
+
+  if (!/^[A-Za-z0-9_.:@/ -]+$/u.test(trimmed)) {
+    return validation("invalid_query_parameter", `Query parameter '${label}' is invalid.`);
+  }
+
+  return undefined;
+}
+
+function hasControlCharacter(value: string): boolean {
+  return [...value].some((character) => {
+    const codePoint = character.codePointAt(0);
+    return codePoint !== undefined && codePoint <= 0x1f;
+  });
+}
+
+function parseLimit(
+  value: string,
+): { ok: true; value: number } | { ok: false; failure: HttpFailure } {
+  const trimmed = value.trim();
+  const parsed = Number.parseInt(trimmed, 10);
+
+  if (!/^\d+$/u.test(trimmed) || !Number.isSafeInteger(parsed) || parsed < 1) {
+    return {
+      ok: false,
+      failure: validation("invalid_limit", "Query parameter 'limit' must be a positive integer."),
+    };
+  }
+
+  return { ok: true, value: parsed };
+}
+
+function resourceTypeForOperation(name: string): string {
+  if (name.includes("WebhookDelivery")) return "webhookDelivery";
+  if (name.includes("Webhook")) return "webhook";
+  if (name.includes("Group")) return "group";
+  if (name.includes("Message")) return "message";
+  if (name.includes("Media")) return "media";
+  if (name.includes("Instance") || name.includes("Qr")) return "instance";
+  if (name.includes("Configuration")) return "settings";
+  if (name.includes("Provider")) return "provider";
+  return "operation";
+}
+
+function resourceTypeForQuery(name: string): string {
+  if (name.includes("WebhookDelivery")) return "webhookDelivery";
+  if (name.includes("Webhook")) return "webhook";
+  if (name.includes("WorkerJob")) return "job";
+  if (name.includes("Instance")) return "instance";
+  if (name.includes("Session")) return "session";
+  if (name.includes("Message")) return "message";
+  if (name.includes("Media")) return "media";
+  if (name.includes("Chat")) return "chat";
+  if (name.includes("Contact")) return "contact";
+  if (name.includes("Label")) return "label";
+  if (name.includes("Group")) return "group";
+  if (name.includes("Events")) return "event";
+  if (name.includes("Audit")) return "auditRecord";
+  if (name.includes("Dashboard")) return "dashboard";
+  if (name.includes("Metrics") || name.includes("Queue")) return "metrics";
+  if (name.includes("Health") || name.includes("ActionRequired")) return "health";
+  if (name.includes("Configuration")) return "settings";
+  if (name.includes("Provider")) return "provider";
+  return "resource";
 }
 
 function checkRateLimit(
@@ -948,7 +1359,12 @@ async function checkResourceOwnership(
   };
 }
 
-function mapAdapterResponse(response: ApiResponse, timestamp: string): ApiHttpResponse {
+function mapAdapterResponse(
+  response: ApiResponse,
+  timestamp: string,
+  request: ApiRequest,
+  contract: PublicResponseContract,
+): ApiHttpResponse {
   const meta = createMeta(response.meta.requestId, response.meta.correlationId, timestamp);
 
   if (!response.ok) {
@@ -967,14 +1383,140 @@ function mapAdapterResponse(response: ApiResponse, timestamp: string): ApiHttpRe
     );
   }
 
+  if (contract.shape === "collection") {
+    const queryMeta = publicQueryMeta(response.data, contract.resourceType);
+    const collectionMeta = Object.freeze({
+      ...meta,
+      query: queryMeta,
+      pagination: paginationMetaFromOptions(contract.queryOptions),
+    });
+
+    return Object.freeze({
+      statusCode: statusCodeForApiSuccess(response),
+      headers: createJsonHeaders(meta),
+      body: Object.freeze({
+        data: publicCollectionItems(response.data),
+        meta: collectionMeta,
+      }),
+    });
+  }
+
   return Object.freeze({
     statusCode: statusCodeForApiSuccess(response),
     headers: createJsonHeaders(meta),
     body: Object.freeze({
-      data: response.data,
+      data:
+        contract.shape === "operation"
+          ? publicOperationData(response.data, request, contract)
+          : publicQueryData(response.data, contract),
       meta,
     }),
   });
+}
+
+function publicOperationData(
+  data: unknown,
+  request: ApiRequest,
+  contract: Extract<PublicResponseContract, { shape: "operation" }>,
+): Readonly<Record<string, unknown>> {
+  const record = asRecord(data);
+
+  return Object.freeze({
+    resourceType: contract.resourceType,
+    ...optional("resourceId", contract.resourceId),
+    operationStatus: safeString(record.outcome, "completed"),
+    accepted: typeof record.accepted === "boolean" ? record.accepted : true,
+    retryable: typeof record.retryable === "boolean" ? record.retryable : false,
+    async:
+      request.kind === "command" ? isAsyncHttpStatusCandidate(safeString(record.outcome)) : false,
+    ...optional("resultRef", safeOptionalString(record.resultRef)),
+    ...optional("reasonCode", safeOptionalString(record.reasonCode)),
+  });
+}
+
+function publicQueryData(
+  data: unknown,
+  contract: Extract<PublicResponseContract, { shape: "resource" }>,
+): Readonly<Record<string, unknown>> {
+  const queryMeta = publicQueryMeta(data, contract.resourceType);
+
+  return Object.freeze({
+    ...queryMeta,
+    ...optional("resourceId", contract.resourceId),
+  });
+}
+
+function publicQueryMeta(data: unknown, resourceType: string): PublicQueryMeta {
+  const record = asRecord(data);
+
+  return Object.freeze({
+    resourceType,
+    readStatus: safeString(record.outcome, "result"),
+    ...optional("consistency", safeOptionalString(record.consistency)),
+    ...optional(
+      "freshness",
+      isPlainObject(record.freshness) ? Object.freeze(record.freshness) : undefined,
+    ),
+    ...optional("resultRef", safeOptionalString(record.resultRef)),
+    ...optional("reasonCode", safeOptionalString(record.reasonCode)),
+  });
+}
+
+function publicCollectionItems(data: unknown): readonly unknown[] {
+  if (Array.isArray(data)) {
+    return Object.freeze(data.map(sanitizePublicItem));
+  }
+
+  const record = asRecord(data);
+  const items = record.items;
+
+  if (Array.isArray(items)) {
+    return Object.freeze(items.map(sanitizePublicItem));
+  }
+
+  return Object.freeze([]);
+}
+
+function sanitizePublicItem(item: unknown): Readonly<Record<string, unknown>> {
+  const record = asRecord(item);
+  const sanitized = { ...record };
+
+  delete sanitized.kind;
+  delete sanitized.commandRef;
+  delete sanitized.queryRef;
+
+  return Object.freeze(sanitized);
+}
+
+function paginationMetaFromOptions(options: PublicCollectionQueryOptions): PublicPaginationMeta {
+  return Object.freeze({
+    nextCursor: null,
+    previousCursor: options.cursor ?? null,
+    hasMore: false,
+    limit: options.limit,
+    ...optional("sort", options.sort),
+    ...optional("search", options.search),
+    ...optional(
+      "filters",
+      Object.keys(options.filters).length === 0 ? undefined : Object.freeze({ ...options.filters }),
+    ),
+  });
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isPlainObject(value) ? { ...value } : {};
+}
+
+function safeString(value: unknown, fallback = "unknown"): string {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function safeOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+function isAsyncHttpStatusCandidate(outcome: string): boolean {
+  return outcome === "accepted" || outcome === "queued";
 }
 
 function statusCodeForApiSuccess(response: Extract<ApiResponse, { ok: true }>): number {

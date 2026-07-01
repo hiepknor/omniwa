@@ -3696,6 +3696,27 @@
               },
               "hasMore": {
                 "type": "boolean"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200,
+                "description": "Effective runtime page size after server-side capping."
+              },
+              "sort": {
+                "type": "string",
+                "description": "Accepted whitelisted sort expression for this resource."
+              },
+              "search": {
+                "type": "string",
+                "description": "Accepted safe search term for this resource."
+              },
+              "filters": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Accepted whitelisted filter fields for this resource."
               }
             }
           }
