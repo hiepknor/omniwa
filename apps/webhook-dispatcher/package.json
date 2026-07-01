@@ -6,5 +6,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@omniwa/application": "workspace:*",
+    "@omniwa/config": "workspace:*",
+    "@omniwa/domain": "workspace:*",
+    "@omniwa/errors": "workspace:*",
+    "@omniwa/infrastructure-persistence": "workspace:*",
+    "@omniwa/infrastructure-queue": "workspace:*",
+    "@omniwa/infrastructure-webhook": "workspace:*",
+    "@omniwa/observability": "workspace:*",
+    "@omniwa/shared": "workspace:*"
   }
 }

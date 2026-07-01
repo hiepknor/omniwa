@@ -8,6 +8,7 @@ import type {
   WebhookTransportPort,
   WebhookTransportReceipt,
 } from "@omniwa/application";
+import { createMetricPoint, type MetricRecorder } from "@omniwa/observability";
 import { err, ok, type Result } from "@omniwa/shared";
 
 export type WebhookDeliveryWorkResult = Readonly<{
@@ -41,25 +42,56 @@ export type WebhookDispatcherResult = Readonly<{
   reasonCode?: string;
 }>;
 
+export type WebhookDispatchAuditEntry = Readonly<{
+  outcome: WebhookDispatcherOutcome;
+  jobId?: string;
+  reservationRef?: string;
+  attempt?: number;
+  reasonCode?: string;
+  correlationId: string;
+}>;
+
+export type WebhookDispatchAuditSink = Readonly<{
+  recordWebhookDispatch(
+    entry: WebhookDispatchAuditEntry,
+    context: ApplicationPortContext,
+  ): Promise<void> | void;
+}>;
+
 export type WebhookDispatcherRuntimeOptions = Readonly<{
   queueProvider: QueueProviderPort;
   handler: WebhookDeliveryWorkHandler;
   defaultRetryDelayMilliseconds?: number;
+  metricRecorder?: MetricRecorder;
+  auditSink?: WebhookDispatchAuditSink;
 }>;
 
 export class WebhookDispatcherRuntime {
   private readonly queueProvider: QueueProviderPort;
   private readonly handler: WebhookDeliveryWorkHandler;
   private readonly defaultRetryDelayMilliseconds: number;
+  private readonly metricRecorder: MetricRecorder | undefined;
+  private readonly auditSink: WebhookDispatchAuditSink | undefined;
 
   constructor(options: WebhookDispatcherRuntimeOptions) {
     this.queueProvider = options.queueProvider;
     this.handler = options.handler;
     this.defaultRetryDelayMilliseconds = options.defaultRetryDelayMilliseconds ?? 1_000;
+    this.metricRecorder = options.metricRecorder;
+    this.auditSink = options.auditSink;
     assertNonNegativeInteger(this.defaultRetryDelayMilliseconds, "defaultRetryDelayMilliseconds");
   }
 
   async dispatchNext(context: ApplicationPortContext): Promise<WebhookDispatcherResult> {
+    const result = await this.dispatchNextUnrecorded(context);
+    await this.recordRuntimeEvidence(result, context);
+
+    return result;
+  }
+
+  private async dispatchNextUnrecorded(
+    context: ApplicationPortContext,
+  ): Promise<WebhookDispatcherResult> {
     const reservationResult = await this.queueProvider.reserve("webhook_delivery", context);
 
     if (!reservationResult.ok) {
@@ -92,6 +124,48 @@ export class WebhookDispatcherRuntime {
     }
 
     return this.applyWorkResult(reservation, work.value, context);
+  }
+
+  private async recordRuntimeEvidence(
+    result: WebhookDispatcherResult,
+    context: ApplicationPortContext,
+  ): Promise<void> {
+    this.recordMetric(result);
+
+    try {
+      await this.auditSink?.recordWebhookDispatch(
+        Object.freeze({
+          outcome: result.outcome,
+          correlationId: String(context.requestContext.correlationId),
+          ...optional("jobId", result.reservation?.jobId.toString()),
+          ...optional("reservationRef", result.reservation?.reservationRef),
+          ...optional("attempt", result.reservation?.attempt),
+          ...optional("reasonCode", result.reasonCode),
+        }),
+        context,
+      );
+    } catch {
+      return;
+    }
+  }
+
+  private recordMetric(result: WebhookDispatcherResult): void {
+    try {
+      this.metricRecorder?.recordMetric(
+        createMetricPoint({
+          name: "webhook_dispatcher.dispatch.total",
+          kind: "counter",
+          value: 1,
+          runtimeRole: "webhook",
+          labels: {
+            outcome: result.outcome,
+            ...optional("reasonCode", result.reasonCode),
+          },
+        }),
+      );
+    } catch {
+      return;
+    }
   }
 
   private async deliverReservedWork(

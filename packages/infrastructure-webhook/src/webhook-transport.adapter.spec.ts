@@ -127,9 +127,22 @@ describe("HttpWebhookTransportAdapter", () => {
         payloadRef: "payload.ref.1",
         signingSecretRef: "secret-ref-not-plaintext",
         correlationId: "webhook-transport-correlation",
+        body: {
+          deliveryId: "webhook_delivery_transport_1",
+          webhookId: "webhook_transport_1",
+          sourceSignalRef: "source.signal.1",
+          payloadRef: "payload.ref.1",
+          eventVersion: "v1",
+          dataClassification: "internal",
+          correlationId: "webhook-transport-correlation",
+        },
       },
     ]);
-    expect(gateway.requests[0]?.headers["x-omniwa-signature-ref"]).toBe("signature.ref.1");
+    expect(gateway.requests[0]?.headers).toMatchObject({
+      "x-omniwa-signature": "v1=fake-signature",
+      "x-omniwa-signature-scheme": "v1",
+      "x-omniwa-signature-timestamp": "1234567890000",
+    });
     expect(JSON.stringify(gateway.requests[0])).not.toContain("secret-ref-not-plaintext");
   });
 
@@ -244,7 +257,9 @@ class FakeSignatureProvider implements WebhookSignatureProvider {
   createSignature(input: WebhookSignatureInput): WebhookSignatureResult {
     this.inputs.push(input);
     return {
-      signatureRef: "signature.ref.1",
+      scheme: "v1",
+      signature: "v1=fake-signature",
+      timestamp: "1234567890000",
     };
   }
 }

@@ -15,7 +15,10 @@
   },
   "dependencies": {
     "@omniwa/application": "workspace:*",
+    "@omniwa/config": "workspace:*",
     "@omniwa/domain": "workspace:*",
+    "@omniwa/errors": "workspace:*",
+    "@omniwa/observability": "workspace:*",
     "@omniwa/shared": "workspace:*"
   }
 }

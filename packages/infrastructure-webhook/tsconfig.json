@@ -6,5 +6,12 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"],
-  "references": [{ "path": "../shared" }, { "path": "../domain" }, { "path": "../application" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../config" },
+    { "path": "../errors" },
+    { "path": "../observability" },
+    { "path": "../domain" },
+    { "path": "../application" }
+  ]
 }

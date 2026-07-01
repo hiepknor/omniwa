@@ -25,11 +25,14 @@ import {
   err,
   ok,
 } from "@omniwa/shared";
+import type { MetricPoint, MetricRecorder } from "@omniwa/observability";
 import { describe, expect, it } from "vitest";
 
 import {
   WebhookDispatcherRuntime,
   WebhookTransportDeliveryHandler,
+  type WebhookDispatchAuditEntry,
+  type WebhookDispatchAuditSink,
   type WebhookDeliveryEnvelopeResolver,
   type WebhookDeliveryWorkHandler,
 } from "./webhook-dispatcher-runtime.js";
@@ -61,9 +64,12 @@ describe("WebhookDispatcherRuntime", () => {
 
   it("acknowledges delivered webhook work", async () => {
     const queue = new FakeQueueProvider([reservation("webhook-dispatch-job-1")]);
+    const telemetry = new RecordingWebhookRuntimeTelemetry();
     const runtime = new WebhookDispatcherRuntime({
       queueProvider: queue,
       handler: new StaticWebhookWorkHandler({ outcome: "delivered" }),
+      metricRecorder: telemetry,
+      auditSink: telemetry,
     });
 
     const result = await runtime.dispatchNext(context);
@@ -78,6 +84,23 @@ describe("WebhookDispatcherRuntime", () => {
     expect(queue.acknowledged).toHaveLength(1);
     expect(queue.retried).toHaveLength(0);
     expect(queue.deadLettered).toHaveLength(0);
+    expect(telemetry.metrics).toEqual([
+      expect.objectContaining({
+        name: "webhook_dispatcher.dispatch.total",
+        labels: expect.objectContaining({
+          outcome: "delivered",
+        }),
+      }),
+    ]);
+    expect(telemetry.auditEntries).toEqual([
+      {
+        outcome: "delivered",
+        correlationId: "webhook-dispatcher-correlation",
+        jobId: "webhook-dispatch-job-1",
+        reservationRef: "webhook_delivery:webhook-dispatch-job-1:attempt:1",
+        attempt: 1,
+      },
+    ]);
   });
 
   it("releases retryable webhook work with bounded visibility delay", async () => {
@@ -107,12 +130,15 @@ describe("WebhookDispatcherRuntime", () => {
 
   it("moves terminal webhook work to dead letter", async () => {
     const queue = new FakeQueueProvider([reservation("webhook-dispatch-job-3")]);
+    const telemetry = new RecordingWebhookRuntimeTelemetry();
     const runtime = new WebhookDispatcherRuntime({
       queueProvider: queue,
       handler: new StaticWebhookWorkHandler({
         outcome: "dead_letter",
         reasonCode: "receiver_terminal_failure",
       }),
+      metricRecorder: telemetry,
+      auditSink: telemetry,
     });
 
     const result = await runtime.dispatchNext(context);
@@ -126,6 +152,20 @@ describe("WebhookDispatcherRuntime", () => {
         reservationRef: "webhook_delivery:webhook-dispatch-job-3:attempt:1",
         reasonCode: "receiver_terminal_failure",
       },
+    ]);
+    expect(telemetry.metrics).toEqual([
+      expect.objectContaining({
+        labels: expect.objectContaining({
+          outcome: "dead_lettered",
+          reasonCode: "receiver_terminal_failure",
+        }),
+      }),
+    ]);
+    expect(telemetry.auditEntries).toEqual([
+      expect.objectContaining({
+        outcome: "dead_lettered",
+        reasonCode: "receiver_terminal_failure",
+      }),
     ]);
   });
 
@@ -380,6 +420,19 @@ class FakeQueueProvider implements QueueProviderPort {
       reasonCode,
     });
     return Promise.resolve(ok(queueReceipt(reservation.jobId, true)));
+  }
+}
+
+class RecordingWebhookRuntimeTelemetry implements MetricRecorder, WebhookDispatchAuditSink {
+  readonly metrics: MetricPoint[] = [];
+  readonly auditEntries: WebhookDispatchAuditEntry[] = [];
+
+  recordMetric(point: MetricPoint): void {
+    this.metrics.push(point);
+  }
+
+  recordWebhookDispatch(entry: WebhookDispatchAuditEntry): void {
+    this.auditEntries.push(entry);
   }
 }
 

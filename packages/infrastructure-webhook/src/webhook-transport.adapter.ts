@@ -49,10 +49,13 @@ export type WebhookSignatureInput = Readonly<{
   payloadRef: string;
   signingSecretRef: string;
   correlationId: string;
+  body: WebhookOutboundBody;
 }>;
 
 export type WebhookSignatureResult = Readonly<{
-  signatureRef: string;
+  scheme: "v1";
+  signature: string;
+  timestamp: string;
 }>;
 
 export type WebhookSignatureProvider = Readonly<{
@@ -108,21 +111,22 @@ export class HttpWebhookTransportAdapter implements WebhookTransportPort {
     try {
       assertEnvelopeSafe(envelope);
 
-      const headers = await this.createHeaders(envelope, context);
+      const body = freezeWebhookOutboundBody({
+        deliveryId: String(envelope.deliveryId),
+        webhookId: String(envelope.webhookId),
+        sourceSignalRef: envelope.sourceSignalRef,
+        payloadRef: envelope.payloadRef,
+        eventVersion: envelope.eventVersion,
+        dataClassification: envelope.dataClassification,
+        correlationId: String(context.requestContext.correlationId),
+      });
+      const headers = await this.createHeaders(envelope, context, body);
       const result = await this.gateway.sendWebhook(
         {
           method: "POST",
           targetUrl: String(envelope.targetUrl),
           headers,
-          body: freezeWebhookOutboundBody({
-            deliveryId: String(envelope.deliveryId),
-            webhookId: String(envelope.webhookId),
-            sourceSignalRef: envelope.sourceSignalRef,
-            payloadRef: envelope.payloadRef,
-            eventVersion: envelope.eventVersion,
-            dataClassification: envelope.dataClassification,
-            correlationId: String(context.requestContext.correlationId),
-          }),
+          body,
           timeoutMilliseconds: this.timeoutMilliseconds,
         },
         context,
@@ -145,6 +149,7 @@ export class HttpWebhookTransportAdapter implements WebhookTransportPort {
   private async createHeaders(
     envelope: WebhookDeliveryEnvelope,
     context: ApplicationPortContext,
+    body: WebhookOutboundBody,
   ): Promise<Readonly<Record<string, string>>> {
     const headers: Record<string, string> = {
       "content-type": "application/json",
@@ -175,10 +180,14 @@ export class HttpWebhookTransportAdapter implements WebhookTransportPort {
       payloadRef: envelope.payloadRef,
       signingSecretRef: envelope.signingSecretRef,
       correlationId: String(context.requestContext.correlationId),
+      body,
     });
 
-    assertSafeReference(signature.signatureRef, envelope.signingSecretRef, "signatureRef");
-    headers["x-omniwa-signature-ref"] = signature.signatureRef;
+    assertSafeReference(signature.signature, envelope.signingSecretRef, "signature");
+    assertReferencePresent(signature.timestamp, "signatureTimestamp");
+    headers["x-omniwa-signature"] = signature.signature;
+    headers["x-omniwa-signature-scheme"] = signature.scheme;
+    headers["x-omniwa-signature-timestamp"] = signature.timestamp;
 
     return Object.freeze(headers);
   }

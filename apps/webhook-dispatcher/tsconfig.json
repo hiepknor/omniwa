@@ -5,5 +5,16 @@
     "rootDir": "src"
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/config" },
+    { "path": "../../packages/errors" },
+    { "path": "../../packages/observability" },
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/application" },
+    { "path": "../../packages/infrastructure-persistence" },
+    { "path": "../../packages/infrastructure-queue" },
+    { "path": "../../packages/infrastructure-webhook" }
+  ]
 }

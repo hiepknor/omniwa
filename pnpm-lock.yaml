@@ -103,7 +103,35 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
 
-  apps/webhook-dispatcher: {}
+  apps/webhook-dispatcher:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@omniwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@omniwa/errors':
+        specifier: workspace:*
+        version: link:../../packages/errors
+      '@omniwa/infrastructure-persistence':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-persistence
+      '@omniwa/infrastructure-queue':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-queue
+      '@omniwa/infrastructure-webhook':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-webhook
+      '@omniwa/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/worker:
     dependencies:
@@ -227,9 +255,18 @@ importers:
       '@omniwa/application':
         specifier: workspace:*
         version: link:../application
+      '@omniwa/config':
+        specifier: workspace:*
+        version: link:../config
       '@omniwa/domain':
         specifier: workspace:*
         version: link:../domain
+      '@omniwa/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@omniwa/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@omniwa/shared':
         specifier: workspace:*
         version: link:../shared
