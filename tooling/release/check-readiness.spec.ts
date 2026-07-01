@@ -64,6 +64,8 @@ describe("release readiness check", () => {
           "release_evidence_missing",
           "release_evidence_test_missing",
           "check_script_missing_release_gate",
+          "check_script_missing_openapi_compat_gate",
+          "check_script_missing_sdk_test_gate",
           "app_package_unreadable",
           "workspace_package_unreadable",
         ]),

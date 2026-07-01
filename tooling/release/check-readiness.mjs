@@ -52,6 +52,10 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "packages/infrastructure-webhook/src/webhook-transport.adapter.ts",
   "packages/infrastructure-observability/src/in-memory-observability-runtime.ts",
   "apps/background/src/recovery-validation.ts",
+  "docs/api/openapi/omniwa-v1.compatibility.json",
+  "docs/api/API_COMPATIBILITY_POLICY.md",
+  "docs/api/API_CHANGELOG.md",
+  "tooling/api/check-openapi-compatibility.mjs",
 ]);
 
 export const requiredReleaseEvidenceTests = Object.freeze([
@@ -63,6 +67,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "packages/infrastructure-webhook/src/webhook-transport.adapter.spec.ts",
   "packages/infrastructure-observability/src/in-memory-observability-runtime.spec.ts",
   "apps/background/src/recovery-validation.spec.ts",
+  "tooling/api/check-openapi-compatibility.spec.ts",
 ]);
 
 const requiredRootScripts = Object.freeze([
@@ -71,6 +76,10 @@ const requiredRootScripts = Object.freeze([
   "typecheck",
   "test",
   "arch:check",
+  "openapi:check",
+  "openapi:compat",
+  "sdk:check",
+  "sdk:test",
   "release:check",
   "check",
 ]);
@@ -109,8 +118,13 @@ export async function createReadinessFixture(projectRoot) {
       typecheck: "tsc -b tsconfig.references.json --pretty false",
       test: "vitest run --passWithNoTests",
       "arch:check": "node tooling/architecture/check-boundaries.mjs",
+      "openapi:check": "node tooling/api/check-openapi.mjs",
+      "openapi:compat": "node tooling/api/check-openapi-compatibility.mjs",
+      "sdk:check": "node tooling/sdk/check-rust-sdk.mjs",
+      "sdk:test": "cargo test -p omniwa-sdk",
       "release:check": "node tooling/release/check-readiness.mjs",
-      check: "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm release:check",
+      check:
+        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm release:check",
     },
   });
 
@@ -194,6 +208,14 @@ async function checkRootPackage(projectRoot, findings) {
   const checkScript = scripts.check;
   if (typeof checkScript === "string" && !checkScript.includes("pnpm release:check")) {
     findings.push(createFinding("check_script_missing_release_gate", "blocker"));
+  }
+
+  if (typeof checkScript === "string" && !checkScript.includes("pnpm openapi:compat")) {
+    findings.push(createFinding("check_script_missing_openapi_compat_gate", "blocker"));
+  }
+
+  if (typeof checkScript === "string" && !checkScript.includes("pnpm sdk:test")) {
+    findings.push(createFinding("check_script_missing_sdk_test_gate", "blocker"));
   }
 }
 

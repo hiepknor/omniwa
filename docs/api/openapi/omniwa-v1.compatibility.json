@@ -1,0 +1,3715 @@
+{
+  "schemaVersion": 1,
+  "contract": "omniwa-public-rest-api",
+  "source": "docs/api/openapi/omniwa-v1.openapi.json",
+  "openapi": "3.1.0",
+  "apiVersion": "0.1.0",
+  "operations": [
+    {
+      "deprecated": false,
+      "key": "DELETE /v1/groups/{groupId}/members/{memberJid}",
+      "method": "delete",
+      "operationId": "removeGroupMember",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/MemberJid",
+          "in": "path",
+          "name": "memberJid",
+          "ref": "#/components/parameters/MemberJid",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/members/{memberJid}",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "DELETE /v1/instances/{instanceId}",
+      "method": "delete",
+      "operationId": "destroyInstance",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "DELETE /v1/webhooks/{webhookId}",
+      "method": "delete",
+      "operationId": "retireWebhook",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/WebhookId",
+          "in": "path",
+          "name": "webhookId",
+          "ref": "#/components/parameters/WebhookId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhooks/{webhookId}",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/action-required",
+      "method": "get",
+      "operationId": "listActionRequiredItems",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/action-required",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/audit-records",
+      "method": "get",
+      "operationId": "listAuditRecords",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/audit-records",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/chats",
+      "method": "get",
+      "operationId": "listChats",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/chats",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/chats/{chatId}",
+      "method": "get",
+      "operationId": "getChat",
+      "parameters": [
+        {
+          "id": "#/components/parameters/ChatId",
+          "in": "path",
+          "name": "chatId",
+          "ref": "#/components/parameters/ChatId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/chats/{chatId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/contacts",
+      "method": "get",
+      "operationId": "listContacts",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/contacts",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/contacts/{contactId}",
+      "method": "get",
+      "operationId": "getContact",
+      "parameters": [
+        {
+          "id": "#/components/parameters/ContactId",
+          "in": "path",
+          "name": "contactId",
+          "ref": "#/components/parameters/ContactId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/contacts/{contactId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/dashboard",
+      "method": "get",
+      "operationId": "getDashboardSummary",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/dashboard",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/events",
+      "method": "get",
+      "operationId": "listEvents",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/events",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/events/stream",
+      "method": "get",
+      "operationId": "streamEvents",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/LastEventIdHeader",
+          "in": "header",
+          "name": "Last-Event-ID",
+          "ref": "#/components/parameters/LastEventIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/events/stream",
+      "responses": {
+        "200": "content:text/event-stream",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/groups/{groupId}",
+      "method": "get",
+      "operationId": "getGroup",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/groups/{groupId}/members",
+      "method": "get",
+      "operationId": "listGroupMembers",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/members",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/health",
+      "method": "get",
+      "operationId": "getHealth",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/health",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/health/readiness",
+      "method": "get",
+      "operationId": "getHealthReadiness",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/health/readiness",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances",
+      "method": "get",
+      "operationId": "listInstances",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances/{instanceId}",
+      "method": "get",
+      "operationId": "getInstance",
+      "parameters": [
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances/{instanceId}/chats",
+      "method": "get",
+      "operationId": "listInstanceChats",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/chats",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances/{instanceId}/contacts",
+      "method": "get",
+      "operationId": "listInstanceContacts",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/contacts",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances/{instanceId}/groups",
+      "method": "get",
+      "operationId": "listInstanceGroups",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/groups",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances/{instanceId}/labels",
+      "method": "get",
+      "operationId": "listInstanceLabels",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/labels",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances/{instanceId}/messages",
+      "method": "get",
+      "operationId": "listInstanceMessages",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/messages",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/instances/{instanceId}/sessions",
+      "method": "get",
+      "operationId": "listInstanceSessions",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/sessions",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/jobs",
+      "method": "get",
+      "operationId": "listJobs",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/jobs",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/jobs/{jobId}",
+      "method": "get",
+      "operationId": "getJob",
+      "parameters": [
+        {
+          "id": "#/components/parameters/JobId",
+          "in": "path",
+          "name": "jobId",
+          "ref": "#/components/parameters/JobId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/jobs/{jobId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/labels",
+      "method": "get",
+      "operationId": "listLabels",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/labels",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/labels/{labelId}",
+      "method": "get",
+      "operationId": "getLabel",
+      "parameters": [
+        {
+          "id": "#/components/parameters/LabelId",
+          "in": "path",
+          "name": "labelId",
+          "ref": "#/components/parameters/LabelId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/labels/{labelId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/media/{mediaId}",
+      "method": "get",
+      "operationId": "getMedia",
+      "parameters": [
+        {
+          "id": "#/components/parameters/MediaId",
+          "in": "path",
+          "name": "mediaId",
+          "ref": "#/components/parameters/MediaId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/media/{mediaId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/messages/{messageId}",
+      "method": "get",
+      "operationId": "getMessage",
+      "parameters": [
+        {
+          "id": "#/components/parameters/MessageId",
+          "in": "path",
+          "name": "messageId",
+          "ref": "#/components/parameters/MessageId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/messages/{messageId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/messages/{messageId}/delivery-history",
+      "method": "get",
+      "operationId": "getMessageDeliveryHistory",
+      "parameters": [
+        {
+          "id": "#/components/parameters/MessageId",
+          "in": "path",
+          "name": "messageId",
+          "ref": "#/components/parameters/MessageId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/messages/{messageId}/delivery-history",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/metrics",
+      "method": "get",
+      "operationId": "getMetrics",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/metrics",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/metrics/media",
+      "method": "get",
+      "operationId": "getMediaMetrics",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/metrics/media",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/metrics/messages",
+      "method": "get",
+      "operationId": "getMessageMetrics",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/metrics/messages",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/metrics/queue",
+      "method": "get",
+      "operationId": "getQueueMetrics",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/metrics/queue",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/metrics/webhooks",
+      "method": "get",
+      "operationId": "getWebhookMetrics",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/metrics/webhooks",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/provider/capabilities",
+      "method": "get",
+      "operationId": "getProviderCapabilities",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/provider/capabilities",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/queue",
+      "method": "get",
+      "operationId": "getQueueStatus",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/queue",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/settings",
+      "method": "get",
+      "operationId": "getSettings",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/settings",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/webhook-deliveries",
+      "method": "get",
+      "operationId": "listWebhookDeliveries",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Sort",
+          "in": "query",
+          "name": "sort",
+          "ref": "#/components/parameters/Sort",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhook-deliveries",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/webhook-deliveries/{deliveryId}/history",
+      "method": "get",
+      "operationId": "getWebhookDeliveryHistory",
+      "parameters": [
+        {
+          "id": "#/components/parameters/DeliveryId",
+          "in": "path",
+          "name": "deliveryId",
+          "ref": "#/components/parameters/DeliveryId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhook-deliveries/{deliveryId}/history",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/webhooks",
+      "method": "get",
+      "operationId": "listWebhooks",
+      "parameters": [
+        {
+          "id": "#/components/parameters/Cursor",
+          "in": "query",
+          "name": "cursor",
+          "ref": "#/components/parameters/Cursor",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/Limit",
+          "in": "query",
+          "name": "limit",
+          "ref": "#/components/parameters/Limit",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhooks",
+      "responses": {
+        "200": "#/components/responses/CollectionSuccess",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "GET /v1/webhooks/{webhookId}",
+      "method": "get",
+      "operationId": "getWebhook",
+      "parameters": [
+        {
+          "id": "#/components/parameters/WebhookId",
+          "in": "path",
+          "name": "webhookId",
+          "ref": "#/components/parameters/WebhookId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhooks/{webhookId}",
+      "responses": {
+        "200": "#/components/responses/Success",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "PATCH /v1/groups/{groupId}",
+      "method": "patch",
+      "operationId": "updateGroup",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}",
+      "requestBody": {
+        "id": "#/components/requestBodies/GroupMetadata",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "PATCH /v1/groups/{groupId}/local-state",
+      "method": "patch",
+      "operationId": "updateGroupLocalState",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/local-state",
+      "requestBody": {
+        "id": "#/components/requestBodies/GroupLocalState",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "PATCH /v1/instances/{instanceId}",
+      "method": "patch",
+      "operationId": "updateInstance",
+      "parameters": [
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "PATCH /v1/webhooks/{webhookId}",
+      "method": "patch",
+      "operationId": "updateWebhook",
+      "parameters": [
+        {
+          "id": "#/components/parameters/WebhookId",
+          "in": "path",
+          "name": "webhookId",
+          "ref": "#/components/parameters/WebhookId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhooks/{webhookId}",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/groups/{groupId}/invite-link/refresh",
+      "method": "post",
+      "operationId": "refreshGroupInviteLink",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/invite-link/refresh",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/groups/{groupId}/members",
+      "method": "post",
+      "operationId": "addGroupMember",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/members",
+      "requestBody": {
+        "id": "#/components/requestBodies/GroupMember",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/groups/{groupId}/members/{memberJid}/demote",
+      "method": "post",
+      "operationId": "demoteGroupMember",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/MemberJid",
+          "in": "path",
+          "name": "memberJid",
+          "ref": "#/components/parameters/MemberJid",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/members/{memberJid}/demote",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/groups/{groupId}/members/{memberJid}/promote",
+      "method": "post",
+      "operationId": "promoteGroupMember",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/MemberJid",
+          "in": "path",
+          "name": "memberJid",
+          "ref": "#/components/parameters/MemberJid",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/members/{memberJid}/promote",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/groups/{groupId}/messages/text",
+      "method": "post",
+      "operationId": "sendGroupTextMessage",
+      "parameters": [
+        {
+          "id": "#/components/parameters/GroupId",
+          "in": "path",
+          "name": "groupId",
+          "ref": "#/components/parameters/GroupId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/groups/{groupId}/messages/text",
+      "requestBody": {
+        "id": "#/components/requestBodies/GroupTextMessage",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances",
+      "method": "post",
+      "operationId": "createInstance",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances",
+      "requestBody": {
+        "id": "#/components/requestBodies/InstanceCreate",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/connect",
+      "method": "post",
+      "operationId": "connectInstance",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/connect",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/disconnect",
+      "method": "post",
+      "operationId": "disconnectInstance",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/disconnect",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/groups/refresh",
+      "method": "post",
+      "operationId": "refreshInstanceGroups",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/groups/refresh",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/messages",
+      "method": "post",
+      "operationId": "sendInstanceMessage",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/messages",
+      "requestBody": {
+        "id": "#/components/requestBodies/Message",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/messages/media",
+      "method": "post",
+      "operationId": "sendInstanceMediaMessage",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/messages/media",
+      "requestBody": {
+        "id": "#/components/requestBodies/MediaMessage",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/messages/text",
+      "method": "post",
+      "operationId": "sendInstanceTextMessage",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/messages/text",
+      "requestBody": {
+        "id": "#/components/requestBodies/TextMessage",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/qr/refresh",
+      "method": "post",
+      "operationId": "refreshInstanceQr",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/qr/refresh",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/instances/{instanceId}/reconnect",
+      "method": "post",
+      "operationId": "requestInstanceReconnect",
+      "parameters": [
+        {
+          "id": "#/components/parameters/InstanceId",
+          "in": "path",
+          "name": "instanceId",
+          "ref": "#/components/parameters/InstanceId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/instances/{instanceId}/reconnect",
+      "responses": {
+        "401": "#/components/responses/Unauthorized",
+        "501": "#/components/responses/NotImplemented"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/media",
+      "method": "post",
+      "operationId": "registerMedia",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/media",
+      "requestBody": {
+        "id": "#/components/requestBodies/MediaRegistration",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/messages/{messageId}/cancel",
+      "method": "post",
+      "operationId": "cancelMessage",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/MessageId",
+          "in": "path",
+          "name": "messageId",
+          "ref": "#/components/parameters/MessageId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/messages/{messageId}/cancel",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/messages/{messageId}/retry",
+      "method": "post",
+      "operationId": "retryMessage",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/MessageId",
+          "in": "path",
+          "name": "messageId",
+          "ref": "#/components/parameters/MessageId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/messages/{messageId}/retry",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/provider/capabilities/refresh",
+      "method": "post",
+      "operationId": "refreshProviderCapabilities",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/provider/capabilities/refresh",
+      "responses": {
+        "401": "#/components/responses/Unauthorized",
+        "501": "#/components/responses/NotImplemented"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/settings/activate",
+      "method": "post",
+      "operationId": "activateSettings",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/settings/activate",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/settings/validate",
+      "method": "post",
+      "operationId": "validateSettings",
+      "parameters": [
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/settings/validate",
+      "requestBody": {
+        "id": "#/components/requestBodies/Object",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "403": "#/components/responses/Forbidden",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/webhook-deliveries/{deliveryId}/retry",
+      "method": "post",
+      "operationId": "retryWebhookDelivery",
+      "parameters": [
+        {
+          "id": "#/components/parameters/DeliveryId",
+          "in": "path",
+          "name": "deliveryId",
+          "ref": "#/components/parameters/DeliveryId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhook-deliveries/{deliveryId}/retry",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/webhooks",
+      "method": "post",
+      "operationId": "registerWebhook",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhooks",
+      "requestBody": {
+        "id": "#/components/requestBodies/Webhook",
+        "required": true
+      },
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "400": "#/components/responses/BadRequest",
+        "401": "#/components/responses/Unauthorized",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/webhooks/{webhookId}/activate",
+      "method": "post",
+      "operationId": "activateWebhook",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/WebhookId",
+          "in": "path",
+          "name": "webhookId",
+          "ref": "#/components/parameters/WebhookId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhooks/{webhookId}/activate",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
+      "key": "POST /v1/webhooks/{webhookId}/suspend",
+      "method": "post",
+      "operationId": "suspendWebhook",
+      "parameters": [
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/WebhookId",
+          "in": "path",
+          "name": "webhookId",
+          "ref": "#/components/parameters/WebhookId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhooks/{webhookId}/suspend",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    }
+  ],
+  "schemas": {
+    "ApiError": {
+      "enumValues": [],
+      "properties": [
+        "code",
+        "details",
+        "message"
+      ],
+      "required": [
+        "code",
+        "details",
+        "message"
+      ]
+    },
+    "CollectionEnvelope": {
+      "enumValues": [],
+      "properties": [
+        "data",
+        "meta"
+      ],
+      "required": [
+        "data",
+        "meta"
+      ]
+    },
+    "ErrorEnvelope": {
+      "enumValues": [],
+      "properties": [
+        "error",
+        "meta"
+      ],
+      "required": [
+        "error",
+        "meta"
+      ]
+    },
+    "GenericMediaMessageRequest": {
+      "enumValues": [],
+      "properties": [],
+      "required": []
+    },
+    "GenericTextMessageRequest": {
+      "enumValues": [],
+      "properties": [],
+      "required": []
+    },
+    "GroupLocalStateRequest": {
+      "enumValues": [],
+      "properties": [
+        "archived",
+        "muted",
+        "pinned"
+      ],
+      "required": []
+    },
+    "GroupMemberRequest": {
+      "enumValues": [],
+      "properties": [
+        "jid"
+      ],
+      "required": [
+        "jid"
+      ]
+    },
+    "GroupMetadataRequest": {
+      "enumValues": [],
+      "properties": [
+        "description",
+        "subject"
+      ],
+      "required": []
+    },
+    "GroupTextMessageRequest": {
+      "enumValues": [],
+      "properties": [
+        "text"
+      ],
+      "required": [
+        "text"
+      ]
+    },
+    "InstanceCreateRequest": {
+      "enumValues": [],
+      "properties": [
+        "displayName"
+      ],
+      "required": []
+    },
+    "MediaMessageRequest": {
+      "enumValues": [],
+      "properties": [
+        "caption",
+        "mediaId",
+        "mediaRef",
+        "to",
+        "type"
+      ],
+      "required": [
+        "to"
+      ]
+    },
+    "MediaRegistrationRequest": {
+      "enumValues": [],
+      "properties": [
+        "contentType",
+        "fileRef",
+        "mediaRef",
+        "url"
+      ],
+      "required": []
+    },
+    "ObjectRequest": {
+      "enumValues": [],
+      "properties": [],
+      "required": []
+    },
+    "PaginationMeta": {
+      "enumValues": [],
+      "properties": [
+        "pagination"
+      ],
+      "required": []
+    },
+    "PublicData": {
+      "enumValues": [],
+      "properties": [],
+      "required": []
+    },
+    "ResponseMeta": {
+      "enumValues": [],
+      "properties": [
+        "correlationId",
+        "requestId",
+        "timestamp"
+      ],
+      "required": [
+        "correlationId",
+        "requestId",
+        "timestamp"
+      ]
+    },
+    "SafeResourceId": {
+      "enumValues": [],
+      "properties": [],
+      "required": []
+    },
+    "SuccessEnvelope": {
+      "enumValues": [],
+      "properties": [
+        "data",
+        "meta"
+      ],
+      "required": [
+        "data",
+        "meta"
+      ]
+    },
+    "TextMessageRequest": {
+      "enumValues": [],
+      "properties": [
+        "text",
+        "to",
+        "type"
+      ],
+      "required": [
+        "text",
+        "to"
+      ]
+    },
+    "WebhookRequest": {
+      "enumValues": [],
+      "properties": [
+        "eventTypes",
+        "url"
+      ],
+      "required": [
+        "url"
+      ]
+    }
+  }
+}

@@ -38,6 +38,8 @@ The contract does not define:
 - Public paths and operation ids must be resource-oriented.
 - Operation ids must not expose Application command/query names.
 - API changes require an OpenAPI update in the same change set.
+- Public `/v1` contract changes must pass the compatibility baseline gate.
+- Deprecated operations must include `x-omniwa-deprecation` metadata.
 - Request and response examples must use synthetic, safe placeholder data only.
 - Public schemas must not expose API keys, webhook secrets, session material,
   raw provider payloads, raw phone numbers, raw JIDs, or raw message bodies in
@@ -49,9 +51,10 @@ Run:
 
 ```text
 pnpm openapi:check
+pnpm openapi:compat
 ```
 
-The validation checks:
+`pnpm openapi:check` validates:
 
 - the OpenAPI document shape,
 - `ApiKeyAuth`,
@@ -62,7 +65,11 @@ The validation checks:
 - no direct use of internal Application command/query names as operation ids,
 - auth error coverage for every operation.
 
-`pnpm check` includes this gate before `release:check`.
+`pnpm openapi:compat` compares the current OpenAPI file with
+`docs/api/openapi/omniwa-v1.compatibility.json` and fails on breaking `/v1`
+contract drift.
+
+`pnpm check` includes both gates before `release:check`.
 
 ## Partial Routes
 
