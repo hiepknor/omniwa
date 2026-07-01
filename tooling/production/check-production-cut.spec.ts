@@ -51,7 +51,9 @@ describe("production cut gate check", () => {
         expect.arrayContaining([
           expect.objectContaining({ code: "production_cut_decision_missing_or_invalid" }),
           expect.objectContaining({ code: "production_ready_state_missing" }),
+          expect.objectContaining({ code: "enterprise_ready_state_missing" }),
           expect.objectContaining({ code: "load_baseline_summary_missing" }),
+          expect.objectContaining({ code: "gate_2_review_missing" }),
           expect.objectContaining({ code: "known_constraints_missing" }),
         ]),
       );
@@ -96,6 +98,32 @@ describe("production cut gate check", () => {
             target: missingTest,
           }),
           expect.objectContaining({ code: "check_script_missing_production_gate" }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the production ready state conflicts with the readiness decision", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createProductionCutFixture(root);
+      await writeText(
+        join(root, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
+        "# Production Cut Review\n\nFinal readiness decision: PRODUCTION_READY\n\nProduction Ready: NO\n\nEnterprise Ready: NO\n\n## Load baseline\n\nRecorded.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n",
+      );
+
+      const report = await evaluateProductionCutReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "production_ready_state_inconsistent" }),
         ]),
       );
     } finally {

@@ -30,6 +30,8 @@ The repository now has automated gates for:
 - OpenAPI compatibility,
 - Rust SDK foundation,
 - production regression,
+- public resource DTO stability,
+- runtime collection query semantics,
 - load baseline,
 - release readiness,
 - backup/restore drill evidence,
@@ -104,16 +106,42 @@ The production gate verifies:
 
 ## Gate Status
 
-| Gate                  | Status | Evidence                          |
-| --------------------- | ------ | --------------------------------- |
-| Architecture          | PASS   | `pnpm arch:check`                 |
-| OpenAPI               | PASS   | `pnpm openapi:check`              |
-| OpenAPI compatibility | PASS   | `pnpm openapi:compat`             |
-| SDK                   | PASS   | `pnpm sdk:check`, `pnpm sdk:test` |
-| Regression            | PASS   | `pnpm regression:check`           |
-| Load baseline         | PASS   | `pnpm load:check`                 |
-| Release readiness     | PASS   | `pnpm release:check`              |
-| Full local gate       | PASS   | `pnpm check`                      |
+| Gate                     | Status | Evidence                                      |
+| ------------------------ | ------ | --------------------------------------------- |
+| Architecture             | PASS   | `pnpm arch:check`                             |
+| OpenAPI                  | PASS   | `pnpm openapi:check`                          |
+| OpenAPI compatibility    | PASS   | `pnpm openapi:compat`                         |
+| SDK                      | PASS   | `pnpm sdk:check`, `pnpm sdk:test`             |
+| Regression               | PASS   | `pnpm regression:check`                       |
+| Public DTO contract      | PASS   | `PR-17_PUBLIC_RESOURCE_DTO_CONTRACT.md`       |
+| Collection query runtime | PASS   | `PR-18_RUNTIME_COLLECTION_QUERY_SEMANTICS.md` |
+| Load baseline            | PASS   | `pnpm load:check`                             |
+| Release readiness        | PASS   | `pnpm release:check`                          |
+| Full local gate          | PASS   | `pnpm check`                                  |
+
+## Gate 2 Review
+
+Gate 2 `PRODUCTION READY` is not approved.
+
+| Gate 2 Condition                                                  | Status  | Evidence                                                                          | Notes                                                                                                                                   |
+| ----------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| All P0 blockers are closed                                        | FAIL    | `apps/api/src/runtime-composition.ts`, `apps/api/src/runtime-composition.spec.ts` | Production profile still intentionally fails fast until production persistence, secret, queue, and observability adapters are supplied. |
+| `P1-01` typed public DTOs                                         | PASS    | `docs/platform-evolution/PR-17_PUBLIC_RESOURCE_DTO_CONTRACT.md`                   | Public collection data is mapped through resource DTO allowlists.                                                                       |
+| `P1-02` runtime pagination/filter/search/sort                     | PASS    | `docs/platform-evolution/PR-18_RUNTIME_COLLECTION_QUERY_SEMANTICS.md`             | Runtime collection semantics apply on sanitized public DTO fields.                                                                      |
+| `P1-03` OpenAPI breaking-change/diff gate                         | PASS    | `pnpm openapi:compat`, `docs/api/API_COMPATIBILITY_POLICY.md`                     | Compatibility baseline and deprecation metadata gate are active.                                                                        |
+| E2E/security/load/release/architecture/OpenAPI/SDK/recovery gates | PASS    | `pnpm check`                                                                      | Local gates pass for the deterministic platform slice.                                                                                  |
+| SLOs, dashboards, alerts, runbooks, and incident response usable  | PARTIAL | `docs/runbooks/*`, `packages/observability/src/alerts.ts`                         | Runbooks and alert definitions exist; deployed dashboards and sustained SLO observation are not proven.                                 |
+| No critical security or reliability findings remain open          | FAIL    | `docs/reviews/PLATFORM_READINESS_REVIEW.md`, known constraints below              | Production runtime/adapters and target-environment validation remain open reliability blockers.                                         |
+| Public contract compatibility and deprecation policy              | PASS    | `docs/api/API_COMPATIBILITY_POLICY.md`, `pnpm openapi:compat`                     | Contract compatibility is enforced locally.                                                                                             |
+
+### Remaining Production Ready Blockers
+
+| Blocker                                               | Impact                                                                                                                                   | Required Evidence Before `PRODUCTION_READY`                                                                                              |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Production profile is guarded off                     | OmniWA cannot honestly claim a deployable production profile while runtime composition rejects production startup.                       | Production profile starts with approved production persistence, secret, queue, observability, and configuration adapters.                |
+| Production adapters are not target-environment proven | In-memory/JSON deterministic paths do not prove multi-process durability, secret management, provider lifecycle, or dependency recovery. | Target-environment validation for PostgreSQL, queue, secret provider, provider runtime, webhook dispatcher, and observability exporters. |
+| Load baseline is local/in-process only                | Current numbers do not prove network, database, queue, object storage, webhook receiver, or provider capacity.                           | Production-like load test with documented endpoint budgets, bottlenecks, and error budget impact.                                        |
+| Operational SLO/dashboard evidence is incomplete      | Runbooks and alert definitions exist, but sustained operational visibility is not proven.                                                | Usable dashboards/alerts tied to SLOs with at least one dry-run incident/recovery exercise.                                              |
 
 ## Allowed Use
 

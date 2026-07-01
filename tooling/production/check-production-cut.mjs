@@ -13,6 +13,7 @@ export const requiredProductionEvidenceFiles = Object.freeze([
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
   "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
+  "docs/platform-evolution/PR-19_PRODUCTION_READY_GATE_REVIEW.md",
 ]);
 
 export const requiredProductionEvidenceTests = Object.freeze([
@@ -65,7 +66,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
 
   await writeText(
     join(projectRoot, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
-    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: NO\n\n## Load baseline\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
+    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\n## Load baseline\n\nRecorded.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
   );
 }
 
@@ -96,12 +97,30 @@ async function checkProductionCutReview(projectRoot, findings) {
     findings.push(createFinding("production_cut_decision_missing_or_invalid", "blocker"));
   }
 
-  if (!content.includes("Production Ready: NO") && !content.includes("Production Ready: YES")) {
+  const productionReady = content.match(/Production Ready:\s*(YES|NO)/u)?.[1];
+  if (productionReady === undefined) {
     findings.push(createFinding("production_ready_state_missing", "blocker"));
+  }
+
+  const enterpriseReady = content.match(/Enterprise Ready:\s*(YES|NO)/u)?.[1];
+  if (enterpriseReady === undefined) {
+    findings.push(createFinding("enterprise_ready_state_missing", "blocker"));
+  }
+
+  if (decision !== undefined && productionReady !== undefined) {
+    const expectedProductionReady = decision === "PRODUCTION_READY" ? "YES" : "NO";
+
+    if (productionReady !== expectedProductionReady) {
+      findings.push(createFinding("production_ready_state_inconsistent", "blocker"));
+    }
   }
 
   if (!content.includes("Load baseline")) {
     findings.push(createFinding("load_baseline_summary_missing", "blocker"));
+  }
+
+  if (!/Gate 2 Review/iu.test(content)) {
+    findings.push(createFinding("gate_2_review_missing", "blocker"));
   }
 
   if (!/Known Constraints/iu.test(content)) {

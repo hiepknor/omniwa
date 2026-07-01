@@ -72,6 +72,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
   "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
+  "docs/platform-evolution/PR-19_PRODUCTION_READY_GATE_REVIEW.md",
 ]);
 
 export const requiredReleaseEvidenceTests = Object.freeze([
