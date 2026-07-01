@@ -15,10 +15,12 @@ import {
   type ApiHttpResponse,
   type ApiKeyConfig,
 } from "./http-server.js";
+import { InMemoryFixedWindowRateLimiter } from "./api-rate-limiter.js";
 import {
   createRealtimeEventEnvelope,
   createStaticRealtimeEventSource,
 } from "./realtime-event-stream.js";
+import type { ApiResourceOwnershipResolver } from "./resource-ownership.js";
 
 const publicCredential: ApiCredential = {
   kind: "api_key",
@@ -131,6 +133,133 @@ describe("API HTTP transport", () => {
       actorRef: "api_key:test-public-key",
       requestedConsistency: "eventual_projection",
     });
+  });
+
+  it("rate limits authenticated requests before dispatching to Application", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const rateLimiter = new InMemoryFixedWindowRateLimiter({
+      maxRequests: 1,
+      windowMilliseconds: 60_000,
+    });
+
+    const first = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-rate-1",
+          "x-correlation-id": "corr-rate-1",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        rateLimiter,
+        now: fixedNow,
+        requestRefGenerator: () => "http-rate-1",
+      },
+    );
+    const second = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-rate-2",
+          "x-correlation-id": "corr-rate-2",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        rateLimiter,
+        now: fixedNow,
+        requestRefGenerator: () => "http-rate-2",
+      },
+    );
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(429);
+    expect("error" in second.body ? second.body.error : undefined).toMatchObject({
+      code: "rate_limit_exceeded",
+      details: {
+        category: "rate_limit",
+        endpointClass: "read",
+        limit: 1,
+        remaining: 0,
+      },
+    });
+    expect(dispatcher.queryEnvelopes).toHaveLength(1);
+  });
+
+  it("denies resource targets resolved outside the API key instance boundary", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const resourceOwnershipResolver: ApiResourceOwnershipResolver = {
+      resolve: () => Promise.resolve({ status: "resolved", instanceRef: "inst_denied" }),
+    };
+
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/messages/msg_1",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-owner-denied",
+          "x-correlation-id": "corr-owner-denied",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        resourceOwnershipResolver,
+        now: fixedNow,
+        requestRefGenerator: () => "http-owner-denied",
+      },
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect("error" in response.body ? response.body.error : undefined).toMatchObject({
+      code: "resource_ownership_denied",
+      details: {
+        category: "authorization",
+      },
+    });
+    expect(dispatcher.queryEnvelopes).toHaveLength(0);
+  });
+
+  it("allows resource targets resolved inside the API key instance boundary", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const resourceOwnershipResolver: ApiResourceOwnershipResolver = {
+      resolve: () => Promise.resolve({ status: "resolved", instanceRef: "inst_allowed" }),
+    };
+
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/messages/msg_1",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-owner-allowed",
+          "x-correlation-id": "corr-owner-allowed",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        resourceOwnershipResolver,
+        now: fixedNow,
+        requestRefGenerator: () => "http-owner-allowed",
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(dispatcher.queryEnvelopes).toEqual([
+      expect.objectContaining({
+        name: "GetMessageStatus",
+        targetRef: "msg_1",
+      }),
+    ]);
   });
 
   it("maps health readiness and action-required resources to health queries", async () => {

@@ -27,13 +27,20 @@ import {
   type ApiKeyConfig,
   type ApiKeyVerifier,
 } from "./api-key-auth.js";
+import { classifyRateLimitEndpoint, type ApiRateLimiter } from "./api-rate-limiter.js";
 import {
   createEmptyRealtimeEventSource,
   encodeServerSentEvents,
   type RealtimeEventSource,
 } from "./realtime-event-stream.js";
+import {
+  authorizeApiResourceOwnership,
+  type ApiResourceOwnershipResolver,
+} from "./resource-ownership.js";
 
 export type { ApiKeyConfig, ApiKeyVerifier } from "./api-key-auth.js";
+export type { ApiRateLimiter } from "./api-rate-limiter.js";
+export type { ApiResourceOwnershipResolver } from "./resource-ownership.js";
 
 const apiPrefix = "v1";
 const jsonContentType = "application/json; charset=utf-8";
@@ -46,6 +53,8 @@ export type ApiHttpServerOptions = Readonly<{
   adapter?: ApiInterfaceAdapter;
   apiKeys?: readonly ApiKeyConfig[];
   apiKeyVerifier?: ApiKeyVerifier;
+  rateLimiter?: ApiRateLimiter;
+  resourceOwnershipResolver?: ApiResourceOwnershipResolver;
   eventSource?: RealtimeEventSource;
   sseReplayLimit?: number;
   now?: () => Date;
@@ -96,6 +105,7 @@ export type HttpResponseMeta = Readonly<{
 type HttpFailureCategory =
   | "authentication"
   | "authorization"
+  | "rate_limit"
   | "business"
   | "conflict"
   | "infrastructure"
@@ -205,6 +215,27 @@ export async function handleApiHttpRequest(
     return createErrorHttpResponse(match.failure, metaBase);
   }
 
+  const rateLimitFailure = checkRateLimit(
+    credential,
+    request.method,
+    request.url,
+    match.request.targetRef,
+    options.rateLimiter,
+  );
+
+  if (rateLimitFailure !== undefined) {
+    return createErrorHttpResponse(rateLimitFailure, metaBase);
+  }
+
+  const ownershipFailure = await checkResourceOwnership(
+    match.request,
+    options.resourceOwnershipResolver,
+  );
+
+  if (ownershipFailure !== undefined) {
+    return createErrorHttpResponse(ownershipFailure, metaBase);
+  }
+
   const adapter =
     options.adapter ??
     new ApiInterfaceAdapter({
@@ -257,6 +288,18 @@ export async function handleApiEventStreamRequest(
       },
       metaBase,
     );
+  }
+
+  const rateLimitFailure = checkRateLimit(
+    credential,
+    request.method,
+    request.url,
+    undefined,
+    options.rateLimiter,
+  );
+
+  if (rateLimitFailure !== undefined) {
+    return createErrorHttpResponse(rateLimitFailure, metaBase);
   }
 
   if (!credential.scopes.includes("admin:*") && !credential.scopes.includes("events:read")) {
@@ -830,6 +873,77 @@ function createQueryRequest(
     ...optional("targetRef", targetRef),
     ...optional("traceId", context.traceId),
   });
+}
+
+function checkRateLimit(
+  credential: ApiCredential,
+  method: string,
+  url: string,
+  targetRef: string | undefined,
+  rateLimiter: ApiRateLimiter | undefined,
+): HttpFailure | undefined {
+  if (rateLimiter === undefined) {
+    return undefined;
+  }
+
+  const endpointClass = classifyRateLimitEndpoint(method, url);
+  const decision = rateLimiter.check({
+    credential,
+    method,
+    url,
+    endpointClass,
+    ...optional("targetRef", targetRef),
+  });
+
+  if (decision.allowed) {
+    return undefined;
+  }
+
+  return {
+    category: "rate_limit",
+    code: "rate_limit_exceeded",
+    message: "API rate limit exceeded.",
+    statusCode: 429,
+    details: Object.freeze({
+      endpointClass,
+      limit: decision.limit,
+      remaining: decision.remaining,
+      resetAtEpochMilliseconds: decision.resetAtEpochMilliseconds,
+      retryAfterMilliseconds: decision.retryAfterMilliseconds,
+    }),
+  };
+}
+
+async function checkResourceOwnership(
+  request: ApiRequest,
+  resolver: ApiResourceOwnershipResolver | undefined,
+): Promise<HttpFailure | undefined> {
+  if (request.credential === undefined) {
+    return {
+      category: "authentication",
+      code: "missing_credential",
+      message: "API request is missing authentication.",
+      statusCode: 401,
+    };
+  }
+
+  const decision = await authorizeApiResourceOwnership({
+    credential: request.credential,
+    operationRef: request.name,
+    ...optional("targetRef", request.targetRef),
+    ...optional("resolver", resolver),
+  });
+
+  if (decision.allowed) {
+    return undefined;
+  }
+
+  return {
+    category: "authorization",
+    code: decision.code,
+    message: decision.message,
+    statusCode: 403,
+  };
 }
 
 function mapAdapterResponse(response: ApiResponse, timestamp: string): ApiHttpResponse {
