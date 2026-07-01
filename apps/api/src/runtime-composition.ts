@@ -1,6 +1,7 @@
 import { createApplicationDispatcher } from "@omniwa/application";
 import { createInMemoryRepositorySet } from "@omniwa/infrastructure-persistence";
 
+import { createApiKeyVerifierFromPlaintext } from "./api-key-auth.js";
 import { readApiKeysFromEnv, type ApiHttpServerOptions, type ApiKeyConfig } from "./http-server.js";
 
 export const apiRuntimeProfiles = ["local", "test", "production"] as const;
@@ -32,7 +33,9 @@ export function createApiRuntimeComposition(
     profile,
     options: Object.freeze({
       dispatcher,
-      apiKeys,
+      ...(apiKeys.length === 0
+        ? { apiKeys }
+        : { apiKeyVerifier: createApiKeyVerifierFromPlaintext(apiKeys) }),
     }),
   });
 }

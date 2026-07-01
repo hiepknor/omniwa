@@ -12,5 +12,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@omniwa/config": "workspace:*",
+    "@omniwa/errors": "workspace:*",
+    "@omniwa/shared": "workspace:*"
   }
 }

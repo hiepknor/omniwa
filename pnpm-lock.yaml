@@ -191,7 +191,17 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/infrastructure-secrets: {}
+  packages/infrastructure-secrets:
+    dependencies:
+      '@omniwa/config':
+        specifier: workspace:*
+        version: link:../config
+      '@omniwa/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/infrastructure-webhook:
     dependencies:

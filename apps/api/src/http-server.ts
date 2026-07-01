@@ -23,10 +23,17 @@ import {
 } from "@omniwa/interface-api";
 
 import {
+  createApiKeyVerifierFromPlaintext,
+  type ApiKeyConfig,
+  type ApiKeyVerifier,
+} from "./api-key-auth.js";
+import {
   createEmptyRealtimeEventSource,
   encodeServerSentEvents,
   type RealtimeEventSource,
 } from "./realtime-event-stream.js";
+
+export type { ApiKeyConfig, ApiKeyVerifier } from "./api-key-auth.js";
 
 const apiPrefix = "v1";
 const jsonContentType = "application/json; charset=utf-8";
@@ -34,15 +41,11 @@ const eventStreamContentType = "text/event-stream; charset=utf-8";
 const maxRequestBodyBytes = 1_000_000;
 const defaultSseReplayLimit = 100;
 
-export type ApiKeyConfig = Readonly<{
-  key: string;
-  credential: ApiCredential;
-}>;
-
 export type ApiHttpServerOptions = Readonly<{
   dispatcher?: ApplicationInterfaceDispatcher;
   adapter?: ApiInterfaceAdapter;
   apiKeys?: readonly ApiKeyConfig[];
+  apiKeyVerifier?: ApiKeyVerifier;
   eventSource?: RealtimeEventSource;
   sseReplayLimit?: number;
   now?: () => Date;
@@ -156,7 +159,11 @@ export async function handleApiHttpRequest(
     );
   }
 
-  const credential = authenticateHeader(headers, options.apiKeys ?? readApiKeysFromEnv());
+  const credential = authenticateHeader(
+    headers,
+    options.apiKeyVerifier,
+    options.apiKeys ?? readApiKeysFromEnv(),
+  );
 
   if (credential === undefined) {
     return createErrorHttpResponse(
@@ -234,7 +241,11 @@ export async function handleApiEventStreamRequest(
     );
   }
 
-  const credential = authenticateHeader(headers, options.apiKeys ?? readApiKeysFromEnv());
+  const credential = authenticateHeader(
+    headers,
+    options.apiKeyVerifier,
+    options.apiKeys ?? readApiKeysFromEnv(),
+  );
 
   if (credential === undefined) {
     return createErrorHttpResponse(
@@ -1090,15 +1101,12 @@ function getHeader(
 
 function authenticateHeader(
   headers: Readonly<Record<string, string | undefined>>,
+  apiKeyVerifier: ApiKeyVerifier | undefined,
   apiKeys: readonly ApiKeyConfig[],
 ): ApiCredential | undefined {
   const providedKey = getHeader(headers, "x-api-key");
 
-  if (providedKey === undefined) {
-    return undefined;
-  }
-
-  return apiKeys.find((apiKey) => apiKey.key === providedKey)?.credential;
+  return (apiKeyVerifier ?? createApiKeyVerifierFromPlaintext(apiKeys)).verify(providedKey);
 }
 
 function parseCredentialKind(value: string | undefined): ApiCredentialKind {
