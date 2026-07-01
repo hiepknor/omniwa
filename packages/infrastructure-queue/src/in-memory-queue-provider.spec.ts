@@ -16,6 +16,7 @@ import {
   type WorkerJob,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
+import type { MetricPoint, MetricRecorder } from "@omniwa/observability";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { describe, expect, it } from "vitest";
 
@@ -187,6 +188,68 @@ describe("InMemoryQueueProvider", () => {
     expect(reservedWorkerJob?.status).toBe("reserved");
   });
 
+  it("recovers expired reservations after the visibility timeout", async () => {
+    const workerJobs = new TestWorkerJobRepository();
+    const clock = new ManualClock(1000);
+    const queue = new InMemoryQueueProvider({
+      workerJobRepository: workerJobs,
+      clock,
+      visibilityTimeoutMilliseconds: 250,
+    });
+    const jobId = createJobId("queue-job-visibility-timeout");
+    const firstReservation = await enqueueAndReserve(queue, jobId);
+
+    clock.advance(249);
+    const hiddenReservation = await queue.reserve("outbound_message", context);
+    clock.advance(1);
+    const secondReservation = await queue.reserve("outbound_message", context);
+    const reservedWorkerJob = await workerJobs.load(jobId);
+
+    expect(firstReservation.attempt).toBe(1);
+    expectOk(hiddenReservation);
+    expect(hiddenReservation.value).toBeUndefined();
+    expectOk(secondReservation);
+    expect(secondReservation.value?.jobId).toBe(jobId);
+    expect(secondReservation.value?.attempt).toBe(2);
+    expect(reservedWorkerJob?.status).toBe("reserved");
+    expect(reservedWorkerJob?.attemptNumber).toBe(2);
+  });
+
+  it("moves expired reservations to dead letter when the retry budget is exhausted", async () => {
+    const workerJobs = new TestWorkerJobRepository();
+    const clock = new ManualClock(1000);
+    const singleAttemptRetryPolicy = createRetryPolicy({
+      maxAttempts: 1,
+      initialDelayMilliseconds: 100,
+      backoffMultiplier: 2,
+    });
+    const queue = new InMemoryQueueProvider({
+      workerJobRepository: workerJobs,
+      clock,
+      visibilityTimeoutMilliseconds: 100,
+    });
+    const jobId = createJobId("queue-job-lease-dead-letter");
+    const reservation = await enqueueAndReserve(queue, jobId, singleAttemptRetryPolicy);
+
+    clock.advance(100);
+    const nextReservation = await queue.reserve("outbound_message", context);
+    const deadWorkerJob = await workerJobs.load(jobId);
+
+    expect(reservation.attempt).toBe(1);
+    expectOk(nextReservation);
+    expect(nextReservation.value).toBeUndefined();
+    expect(deadWorkerJob?.status).toBe("dead");
+    expect(deadWorkerJob?.deadLetterReason?.code).toBe("lease_expired_retry_budget_exhausted");
+    expect(queue.snapshot()).toEqual([
+      expect.objectContaining({
+        jobId,
+        state: "dead",
+        visible: true,
+        deadLetterReasonCode: "lease_expired_retry_budget_exhausted",
+      }),
+    ]);
+  });
+
   it("moves active reservations to dead letter without making them reservable again", async () => {
     const workerJobs = new TestWorkerJobRepository();
     const queue = new InMemoryQueueProvider({ workerJobRepository: workerJobs });
@@ -211,6 +274,56 @@ describe("InMemoryQueueProvider", () => {
         deadLetterReasonCode: "retry_budget_exhausted",
       }),
     ]);
+  });
+
+  it("emits queue metrics without making metrics required for queue behavior", async () => {
+    const workerJobs = new TestWorkerJobRepository();
+    const metricRecorder = new TestMetricRecorder();
+    const queue = new InMemoryQueueProvider({ workerJobRepository: workerJobs, metricRecorder });
+    const jobId = createJobId("queue-job-metrics");
+    const reservation = await enqueueAndReserve(queue, jobId);
+
+    expectOk(await queue.acknowledge(reservation, context));
+
+    expect(metricRecorder.snapshot()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "queue.enqueue.total",
+          kind: "counter",
+          value: 1,
+          labels: expect.objectContaining({
+            workType: "outbound_message",
+            result: "accepted",
+          }),
+        }),
+        expect.objectContaining({
+          name: "queue.reserve.total",
+          kind: "counter",
+          value: 1,
+          labels: expect.objectContaining({
+            workType: "outbound_message",
+            result: "reserved",
+          }),
+        }),
+        expect.objectContaining({
+          name: "queue.acknowledge.total",
+          kind: "counter",
+          value: 1,
+          labels: expect.objectContaining({
+            workType: "outbound_message",
+            result: "completed",
+          }),
+        }),
+        expect.objectContaining({
+          name: "queue.depth",
+          kind: "gauge",
+          value: 0,
+          labels: expect.objectContaining({
+            workType: "outbound_message",
+          }),
+        }),
+      ]),
+    );
   });
 
   it("recovers queued WorkerJob records into visible queue entries", async () => {
@@ -252,6 +365,7 @@ describe("InMemoryQueueProvider", () => {
 async function enqueueAndReserve(
   queue: InMemoryQueueProvider,
   jobId: JobId,
+  policy = retryPolicy,
 ): Promise<QueueReservation> {
   const enqueue = await queue.enqueue(
     {
@@ -259,7 +373,7 @@ async function enqueueAndReserve(
       ownerContext: "messaging",
       ownerRef: String(jobId),
       workType: "outbound_message",
-      retryPolicy,
+      retryPolicy: policy,
       idempotencyKey: `${jobId}-idempotency`,
     },
     context,
@@ -292,6 +406,18 @@ class ManualClock {
 
   advance(milliseconds: number): void {
     this.currentEpochMilliseconds += milliseconds;
+  }
+}
+
+class TestMetricRecorder implements MetricRecorder {
+  private readonly metrics: MetricPoint[] = [];
+
+  recordMetric(point: MetricPoint): void {
+    this.metrics.push(point);
+  }
+
+  snapshot(): readonly MetricPoint[] {
+    return Object.freeze([...this.metrics]);
   }
 }
 

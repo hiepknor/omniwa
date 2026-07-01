@@ -12,6 +12,7 @@
   "dependencies": {
     "@omniwa/application": "workspace:*",
     "@omniwa/domain": "workspace:*",
+    "@omniwa/observability": "workspace:*",
     "@omniwa/shared": "workspace:*"
   },
   "scripts": {
