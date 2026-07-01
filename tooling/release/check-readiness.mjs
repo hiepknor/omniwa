@@ -68,6 +68,10 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "docs/runbooks/BACKUP_RESTORE_RECOVERY_DRILL.md",
   "tooling/regression/check-production-regression.mjs",
   "docs/runbooks/PRODUCTION_REGRESSION_GATES.md",
+  "tooling/production/check-production-cut.mjs",
+  "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
+  "docs/reviews/PRODUCTION_CUT_REVIEW.md",
+  "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
 ]);
 
 export const requiredReleaseEvidenceTests = Object.freeze([
@@ -87,6 +91,8 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "apps/background/src/backup-restore-drill.spec.ts",
   "apps/api/src/platform-regression.spec.ts",
   "tooling/regression/check-production-regression.spec.ts",
+  "apps/api/src/load-baseline.spec.ts",
+  "tooling/production/check-production-cut.spec.ts",
 ]);
 
 const requiredRootScripts = Object.freeze([
@@ -95,11 +101,13 @@ const requiredRootScripts = Object.freeze([
   "typecheck",
   "test",
   "arch:check",
+  "load:check",
   "openapi:check",
   "openapi:compat",
   "sdk:check",
   "sdk:test",
   "regression:check",
+  "production:check",
   "release:check",
   "check",
 ]);
@@ -138,15 +146,18 @@ export async function createReadinessFixture(projectRoot) {
       typecheck: "tsc -b tsconfig.references.json --pretty false",
       test: "vitest run --passWithNoTests",
       "arch:check": "node tooling/architecture/check-boundaries.mjs",
+      "load:check":
+        "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
       "openapi:check": "node tooling/api/check-openapi.mjs",
       "openapi:compat": "node tooling/api/check-openapi-compatibility.mjs",
       "sdk:check": "node tooling/sdk/check-rust-sdk.mjs",
       "sdk:test": "cargo test -p omniwa-sdk",
       "regression:check":
         "node tooling/regression/check-production-regression.mjs && pnpm exec vitest run apps/api/src/platform-regression.spec.ts apps/api/src/http-server.spec.ts apps/api/src/api-key-auth.spec.ts apps/api/src/api-rate-limiter.spec.ts apps/api/src/resource-ownership.spec.ts apps/api/src/runtime-composition.spec.ts packages/interface-api/src/api-interface-adapter.spec.ts packages/application/src/commands/command-query-model.spec.ts packages/application/src/workflows/workflow-service.spec.ts packages/domain/src/services/phase-24-domain-contracts.spec.ts packages/infrastructure-persistence/src/durable-json-repositories.spec.ts packages/infrastructure-queue/src/in-memory-queue-provider.spec.ts packages/infrastructure-provider-baileys/src/baileys-messaging-provider.adapter.spec.ts apps/provider-runtime/src/provider-runtime.spec.ts apps/worker/src/worker-runtime.spec.ts packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/infrastructure-webhook/src/webhook-transport.adapter.spec.ts packages/infrastructure-webhook/src/webhook-dispatcher-runtime.spec.ts apps/webhook-dispatcher/src/webhook-dispatcher-app.spec.ts packages/observability/src/redaction.spec.ts packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts packages/infrastructure-object-storage/src/object-storage-media-store.adapter.spec.ts tooling/regression/check-production-regression.spec.ts",
+      "production:check": "node tooling/production/check-production-cut.mjs && pnpm load:check",
       "release:check": "node tooling/release/check-readiness.mjs",
       check:
-        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm regression:check && pnpm release:check",
+        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm regression:check && pnpm production:check && pnpm release:check",
     },
   });
 
@@ -242,6 +253,10 @@ async function checkRootPackage(projectRoot, findings) {
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm regression:check")) {
     findings.push(createFinding("check_script_missing_regression_gate", "blocker"));
+  }
+
+  if (typeof checkScript === "string" && !checkScript.includes("pnpm production:check")) {
+    findings.push(createFinding("check_script_missing_production_gate", "blocker"));
   }
 }
 
