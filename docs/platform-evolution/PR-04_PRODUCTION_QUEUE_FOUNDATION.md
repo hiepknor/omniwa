@@ -83,7 +83,6 @@ OMNIWA_POSTGRES_TEST_DATABASE_URL=postgresql://omniwa:omniwa-local-password@127.
 
 - Add a distributed production queue adapter with cross-process leasing.
 - Add queue metrics for reservation age, retries, dead letters, and depth by work type.
-- Add worker runtime composition for non-test profiles.
 - Add operational dead-letter inspection and replay workflows.
 - Keep production runtime profile blocked until queue, worker, provider, secret, and observability
   adapters are complete.

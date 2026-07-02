@@ -152,6 +152,12 @@ importers:
       '@omniwa/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@omniwa/infrastructure-persistence':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-persistence
+      '@omniwa/infrastructure-queue':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-queue
       '@omniwa/shared':
         specifier: workspace:*
         version: link:../../packages/shared

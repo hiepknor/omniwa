@@ -9,6 +9,8 @@
   "references": [
     { "path": "../../packages/application" },
     { "path": "../../packages/domain" },
+    { "path": "../../packages/infrastructure-persistence" },
+    { "path": "../../packages/infrastructure-queue" },
     { "path": "../../packages/shared" }
   ]
 }
