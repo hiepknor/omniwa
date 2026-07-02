@@ -18,6 +18,7 @@ import {
   type ApiKeyConfig,
 } from "./http-server.js";
 import { InMemoryFixedWindowRateLimiter } from "./api-rate-limiter.js";
+import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
 import {
   createEventLogRealtimeEventSource,
   createRealtimeEventEnvelope,
@@ -157,6 +158,7 @@ describe("API HTTP transport", () => {
       maxRequests: 1,
       windowMilliseconds: 60_000,
     });
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
 
     const first = await handleApiHttpRequest(
       {
@@ -172,6 +174,7 @@ describe("API HTTP transport", () => {
         dispatcher,
         apiKeys,
         rateLimiter,
+        securityAuditSink,
         now: fixedNow,
         requestRefGenerator: () => "http-rate-1",
       },
@@ -190,6 +193,7 @@ describe("API HTTP transport", () => {
         dispatcher,
         apiKeys,
         rateLimiter,
+        securityAuditSink,
         now: fixedNow,
         requestRefGenerator: () => "http-rate-2",
       },
@@ -207,10 +211,22 @@ describe("API HTTP transport", () => {
       },
     });
     expect(dispatcher.queryEnvelopes).toHaveLength(1);
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "rate_limit_denied",
+        requestId: "req-rate-2",
+        correlationId: "corr-rate-2",
+        endpointClass: "read",
+        keyId: "test-public-key",
+        code: "rate_limit_exceeded",
+        statusCode: 429,
+      }),
+    ]);
   });
 
   it("denies resource targets resolved outside the API key instance boundary", async () => {
     const dispatcher = new CapturingDispatcher();
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
     const resourceOwnershipResolver: ApiResourceOwnershipResolver = {
       resolve: () => Promise.resolve({ status: "resolved", instanceRef: "inst_denied" }),
     };
@@ -229,6 +245,7 @@ describe("API HTTP transport", () => {
         dispatcher,
         apiKeys,
         resourceOwnershipResolver,
+        securityAuditSink,
         now: fixedNow,
         requestRefGenerator: () => "http-owner-denied",
       },
@@ -242,6 +259,16 @@ describe("API HTTP transport", () => {
       },
     });
     expect(dispatcher.queryEnvelopes).toHaveLength(0);
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "authorization_denied",
+        requestId: "req-owner-denied",
+        correlationId: "corr-owner-denied",
+        resourceType: "message",
+        targetRef: "msg_1",
+        code: "resource_ownership_denied",
+      }),
+    ]);
   });
 
   it("allows resource targets resolved inside the API key instance boundary", async () => {
@@ -274,6 +301,50 @@ describe("API HTTP transport", () => {
       expect.objectContaining({
         name: "GetMessageStatus",
         targetRef: "msg_1",
+      }),
+    ]);
+  });
+
+  it("audits explicit admin bypass for owned-resource checks", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
+    const resourceOwnershipResolver: ApiResourceOwnershipResolver = {
+      resolve: () => {
+        throw new Error("admin bypass should not call resolver");
+      },
+    };
+
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/messages/msg_1",
+        headers: {
+          "x-api-key": "admin-secret",
+          "x-request-id": "req-admin-bypass",
+          "x-correlation-id": "corr-admin-bypass",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        resourceOwnershipResolver,
+        securityAuditSink,
+        now: fixedNow,
+        requestRefGenerator: () => "http-admin-bypass",
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "admin_bypass",
+        requestId: "req-admin-bypass",
+        correlationId: "corr-admin-bypass",
+        keyId: "test-admin-key",
+        credentialKind: "admin_key",
+        operationRef: "GetMessageStatus",
+        targetRef: "msg_1",
+        resourceType: "message",
       }),
     ]);
   });

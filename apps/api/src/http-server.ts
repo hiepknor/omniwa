@@ -27,14 +27,21 @@ import {
   type ApiKeyConfig,
   type ApiKeyVerifier,
 } from "./api-key-auth.js";
-import { classifyRateLimitEndpoint, type ApiRateLimiter } from "./api-rate-limiter.js";
+import {
+  classifyRateLimitEndpoint,
+  type ApiRateLimiter,
+  type ApiRateLimitEndpointClass,
+} from "./api-rate-limiter.js";
 import {
   createEmptyRealtimeEventSource,
   encodeServerSentEvents,
   type RealtimeEventSource,
 } from "./realtime-event-stream.js";
+import type { ApiSecurityAuditSink } from "./api-security-audit.js";
 import {
   authorizeApiResourceOwnership,
+  inferApiResourceOwnershipResourceType,
+  type ApiResourceOwnershipDecision,
   type ApiResourceOwnershipResolver,
 } from "./resource-ownership.js";
 import {
@@ -47,6 +54,7 @@ import {
 
 export type { ApiKeyConfig, ApiKeyVerifier } from "./api-key-auth.js";
 export type { ApiRateLimiter } from "./api-rate-limiter.js";
+export type { ApiSecurityAuditEvent, ApiSecurityAuditSink } from "./api-security-audit.js";
 export type { PublicPaginationMeta } from "./public-resource-dto.js";
 export type { ApiResourceOwnershipResolver } from "./resource-ownership.js";
 
@@ -63,6 +71,7 @@ export type ApiHttpServerOptions = Readonly<{
   apiKeyVerifier?: ApiKeyVerifier;
   rateLimiter?: ApiRateLimiter;
   resourceOwnershipResolver?: ApiResourceOwnershipResolver;
+  securityAuditSink?: ApiSecurityAuditSink;
   eventSource?: RealtimeEventSource;
   sseReplayLimit?: number;
   now?: () => Date;
@@ -223,6 +232,17 @@ export async function handleApiHttpRequest(
   );
 
   if (credential === undefined) {
+    await recordSecurityAudit(options.securityAuditSink, {
+      eventType: "authentication_denied",
+      requestId,
+      correlationId,
+      timestamp,
+      method: request.method,
+      url: request.url,
+      code: "missing_or_invalid_api_key",
+      statusCode: 401,
+    });
+
     return createErrorHttpResponse(
       {
         category: "authentication",
@@ -263,25 +283,79 @@ export async function handleApiHttpRequest(
     return createErrorHttpResponse(match.failure, metaBase);
   }
 
-  const rateLimitFailure = checkRateLimit(
+  const ownership = await checkResourceOwnership(match.request, options.resourceOwnershipResolver);
+
+  if (ownership.decision?.allowed === true && ownership.decision.bypass === "admin_scope") {
+    await recordSecurityAudit(options.securityAuditSink, {
+      eventType: "admin_bypass",
+      requestId,
+      correlationId,
+      timestamp,
+      method: request.method,
+      url: request.url,
+      code: "admin_scope_bypass",
+      statusCode: 200,
+      keyId: credential.keyId,
+      credentialKind: credential.kind,
+      operationRef: match.request.name,
+      ...optional("targetRef", match.request.targetRef),
+      ...optional("instanceRef", ownership.decision.instanceRef),
+      resourceType: ownership.decision.resourceType,
+    });
+  }
+
+  if (ownership.failure !== undefined) {
+    await recordSecurityAudit(options.securityAuditSink, {
+      eventType: "authorization_denied",
+      requestId,
+      correlationId,
+      timestamp,
+      method: request.method,
+      url: request.url,
+      code: ownership.failure.code,
+      statusCode: ownership.failure.statusCode,
+      keyId: credential.keyId,
+      credentialKind: credential.kind,
+      operationRef: match.request.name,
+      ...optional("targetRef", match.request.targetRef),
+      ...optional("resourceType", ownership.decision?.resourceType),
+    });
+
+    return createErrorHttpResponse(ownership.failure, metaBase);
+  }
+
+  const rateLimit = checkRateLimit(
     credential,
     request.method,
     request.url,
+    ownership.decision?.allowed === true ? ownership.decision.instanceRef : undefined,
     match.request.targetRef,
     options.rateLimiter,
   );
 
-  if (rateLimitFailure !== undefined) {
-    return createErrorHttpResponse(rateLimitFailure, metaBase);
-  }
+  if (rateLimit.failure !== undefined) {
+    await recordSecurityAudit(options.securityAuditSink, {
+      eventType: "rate_limit_denied",
+      requestId,
+      correlationId,
+      timestamp,
+      method: request.method,
+      url: request.url,
+      code: rateLimit.failure.code,
+      statusCode: rateLimit.failure.statusCode,
+      keyId: credential.keyId,
+      credentialKind: credential.kind,
+      operationRef: match.request.name,
+      ...optional("targetRef", match.request.targetRef),
+      ...optional(
+        "instanceRef",
+        ownership.decision?.allowed ? ownership.decision.instanceRef : undefined,
+      ),
+      ...optional("endpointClass", rateLimit.endpointClass),
+      ...optional("rateLimitBucketKey", rateLimit.bucketKey),
+    });
 
-  const ownershipFailure = await checkResourceOwnership(
-    match.request,
-    options.resourceOwnershipResolver,
-  );
-
-  if (ownershipFailure !== undefined) {
-    return createErrorHttpResponse(ownershipFailure, metaBase);
+    return createErrorHttpResponse(rateLimit.failure, metaBase);
   }
 
   const adapter =
@@ -290,6 +364,13 @@ export async function handleApiHttpRequest(
       dispatcher: options.dispatcher ?? createUnavailableDispatcher(),
     });
   const adapterResponse = await adapter.handle(match.request);
+  await recordAdapterSecurityAudit(options.securityAuditSink, adapterResponse, match.request, {
+    requestId,
+    correlationId,
+    timestamp,
+    method: request.method,
+    url: request.url,
+  });
 
   return mapAdapterResponse(adapterResponse, timestamp, match.request, match.responseContract);
 }
@@ -327,6 +408,17 @@ export async function handleApiEventStreamRequest(
   );
 
   if (credential === undefined) {
+    await recordSecurityAudit(options.securityAuditSink, {
+      eventType: "authentication_denied",
+      requestId,
+      correlationId,
+      timestamp,
+      method: request.method,
+      url: request.url,
+      code: "missing_or_invalid_api_key",
+      statusCode: 401,
+    });
+
     return createErrorHttpResponse(
       {
         category: "authentication",
@@ -338,19 +430,50 @@ export async function handleApiEventStreamRequest(
     );
   }
 
-  const rateLimitFailure = checkRateLimit(
+  const rateLimit = checkRateLimit(
     credential,
     request.method,
     request.url,
     undefined,
+    undefined,
     options.rateLimiter,
   );
 
-  if (rateLimitFailure !== undefined) {
-    return createErrorHttpResponse(rateLimitFailure, metaBase);
+  if (rateLimit.failure !== undefined) {
+    await recordSecurityAudit(options.securityAuditSink, {
+      eventType: "rate_limit_denied",
+      requestId,
+      correlationId,
+      timestamp,
+      method: request.method,
+      url: request.url,
+      code: rateLimit.failure.code,
+      statusCode: rateLimit.failure.statusCode,
+      keyId: credential.keyId,
+      credentialKind: credential.kind,
+      ...optional("endpointClass", rateLimit.endpointClass),
+      ...optional("rateLimitBucketKey", rateLimit.bucketKey),
+    });
+
+    return createErrorHttpResponse(rateLimit.failure, metaBase);
   }
 
   if (!credential.scopes.includes("admin:*") && !credential.scopes.includes("events:read")) {
+    await recordSecurityAudit(options.securityAuditSink, {
+      eventType: "authorization_denied",
+      requestId,
+      correlationId,
+      timestamp,
+      method: request.method,
+      url: request.url,
+      code: "missing_scope",
+      statusCode: 403,
+      keyId: credential.keyId,
+      credentialKind: credential.kind,
+      operationRef: "ListEvents",
+      resourceType: "event",
+    });
+
     return createErrorHttpResponse(
       {
         category: "authorization",
@@ -1362,11 +1485,16 @@ function checkRateLimit(
   credential: ApiCredential,
   method: string,
   url: string,
+  instanceRef: string | undefined,
   targetRef: string | undefined,
   rateLimiter: ApiRateLimiter | undefined,
-): HttpFailure | undefined {
+): Readonly<{
+  failure?: HttpFailure;
+  endpointClass?: ApiRateLimitEndpointClass;
+  bucketKey?: string;
+}> {
   if (rateLimiter === undefined) {
-    return undefined;
+    return Object.freeze({});
   }
 
   const endpointClass = classifyRateLimitEndpoint(method, url);
@@ -1375,14 +1503,18 @@ function checkRateLimit(
     method,
     url,
     endpointClass,
+    ...optional("instanceRef", instanceRef),
     ...optional("targetRef", targetRef),
   });
 
   if (decision.allowed) {
-    return undefined;
+    return Object.freeze({
+      endpointClass,
+      bucketKey: decision.bucketKey,
+    });
   }
 
-  return {
+  const failure: HttpFailure = {
     category: "rate_limit",
     code: "rate_limit_exceeded",
     message: "API rate limit exceeded.",
@@ -1395,38 +1527,122 @@ function checkRateLimit(
       retryAfterMilliseconds: decision.retryAfterMilliseconds,
     }),
   };
+
+  return Object.freeze({
+    endpointClass,
+    bucketKey: decision.bucketKey,
+    failure,
+  });
 }
 
 async function checkResourceOwnership(
   request: ApiRequest,
   resolver: ApiResourceOwnershipResolver | undefined,
-): Promise<HttpFailure | undefined> {
+): Promise<
+  Readonly<{
+    decision?: ApiResourceOwnershipDecision;
+    failure?: HttpFailure;
+  }>
+> {
+  const resourceType = inferApiResourceOwnershipResourceType(request.name, request.targetRef);
+
   if (request.credential === undefined) {
-    return {
-      category: "authentication",
-      code: "missing_credential",
-      message: "API request is missing authentication.",
-      statusCode: 401,
-    };
+    return Object.freeze({
+      failure: {
+        category: "authentication",
+        code: "missing_credential",
+        message: "API request is missing authentication.",
+        statusCode: 401,
+      },
+    });
   }
 
   const decision = await authorizeApiResourceOwnership({
     credential: request.credential,
+    resourceType,
     operationRef: request.name,
     ...optional("targetRef", request.targetRef),
     ...optional("resolver", resolver),
   });
 
   if (decision.allowed) {
-    return undefined;
+    return Object.freeze({ decision });
   }
 
-  return {
-    category: "authorization",
-    code: decision.code,
-    message: decision.message,
-    statusCode: 403,
-  };
+  return Object.freeze({
+    decision,
+    failure: {
+      category: "authorization",
+      code: decision.code,
+      message: decision.message,
+      statusCode: 403,
+    },
+  });
+}
+
+async function recordAdapterSecurityAudit(
+  sink: ApiSecurityAuditSink | undefined,
+  response: ApiResponse,
+  request: ApiRequest,
+  context: Readonly<{
+    requestId: string;
+    correlationId: string;
+    timestamp: string;
+    method: string;
+    url: string;
+  }>,
+): Promise<void> {
+  if (
+    response.ok ||
+    (response.error.category !== "authentication" && response.error.category !== "authorization")
+  ) {
+    return;
+  }
+
+  await recordSecurityAudit(sink, {
+    eventType:
+      response.error.category === "authentication"
+        ? "authentication_denied"
+        : "authorization_denied",
+    requestId: context.requestId,
+    correlationId: context.correlationId,
+    timestamp: context.timestamp,
+    method: context.method,
+    url: context.url,
+    code: response.error.code,
+    statusCode: statusCodeForApiError(response.error.category),
+    ...optional("keyId", request.credential?.keyId),
+    ...optional("credentialKind", request.credential?.kind),
+    operationRef: request.name,
+    ...optional("targetRef", request.targetRef),
+    resourceType: inferApiResourceOwnershipResourceType(request.name, request.targetRef),
+  });
+}
+
+async function recordSecurityAudit(
+  sink: ApiSecurityAuditSink | undefined,
+  event: Omit<Parameters<ApiSecurityAuditSink["record"]>[0], "path"> & Readonly<{ url: string }>,
+): Promise<void> {
+  if (sink === undefined) {
+    return;
+  }
+
+  const { url, ...eventWithoutUrl } = event;
+
+  try {
+    await sink.record(
+      Object.freeze({
+        ...eventWithoutUrl,
+        path: safeAuditPath(url),
+      }),
+    );
+  } catch {
+    return;
+  }
+}
+
+function safeAuditPath(url: string): string {
+  return parseUrl(url)?.pathname ?? "/";
 }
 
 function mapAdapterResponse(
