@@ -10,6 +10,7 @@ The Docker path can run the current API runtime. It does not make OmniWA product
 Important current constraints:
 
 - `apps/api` is the only HTTP runtime entrypoint that starts a long-running server today.
+- `apps/worker` now has a long-running worker loop entrypoint for local runtime validation.
 - `OMNIWA_API_RUNTIME_PROFILE=production` is intentionally blocked by the code until production
   persistence, queue, secret, and observability adapters are wired.
 - The current API runtime supports `in-memory`, `durable-json`, and `postgresql` repository
@@ -18,10 +19,10 @@ Important current constraints:
   `InstanceRepositoryPort` vertical slice.
 - Durable JSON storage remains a development/bootstrap fallback and is not the approved production
   source of truth.
-- PostgreSQL coverage is still partial: the first implemented source-state adapter is Instance.
-  Health/readiness still uses a local in-memory projection fallback. Additional repositories, queue,
-  secrets, observability, and provider runtime work remain required before claiming production
-  readiness.
+- PostgreSQL coverage is still partial: the first implemented source-state adapter is Instance and
+  WorkerJob. Health/readiness still uses a local in-memory projection fallback. Additional
+  repositories, production queue, secrets, observability, and provider runtime work remain required
+  before claiming production readiness.
 - PostgreSQL, Redis, and Object Storage remain required production architecture components, but the
   current runtime does not wire them as production adapters yet.
 
@@ -45,15 +46,17 @@ Override local values by exporting env vars or using `--env-file deploy/docker/e
 
 The local Compose stack defaults to:
 
-| Variable                          | Default                          | Purpose                                  |
-| --------------------------------- | -------------------------------- | ---------------------------------------- |
-| `OMNIWA_API_REPOSITORY_PROFILE`   | `postgresql`                     | Use PostgreSQL for implemented repos     |
-| `OMNIWA_API_REPOSITORY_STATE_DIR` | `/var/lib/omniwa/repositories`   | Container repository state directory     |
-| `OMNIWA_POSTGRES_DATABASE_URL`    | Compose-internal PostgreSQL URL  | API runtime PostgreSQL connection        |
-| `OMNIWA_POSTGRES_AUTO_MIGRATE`    | `true`                           | Run idempotent local migration on access |
-| `OMNIWA_POSTGRES_PUBLIC_PORT`     | `55432`                          | Host port for optional integration tests |
-| `OMNIWA_EVENT_LOG_PATH`           | `/var/lib/omniwa/event-log.json` | Container realtime event-log path        |
-| `OMNIWA_API_RUNTIME_PROFILE`      | `local`                          | Keep the runtime in non-production mode  |
+| Variable                           | Default                          | Purpose                                  |
+| ---------------------------------- | -------------------------------- | ---------------------------------------- |
+| `OMNIWA_API_REPOSITORY_PROFILE`    | `postgresql`                     | Use PostgreSQL for implemented repos     |
+| `OMNIWA_WORKER_REPOSITORY_PROFILE` | `postgresql`                     | Use PostgreSQL for local worker recovery |
+| `OMNIWA_WORKER_LOOP_INTERVAL_MS`   | `5000`                           | Worker polling interval in milliseconds  |
+| `OMNIWA_API_REPOSITORY_STATE_DIR`  | `/var/lib/omniwa/repositories`   | Container repository state directory     |
+| `OMNIWA_POSTGRES_DATABASE_URL`     | Compose-internal PostgreSQL URL  | API runtime PostgreSQL connection        |
+| `OMNIWA_POSTGRES_AUTO_MIGRATE`     | `true`                           | Run idempotent local migration on access |
+| `OMNIWA_POSTGRES_PUBLIC_PORT`      | `55432`                          | Host port for optional integration tests |
+| `OMNIWA_EVENT_LOG_PATH`            | `/var/lib/omniwa/event-log.json` | Container realtime event-log path        |
+| `OMNIWA_API_RUNTIME_PROFILE`       | `local`                          | Keep the runtime in non-production mode  |
 
 Run PostgreSQL-backed repository integration tests against the local stack:
 

@@ -6,7 +6,7 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
       target: runtime
-    image: omniwa/api:local
+    image: omniwa:local
     restart: unless-stopped
     environment:
       NODE_ENV: development
@@ -38,6 +38,27 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: runtime
+    image: omniwa:local
+    command: ["node", "apps/worker/dist/index.js"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      OMNIWA_WORKER_RUNTIME_PROFILE: local
+      OMNIWA_WORKER_REPOSITORY_PROFILE: ${OMNIWA_WORKER_REPOSITORY_PROFILE:-postgresql}
+      OMNIWA_WORKER_LOOP_INTERVAL_MS: ${OMNIWA_WORKER_LOOP_INTERVAL_MS:-5000}
+      OMNIWA_POSTGRES_DATABASE_URL: postgresql://omniwa:${OMNIWA_POSTGRES_PASSWORD:-omniwa-local-password}@postgres:5432/omniwa
+      OMNIWA_POSTGRES_AUTO_MIGRATE: ${OMNIWA_POSTGRES_AUTO_MIGRATE:-true}
+    volumes:
+      - omniwa-local-data:/var/lib/omniwa
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   postgres:
     image: postgres:17-alpine

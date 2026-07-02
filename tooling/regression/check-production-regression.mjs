@@ -21,6 +21,7 @@ export const requiredRegressionTestFiles = Object.freeze([
   "apps/provider-runtime/src/provider-runtime.spec.ts",
   "apps/provider-runtime/src/provider-runtime-app.spec.ts",
   "apps/worker/src/worker-runtime.spec.ts",
+  "apps/worker/src/worker-loop.spec.ts",
   "packages/infrastructure-webhook/src/webhook-signing.spec.ts",
   "packages/infrastructure-webhook/src/webhook-transport.adapter.spec.ts",
   "packages/infrastructure-webhook/src/webhook-dispatcher-runtime.spec.ts",
