@@ -13,6 +13,10 @@ Infrastructure package for secret-provider implementations.
 The environment-backed provider is suitable for local and simple deployment profiles. Stronger
 secret-management integrations can be added behind the same boundary when required.
 
+API key lifecycle storage belongs to the API runtime/security boundary because it depends on public
+API credentials. Secret providers supply secret material; they must not own public API credential
+contracts.
+
 ## Quality Expectations
 
 - Missing or invalid secrets must fail predictably.

@@ -35,6 +35,9 @@ importers:
       '@omniwa/application':
         specifier: workspace:*
         version: link:../../packages/application
+      '@omniwa/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@omniwa/infrastructure-persistence':
         specifier: workspace:*
         version: link:../../packages/infrastructure-persistence

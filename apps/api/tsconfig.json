@@ -8,6 +8,7 @@
   "exclude": ["dist", "node_modules"],
   "references": [
     { "path": "../../packages/shared" },
+    { "path": "../../packages/config" },
     { "path": "../../packages/application" },
     { "path": "../../packages/infrastructure-persistence" },
     { "path": "../../packages/interface-api" }

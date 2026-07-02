@@ -94,4 +94,5 @@ pnpm check
 - Add distributed production queue adapter with cross-process leasing.
 - Add worker runtime process entrypoint and graceful shutdown loop.
 - Add production observability for worker attempts, retries, dead letters, and handler latency.
-- Keep production worker profile blocked until the remaining production adapters are complete.
+- Keep production worker profile blocked until distributed queue, provider, production secret
+  manager, and observability adapters are complete.

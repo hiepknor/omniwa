@@ -1,6 +1,8 @@
 import { pathToFileURL } from "node:url";
 
 export * from "./http-server.js";
+export * from "./api-key-auth.js";
+export * from "./api-key-lifecycle.js";
 export * from "./realtime-event-stream.js";
 export * from "./runtime-composition.js";
 
