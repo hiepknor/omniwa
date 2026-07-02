@@ -46,6 +46,7 @@ import { describe, expect, it } from "vitest";
 import {
   InMemoryProviderRuntimeOwnershipGuard,
   ProviderRuntime,
+  type ProviderRuntimeTranslatedSignal,
   providerRuntimeSessionSecretPurpose,
 } from "./provider-runtime.js";
 
@@ -70,12 +71,14 @@ describe("ProviderRuntime", () => {
       [String(sessionSecretName)]: "synthetic-session-secret",
     });
     const telemetry = new RecordingTelemetry();
+    const signalSink = new RecordingSignalSink();
     const runtime = new ProviderRuntime({
       provider,
       secretProvider: secrets,
       ownerRef: "runtime-a",
       logger: telemetry,
       metrics: telemetry,
+      signalSink,
     });
 
     const result = await runtime.connect(
@@ -116,6 +119,16 @@ describe("ProviderRuntime", () => {
         state: "connected",
       }),
     ]);
+    expect(runtime.snapshot().signals).toEqual([
+      expect.objectContaining({
+        kind: "connection",
+        operation: "connect",
+        runtimeState: "connected",
+        dataClassification: "internal",
+        targetRef: String(instanceId),
+      }),
+    ]);
+    expect(signalSink.signals).toEqual(runtime.snapshot().signals);
     expect(telemetry.metrics).toEqual([
       expect.objectContaining({
         name: "provider_runtime.operation.total",
@@ -339,6 +352,14 @@ describe("ProviderRuntime", () => {
         state: "qr_required",
       }),
     ]);
+    expect(runtime.snapshot().signals).toEqual([
+      expect.objectContaining({
+        kind: "auth",
+        operation: "request_qr_pairing",
+        runtimeState: "qr_required",
+        dataClassification: "confidential",
+      }),
+    ]);
   });
 });
 
@@ -499,6 +520,14 @@ class RecordingTelemetry implements MetricRecorder, StructuredLogger {
 
   write(entry: LogEntry): void {
     this.logs.push(entry);
+  }
+}
+
+class RecordingSignalSink {
+  readonly signals: ProviderRuntimeTranslatedSignal[] = [];
+
+  recordSignal(signal: ProviderRuntimeTranslatedSignal): void {
+    this.signals.push(signal);
   }
 }
 

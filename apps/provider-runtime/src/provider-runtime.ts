@@ -8,6 +8,7 @@ import {
   type ProviderConnectionResult,
   type ProviderConnectionState,
   type ProviderQrPairingChallenge,
+  type TranslatedProviderSignal,
 } from "@omniwa/application";
 import { createSecretPurpose, type SecretName, type SecretProvider } from "@omniwa/config";
 import {
@@ -96,9 +97,20 @@ export type ProviderRuntimeInstanceSnapshot = Readonly<{
   failure?: ProviderRuntimeFailure;
 }>;
 
+export type ProviderRuntimeTranslatedSignal = TranslatedProviderSignal &
+  Readonly<{
+    operation: string;
+    runtimeState: ProviderRuntimeLifecycleState;
+  }>;
+
+export type ProviderRuntimeSignalSink = Readonly<{
+  recordSignal(signal: ProviderRuntimeTranslatedSignal): void;
+}>;
+
 export type ProviderRuntimeSnapshot = Readonly<{
   ownerRef: string;
   instances: readonly ProviderRuntimeInstanceSnapshot[];
+  signals: readonly ProviderRuntimeTranslatedSignal[];
 }>;
 
 export type ProviderRuntimeOwnershipGuard = Readonly<{
@@ -123,6 +135,7 @@ export type ProviderRuntimeOptions = Readonly<{
   ownerRef?: string;
   logger?: StructuredLogger;
   metrics?: MetricRecorder;
+  signalSink?: ProviderRuntimeSignalSink;
 }>;
 
 export class InMemoryProviderRuntimeOwnershipGuard implements ProviderRuntimeOwnershipGuard {
@@ -174,7 +187,9 @@ export class ProviderRuntime {
   private readonly ownerRef: string;
   private readonly logger: StructuredLogger;
   private readonly metrics: MetricRecorder | undefined;
+  private readonly signalSink: ProviderRuntimeSignalSink | undefined;
   private readonly instancesById = new Map<string, ProviderRuntimeInstanceSnapshot>();
+  private readonly signals: ProviderRuntimeTranslatedSignal[] = [];
 
   constructor(options: ProviderRuntimeOptions) {
     this.provider = options.provider;
@@ -183,23 +198,25 @@ export class ProviderRuntime {
     this.ownerRef = options.ownerRef ?? `provider-runtime:${randomUUID()}`;
     this.logger = options.logger ?? nullLogger;
     this.metrics = options.metrics;
+    this.signalSink = options.signalSink;
   }
 
   async connect(
     input: ProviderRuntimeConnectionInput,
     context: ApplicationPortContext,
   ): Promise<ProviderRuntimeOperationResult<ProviderConnectionResult>> {
+    const operation = input.intent ?? "connect";
     const ownership = this.acquireOwnership(input.instanceId);
 
     if (!ownership.ok) {
-      return this.recordFailure("connect", input, ownership, context);
+      return this.recordFailure(operation, input, ownership, context);
     }
 
     const secret = await this.restoreSessionSecret(input.sessionSecretName);
 
     if (!secret.ok) {
       this.ownershipGuard.release(input.instanceId, this.ownerRef);
-      return this.recordFailure("connect", input, secret, context);
+      return this.recordFailure(operation, input, secret, context);
     }
 
     this.setState(input, "connecting");
@@ -211,10 +228,10 @@ export class ProviderRuntime {
 
     if (!result.ok) {
       this.ownershipGuard.release(input.instanceId, this.ownerRef);
-      return this.recordFailure("connect", input, providerFailure(result.error), context);
+      return this.recordFailure(operation, input, providerFailure(result.error), context);
     }
 
-    return this.recordSuccess("connect", input, result.value, context);
+    return this.recordSuccess(operation, input, result.value, context);
   }
 
   async requestQrPairing(
@@ -281,6 +298,7 @@ export class ProviderRuntime {
     return Object.freeze({
       ownerRef: this.ownerRef,
       instances: Object.freeze([...this.instancesById.values()]),
+      signals: Object.freeze([...this.signals]),
     });
   }
 
@@ -351,7 +369,9 @@ export class ProviderRuntime {
     overrideState?: ProviderRuntimeLifecycleState,
   ): ProviderRuntimeOperationResult<T> {
     const state = overrideState ?? stateFromProviderValue(value);
-    this.setState(input, state, providerSignalRefFromValue(value));
+    const providerSignalRef = providerSignalRefFromValue(value);
+    this.setState(input, state, providerSignalRef);
+    this.recordTranslatedSignal(operation, input, state, context, providerSignalRef);
     this.recordTelemetry(operation, input, state, "success", context);
 
     return Object.freeze({
@@ -375,6 +395,7 @@ export class ProviderRuntime {
     }
 
     this.setState(input, result.state, undefined, result.failure);
+    this.recordTranslatedSignal(operation, input, result.state, context, undefined, result.failure);
     this.recordTelemetry(operation, input, result.state, "failure", context, result.failure);
 
     return result;
@@ -459,6 +480,38 @@ export class ProviderRuntime {
       },
     });
   }
+
+  private recordTranslatedSignal(
+    operation: string,
+    input:
+      | ProviderRuntimeConnectionInput
+      | ProviderRuntimeQrPairingInput
+      | ProviderRuntimeDisconnectInput,
+    state: ProviderRuntimeLifecycleState,
+    context: ApplicationPortContext,
+    providerSignalRef?: string,
+    failure?: ProviderRuntimeFailure,
+  ): void {
+    const signal = freezeTranslatedSignal({
+      signalRef: providerSignalRef ?? `${String(input.providerId)}.${operation}.${state}`,
+      providerId: input.providerId,
+      targetRef: String(input.instanceId),
+      occurrenceRef: `${String(context.requestContext.correlationId)}.${operation}.${state}`,
+      kind:
+        failure !== undefined
+          ? "failure"
+          : operation === "request_qr_pairing"
+            ? "auth"
+            : "connection",
+      dataClassification: operation === "request_qr_pairing" ? "confidential" : "internal",
+      ...optionalValue("failureCategory", failure?.failureCategory),
+      operation,
+      runtimeState: state,
+    });
+
+    this.signals.push(signal);
+    this.signalSink?.recordSignal(signal);
+  }
 }
 
 function connectionRequestFromInput(
@@ -539,6 +592,12 @@ function freezeInstanceSnapshot(
     ...snapshot,
     ...optionalValue("failure", snapshot.failure),
   });
+}
+
+function freezeTranslatedSignal(
+  signal: ProviderRuntimeTranslatedSignal,
+): ProviderRuntimeTranslatedSignal {
+  return Object.freeze(signal);
 }
 
 function instanceKey(instanceId: InstanceId): string {
