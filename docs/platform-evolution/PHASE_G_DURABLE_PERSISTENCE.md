@@ -26,6 +26,7 @@ future PostgreSQL implementation.
 | Physical model review preserved     | Complete | No schema, SQL, Prisma, migration, or database table added |
 | Durable repository adapter          | Complete | Added file-backed JSON repository set for existing ports   |
 | Durable projection store            | Complete | Added file-backed JSON read projection store               |
+| Local runtime repository profile    | Complete | `apps/api` can opt into durable JSON repositories by env   |
 | Repository port semantics preserved | Complete | Adapter implements existing repository ports               |
 | Rollback strategy                   | Complete | Adapter is additive; in-memory adapters remain available   |
 | Contract tests                      | Complete | Restart tests cover aggregate/index/projection restoration |
@@ -39,6 +40,8 @@ Added implementation:
 - `DurableJsonReadProjectionStore`
 - `createDurableJsonReadProjectionStore`
 - shared `DurableJsonStateStore`
+- `OMNIWA_API_REPOSITORY_PROFILE=durable-json` runtime composition support
+- `OMNIWA_API_REPOSITORY_STATE_DIR` for local or controlled pilot state paths
 
 No implementation was added for:
 
@@ -67,7 +70,7 @@ The durable JSON adapter:
 Rollback is adapter-level:
 
 1. Stop wiring runtime to `createDurableJsonRepositorySet`.
-2. Use `createInMemoryRepositorySet` again.
+2. Set `OMNIWA_API_REPOSITORY_PROFILE=in-memory`.
 3. Remove or archive the JSON state directory.
 4. No Domain/Application/API migration is required.
 
@@ -87,6 +90,7 @@ Rollback is adapter-level:
 | No schema/migration created                | PASS   |
 | Repository ports still unchanged           | PASS   |
 | Durable aggregate repository adapter added | PASS   |
+| Local runtime can select durable JSON      | PASS   |
 | Durable read projection store added        | PASS   |
 | Implementation-only indexes persist        | PASS   |
 | Restart/re-instantiation behavior tested   | PASS   |

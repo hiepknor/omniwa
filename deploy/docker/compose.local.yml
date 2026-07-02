@@ -11,6 +11,8 @@ services:
     environment:
       NODE_ENV: development
       OMNIWA_API_RUNTIME_PROFILE: local
+      OMNIWA_API_REPOSITORY_PROFILE: ${OMNIWA_API_REPOSITORY_PROFILE:-durable-json}
+      OMNIWA_API_REPOSITORY_STATE_DIR: /var/lib/omniwa/repositories
       OMNIWA_API_HOST: 0.0.0.0
       OMNIWA_API_PORT: 3000
       OMNIWA_API_KEY: ${OMNIWA_API_KEY:-local-dev-secret-change-me}

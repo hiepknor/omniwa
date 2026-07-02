@@ -12,7 +12,10 @@ Important current constraints:
 - `apps/api` is the only HTTP runtime entrypoint that starts a long-running server today.
 - `OMNIWA_API_RUNTIME_PROFILE=production` is intentionally blocked by the code until production
   persistence, queue, secret, and observability adapters are wired.
-- The current API runtime uses in-memory repositories and optional durable JSON event-log storage.
+- The current API runtime supports `in-memory` repositories by default and optional
+  `durable-json` repositories for local or controlled pilot state.
+- Durable JSON storage is not the approved production source of truth; PostgreSQL adapter wiring
+  remains required before claiming production readiness.
 - PostgreSQL, Redis, and Object Storage remain required production architecture components, but the
   current runtime does not wire them as production adapters yet.
 
@@ -34,6 +37,15 @@ curl -H "x-api-key: local-dev-secret-change-me" http://localhost:3000/v1/health
 
 Override local values by exporting env vars or using `--env-file deploy/docker/env/local.env`.
 
+The local Compose stack defaults to:
+
+| Variable                          | Default                          | Purpose                                  |
+| --------------------------------- | -------------------------------- | ---------------------------------------- |
+| `OMNIWA_API_REPOSITORY_PROFILE`   | `durable-json`                   | Persist local repository state to volume |
+| `OMNIWA_API_REPOSITORY_STATE_DIR` | `/var/lib/omniwa/repositories`   | Container repository state directory     |
+| `OMNIWA_EVENT_LOG_PATH`           | `/var/lib/omniwa/event-log.json` | Container realtime event-log path        |
+| `OMNIWA_API_RUNTIME_PROFILE`      | `local`                          | Keep the runtime in non-production mode  |
+
 ## Production Template
 
 Build and tag an image:
@@ -54,6 +66,7 @@ Production template rules:
 - Store real env values outside git.
 - Keep PostgreSQL, Redis, Object Storage, and backup storage private.
 - Do not set `OMNIWA_API_RUNTIME_PROFILE=production` until the P0 production adapters are complete.
+- Do not treat `OMNIWA_API_REPOSITORY_PROFILE=durable-json` as a production database substitute.
 - Do not claim production readiness until `docs/platform-evolution/PRODUCTION_EXECUTION_PLAN.md`
   gates are satisfied.
 

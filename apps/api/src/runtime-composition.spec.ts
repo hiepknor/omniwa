@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createApiRuntimeComposition, readRuntimeProfile } from "./runtime-composition.js";
+import {
+  createApiRuntimeComposition,
+  readRepositoryProfile,
+  readRuntimeProfile,
+} from "./runtime-composition.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -51,8 +55,57 @@ describe("API runtime composition", () => {
     });
 
     expect(composition.profile).toBe("test");
+    expect(composition.repositoryProfile).toBe("in-memory");
     expect(composition.options.apiKeys).toEqual([]);
     expect(composition.options.dispatcher).toBeDefined();
+  });
+
+  it("composes a durable JSON repository profile for restartable local state", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-repositories-"));
+    temporaryDirectories.push(directory);
+    const env = {
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_REPOSITORY_PROFILE: "durable-json",
+      OMNIWA_API_REPOSITORY_STATE_DIR: directory,
+    };
+
+    const firstComposition = createApiRuntimeComposition(env);
+
+    await firstComposition.options.dispatcher?.executeCommand({
+      kind: "command",
+      name: "CreateInstance",
+      commandRef: "runtime-create-durable-instance",
+      requestContext: createRequestContext({
+        requestId: createRequestId("runtime-durable-request"),
+        correlationId: createCorrelationId("runtime-durable-correlation"),
+      }),
+      actorRef: "api_key:local",
+      idempotencyKey: "runtime-durable-idempotency",
+    });
+
+    const secondComposition = createApiRuntimeComposition(env);
+    const queryOutcome = await secondComposition.options.dispatcher?.executeQuery({
+      kind: "query",
+      name: "ListInstances",
+      queryRef: "runtime-list-durable-instances",
+      requestContext: createRequestContext({
+        requestId: createRequestId("runtime-durable-list-request"),
+        correlationId: createCorrelationId("runtime-durable-list-correlation"),
+      }),
+      actorRef: "api_key:local",
+    });
+
+    expect(firstComposition.repositoryProfile).toBe("durable-json");
+    expect(secondComposition.repositoryProfile).toBe("durable-json");
+    expect(queryOutcome).toEqual(
+      expect.objectContaining({
+        kind: "query_outcome",
+        queryRef: "runtime-list-durable-instances",
+        outcome: "result",
+        resultRef: "instances:list:1",
+      }),
+    );
   });
 
   it("composes an EventLog-backed realtime source when configured", () => {
@@ -89,9 +142,27 @@ describe("API runtime composition", () => {
     ).toThrow(/requires OMNIWA_API_KEY/i);
   });
 
+  it("requires a repository state directory for durable JSON composition", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_REPOSITORY_PROFILE: "durable-json",
+      }),
+    ).toThrow(/OMNIWA_API_REPOSITORY_STATE_DIR/);
+  });
+
   it("normalizes runtime profile names", () => {
     expect(readRuntimeProfile({ NODE_ENV: "test" })).toBe("test");
     expect(readRuntimeProfile({ NODE_ENV: "development" })).toBe("local");
     expect(readRuntimeProfile({ OMNIWA_API_RUNTIME_PROFILE: "production" })).toBe("production");
+  });
+
+  it("normalizes repository profile names", () => {
+    expect(readRepositoryProfile({})).toBe("in-memory");
+    expect(readRepositoryProfile({ OMNIWA_API_REPOSITORY_PROFILE: "in-memory" })).toBe("in-memory");
+    expect(readRepositoryProfile({ OMNIWA_API_REPOSITORY_PROFILE: "durable-json" })).toBe(
+      "durable-json",
+    );
   });
 });

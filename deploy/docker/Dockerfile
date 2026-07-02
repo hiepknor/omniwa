@@ -29,6 +29,8 @@ COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml
 COPY --from=build /app/apps ./apps
 COPY --from=build /app/packages ./packages
 
+RUN mkdir -p /var/lib/omniwa && chown -R node:node /var/lib/omniwa
+
 USER node
 EXPOSE 3000
 

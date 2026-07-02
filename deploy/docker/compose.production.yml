@@ -9,6 +9,8 @@ services:
       # Current implementation intentionally rejects OMNIWA_API_RUNTIME_PROFILE=production
       # until production persistence, queue, secret, and observability adapters are wired.
       OMNIWA_API_RUNTIME_PROFILE: ${OMNIWA_API_RUNTIME_PROFILE:?Set local for controlled pilot only, or production after P0 adapters are complete}
+      OMNIWA_API_REPOSITORY_PROFILE: ${OMNIWA_API_REPOSITORY_PROFILE:-durable-json}
+      OMNIWA_API_REPOSITORY_STATE_DIR: /var/lib/omniwa/repositories
       OMNIWA_API_HOST: 0.0.0.0
       OMNIWA_API_PORT: 3000
       OMNIWA_API_KEY: ${OMNIWA_API_KEY:?Set OMNIWA_API_KEY from a secret manager or protected env file}

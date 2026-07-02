@@ -1,5 +1,6 @@
 import { createApplicationDispatcher } from "@omniwa/application";
 import {
+  createDurableJsonRepositorySet,
   createDurableJsonEventLogStore,
   createInMemoryRepositorySet,
 } from "@omniwa/infrastructure-persistence";
@@ -12,8 +13,13 @@ export const apiRuntimeProfiles = ["local", "test", "production"] as const;
 
 export type ApiRuntimeProfile = (typeof apiRuntimeProfiles)[number];
 
+export const apiRepositoryProfiles = ["in-memory", "durable-json"] as const;
+
+export type ApiRepositoryProfile = (typeof apiRepositoryProfiles)[number];
+
 export type ApiRuntimeComposition = Readonly<{
   profile: ApiRuntimeProfile;
+  repositoryProfile: ApiRepositoryProfile;
   options: ApiHttpServerOptions;
 }>;
 
@@ -21,11 +27,12 @@ export function createApiRuntimeComposition(
   env: NodeJS.ProcessEnv = process.env,
 ): ApiRuntimeComposition {
   const profile = readRuntimeProfile(env);
+  const repositoryProfile = readRepositoryProfile(env);
   const apiKeys = readApiKeysFromEnv(env);
 
   assertRuntimeProfileIsComposable(profile, apiKeys);
 
-  const repositories = createInMemoryRepositorySet();
+  const repositories = createRuntimeRepositories(env, repositoryProfile);
   const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
   const eventSource =
     eventLogPath === undefined || eventLogPath.length === 0
@@ -40,6 +47,7 @@ export function createApiRuntimeComposition(
 
   return Object.freeze({
     profile,
+    repositoryProfile,
     options: Object.freeze({
       dispatcher,
       ...optional("eventSource", eventSource),
@@ -73,6 +81,42 @@ export function readRuntimeProfile(env: NodeJS.ProcessEnv = process.env): ApiRun
     default:
       throw new Error(`Unsupported OmniWA API runtime profile: ${value}`);
   }
+}
+
+export function readRepositoryProfile(env: NodeJS.ProcessEnv = process.env): ApiRepositoryProfile {
+  const value = env.OMNIWA_API_REPOSITORY_PROFILE?.trim();
+
+  switch (value) {
+    case "durable-json":
+      return "durable-json";
+    case "in-memory":
+    case undefined:
+    case "":
+      return "in-memory";
+    default:
+      throw new Error(`Unsupported OmniWA API repository profile: ${value}`);
+  }
+}
+
+function createRuntimeRepositories(
+  env: NodeJS.ProcessEnv,
+  repositoryProfile: ApiRepositoryProfile,
+):
+  | ReturnType<typeof createInMemoryRepositorySet>
+  | ReturnType<typeof createDurableJsonRepositorySet> {
+  if (repositoryProfile === "in-memory") {
+    return createInMemoryRepositorySet();
+  }
+
+  const stateDirectory = env.OMNIWA_API_REPOSITORY_STATE_DIR?.trim();
+
+  if (stateDirectory === undefined || stateDirectory.length === 0) {
+    throw new Error(
+      "OMNIWA_API_REPOSITORY_STATE_DIR is required when OMNIWA_API_REPOSITORY_PROFILE=durable-json.",
+    );
+  }
+
+  return createDurableJsonRepositorySet(stateDirectory);
 }
 
 function assertRuntimeProfileIsComposable(
