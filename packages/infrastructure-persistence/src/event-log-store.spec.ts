@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import {
   createDomainEvent,
+  createFailureCategory,
+  createProviderId,
   type EventDataClassification,
   type IntegrationEventName,
 } from "@omniwa/domain";
@@ -16,6 +18,10 @@ import {
 } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
+import {
+  EventLogProviderSignalPublisher,
+  EventLogProviderSignalSink,
+} from "./event-log-runtime-publisher.js";
 import {
   EventLogInternalEventBus,
   createDurableJsonEventLogStore,
@@ -160,6 +166,82 @@ describe("event log store", () => {
       }),
     ]);
   });
+
+  it("publishes provider runtime signals into EventLog and outbox with safe payloads", () => {
+    const store = createInMemoryEventLogStore();
+    const publisher = new EventLogProviderSignalPublisher({
+      eventLog: store,
+      clock: fixedClock,
+    });
+    const signal = providerSignal("provider-signal-1", "provider-occurrence-1");
+
+    const first = publisher.publishSignal(signal, context);
+    const duplicate = publisher.publishSignal(signal, context);
+    const replay = store.replayEvents({ limit: 10 });
+    const outbox = store.listOutbox({ status: "pending" });
+
+    expect(first.ok ? first.value : undefined).toMatchObject({
+      cursor: "eventlog:1",
+      type: "provider.connection.v1",
+      timestamp,
+      dataClassification: "internal",
+      source: "provider_runtime",
+      resourceRef: "inst_provider_1",
+      correlationId: "event-log-correlation",
+      payload: {
+        providerId: "baileys",
+        signalKind: "connection",
+        targetRef: "inst_provider_1",
+        occurrenceRef: "provider-occurrence-1",
+        operation: "connect",
+        runtimeState: "connected",
+      },
+    });
+    expect(duplicate.ok ? duplicate.value : undefined).toEqual(first.ok ? first.value : undefined);
+    expect(outbox.ok ? outbox.value : undefined).toEqual([
+      expect.objectContaining({
+        eventId: first.ok ? first.value.id : undefined,
+        cursor: "eventlog:1",
+        status: "pending",
+      }),
+    ]);
+    expect(replay.ok ? replay.value.events : undefined).toHaveLength(1);
+    expect(JSON.stringify(replay.ok ? replay.value.events : [])).not.toContain("secret");
+    expect(JSON.stringify(replay.ok ? replay.value.events : [])).not.toContain("socket");
+    expect(JSON.stringify(replay.ok ? replay.value.events : [])).not.toContain("raw");
+  });
+
+  it("publishes provider runtime failure signals through the sink", () => {
+    const store = createInMemoryEventLogStore();
+    const sink = new EventLogProviderSignalSink({
+      eventLog: store,
+      clock: fixedClock,
+      contextFactory: () => context,
+    });
+
+    sink.recordSignal({
+      ...providerSignal("provider-failure-signal", "provider-failure-occurrence"),
+      kind: "failure",
+      dataClassification: "confidential",
+      failureCategory: createFailureCategory("provider"),
+      operation: "connect",
+      runtimeState: "action_required",
+    });
+
+    const replay = store.replayEvents({ limit: 10 });
+
+    expect(sink.snapshotFailures()).toEqual([]);
+    expect(replay.ok ? replay.value.events : undefined).toEqual([
+      expect.objectContaining({
+        type: "provider.failure.v1",
+        dataClassification: "confidential",
+        payload: expect.objectContaining({
+          failureCategory: "provider",
+          runtimeState: "action_required",
+        }),
+      }),
+    ]);
+  });
 });
 
 function event(
@@ -187,4 +269,17 @@ function createTemporaryDirectory(): string {
   temporaryDirectories.push(directory);
 
   return directory;
+}
+
+function providerSignal(signalRef: string, occurrenceRef: string) {
+  return {
+    signalRef,
+    providerId: createProviderId("baileys"),
+    targetRef: "inst_provider_1",
+    occurrenceRef,
+    kind: "connection" as const,
+    dataClassification: "internal" as const,
+    operation: "connect",
+    runtimeState: "connected",
+  };
 }

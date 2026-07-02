@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { createInMemoryEventLogStore } from "@omniwa/infrastructure-persistence";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  createDurableJsonEventLogStore,
+  createInMemoryEventLogStore,
+} from "@omniwa/infrastructure-persistence";
 
 import {
   createEventLogRealtimeEventSource,
@@ -7,6 +14,14 @@ import {
   createStaticRealtimeEventSource,
   encodeServerSentEvents,
 } from "./realtime-event-stream.js";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 describe("realtime event stream", () => {
   it("replays retained events after the provided cursor", () => {
@@ -46,6 +61,30 @@ describe("realtime event stream", () => {
       status: "expired",
       oldestCursor: "eventlog:2",
       latestCursor: "eventlog:3",
+    });
+  });
+
+  it("resumes SSE replay from a durable EventLog after store restart", () => {
+    const filePath = join(createTemporaryDirectory(), "event-log.json");
+    const firstStore = createDurableJsonEventLogStore(filePath);
+    firstStore.appendEvent(eventLogInput("evt_1", "message.accepted.v1"));
+    firstStore.appendEvent(eventLogInput("evt_2", "message.delivered.v1"));
+
+    const restartedStore = createDurableJsonEventLogStore(filePath);
+    const source = createEventLogRealtimeEventSource(restartedStore);
+    const replay = source.replay({ cursor: "eventlog:1", limit: 10 });
+
+    expect(replay).toEqual([
+      expect.objectContaining({
+        id: "evt_2",
+        cursor: "eventlog:2",
+        type: "message.delivered.v1",
+      }),
+    ]);
+    expect(source.inspectCursor?.({ cursor: "eventlog:1", limit: 10 })).toMatchObject({
+      status: "ok",
+      oldestCursor: "eventlog:1",
+      latestCursor: "eventlog:2",
     });
   });
 
@@ -109,4 +148,11 @@ function eventLogInput(id: string, type: string) {
       status: "accepted",
     },
   };
+}
+
+function createTemporaryDirectory(): string {
+  const directory = mkdtempSync(join(tmpdir(), "omniwa-realtime-event-log-"));
+  temporaryDirectories.push(directory);
+
+  return directory;
 }
