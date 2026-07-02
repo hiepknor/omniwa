@@ -12,7 +12,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.references.json ./
 COPY apps ./apps
 COPY packages ./packages
-COPY sdk ./sdk
+COPY sdks ./sdks
 COPY tooling ./tooling
 RUN pnpm install --frozen-lockfile
 

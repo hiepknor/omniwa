@@ -28,7 +28,7 @@ Implemented capabilities:
 | Production backlog  | `P1-01`, `P1-02`, `P1-03` in `PRODUCTION_EXECUTION_PLAN.md`             |
 | API contract        | `docs/api/openapi/omniwa-v1.openapi.json`                               |
 | Runtime adapter     | `apps/api/src/http-server.ts`                                           |
-| SDK boundary        | `sdk/rust/omniwa-sdk/src/models.rs`                                     |
+| SDK boundary        | `sdks/rust/omniwa-sdk/src/models.rs`                                    |
 | Contract gate       | `tooling/api/check-openapi.mjs`                                         |
 | Architecture policy | ADR-0001 Platform Boundary, ADR-0002 REST API, ADR-0007 Public Contract |
 

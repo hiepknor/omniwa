@@ -15,7 +15,7 @@ read routes, Phase F adds realtime stream primitives, Phase I extends
 navigation resources, Phase J adds platform client profiles, and the current
 SDK hardening step adds real HTTP transport plus typed envelope decoding:
 
-- `sdk/rust/omniwa-sdk` Rust crate.
+- `sdks/rust/omniwa-sdk` Rust crate.
 - root Cargo workspace for Git dependency consumption.
 - generated operation catalog from the Phase C OpenAPI contract.
 - API key primitive.
@@ -36,7 +36,7 @@ SDK hardening step adds real HTTP transport plus typed envelope decoding:
 The generated low-level surface is:
 
 ```text
-sdk/rust/omniwa-sdk/src/generated/operations.rs
+sdks/rust/omniwa-sdk/src/generated/operations.rs
 ```
 
 It is generated from:
@@ -73,7 +73,7 @@ The SDK does not contain:
 The crate includes fixture tests under:
 
 ```text
-sdk/rust/omniwa-sdk/tests/
+sdks/rust/omniwa-sdk/tests/
 ```
 
 Run from the repository root:

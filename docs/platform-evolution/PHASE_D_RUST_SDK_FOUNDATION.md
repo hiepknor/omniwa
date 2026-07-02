@@ -21,7 +21,7 @@ REST contract details.
 
 | Deliverable                           | Status   | Notes                                                     |
 | ------------------------------------- | -------- | --------------------------------------------------------- |
-| Rust SDK crate                        | Complete | `sdk/rust/omniwa-sdk`                                     |
+| Rust SDK crate                        | Complete | `sdks/rust/omniwa-sdk`                                    |
 | Generated low-level operation catalog | Complete | Generated from OpenAPI into `src/generated/operations.rs` |
 | SDK contract checker                  | Complete | `tooling/sdk/check-rust-sdk.mjs`                          |
 | SDK generator                         | Complete | `tooling/sdk/generate-rust-operations.mjs`                |
@@ -71,7 +71,7 @@ Executed gates:
 Rust gate to run when the Rust toolchain is available:
 
 ```text
-cd sdk/rust/omniwa-sdk
+cd sdks/rust/omniwa-sdk
 cargo test
 ```
 

@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 const specPath = new URL("../../docs/api/openapi/omniwa-v1.openapi.json", import.meta.url);
 const outputPath = new URL(
-  "../../sdk/rust/omniwa-sdk/src/generated/operations.rs",
+  "../../sdks/rust/omniwa-sdk/src/generated/operations.rs",
   import.meta.url,
 );
 

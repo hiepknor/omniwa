@@ -182,7 +182,7 @@ The repository has completed planning and now includes the Phase 8 Sprint 0 impl
 |   |-- shared/
 |   `-- testing/
 |-- scripts/
-|-- sdk/
+|-- sdks/
 |   `-- rust/
 |       `-- omniwa-sdk/
 |-- tooling/
