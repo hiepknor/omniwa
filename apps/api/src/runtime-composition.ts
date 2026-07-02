@@ -1,8 +1,13 @@
-import { createApplicationDispatcher } from "@omniwa/application";
+import {
+  createApplicationDispatcher,
+  type ApplicationDispatcherRepositories,
+} from "@omniwa/application";
 import {
   createDurableJsonRepositorySet,
   createDurableJsonEventLogStore,
   createInMemoryRepositorySet,
+  createPostgresqlConnectionPool,
+  createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
 
 import { createApiKeyVerifierFromPlaintext } from "./api-key-auth.js";
@@ -13,7 +18,7 @@ export const apiRuntimeProfiles = ["local", "test", "production"] as const;
 
 export type ApiRuntimeProfile = (typeof apiRuntimeProfiles)[number];
 
-export const apiRepositoryProfiles = ["in-memory", "durable-json"] as const;
+export const apiRepositoryProfiles = ["in-memory", "durable-json", "postgresql"] as const;
 
 export type ApiRepositoryProfile = (typeof apiRepositoryProfiles)[number];
 
@@ -41,7 +46,7 @@ export function createApiRuntimeComposition(
   const dispatcher = createApplicationDispatcher({
     repositories: {
       instanceRepository: repositories.instanceRepository,
-      healthStatusRepository: repositories.healthStatusRepository,
+      ...optional("healthStatusRepository", repositories.healthStatusRepository),
     },
   });
 
@@ -87,6 +92,8 @@ export function readRepositoryProfile(env: NodeJS.ProcessEnv = process.env): Api
   const value = env.OMNIWA_API_REPOSITORY_PROFILE?.trim();
 
   switch (value) {
+    case "postgresql":
+      return "postgresql";
     case "durable-json":
       return "durable-json";
     case "in-memory":
@@ -101,11 +108,32 @@ export function readRepositoryProfile(env: NodeJS.ProcessEnv = process.env): Api
 function createRuntimeRepositories(
   env: NodeJS.ProcessEnv,
   repositoryProfile: ApiRepositoryProfile,
-):
-  | ReturnType<typeof createInMemoryRepositorySet>
-  | ReturnType<typeof createDurableJsonRepositorySet> {
+): ApplicationDispatcherRepositories {
   if (repositoryProfile === "in-memory") {
     return createInMemoryRepositorySet();
+  }
+
+  if (repositoryProfile === "postgresql") {
+    const databaseUrl = env.OMNIWA_POSTGRES_DATABASE_URL?.trim();
+
+    if (databaseUrl === undefined || databaseUrl.length === 0) {
+      throw new Error(
+        "OMNIWA_POSTGRES_DATABASE_URL is required when OMNIWA_API_REPOSITORY_PROFILE=postgresql.",
+      );
+    }
+
+    const localProjectionRepositories = createInMemoryRepositorySet();
+    const postgresqlRepositories = createPostgresqlRepositorySet(
+      createPostgresqlConnectionPool(databaseUrl),
+      {
+        autoMigrate: readBooleanEnv(env.OMNIWA_POSTGRES_AUTO_MIGRATE),
+      },
+    );
+
+    return Object.freeze({
+      instanceRepository: postgresqlRepositories.instanceRepository,
+      healthStatusRepository: localProjectionRepositories.healthStatusRepository,
+    });
   }
 
   const stateDirectory = env.OMNIWA_API_REPOSITORY_STATE_DIR?.trim();
@@ -117,6 +145,12 @@ function createRuntimeRepositories(
   }
 
   return createDurableJsonRepositorySet(stateDirectory);
+}
+
+function readBooleanEnv(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
 function assertRuntimeProfileIsComposable(

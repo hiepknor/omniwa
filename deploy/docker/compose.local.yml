@@ -11,8 +11,10 @@ services:
     environment:
       NODE_ENV: development
       OMNIWA_API_RUNTIME_PROFILE: local
-      OMNIWA_API_REPOSITORY_PROFILE: ${OMNIWA_API_REPOSITORY_PROFILE:-durable-json}
+      OMNIWA_API_REPOSITORY_PROFILE: ${OMNIWA_API_REPOSITORY_PROFILE:-postgresql}
       OMNIWA_API_REPOSITORY_STATE_DIR: /var/lib/omniwa/repositories
+      OMNIWA_POSTGRES_DATABASE_URL: postgresql://omniwa:${OMNIWA_POSTGRES_PASSWORD:-omniwa-local-password}@postgres:5432/omniwa
+      OMNIWA_POSTGRES_AUTO_MIGRATE: ${OMNIWA_POSTGRES_AUTO_MIGRATE:-true}
       OMNIWA_API_HOST: 0.0.0.0
       OMNIWA_API_PORT: 3000
       OMNIWA_API_KEY: ${OMNIWA_API_KEY:-local-dev-secret-change-me}
@@ -23,6 +25,9 @@ services:
       - "${OMNIWA_API_PUBLIC_PORT:-3000}:3000"
     volumes:
       - omniwa-local-data:/var/lib/omniwa
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -34,5 +39,24 @@ services:
       retries: 3
       start_period: 15s
 
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: omniwa
+      POSTGRES_USER: omniwa
+      POSTGRES_PASSWORD: ${OMNIWA_POSTGRES_PASSWORD:-omniwa-local-password}
+    ports:
+      - "127.0.0.1:${OMNIWA_POSTGRES_PUBLIC_PORT:-55432}:5432"
+    volumes:
+      - omniwa-local-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omniwa -d omniwa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   omniwa-local-data:
+  omniwa-local-postgres:

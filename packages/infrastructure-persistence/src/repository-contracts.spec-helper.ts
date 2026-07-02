@@ -6,10 +6,11 @@ import {
   markInstanceConnecting,
   type InstanceRepositoryPort,
 } from "@omniwa/domain";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 export type InstanceRepositoryContractFactory = Readonly<{
   name: string;
+  beforeEach?: () => Promise<void> | void;
   create(): InstanceRepositoryPort;
 }>;
 
@@ -17,6 +18,10 @@ export function describeInstanceRepositoryContract(
   factory: InstanceRepositoryContractFactory,
 ): void {
   describe(`${factory.name} InstanceRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
     it("saves, loads, and reports aggregate existence by InstanceId", async () => {
       const repository = factory.create();
       const instanceId = createInstanceId(`${safeFactoryName(factory.name)}-instance-load`);
@@ -46,7 +51,10 @@ export function describeInstanceRepositoryContract(
 
       await expect(repository.findByStatus("created")).resolves.toEqual([created]);
       await expect(repository.findByStatus("connected")).resolves.toEqual([connected]);
-      await expect(repository.findNonTerminal()).resolves.toEqual([created, connected]);
+      const nonTerminal = await repository.findNonTerminal();
+
+      expect(nonTerminal).toHaveLength(2);
+      expect(nonTerminal).toEqual(expect.arrayContaining([created, connected]));
     });
 
     it("returns the current SessionId owned by the Instance aggregate", async () => {

@@ -12,10 +12,14 @@
   "dependencies": {
     "@omniwa/application": "workspace:*",
     "@omniwa/domain": "workspace:*",
-    "@omniwa/shared": "workspace:*"
+    "@omniwa/shared": "workspace:*",
+    "pg": "^8.22.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.0"
   }
 }

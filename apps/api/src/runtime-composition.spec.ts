@@ -152,6 +152,16 @@ describe("API runtime composition", () => {
     ).toThrow(/OMNIWA_API_REPOSITORY_STATE_DIR/);
   });
 
+  it("requires a PostgreSQL database URL for PostgreSQL repository composition", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+      }),
+    ).toThrow(/OMNIWA_POSTGRES_DATABASE_URL/);
+  });
+
   it("normalizes runtime profile names", () => {
     expect(readRuntimeProfile({ NODE_ENV: "test" })).toBe("test");
     expect(readRuntimeProfile({ NODE_ENV: "development" })).toBe("local");
@@ -163,6 +173,9 @@ describe("API runtime composition", () => {
     expect(readRepositoryProfile({ OMNIWA_API_REPOSITORY_PROFILE: "in-memory" })).toBe("in-memory");
     expect(readRepositoryProfile({ OMNIWA_API_REPOSITORY_PROFILE: "durable-json" })).toBe(
       "durable-json",
+    );
+    expect(readRepositoryProfile({ OMNIWA_API_REPOSITORY_PROFILE: "postgresql" })).toBe(
+      "postgresql",
     );
   });
 });

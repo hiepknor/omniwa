@@ -12,10 +12,16 @@ Important current constraints:
 - `apps/api` is the only HTTP runtime entrypoint that starts a long-running server today.
 - `OMNIWA_API_RUNTIME_PROFILE=production` is intentionally blocked by the code until production
   persistence, queue, secret, and observability adapters are wired.
-- The current API runtime supports `in-memory` repositories by default and optional
-  `durable-json` repositories for local or controlled pilot state.
-- Durable JSON storage is not the approved production source of truth; PostgreSQL adapter wiring
-  remains required before claiming production readiness.
+- The current API runtime supports `in-memory`, `durable-json`, and `postgresql` repository
+  profiles.
+- The local Compose stack defaults to the PostgreSQL repository profile for the current
+  `InstanceRepositoryPort` vertical slice.
+- Durable JSON storage remains a development/bootstrap fallback and is not the approved production
+  source of truth.
+- PostgreSQL coverage is still partial: the first implemented source-state adapter is Instance.
+  Health/readiness still uses a local in-memory projection fallback. Additional repositories, queue,
+  secrets, observability, and provider runtime work remain required before claiming production
+  readiness.
 - PostgreSQL, Redis, and Object Storage remain required production architecture components, but the
   current runtime does not wire them as production adapters yet.
 
@@ -41,10 +47,20 @@ The local Compose stack defaults to:
 
 | Variable                          | Default                          | Purpose                                  |
 | --------------------------------- | -------------------------------- | ---------------------------------------- |
-| `OMNIWA_API_REPOSITORY_PROFILE`   | `durable-json`                   | Persist local repository state to volume |
+| `OMNIWA_API_REPOSITORY_PROFILE`   | `postgresql`                     | Use PostgreSQL for implemented repos     |
 | `OMNIWA_API_REPOSITORY_STATE_DIR` | `/var/lib/omniwa/repositories`   | Container repository state directory     |
+| `OMNIWA_POSTGRES_DATABASE_URL`    | Compose-internal PostgreSQL URL  | API runtime PostgreSQL connection        |
+| `OMNIWA_POSTGRES_AUTO_MIGRATE`    | `true`                           | Run idempotent local migration on access |
+| `OMNIWA_POSTGRES_PUBLIC_PORT`     | `55432`                          | Host port for optional integration tests |
 | `OMNIWA_EVENT_LOG_PATH`           | `/var/lib/omniwa/event-log.json` | Container realtime event-log path        |
 | `OMNIWA_API_RUNTIME_PROFILE`      | `local`                          | Keep the runtime in non-production mode  |
+
+Run PostgreSQL-backed repository integration tests against the local stack:
+
+```sh
+OMNIWA_POSTGRES_TEST_DATABASE_URL=postgresql://omniwa:omniwa-local-password@127.0.0.1:55432/omniwa \
+  pnpm exec vitest run packages/infrastructure-persistence/src/postgresql-repositories.spec.ts
+```
 
 ## Production Template
 
@@ -67,6 +83,8 @@ Production template rules:
 - Keep PostgreSQL, Redis, Object Storage, and backup storage private.
 - Do not set `OMNIWA_API_RUNTIME_PROFILE=production` until the P0 production adapters are complete.
 - Do not treat `OMNIWA_API_REPOSITORY_PROFILE=durable-json` as a production database substitute.
+- Keep `OMNIWA_POSTGRES_AUTO_MIGRATE=false` unless an explicit migration operation has been
+  approved for that environment.
 - Do not claim production readiness until `docs/platform-evolution/PRODUCTION_EXECUTION_PLAN.md`
   gates are satisfied.
 

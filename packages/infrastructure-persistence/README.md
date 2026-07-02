@@ -12,8 +12,9 @@ evolution seams.
 ## Current Status
 
 This package contains in-memory and durable JSON implementations plus PostgreSQL adapter foundation
-work. Treat durable JSON as development/bootstrap infrastructure, not the final production database
-adapter.
+work. The PostgreSQL foundation currently includes the first `InstanceRepositoryPort` vertical
+slice and migration runner. Treat durable JSON as development/bootstrap infrastructure, not the
+final production database adapter.
 
 ## Quality Expectations
 
