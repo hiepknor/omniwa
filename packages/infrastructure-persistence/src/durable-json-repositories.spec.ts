@@ -42,7 +42,10 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createDurableJsonReadProjectionStore } from "./durable-json-read-projection-store.js";
 import { createDurableJsonRepositorySet } from "./durable-json-repositories.js";
-import { describeInstanceRepositoryContract } from "./repository-contracts.spec-helper.js";
+import {
+  describeInstanceRepositoryContract,
+  describeWorkerJobRepositoryContract,
+} from "./repository-contracts.spec-helper.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -61,6 +64,11 @@ afterEach(() => {
 describeInstanceRepositoryContract({
   name: "durable-json",
   create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).instanceRepository,
+});
+
+describeWorkerJobRepositoryContract({
+  name: "durable-json",
+  create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).workerJobRepository,
 });
 
 describe("durable JSON repository adapters", () => {

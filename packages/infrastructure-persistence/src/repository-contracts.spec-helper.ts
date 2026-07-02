@@ -1,10 +1,19 @@
 import {
   createInstance,
   createInstanceId,
+  createAttemptNumber,
+  createIdempotencyKey,
+  createJobId,
+  createRetryPolicy,
   createSessionId,
   markInstanceConnected,
   markInstanceConnecting,
+  queueWorkerJob,
+  reserveWorkerJob,
   type InstanceRepositoryPort,
+  type IdempotencyKey,
+  type JobId,
+  type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -70,6 +79,100 @@ export function describeInstanceRepositoryContract(
 
       await expect(repository.getCurrentSessionId(instanceId)).resolves.toBe(sessionId);
     });
+  });
+}
+
+export type WorkerJobRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): WorkerJobRepositoryPort &
+    Partial<{
+      recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): Promise<void> | void;
+    }>;
+}>;
+
+export function describeWorkerJobRepositoryContract(
+  factory: WorkerJobRepositoryContractFactory,
+): void {
+  describe(`${factory.name} WorkerJobRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and reports aggregate existence by JobId", async () => {
+      const repository = factory.create();
+      const jobId = createJobId(`${safeFactoryName(factory.name)}-job-load`);
+      const workerJob = queueWorkerJob(
+        jobId,
+        "operations",
+        "outbound_message",
+        standardRetryPolicy(),
+      );
+
+      await expect(repository.exists(jobId)).resolves.toBe(false);
+      await repository.save(workerJob);
+
+      await expect(repository.exists(jobId)).resolves.toBe(true);
+      await expect(repository.load(jobId)).resolves.toEqual(workerJob);
+    });
+
+    it("filters jobs by status and owner context", async () => {
+      const repository = factory.create();
+      const queued = queueWorkerJob(
+        createJobId(`${safeFactoryName(factory.name)}-job-queued`),
+        "operations",
+        "outbound_message",
+        standardRetryPolicy(),
+      );
+      const reserved = reserveWorkerJob(
+        queueWorkerJob(
+          createJobId(`${safeFactoryName(factory.name)}-job-reserved`),
+          "webhook_delivery",
+          "webhook_delivery",
+          standardRetryPolicy(),
+        ),
+        createAttemptNumber(1),
+      );
+
+      await repository.save(queued);
+      await repository.save(reserved);
+
+      await expect(repository.findByStatus("queued")).resolves.toEqual([queued]);
+      await expect(repository.findByStatus("reserved")).resolves.toEqual([reserved]);
+      await expect(repository.findByOwnerContext("operations")).resolves.toEqual([queued]);
+      await expect(repository.findByOwnerContext("webhook_delivery")).resolves.toEqual([reserved]);
+    });
+
+    it("resolves idempotency keys when the adapter supports the optional index", async () => {
+      const repository = factory.create();
+      const recordIdempotencyKey = repository.recordIdempotencyKey;
+
+      if (recordIdempotencyKey === undefined) {
+        return;
+      }
+
+      const jobId = createJobId(`${safeFactoryName(factory.name)}-job-idempotency`);
+      const idempotencyKey = createIdempotencyKey(`${safeFactoryName(factory.name)}-idem-job`);
+      const workerJob = queueWorkerJob(
+        jobId,
+        "operations",
+        "outbound_message",
+        standardRetryPolicy(),
+      );
+
+      await repository.save(workerJob);
+      await recordIdempotencyKey.call(repository, idempotencyKey, jobId);
+
+      await expect(repository.findByIdempotencyKey(idempotencyKey)).resolves.toEqual(workerJob);
+    });
+  });
+}
+
+function standardRetryPolicy(): ReturnType<typeof createRetryPolicy> {
+  return createRetryPolicy({
+    maxAttempts: 3,
+    initialDelayMilliseconds: 100,
+    backoffMultiplier: 2,
   });
 }
 

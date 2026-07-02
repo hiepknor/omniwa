@@ -75,6 +75,29 @@ describe("InMemoryQueueProvider", () => {
     ).resolves.toEqual(await workerJobs.load(jobId));
   });
 
+  it("awaits asynchronous repository idempotency recording before enqueue returns", async () => {
+    const workerJobs = new AsyncIdempotencyWorkerJobRepository();
+    const queue = new InMemoryQueueProvider({ workerJobRepository: workerJobs });
+    const jobId = createJobId("queue-job-async-idempotency");
+
+    const enqueue = await queue.enqueue(
+      {
+        jobId,
+        ownerContext: "messaging",
+        ownerRef: "message-async-idempotency",
+        workType: "outbound_message",
+        retryPolicy,
+        idempotencyKey: "message-async-idempotency-send",
+      },
+      context,
+    );
+
+    expectOk(enqueue);
+    await expect(
+      workerJobs.findByIdempotencyKey(createIdempotencyKey("message-async-idempotency-send")),
+    ).resolves.toEqual(await workerJobs.load(jobId));
+  });
+
   it("reserves work once and persists the WorkerJob reservation attempt", async () => {
     const workerJobs = new TestWorkerJobRepository();
     const queue = new InMemoryQueueProvider({ workerJobRepository: workerJobs });
@@ -457,5 +480,12 @@ class TestWorkerJobRepository implements WorkerJobRepositoryPort {
 
   recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): void {
     this.jobIdByIdempotencyKey.set(String(idempotencyKey), jobId);
+  }
+}
+
+class AsyncIdempotencyWorkerJobRepository extends TestWorkerJobRepository {
+  override async recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    super.recordIdempotencyKey(idempotencyKey, jobId);
   }
 }

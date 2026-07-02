@@ -39,7 +39,7 @@ type QueueEntryState = "available" | "reserved" | "completed" | "dead";
 
 type IdempotencyAwareWorkerJobRepository = WorkerJobRepositoryPort &
   Partial<{
-    recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): void;
+    recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): Promise<void> | void;
   }>;
 
 type QueueEntry = {
@@ -121,7 +121,7 @@ export class InMemoryQueueProvider implements QueueProviderPort {
       );
 
       await this.workerJobRepository.save(workerJob);
-      this.workerJobRepository.recordIdempotencyKey?.(idempotencyKey, work.jobId);
+      await this.workerJobRepository.recordIdempotencyKey?.(idempotencyKey, work.jobId);
       this.jobIdByIdempotencyKey.set(String(idempotencyKey), work.jobId);
       this.entries.set(this.keyFor(work.jobId), {
         work,

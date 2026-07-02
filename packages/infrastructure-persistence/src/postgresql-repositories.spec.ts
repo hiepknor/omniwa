@@ -4,6 +4,7 @@ import type { FieldDef, QueryResult, QueryResultRow } from "pg";
 import {
   createPostgresqlConnectionPool,
   PostgresqlInstanceRepository,
+  PostgresqlWorkerJobRepository,
   postgresqlInstanceRepositoryMigrations,
   runPostgresqlSqlMigrations,
   type PostgresqlConnection,
@@ -11,6 +12,7 @@ import {
   type PostgresqlTransactionClient,
 } from "./postgresql-repositories.js";
 import { describeInstanceRepositoryContract } from "./repository-contracts.spec-helper.js";
+import { describeWorkerJobRepositoryContract } from "./repository-contracts.spec-helper.js";
 
 describe("PostgreSQL migration runner", () => {
   it("applies migration statements inside an explicit transaction and records the migration", async () => {
@@ -55,15 +57,22 @@ describe("PostgreSQL migration runner", () => {
     );
   });
 
-  it("defines the InstanceRepositoryPort storage migration explicitly", () => {
+  it("defines the PostgreSQL repository storage migrations explicitly", () => {
     expect(postgresqlInstanceRepositoryMigrations).toEqual([
       expect.objectContaining({
         id: "pgm_20260702_0001_instance_repository",
         description: expect.stringContaining("InstanceRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260702_0002_worker_job_repository",
+        description: expect.stringContaining("WorkerJobRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[1]?.statements.join("\n")).toContain(
+      "omniwa_worker_jobs",
     );
   });
 });
@@ -71,18 +80,18 @@ describe("PostgreSQL migration runner", () => {
 const postgresqlTestDatabaseUrl = process.env.OMNIWA_POSTGRES_TEST_DATABASE_URL?.trim();
 
 if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length === 0) {
-  describe.skip("PostgreSQL InstanceRepositoryPort contract", () => {
+  describe.skip("PostgreSQL repository contracts", () => {
     it("requires OMNIWA_POSTGRES_TEST_DATABASE_URL to run", () => {
       expect(true).toBe(true);
     });
   });
 } else {
-  describe("PostgreSQL InstanceRepositoryPort contract", () => {
+  describe("PostgreSQL repository contracts", () => {
     const connection = createPostgresqlConnectionPool(postgresqlTestDatabaseUrl);
 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
-      await connection.query("TRUNCATE TABLE omniwa_instances");
+      await connection.query("TRUNCATE TABLE omniwa_worker_jobs, omniwa_instances");
     });
 
     afterAll(async () => {
@@ -92,6 +101,11 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeInstanceRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlInstanceRepository(connection),
+    });
+
+    describeWorkerJobRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlWorkerJobRepository(connection),
     });
   });
 }

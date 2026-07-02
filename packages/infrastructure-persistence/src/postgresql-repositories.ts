@@ -1,15 +1,29 @@
 import {
   createDomainEvent,
+  createAttemptNumber,
+  createDeadLetterReason,
+  createDomainOwnerContext,
+  createFailureCategory,
   createInstanceId,
   createInstanceStatus,
+  createIdempotencyKey,
+  createJobId,
+  createJobStatus,
+  createRetryPolicy,
   createSessionId,
   type DomainEvent,
+  type DomainOwnerContext,
+  type IdempotencyKey,
   type Instance,
   type InstanceId,
   type InstanceRepositoryPort,
   type InstanceStatus,
+  type JobId,
+  type JobStatus,
   type RepositorySaveResult,
   type SessionId,
+  type WorkerJob,
+  type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import { Pool, type PoolConfig, type QueryResult, type QueryResultRow } from "pg";
 
@@ -48,9 +62,10 @@ export type PostgresqlRepositorySetOptions = Readonly<{
 
 export type PostgresqlRepositorySet = Readonly<{
   instanceRepository: PostgresqlInstanceRepository;
+  workerJobRepository: PostgresqlWorkerJobRepository;
 }>;
 
-export const postgresqlInstanceRepositoryMigrations = Object.freeze([
+export const postgresqlRepositoryMigrations = Object.freeze([
   Object.freeze({
     id: "pgm_20260702_0001_instance_repository",
     description: "Create PostgreSQL source-state storage for InstanceRepositoryPort.",
@@ -67,7 +82,27 @@ export const postgresqlInstanceRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_instances_non_terminal_idx ON omniwa_instances (status) WHERE status <> 'destroyed'",
     ]),
   }),
+  Object.freeze({
+    id: "pgm_20260702_0002_worker_job_repository",
+    description: "Create PostgreSQL source-state storage for WorkerJobRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_worker_jobs (
+        id text PRIMARY KEY,
+        status text NOT NULL,
+        owner_context text NOT NULL,
+        work_type text NOT NULL,
+        idempotency_key text NULL UNIQUE,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_status_idx ON omniwa_worker_jobs (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_owner_context_idx ON omniwa_worker_jobs (owner_context)",
+      "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_work_type_idx ON omniwa_worker_jobs (work_type)",
+    ]),
+  }),
 ]) satisfies readonly PostgresqlSqlMigration[];
+
+export const postgresqlInstanceRepositoryMigrations = postgresqlRepositoryMigrations;
 
 const schemaMigrationTableSql = `CREATE TABLE IF NOT EXISTS omniwa_schema_migrations (
   id text PRIMARY KEY,
@@ -111,7 +146,7 @@ export function createPostgresqlConnectionPool(config: PoolConfig | string): Pos
 
 export async function runPostgresqlSqlMigrations(
   connection: PostgresqlConnection,
-  migrations: readonly PostgresqlSqlMigration[] = postgresqlInstanceRepositoryMigrations,
+  migrations: readonly PostgresqlSqlMigration[] = postgresqlRepositoryMigrations,
 ): Promise<PostgresqlSqlMigrationRunResult> {
   const client = await connection.connect();
   const appliedMigrationIds: string[] = [];
@@ -169,6 +204,9 @@ export function createPostgresqlRepositorySet(
 
   return Object.freeze({
     instanceRepository: new PostgresqlInstanceRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    workerJobRepository: new PostgresqlWorkerJobRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
   });
@@ -281,7 +319,141 @@ export class PostgresqlInstanceRepository implements InstanceRepositoryPort {
   }
 }
 
+export type PostgresqlWorkerJobRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlWorkerJobRepository implements WorkerJobRepositoryPort {
+  private readonly connection: PostgresqlQueryExecutor;
+  private readonly migrationBarrier: (() => Promise<void>) | undefined;
+
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlWorkerJobRepositoryOptions = {},
+  ) {
+    this.connection = connection;
+    this.migrationBarrier = options.migrationBarrier;
+  }
+
+  async load(id: JobId): Promise<WorkerJob | undefined> {
+    await this.ensureReady();
+
+    const result = await this.connection.query<WorkerJobRow>(
+      "SELECT aggregate FROM omniwa_worker_jobs WHERE id = $1",
+      [keyOf(id)],
+    );
+    const row = result.rows[0];
+
+    return row === undefined ? undefined : decodeWorkerJobAggregate(row.aggregate);
+  }
+
+  async save(workerJob: WorkerJob): Promise<RepositorySaveResult> {
+    await this.ensureReady();
+
+    const existingIdempotencyKey = await this.findIdempotencyKeyByJobId(workerJob.id);
+
+    await this.connection.query(
+      `INSERT INTO omniwa_worker_jobs (
+        id,
+        status,
+        owner_context,
+        work_type,
+        idempotency_key,
+        aggregate,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, now())
+      ON CONFLICT (id) DO UPDATE SET
+        status = EXCLUDED.status,
+        owner_context = EXCLUDED.owner_context,
+        work_type = EXCLUDED.work_type,
+        idempotency_key = COALESCE(omniwa_worker_jobs.idempotency_key, EXCLUDED.idempotency_key),
+        aggregate = EXCLUDED.aggregate,
+        updated_at = now()`,
+      [
+        keyOf(workerJob.id),
+        workerJob.status,
+        workerJob.ownerContext,
+        workerJob.workType,
+        existingIdempotencyKey,
+        JSON.stringify(workerJob),
+      ],
+    );
+
+    return Object.freeze({ saved: true });
+  }
+
+  async exists(id: JobId): Promise<boolean> {
+    await this.ensureReady();
+
+    const result = await this.connection.query("SELECT 1 FROM omniwa_worker_jobs WHERE id = $1", [
+      keyOf(id),
+    ]);
+
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async findByStatus(status: JobStatus): Promise<readonly WorkerJob[]> {
+    await this.ensureReady();
+
+    const result = await this.connection.query<WorkerJobRow>(
+      "SELECT aggregate FROM omniwa_worker_jobs WHERE status = $1 ORDER BY id ASC",
+      [createJobStatus(status)],
+    );
+
+    return Object.freeze(result.rows.map((row) => decodeWorkerJobAggregate(row.aggregate)));
+  }
+
+  async findByOwnerContext(ownerContext: DomainOwnerContext): Promise<readonly WorkerJob[]> {
+    await this.ensureReady();
+
+    const result = await this.connection.query<WorkerJobRow>(
+      "SELECT aggregate FROM omniwa_worker_jobs WHERE owner_context = $1 ORDER BY id ASC",
+      [createDomainOwnerContext(ownerContext)],
+    );
+
+    return Object.freeze(result.rows.map((row) => decodeWorkerJobAggregate(row.aggregate)));
+  }
+
+  async findByIdempotencyKey(idempotencyKey: IdempotencyKey): Promise<WorkerJob | undefined> {
+    await this.ensureReady();
+
+    const result = await this.connection.query<WorkerJobRow>(
+      "SELECT aggregate FROM omniwa_worker_jobs WHERE idempotency_key = $1",
+      [keyOf(createIdempotencyKey(keyOf(idempotencyKey)))],
+    );
+    const row = result.rows[0];
+
+    return row === undefined ? undefined : decodeWorkerJobAggregate(row.aggregate);
+  }
+
+  async recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): Promise<void> {
+    await this.ensureReady();
+
+    await this.connection.query(
+      "UPDATE omniwa_worker_jobs SET idempotency_key = $1, updated_at = now() WHERE id = $2",
+      [keyOf(createIdempotencyKey(keyOf(idempotencyKey))), keyOf(jobId)],
+    );
+  }
+
+  private async findIdempotencyKeyByJobId(jobId: JobId): Promise<string | null> {
+    const result = await this.connection.query<{ idempotency_key: string | null }>(
+      "SELECT idempotency_key FROM omniwa_worker_jobs WHERE id = $1",
+      [keyOf(jobId)],
+    );
+
+    return result.rows[0]?.idempotency_key ?? null;
+  }
+
+  private ensureReady(): Promise<void> {
+    return this.migrationBarrier?.() ?? Promise.resolve();
+  }
+}
+
 type InstanceRow = QueryResultRow & {
+  aggregate: unknown;
+};
+
+type WorkerJobRow = QueryResultRow & {
   aggregate: unknown;
 };
 
@@ -319,6 +491,47 @@ function decodeInstanceAggregate(value: unknown): Instance {
   });
 }
 
+function decodeWorkerJobAggregate(value: unknown): WorkerJob {
+  const aggregate = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+
+  if (!isRecord(aggregate)) {
+    throw new TypeError("PostgreSQL WorkerJob aggregate must be an object.");
+  }
+
+  const retryPolicy = decodeRetryPolicy(aggregate.retryPolicy, "WorkerJob.retryPolicy");
+
+  return Object.freeze({
+    id: createJobId(requiredString(aggregate.id, "WorkerJob.id")),
+    ownerContext: createDomainOwnerContext(
+      requiredString(aggregate.ownerContext, "WorkerJob.ownerContext"),
+    ),
+    workType: requiredString(aggregate.workType, "WorkerJob.workType"),
+    status: createJobStatus(requiredString(aggregate.status, "WorkerJob.status")),
+    retryPolicy,
+    ...optional(
+      "attemptNumber",
+      optionalNumber(aggregate.attemptNumber, "WorkerJob.attemptNumber", (value) =>
+        createAttemptNumber(value, retryPolicy),
+      ),
+    ),
+    ...optional(
+      "failureCategory",
+      optionalString(aggregate.failureCategory, "WorkerJob.failureCategory", createFailureCategory),
+    ),
+    ...optional(
+      "deadLetterReason",
+      optionalDeadLetterReason(aggregate.deadLetterReason, "WorkerJob.deadLetterReason"),
+    ),
+    recoveryActionRequired: requiredBoolean(
+      aggregate.recoveryActionRequired,
+      "WorkerJob.recoveryActionRequired",
+    ),
+    domainEvents: Object.freeze(
+      requiredArray(aggregate.domainEvents, "WorkerJob.domainEvents").map(decodeDomainEvent),
+    ),
+  });
+}
+
 function decodeDomainEvent(value: unknown): DomainEvent {
   if (!isRecord(value)) {
     throw new TypeError("PostgreSQL Instance domain event must be an object.");
@@ -352,6 +565,71 @@ function optionalString<TValue extends string>(
   }
 
   return factory(requiredString(value, label));
+}
+
+function optionalNumber<TValue extends number>(
+  value: unknown,
+  label: string,
+  factory: (value: number) => TValue,
+): TValue | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new TypeError(`${label} must be a finite number.`);
+  }
+
+  return factory(value);
+}
+
+function decodeRetryPolicy(value: unknown, label: string): ReturnType<typeof createRetryPolicy> {
+  if (!isRecord(value)) {
+    throw new TypeError(`${label} must be an object.`);
+  }
+
+  return createRetryPolicy({
+    maxAttempts: requiredNumber(value.maxAttempts, `${label}.maxAttempts`),
+    initialDelayMilliseconds: requiredNumber(
+      value.initialDelayMilliseconds,
+      `${label}.initialDelayMilliseconds`,
+    ),
+    backoffMultiplier: requiredNumber(value.backoffMultiplier, `${label}.backoffMultiplier`),
+  });
+}
+
+function optionalDeadLetterReason(
+  value: unknown,
+  label: string,
+): ReturnType<typeof createDeadLetterReason> | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    throw new TypeError(`${label} must be an object.`);
+  }
+
+  return createDeadLetterReason({
+    code: requiredString(value.code, `${label}.code`),
+    category: requiredString(value.category, `${label}.category`),
+  });
+}
+
+function requiredBoolean(value: unknown, label: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new TypeError(`${label} must be a boolean.`);
+  }
+
+  return value;
+}
+
+function requiredNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new TypeError(`${label} must be a finite number.`);
+  }
+
+  return value;
 }
 
 function requiredArray(value: unknown, label: string): readonly unknown[] {
