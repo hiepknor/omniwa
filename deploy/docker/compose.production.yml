@@ -1,0 +1,40 @@
+name: omniwa-production
+
+services:
+  api:
+    image: ${OMNIWA_IMAGE:?Set OMNIWA_IMAGE to a built OmniWA image tag}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Current implementation intentionally rejects OMNIWA_API_RUNTIME_PROFILE=production
+      # until production persistence, queue, secret, and observability adapters are wired.
+      OMNIWA_API_RUNTIME_PROFILE: ${OMNIWA_API_RUNTIME_PROFILE:?Set local for controlled pilot only, or production after P0 adapters are complete}
+      OMNIWA_API_HOST: 0.0.0.0
+      OMNIWA_API_PORT: 3000
+      OMNIWA_API_KEY: ${OMNIWA_API_KEY:?Set OMNIWA_API_KEY from a secret manager or protected env file}
+      OMNIWA_API_KEY_ID: ${OMNIWA_API_KEY_ID:?Set OMNIWA_API_KEY_ID}
+      OMNIWA_API_KEY_KIND: ${OMNIWA_API_KEY_KIND:-admin_key}
+      OMNIWA_API_KEY_SCOPES: ${OMNIWA_API_KEY_SCOPES:-admin:*}
+      OMNIWA_EVENT_LOG_PATH: /var/lib/omniwa/event-log.json
+    ports:
+      - "127.0.0.1:${OMNIWA_API_PUBLIC_PORT:-3000}:3000"
+    volumes:
+      - omniwa-production-data:/var/lib/omniwa
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:3000/v1/health'',{headers:{''x-api-key'':process.env.OMNIWA_API_KEY}}).then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  omniwa-production-data:

@@ -1,0 +1,36 @@
+name: omniwa-local
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: runtime
+    image: omniwa/api:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      OMNIWA_API_RUNTIME_PROFILE: local
+      OMNIWA_API_HOST: 0.0.0.0
+      OMNIWA_API_PORT: 3000
+      OMNIWA_API_KEY: ${OMNIWA_API_KEY:-local-dev-secret-change-me}
+      OMNIWA_API_KEY_ID: ${OMNIWA_API_KEY_ID:-local-dev-key}
+      OMNIWA_API_KEY_KIND: ${OMNIWA_API_KEY_KIND:-admin_key}
+      OMNIWA_EVENT_LOG_PATH: /var/lib/omniwa/event-log.json
+    ports:
+      - "${OMNIWA_API_PUBLIC_PORT:-3000}:3000"
+    volumes:
+      - omniwa-local-data:/var/lib/omniwa
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:3000/v1/health'',{headers:{''x-api-key'':process.env.OMNIWA_API_KEY}}).then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  omniwa-local-data:

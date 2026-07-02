@@ -159,6 +159,12 @@ The repository has completed planning and now includes the Phase 8 Sprint 0 impl
 |   |-- engineering/
 |   |-- infrastructure/
 |   `-- persistence/
+|-- deploy/
+|   `-- docker/
+|       |-- env/
+|       |-- Dockerfile
+|       |-- compose.local.yml
+|       `-- compose.production.yml
 |-- packages/
 |   |-- application/
 |   |-- config/
