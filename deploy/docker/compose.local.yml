@@ -60,6 +60,24 @@ services:
       postgres:
         condition: service_healthy
 
+  webhook-dispatcher:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: runtime
+    image: omniwa:local
+    command: ["node", "apps/webhook-dispatcher/dist/index.js"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: local
+      OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: ${OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE:-durable-json}
+      OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_STATE_DIR: /var/lib/omniwa/webhook-dispatcher
+      OMNIWA_WEBHOOK_DISPATCHER_LOOP_INTERVAL_MS: ${OMNIWA_WEBHOOK_DISPATCHER_LOOP_INTERVAL_MS:-5000}
+      OMNIWA_WEBHOOK_DISPATCHER_RETRY_DELAY_MS: ${OMNIWA_WEBHOOK_DISPATCHER_RETRY_DELAY_MS:-1000}
+    volumes:
+      - omniwa-local-data:/var/lib/omniwa
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
