@@ -1,0 +1,629 @@
+{
+  "client": "omniwa-tui",
+  "contractVersion": "0.1.0",
+  "apiVersion": "v1",
+  "statusEnum": [
+    "implemented_public",
+    "route_exists_not_implemented",
+    "internal_only",
+    "missing",
+    "deprecated",
+    "unknown"
+  ],
+  "sourceOfTruth": {
+    "openapi": "docs/api/openapi/omniwa-v1.openapi.json",
+    "httpServer": "apps/api/src/http-server.ts",
+    "applicationDispatcher": "packages/application/src/services/application-dispatcher.ts",
+    "publicDtoMapper": "apps/api/src/public-resource-dto.ts"
+  },
+  "runtime": {
+    "defaultLocalBaseUrl": "http://127.0.0.1:3000",
+    "basePath": "/v1",
+    "auth": {
+      "type": "apiKey",
+      "header": "x-api-key"
+    },
+    "requestHeaders": {
+      "requestId": "x-request-id",
+      "correlationId": "x-correlation-id",
+      "traceId": "x-trace-id",
+      "idempotencyKey": "idempotency-key",
+      "sseLastEventId": "Last-Event-ID"
+    },
+    "responseHeaders": ["x-request-id", "x-correlation-id"],
+    "successEnvelope": {
+      "data": "object|array",
+      "meta": {
+        "requestId": "string",
+        "correlationId": "string",
+        "timestamp": "date-time"
+      }
+    },
+    "collectionEnvelope": {
+      "data": "array",
+      "meta": {
+        "requestId": "string",
+        "correlationId": "string",
+        "timestamp": "date-time",
+        "query": "object",
+        "pagination": "object"
+      }
+    },
+    "errorEnvelope": {
+      "error": {
+        "code": "string",
+        "message": "string",
+        "details": "object"
+      },
+      "meta": {
+        "requestId": "string",
+        "correlationId": "string",
+        "timestamp": "date-time"
+      }
+    },
+    "pagination": {
+      "cursorParam": "cursor",
+      "limitParam": "limit",
+      "defaultLimit": 50,
+      "maxLimit": 200,
+      "cursorOpaque": true
+    },
+    "filtering": {
+      "searchParam": "search",
+      "sortParam": "sort",
+      "unsupportedFilterError": "unsupported_filter",
+      "unsupportedSortError": "unsupported_sort"
+    }
+  },
+  "tuiGuidance": {
+    "mustUsePublicRestOrSseOnly": true,
+    "mustNotCallInternalCommandOrQueryHandlers": true,
+    "mustTreatRouteExistsNotImplementedAsDisabledAction": true,
+    "mustPreserveRequestAndCorrelationIds": true,
+    "recommendedInitialScreens": ["health", "instances", "eventsStream"],
+    "disabledUntilBackendHandlersExist": [
+      "sessions",
+      "chats",
+      "contacts",
+      "groups",
+      "messages",
+      "queue",
+      "jobs",
+      "webhooks",
+      "audit",
+      "settings",
+      "metrics"
+    ]
+  },
+  "resources": {
+    "health": {
+      "status": "implemented_public",
+      "recommendedForTui": true,
+      "dto": "HealthDto",
+      "notes": "Usable for backend connectivity and health state."
+    },
+    "instances": {
+      "status": "implemented_public",
+      "recommendedForTui": true,
+      "dto": "InstanceDto|OperationData",
+      "notes": "List and create routes are public. Current real dispatcher persists created instances but list item payloads are not materialized yet in the public collection."
+    },
+    "sessions": {
+      "status": "missing",
+      "recommendedForTui": false,
+      "dto": "SessionDto",
+      "notes": "No top-level /v1/sessions route. Instance-scoped sessions route exists but handler is not implemented."
+    },
+    "chats": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "ChatSummaryDto|ChatDetailDto",
+      "notes": "Routes exist under /v1/chats and /v1/instances/{instanceId}/chats, but Application handler is unavailable."
+    },
+    "contacts": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "ContactDto",
+      "notes": "Routes exist but Application handler is unavailable."
+    },
+    "labels": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "LabelDto",
+      "notes": "Routes exist but Application handler is unavailable."
+    },
+    "messages": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "MessageDto|OperationData",
+      "notes": "Read and send routes exist, but Application handlers are unavailable."
+    },
+    "media": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "MediaDto|OperationData",
+      "notes": "Register and status routes exist, but Application handlers are unavailable."
+    },
+    "groups": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "GroupSummaryDto|GroupDetailDto|GroupMemberDto|OperationData",
+      "notes": "Instance-scoped list and group detail/member/action routes exist, but Application handlers are unavailable. Top-level /v1/groups is missing."
+    },
+    "queue": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "MetricsResource",
+      "notes": "Only /v1/queue summary route exists. Queue item/action routes are missing."
+    },
+    "jobs": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "JobDto",
+      "notes": "Read routes exist but Application handlers are unavailable and require jobs:read or admin scope."
+    },
+    "webhooks": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "WebhookDto|WebhookDeliveryDto|OperationData",
+      "notes": "Routes exist but Application handlers are unavailable."
+    },
+    "events": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "EventDto",
+      "notes": "List route exists but Application handler is unavailable."
+    },
+    "eventsStream": {
+      "status": "implemented_public",
+      "recommendedForTui": true,
+      "dto": "RealtimeEventEnvelope",
+      "notes": "SSE transport is public and usable. Current local runtime may only emit heartbeat when event log is empty."
+    },
+    "logs": {
+      "status": "missing",
+      "recommendedForTui": false,
+      "dto": "LogLineDto",
+      "notes": "No public logs route."
+    },
+    "audit": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "AuditEntryDto",
+      "notes": "Route exists under /v1/audit-records, requires admin/audit scope, handler unavailable."
+    },
+    "apiKeys": {
+      "status": "internal_only",
+      "recommendedForTui": false,
+      "dto": "ApiKeyDto",
+      "notes": "API key lifecycle helpers exist internally, but there is no public API key management route."
+    },
+    "settings": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "SettingsDto|OperationData",
+      "notes": "Routes exist under /v1/settings, require admin/config scope, handlers unavailable."
+    },
+    "metrics": {
+      "status": "route_exists_not_implemented",
+      "recommendedForTui": false,
+      "dto": "MetricsResource|DashboardResource",
+      "notes": "Routes exist but Application handlers are unavailable and require monitoring/admin scopes."
+    }
+  },
+  "endpoints": [
+    {
+      "feature": "health",
+      "method": "GET",
+      "path": "/v1/health",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "HealthDto",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "health",
+      "method": "GET",
+      "path": "/v1/health/readiness",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "HealthDto",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "instances",
+      "method": "GET",
+      "path": "/v1/instances",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "InstanceDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status"],
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Collection item payloads are currently not materialized by the real dispatcher."
+    },
+    {
+      "feature": "instances",
+      "method": "POST",
+      "path": "/v1/instances",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "InstanceCreateRequest",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "instances",
+      "method": "GET",
+      "path": "/v1/instances/{instanceId}",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "InstanceDto",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "sessions",
+      "method": "GET",
+      "path": "/v1/sessions",
+      "status": "missing",
+      "authRequired": false,
+      "dto": "SessionDto[]"
+    },
+    {
+      "feature": "sessions",
+      "method": "GET",
+      "path": "/v1/sessions/{sessionId}",
+      "status": "missing",
+      "authRequired": false,
+      "dto": "SessionDto"
+    },
+    {
+      "feature": "sessions",
+      "method": "GET",
+      "path": "/v1/instances/{instanceId}/sessions",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "SessionDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "sessions",
+      "method": "POST",
+      "path": "/v1/instances/{instanceId}/connect",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "sessions",
+      "method": "POST",
+      "path": "/v1/instances/{instanceId}/disconnect",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": false,
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "qr",
+      "method": "POST",
+      "path": "/v1/instances/{instanceId}/qr/refresh",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "qr",
+      "method": "GET",
+      "path": "/v1/instances/{instanceId}/qr",
+      "status": "missing",
+      "authRequired": false,
+      "dto": "QrLoginDto"
+    },
+    {
+      "feature": "chats",
+      "method": "GET",
+      "path": "/v1/chats",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "ChatSummaryDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status", "labelId"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "chats",
+      "method": "GET",
+      "path": "/v1/chats/{chatId}",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "ChatDetailDto",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "chats",
+      "method": "GET",
+      "path": "/v1/chats/{chatId}/messages",
+      "status": "missing",
+      "authRequired": false,
+      "dto": "MessageDto[]"
+    },
+    {
+      "feature": "groups",
+      "method": "GET",
+      "path": "/v1/groups",
+      "status": "missing",
+      "authRequired": false,
+      "dto": "GroupSummaryDto[]"
+    },
+    {
+      "feature": "groups",
+      "method": "GET",
+      "path": "/v1/instances/{instanceId}/groups",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "GroupSummaryDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "groups",
+      "method": "GET",
+      "path": "/v1/groups/{groupId}",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "GroupDetailDto",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "groups",
+      "method": "GET",
+      "path": "/v1/groups/{groupId}/members",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "GroupMemberDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "role", "status"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "groups",
+      "method": "PATCH",
+      "path": "/v1/groups/{groupId}",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "GroupMetadataRequest",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "groups",
+      "method": "POST",
+      "path": "/v1/groups/{groupId}/members",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "GroupMemberRequest",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "messages",
+      "method": "POST",
+      "path": "/v1/instances/{instanceId}/messages/text",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "TextMessageRequest",
+      "responseEnvelope": "SuccessEnvelope"
+    },
+    {
+      "feature": "jobs",
+      "method": "GET",
+      "path": "/v1/jobs",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "JobDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status", "workType", "ownerContext"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "webhooks",
+      "method": "GET",
+      "path": "/v1/webhooks",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "WebhookDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "events",
+      "method": "GET",
+      "path": "/v1/events",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "EventDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "type", "source", "resourceRef"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "eventsStream",
+      "method": "GET",
+      "path": "/v1/events/stream",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "RealtimeEventEnvelope",
+      "queryParams": ["cursor"],
+      "responseEnvelope": "text/event-stream",
+      "notes": "Supports Last-Event-ID resume and heartbeat comments."
+    },
+    {
+      "feature": "logs",
+      "method": "GET",
+      "path": "/v1/logs",
+      "status": "missing",
+      "authRequired": false,
+      "dto": "LogLineDto[]"
+    },
+    {
+      "feature": "audit",
+      "method": "GET",
+      "path": "/v1/audit-records",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "AuditEntryDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "category", "status"],
+      "responseEnvelope": "CollectionEnvelope"
+    },
+    {
+      "feature": "apiKeys",
+      "method": "GET",
+      "path": "/v1/api-keys",
+      "status": "internal_only",
+      "authRequired": false,
+      "dto": "ApiKeyDto[]"
+    },
+    {
+      "feature": "settings",
+      "method": "GET",
+      "path": "/v1/settings",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "SettingsDto",
+      "responseEnvelope": "SuccessEnvelope"
+    }
+  ],
+  "dtoSchemas": {
+    "HealthDto": ["resourceType", "readStatus", "consistency", "freshness", "resultRef"],
+    "InstanceDto": ["resourceType", "id", "status", "displayName", "createdAt", "updatedAt"],
+    "SessionDto": [
+      "resourceType",
+      "id",
+      "instanceId",
+      "status",
+      "createdAt",
+      "updatedAt",
+      "expiresAt"
+    ],
+    "ChatSummaryDto": [
+      "resourceType",
+      "id",
+      "instanceId",
+      "status",
+      "displayName",
+      "type",
+      "unreadCount",
+      "labelIds",
+      "lastMessageAt",
+      "updatedAt"
+    ],
+    "MessageDto": [
+      "resourceType",
+      "id",
+      "instanceId",
+      "chatId",
+      "groupId",
+      "status",
+      "type",
+      "direction",
+      "createdAt",
+      "updatedAt",
+      "deliveredAt",
+      "readAt"
+    ],
+    "GroupDetailDto": [
+      "resourceType",
+      "id",
+      "instanceId",
+      "status",
+      "subject",
+      "description",
+      "memberCount",
+      "adminCount",
+      "muted",
+      "archived",
+      "pinned",
+      "updatedAt"
+    ],
+    "GroupMemberDto": [
+      "resourceType",
+      "id",
+      "groupId",
+      "memberRef",
+      "role",
+      "status",
+      "displayName",
+      "joinedAt",
+      "updatedAt"
+    ],
+    "JobDto": [
+      "resourceType",
+      "id",
+      "status",
+      "workType",
+      "ownerContext",
+      "resourceRef",
+      "attemptCount",
+      "createdAt",
+      "updatedAt",
+      "nextRunAt"
+    ],
+    "WebhookDto": ["resourceType", "id", "status", "eventTypes", "createdAt", "updatedAt"],
+    "EventDto": [
+      "resourceType",
+      "id",
+      "type",
+      "source",
+      "resourceRef",
+      "correlationId",
+      "timestamp"
+    ],
+    "AuditEntryDto": [
+      "resourceType",
+      "id",
+      "category",
+      "status",
+      "action",
+      "auditedResourceType",
+      "resourceRef",
+      "createdAt"
+    ],
+    "SettingsDto": ["resourceType", "id", "status", "profile", "updatedAt"],
+    "RealtimeEventEnvelope": [
+      "id",
+      "cursor",
+      "type",
+      "version",
+      "timestamp",
+      "dataClassification",
+      "source",
+      "payload",
+      "resourceRef",
+      "correlationId"
+    ],
+    "OperationData": [
+      "resourceType",
+      "resourceId",
+      "operationStatus",
+      "accepted",
+      "retryable",
+      "async",
+      "resultRef",
+      "reasonCode"
+    ]
+  },
+  "fixtures": {
+    "healthSuccess": "docs/api/client-contract/fixtures/health.success.json",
+    "authMissingError": "docs/api/client-contract/fixtures/auth.missing.error.json",
+    "instancesEmpty": "docs/api/client-contract/fixtures/instances.empty.json",
+    "instancesList": "docs/api/client-contract/fixtures/instances.list.json",
+    "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
+    "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "missing_or_invalid_api_key",
+    "message": "API request requires a valid x-api-key header.",
+    "details": {
+      "category": "authentication"
+    }
+  },
+  "meta": {
+    "requestId": "tui-auth-fixture",
+    "correlationId": "corr:tui-auth-fixture",
+    "timestamp": "2026-07-02T11:20:09.993Z"
+  }
+}

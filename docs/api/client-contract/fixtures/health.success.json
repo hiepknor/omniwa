@@ -1,0 +1,17 @@
+{
+  "data": {
+    "resourceType": "health",
+    "readStatus": "empty",
+    "consistency": "eventual_projection",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209767
+    },
+    "resultRef": "health:platform:empty"
+  },
+  "meta": {
+    "requestId": "tui-health-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.766Z"
+  }
+}

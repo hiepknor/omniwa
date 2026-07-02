@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "resourceType": "instance",
+      "id": "inst_demo",
+      "status": "connected",
+      "displayName": "Demo instance",
+      "createdAt": "2026-07-02T10:00:00.000Z",
+      "updatedAt": "2026-07-02T11:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-instances-list-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "instance",
+      "readStatus": "result",
+      "consistency": "eventual_projection",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "instances:list:1"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}

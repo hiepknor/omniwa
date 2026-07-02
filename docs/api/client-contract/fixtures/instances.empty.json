@@ -1,0 +1,24 @@
+{
+  "data": [],
+  "meta": {
+    "requestId": "tui-instances-empty-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "instance",
+      "readStatus": "empty",
+      "consistency": "eventual_projection",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "instances:list:0"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}
