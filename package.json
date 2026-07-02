@@ -17,6 +17,7 @@
     "docker:build": "docker build -f deploy/docker/Dockerfile -t omniwa:local .",
     "docker:local": "docker compose -f deploy/docker/compose.local.yml up --build",
     "docker:production": "docker compose --env-file deploy/docker/env/production.env -f deploy/docker/compose.production.yml up -d",
+    "docker:smoke": "node tooling/docker/check-local-stack.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint \"{apps,packages,tooling}/**/*.{ts,mjs}\"",

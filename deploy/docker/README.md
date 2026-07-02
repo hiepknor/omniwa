@@ -45,6 +45,17 @@ Then call:
 curl -H "x-api-key: local-dev-secret-change-me" http://localhost:3000/v1/health
 ```
 
+Run the repeatable local stack smoke check while the stack is running:
+
+```sh
+pnpm docker:smoke
+```
+
+The smoke check verifies that the API, worker, webhook dispatcher, and PostgreSQL services are
+running, that the public health route returns the standard response envelope, that the API can
+create an instance through the public contract, and that the created instance is persisted in the
+local PostgreSQL database.
+
 Override local values by exporting env vars or using `--env-file deploy/docker/env/local.env`.
 
 The local Compose stack defaults to:
