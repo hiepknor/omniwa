@@ -199,6 +199,8 @@ describe("provider runtime composition", () => {
     expect(source).toContain("liveMode: composition.liveMode");
     expect(source).toContain("readiness: composition.readiness");
     expect(source).toContain("localQrOutput: composition.localQrOutput");
+    expect(source).toContain("startProviderRuntimeLocalLiveSession");
+    expect(source).toContain("localLiveSession");
     expect(source).not.toContain("requires MessagingProviderPort and SecretProvider");
   });
 

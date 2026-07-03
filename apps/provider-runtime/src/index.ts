@@ -4,17 +4,29 @@ import {
   createProviderRuntimeComposition,
   createProviderRuntimeCompositionContext,
 } from "./runtime-composition.js";
+import { startProviderRuntimeLocalLiveSession } from "./local-live-session-starter.js";
 
 export * from "./provider-runtime.js";
 export * from "./provider-runtime-app.js";
 export * from "./provider-runtime-supervisor.js";
 export * from "./local-qr-operator-output.js";
+export * from "./local-live-session-starter.js";
 export * from "./runtime-composition.js";
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void runProviderRuntime();
+}
+
+async function runProviderRuntime(): Promise<void> {
   try {
     const composition = createProviderRuntimeComposition();
-    const loop = composition.startDrainLoop(createProviderRuntimeCompositionContext());
+    const context = createProviderRuntimeCompositionContext();
+    const loop = composition.startDrainLoop(context);
+    const localLiveSession = await startProviderRuntimeLocalLiveSession(
+      composition,
+      process.env,
+      context,
+    );
 
     const stop = (signal: NodeJS.Signals): void => {
       loop.shutdown();
@@ -47,6 +59,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
           eventLogPath: composition.paths.eventLogPath,
           authStatePath: composition.paths.authStatePath,
           drainIntervalMilliseconds: loop.intervalMilliseconds,
+          localLiveSession,
         },
         null,
         2,
