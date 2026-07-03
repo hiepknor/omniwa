@@ -80,9 +80,8 @@
     "mustNotCallInternalCommandOrQueryHandlers": true,
     "mustTreatRouteExistsNotImplementedAsDisabledAction": true,
     "mustPreserveRequestAndCorrelationIds": true,
-    "recommendedInitialScreens": ["health", "instances", "eventsStream"],
+    "recommendedInitialScreens": ["health", "instances", "sessions", "eventsStream"],
     "disabledUntilBackendHandlersExist": [
-      "sessions",
       "chats",
       "contacts",
       "groups",
@@ -109,10 +108,10 @@
       "notes": "List and create routes are public. List returns safe instance collection items from the Application query outcome."
     },
     "sessions": {
-      "status": "missing",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "SessionDto",
-      "notes": "No top-level /v1/sessions route. Instance-scoped sessions route exists but handler is not implemented."
+      "notes": "Instance-scoped session list is public at /v1/instances/{instanceId}/sessions. Top-level /v1/sessions remains missing."
     },
     "chats": {
       "status": "route_exists_not_implemented",
@@ -282,11 +281,12 @@
       "feature": "sessions",
       "method": "GET",
       "path": "/v1/instances/{instanceId}/sessions",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "SessionDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "status"],
-      "responseEnvelope": "CollectionEnvelope"
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Returns safe session collection items scoped to the selected instance."
     },
     {
       "feature": "sessions",
@@ -625,6 +625,7 @@
     "instancesEmpty": "docs/api/client-contract/fixtures/instances.empty.json",
     "instancesList": "docs/api/client-contract/fixtures/instances.list.json",
     "instanceDetail": "docs/api/client-contract/fixtures/instance.detail.json",
+    "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
     "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
   }

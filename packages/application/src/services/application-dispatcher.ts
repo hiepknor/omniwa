@@ -6,6 +6,7 @@ import {
   type Instance,
   type InstanceRepositoryPort,
   type MessageRepositoryPort,
+  type Session,
   type SessionRepositoryPort,
 } from "@omniwa/domain";
 import { cryptoUUIDGenerator, systemClock, type Clock, type UUIDGenerator } from "@omniwa/shared";
@@ -169,6 +170,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["GetHealthStatus", (envelope) => this.getHealthStatus(envelope)],
       ["GetInstanceStatus", (envelope) => this.getInstanceStatus(envelope)],
       ["ListInstances", (envelope) => this.listInstances(envelope)],
+      ["ListInstanceSessions", (envelope) => this.listInstanceSessions(envelope)],
     ]);
   }
 
@@ -287,6 +289,31 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     });
   }
 
+  private async listInstanceSessions(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.sessionRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "session_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "instance_target_required",
+      });
+    }
+
+    const sessions = await repository.findByInstance(createInstanceId(envelope.targetRef));
+
+    return queryOutcome(envelope, this.clock, sessions.length === 0 ? "empty" : "result", {
+      resultRef: `sessions:${envelope.targetRef}:list:${sessions.length}`,
+      items: sessions.map(sessionQueryItem),
+    });
+  }
+
   private async getHealthStatus(
     envelope: ApplicationQueryEnvelope,
   ): Promise<ApplicationQueryOutcome> {
@@ -367,6 +394,18 @@ function instanceQueryItem(instance: Instance): Readonly<{
   return Object.freeze({
     id: String(instance.id),
     status: instance.status,
+  });
+}
+
+function sessionQueryItem(session: Session): Readonly<{
+  id: string;
+  instanceId: string;
+  status: Session["status"];
+}> {
+  return Object.freeze({
+    id: String(session.id),
+    instanceId: String(session.instanceId),
+    status: session.status,
   });
 }
 

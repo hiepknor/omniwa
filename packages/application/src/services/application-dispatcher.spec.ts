@@ -1,7 +1,10 @@
 import {
   classifyHealthy,
+  createInstanceId,
   createHealthStatus,
   createHealthStatusId,
+  createSession,
+  createSessionId,
   type HealthCategory,
   type HealthStatus,
   type HealthStatusId,
@@ -11,7 +14,10 @@ import {
   type InstanceRepositoryPort,
   type InstanceStatus,
   type RepositorySaveResult,
+  type Session,
   type SessionId,
+  type SessionRepositoryPort,
+  type SessionStatus,
 } from "@omniwa/domain";
 import {
   createCorrelationId,
@@ -198,6 +204,48 @@ describe("application dispatcher", () => {
     });
   });
 
+  it("executes ListInstanceSessions as a side-effect free repository query", async () => {
+    const session = createSession(createSessionId("sess:one"), createInstanceId("inst:one"));
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        sessionRepository: new FakeSessionRepository([session]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListInstanceSessions",
+        queryRef: "qry-list-instance-sessions",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst:one",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-instance-sessions",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "sessions:inst:one:list:1",
+      items: [
+        {
+          id: "sess:one",
+          instanceId: "inst:one",
+          status: "empty",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
@@ -354,6 +402,50 @@ class FakeHealthStatusRepository implements HealthStatusRepositoryPort {
   }
 
   private list(): readonly HealthStatus[] {
+    return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeSessionRepository implements SessionRepositoryPort {
+  private readonly records = new Map<string, Session>();
+
+  constructor(initialRecords: readonly Session[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: SessionId): Promise<Session | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: Session): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: SessionId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Session[]> {
+    return Promise.resolve(this.list().filter((session) => session.instanceId === instanceId));
+  }
+
+  findByStatusForInstance(
+    instanceId: InstanceId,
+    status: SessionStatus,
+  ): Promise<readonly Session[]> {
+    return Promise.resolve(
+      this.list().filter((session) => session.instanceId === instanceId && session.status === status),
+    );
+  }
+
+  findRecoveryRequired(): Promise<readonly Session[]> {
+    return Promise.resolve(this.list().filter((session) => session.requiresRecovery));
+  }
+
+  private list(): readonly Session[] {
     return Object.freeze([...this.records.values()]);
   }
 }

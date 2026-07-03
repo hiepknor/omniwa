@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "resourceType": "session",
+      "id": "sess_demo",
+      "instanceId": "inst_demo",
+      "status": "active"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-instance-sessions-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "session",
+      "readStatus": "result",
+      "consistency": "eventual_projection",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "sessions:inst_demo:list:1"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}

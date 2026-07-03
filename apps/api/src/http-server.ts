@@ -1564,8 +1564,8 @@ function resourceTypeForQuery(name: string): string {
   if (name.includes("Webhook")) return "webhook";
   if (name.includes("WorkerJob")) return "job";
   if (name.includes("GroupMember")) return "groupMember";
-  if (name.includes("Instance")) return "instance";
   if (name.includes("Session")) return "session";
+  if (name.includes("Instance")) return "instance";
   if (name.includes("Message")) return "message";
   if (name.includes("Media")) return "media";
   if (name.includes("Chat")) return "chat";

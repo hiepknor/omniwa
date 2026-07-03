@@ -734,6 +734,75 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(detailResponse.body)).not.toContain("domainEvents");
   });
 
+  it("materializes instance sessions from the real Application query into public collection items", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        sessionRepository: repositories.sessionRepository,
+      },
+    });
+
+    const createResponse = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-create-instance-sessions",
+          "x-correlation-id": "corr-create-instance-sessions",
+          "idempotency-key": "idem-create-instance-sessions",
+        },
+        body: {},
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-create-instance-sessions",
+      },
+    );
+    const createdResourceId = safeResponseString(createResponse, "resultRef");
+
+    await repositories.sessionRepository.save({
+      id: "sess:demo",
+      instanceId: createdResourceId,
+      status: "empty",
+      requiresRecovery: false,
+      domainEvents: [],
+    } as unknown as Parameters<typeof repositories.sessionRepository.save>[0]);
+
+    const sessionsResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: `/v1/instances/${encodeURIComponent(createdResourceId)}/sessions`,
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-instance-sessions",
+          "x-correlation-id": "corr-list-instance-sessions",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-instance-sessions",
+      },
+    );
+
+    expect(createResponse.statusCode).toBe(200);
+    expect(sessionsResponse.statusCode).toBe(200);
+    expect("data" in sessionsResponse.body ? sessionsResponse.body.data : undefined).toEqual([
+      {
+        resourceType: "session",
+        id: "sess:demo",
+        instanceId: createdResourceId,
+        status: "empty",
+      },
+    ]);
+    expect(JSON.stringify(sessionsResponse.body)).not.toContain("domainEvents");
+  });
+
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
     const dispatcher = new CapturingDispatcher({
       ListGroupMembers: {

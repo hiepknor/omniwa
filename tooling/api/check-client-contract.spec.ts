@@ -130,6 +130,7 @@ function implementedPublicEndpoints() {
     implementedEndpoint("GET", "/v1/health/readiness"),
     implementedEndpoint("GET", "/v1/instances"),
     implementedEndpoint("GET", "/v1/instances/{instanceId}"),
+    implementedEndpoint("GET", "/v1/instances/{instanceId}/sessions"),
     implementedEndpoint("POST", "/v1/instances"),
     implementedEndpoint("GET", "/v1/events/stream"),
   ];
