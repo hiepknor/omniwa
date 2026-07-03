@@ -952,6 +952,79 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(detailResponse.body)).not.toContain("intent_hidden");
   });
 
+  it("materializes webhooks through the public API boundary without exposing target URLs", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        webhookSubscriptionRepository: repositories.webhookSubscriptionRepository,
+      },
+    });
+
+    await repositories.webhookSubscriptionRepository.save({
+      id: "webhook:demo",
+      targetUrl: "https://webhook.example.test/secret-path",
+      status: "proposed",
+      domainEvents: [],
+    } as unknown as Parameters<typeof repositories.webhookSubscriptionRepository.save>[0]);
+
+    const listResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/webhooks",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-webhooks",
+          "x-correlation-id": "corr-list-webhooks",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-webhooks",
+      },
+    );
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: `/v1/webhooks/${encodeURIComponent("webhook:demo")}`,
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-get-webhook",
+          "x-correlation-id": "corr-get-webhook",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-webhook",
+      },
+    );
+
+    expect(listResponse.statusCode).toBe(200);
+    expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([
+      {
+        resourceType: "webhook",
+        id: "webhook:demo",
+        status: "proposed",
+      },
+    ]);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "webhook",
+      resourceId: "webhook:demo",
+      id: "webhook:demo",
+      status: "proposed",
+      readStatus: "result",
+    });
+    expect(JSON.stringify(listResponse.body)).not.toContain("targetUrl");
+    expect(JSON.stringify(listResponse.body)).not.toContain("secret-path");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("targetUrl");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("secret-path");
+  });
+
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
     const dispatcher = new CapturingDispatcher({
       ListGroupMembers: {

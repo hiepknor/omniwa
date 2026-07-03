@@ -7,6 +7,9 @@ import {
   createRetryPolicy,
   createSession,
   createSessionId,
+  createWebhookId,
+  createWebhookSubscription,
+  createWebhookUrl,
   queueWorkerJob,
   type DomainOwnerContext,
   type HealthCategory,
@@ -24,6 +27,10 @@ import {
   type SessionId,
   type SessionRepositoryPort,
   type SessionStatus,
+  type WebhookId,
+  type WebhookSubscription,
+  type WebhookSubscriptionRepositoryPort,
+  type WebhookSubscriptionStatus,
   type WorkerJob,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
@@ -428,6 +435,95 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");
   });
 
+  it("executes ListWebhookSubscriptions through the Webhook repository", async () => {
+    const webhook = createWebhookSubscription(
+      createWebhookId("webhook:one"),
+      createWebhookUrl("https://webhook.example.test/one"),
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookSubscriptionRepository: new FakeWebhookSubscriptionRepository([webhook]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListWebhookSubscriptions",
+        queryRef: "qry-list-webhooks",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-webhooks",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "webhooks:list:1",
+      items: [
+        {
+          id: "webhook:one",
+          status: "proposed",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("targetUrl");
+    expect(JSON.stringify(outcome)).not.toContain("webhook.example.test");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes GetWebhookStatus through the Webhook repository", async () => {
+    const webhook = createWebhookSubscription(
+      createWebhookId("webhook:detail"),
+      createWebhookUrl("https://webhook.example.test/detail"),
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookSubscriptionRepository: new FakeWebhookSubscriptionRepository([webhook]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetWebhookStatus",
+        queryRef: "qry-get-webhook",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "webhook:detail",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-webhook",
+      outcome: "result",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "webhook:webhook:detail:proposed",
+      resource: {
+        id: "webhook:detail",
+        status: "proposed",
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("targetUrl");
+    expect(JSON.stringify(outcome)).not.toContain("webhook.example.test");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
@@ -680,6 +776,41 @@ class FakeWorkerJobRepository implements WorkerJobRepositoryPort {
   }
 
   private list(): readonly WorkerJob[] {
+    return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeWebhookSubscriptionRepository implements WebhookSubscriptionRepositoryPort {
+  private readonly records = new Map<string, WebhookSubscription>();
+
+  constructor(initialRecords: readonly WebhookSubscription[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: WebhookId): Promise<WebhookSubscription | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: WebhookSubscription): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: WebhookId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByStatus(status: WebhookSubscriptionStatus): Promise<readonly WebhookSubscription[]> {
+    return Promise.resolve(this.list().filter((webhook) => webhook.status === status));
+  }
+
+  findActiveForSignal(): Promise<readonly WebhookSubscription[]> {
+    return Promise.resolve(this.list().filter((webhook) => webhook.status === "active"));
+  }
+
+  private list(): readonly WebhookSubscription[] {
     return Object.freeze([...this.records.values()]);
   }
 }

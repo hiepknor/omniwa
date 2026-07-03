@@ -79,6 +79,7 @@ export function createApiRuntimeComposition(
       ...optional("messageRepository", repositories.messageRepository),
       ...optional("guardrailDecisionRepository", repositories.guardrailDecisionRepository),
       ...optional("workerJobRepository", repositories.workerJobRepository),
+      ...optional("webhookSubscriptionRepository", repositories.webhookSubscriptionRepository),
     },
     outboundMessageIntentStore,
     queueProvider,

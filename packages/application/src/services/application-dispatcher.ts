@@ -1,6 +1,7 @@
 import {
   createInstance,
   createInstanceId,
+  createWebhookId,
   type GuardrailDecisionRepositoryPort,
   type HealthStatusRepositoryPort,
   type Instance,
@@ -10,6 +11,9 @@ import {
   type MessageRepositoryPort,
   type Session,
   type SessionRepositoryPort,
+  type WebhookSubscription,
+  type WebhookSubscriptionRepositoryPort,
+  webhookSubscriptionStatuses,
   type WorkerJob,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
@@ -57,6 +61,7 @@ export type ApplicationDispatcherRepositories = Readonly<{
   messageRepository?: MessageRepositoryPort;
   guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
   workerJobRepository?: WorkerJobRepositoryPort;
+  webhookSubscriptionRepository?: WebhookSubscriptionRepositoryPort;
 }>;
 
 export type ApplicationDispatcherOptions = Readonly<{
@@ -183,6 +188,8 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["ListEvents", (envelope) => this.listEvents(envelope)],
       ["ListWorkerJobs", (envelope) => this.listWorkerJobs(envelope)],
       ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
+      ["ListWebhookSubscriptions", (envelope) => this.listWebhookSubscriptions(envelope)],
+      ["GetWebhookStatus", (envelope) => this.getWebhookStatus(envelope)],
     ]);
   }
 
@@ -423,6 +430,60 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       resource: workerJobQueryItem(job),
     });
   }
+
+  private async listWebhookSubscriptions(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.webhookSubscriptionRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "webhook_subscription_repository_not_configured",
+      });
+    }
+
+    const webhooks = (
+      await Promise.all(
+        webhookSubscriptionStatuses.map((status) => repository.findByStatus(status)),
+      )
+    ).flat();
+
+    return queryOutcome(envelope, this.clock, webhooks.length === 0 ? "empty" : "result", {
+      resultRef: `webhooks:list:${webhooks.length}`,
+      items: webhooks.map(webhookSubscriptionQueryItem),
+    });
+  }
+
+  private async getWebhookStatus(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.webhookSubscriptionRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "webhook_subscription_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "webhook_target_required",
+      });
+    }
+
+    const webhook = await repository.load(createWebhookId(envelope.targetRef));
+
+    if (webhook === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `webhook:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `webhook:${webhook.id}:${webhook.status}`,
+      resource: webhookSubscriptionQueryItem(webhook),
+    });
+  }
 }
 
 function commandOutcome(
@@ -527,6 +588,16 @@ function workerJobQueryItem(job: WorkerJob): Readonly<{
     ownerContext: job.ownerContext,
     ...optional("attemptCount", job.attemptNumber),
     ...optional("resourceRef", job.safeMetadata?.messageId ?? job.safeMetadata?.instanceId),
+  });
+}
+
+function webhookSubscriptionQueryItem(webhook: WebhookSubscription): Readonly<{
+  id: string;
+  status: WebhookSubscription["status"];
+}> {
+  return Object.freeze({
+    id: String(webhook.id),
+    status: webhook.status,
   });
 }
 

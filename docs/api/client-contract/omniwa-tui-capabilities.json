@@ -162,10 +162,10 @@
       "notes": "Read routes are public and require jobs:read, monitoring, or admin credentials."
     },
     "webhooks": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "WebhookDto|WebhookDeliveryDto|OperationData",
-      "notes": "Routes exist but Application handlers are unavailable."
+      "notes": "Read routes are public. Public DTO does not expose targetUrl."
     },
     "events": {
       "status": "implemented_public",
@@ -448,11 +448,22 @@
       "feature": "webhooks",
       "method": "GET",
       "path": "/v1/webhooks",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "WebhookDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "status"],
-      "responseEnvelope": "CollectionEnvelope"
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Returns safe webhook subscription collection items. targetUrl is not exposed."
+    },
+    {
+      "feature": "webhooks",
+      "method": "GET",
+      "path": "/v1/webhooks/{webhookId}",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "WebhookDto",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns safe webhook subscription resource data. targetUrl is not exposed."
     },
     {
       "feature": "events",
@@ -641,6 +652,8 @@
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
     "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",
     "jobDetail": "docs/api/client-contract/fixtures/job.detail.json",
+    "webhooksList": "docs/api/client-contract/fixtures/webhooks.list.json",
+    "webhookDetail": "docs/api/client-contract/fixtures/webhook.detail.json",
     "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
   }
