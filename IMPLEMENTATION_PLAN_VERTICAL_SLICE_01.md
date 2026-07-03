@@ -33,7 +33,7 @@ Slice này chứng minh boundary hoạt động end-to-end và mở khóa mọi 
 | 5 | **Provider Receipt** | worker reserve `outbound_message` → `provider.sendOutboundMessage` → `markMessageSent` → nhận receipt → `markMessageDelivered` |
 | 6 | **Webhook Event** | message delivered → `ScheduleWebhookDelivery` (match subscription) → enqueue `webhook_delivery` → webhook-dispatcher deliver → `WebhookDeliverySucceeded` |
 
-**Provider mode cho slice này:** dùng **fake Baileys socket** ở lớp thấp nhất của provider adapter (không cần WhatsApp thật để CI xanh), nhưng viết `BaileysSocketProvider` thật (`makeWASocket` + auth state + event subscription) để chạy được với WhatsApp thật khi cấu hình. Fake chỉ thay ở tầng socket injection, KHÔNG thay adapter.
+**Provider mode cho slice này:** dùng **fake Baileys socket** ở lớp thấp nhất của provider adapter để CI xanh trước, sau đó mới wire `makeWASocket` thật sau khi có đủ `AuthStateStore`, `SignalIngress`, và `ProviderRuntimeSupervisor`. Fake chỉ thay ở tầng socket injection, KHÔNG thay adapter.
 
 **Outbound payload boundary:** REST có thể nhận và validate `to/text`, nhưng raw recipient/message body **không** đi vào Domain và **không** trở thành field của `Message`. Interface/Application chỉ truyền `outboundIntentRef`/`safeInputRef` opaque. Worker/provider resolve `outboundIntentRef` qua adapter ở Infrastructure để lấy `{ jid, content }` cho Baileys.
 
@@ -41,9 +41,9 @@ Slice này chứng minh boundary hoạt động end-to-end và mở khóa mọi 
 
 ## 3. Out of scope (Slice 01 KHÔNG làm)
 
-- Media message, group message, contact/label/chat sync.
-- Reconnect loop tự động, ownership guard phân tán (đa-process).
-- Inbound message ingestion (chỉ outbound + receipt).
+- Media message đầy đủ, group message, contact/label/chat sync.
+- Ownership guard phân tán (đa-process); slice này chỉ khóa **single-instance ownership** có chủ đích.
+- Inbound message persistence/chat sync đầy đủ; slice này chỉ mapping inbound provider signal tối thiểu qua `SignalIngress`.
 - Postgres cho Message/Session/Webhook (slice này dùng in-memory/durable-json; Postgres chỉ Instance/WorkerJob như hiện tại — xem §12).
 - Redis/BullMQ (giữ `InMemoryQueueProvider`).
 - Retry/backoff tinh chỉnh nâng cao (dùng default sẵn có).
@@ -97,8 +97,11 @@ CreateInstance   StartQrPairing / ConfirmSessionActivated       SendTextMessage
                               EventLog (port) ──> SSE /v1/events/stream
 
 apps/provider-runtime (composition thật)
-   └─ ProviderRuntime + BaileysMessagingProviderAdapter + BaileysSocketProvider(makeWASocket)
-        └─ connection.update → QR / connected signals ; messages.update → receipt
+   └─ ProviderRuntimeSupervisor + BaileysMessagingProviderAdapter + BaileysSocketProvider(makeWASocket)
+        ├─ AuthStateStore read/write per sessionId
+        ├─ connection.update → safe QR / connected / disconnected signals
+        ├─ messages.update / inbound messages → safe message_status / inbound_message signals
+        └─ SignalIngress → EventLog / domain workflow routing
 
 apps/worker (loop)
    └─ WorkerRuntime.reserve("outbound_message")
@@ -130,6 +133,7 @@ apps/webhook-dispatcher (loop)
   - `command-handler.ts` — **mới**: type `CommandHandler` / `QueryHandler` + kiểu registry.
 - `services/active-session-resolver.ts` — **mới hoặc helper nội bộ handler**: load active session từ `InstanceRepositoryPort` + `SessionRepositoryPort`, fail closed nếu missing/inactive/stale.
 - `services/domain-event-publisher.ts` — **mới**: publish only-new-events từ aggregate → append vào `EventLogPort` với idempotency key an toàn.
+- `services/provider-signal-ingress.ts` — **mới**: consume `TranslatedProviderSignal` đã sanitize, map auth/connection/message_status/inbound_message/failure sang EventLog/domain workflow tối thiểu, idempotent theo `occurrenceRef`.
 - `index.ts` — **sửa**: export các type/handler cần cho composition (KHÔNG export adapter cụ thể).
 
 ### Interface API (`packages/interface-api/src`)
@@ -137,13 +141,15 @@ apps/webhook-dispatcher (loop)
 
 ### Provider (`packages/infrastructure-provider-baileys/src`)
 - `baileys-socket-provider.fake.ts` hoặc test fixture tương đương — **mới**: fake socket provider để test adapter/runtime không cần WhatsApp thật.
-- `baileys-socket-provider.ts` — **mới**: `BaileysSocketProvider` thật (`makeWASocket`, auth state qua `SecretProvider`).
-- `baileys-signal-mapper.ts` hoặc phần tách trong provider implementation — **mới**: subscribe events → dịch sang signal lifecycle/message status.
+- `baileys-auth-state-store.ts` — **mới**: `AuthStateStore` port + fake/in-memory/durable-json adapter cho Baileys auth state read/write theo `sessionId`; không dùng `SecretProvider` để ghi auth state liên tục.
+- `baileys-socket-provider.ts` — **mới**: `BaileysSocketProvider` contract/fake trước, implementation thật bằng `makeWASocket` sau khi có AuthStateStore + SignalIngress + supervisor.
+- `baileys-signal-mapper.ts` hoặc phần tách trong provider implementation — **mới**: subscribe events → dịch sang safe `TranslatedProviderSignal` lifecycle/message status/inbound/failure.
 - `baileys-outbound-message-resolver.ts` — **mới**: implement `BaileysOutboundMessageResolver`, resolve `outboundIntentRef` từ intent store thành `{ jid, content }` và redaction-safe logs.
 - `index.ts` — **sửa**: export thêm.
 
 ### Apps
-- `apps/provider-runtime/src/runtime-composition.ts` — **mới**: composition root thật.
+- `apps/provider-runtime/src/provider-runtime-supervisor.ts` — **mới**: long-lived supervisor/loop giữ socket sống, start/stop session, drain signals, enforce single-instance ownership guard.
+- `apps/provider-runtime/src/runtime-composition.ts` — **mới**: composition root thật, wire AuthStateStore + SignalIngress + supervisor.
 - `apps/provider-runtime/src/index.ts` — **sửa**: thay stub bằng composition thật (giữ guard fail-fast profile production).
 - `apps/api/src/runtime-composition.ts` — **sửa**: inject `OutboundMessageIntentStorePort`, `MessagingProviderPort` (qua queue, không gọi trực tiếp cho send), `QueueProviderPort`, message/session/webhook/guardrail repos, EventLog vào dispatcher.
 - `apps/worker/src/worker-application-handlers.ts` — **sửa**: thêm handler `outbound_message` → gọi command `ProcessOutboundMessageWork`.
@@ -173,9 +179,13 @@ apps/webhook-dispatcher (loop)
 - `OutboundMessageIntentStorePort` (application port) — lưu payload outbound đã validate dưới `outboundIntentRef` opaque; hỗ trợ `storeTextIntent`, `bindMessageIntent(messageId, outboundIntentRef)`, `resolveIntentRefForProvider(outboundIntentRef)` hoặc operation tương đương. Application chỉ dùng opaque ref; provider resolver mới đọc raw payload.
 - `ActiveSessionResolver` (application service/helper) — dùng `InstanceRepositoryPort.getCurrentSessionId` + `SessionRepositoryPort.load` + `isSessionSendCapable`; trả `SessionId` active hoặc lỗi application safe. Missing/inactive/stale session **không được gọi provider**.
 - `DomainEventPublisher` type (application) — nhận only-new domain events → append EventLog; không publish toàn bộ `aggregate.domainEvents` nhiều lần.
+- `ProviderSignalIngress` / `SignalIngress` (application service hoặc infrastructure bridge phía trong boundary application) — consume `TranslatedProviderSignal` từ provider runtime `drainSignals`/signal sink; map tối thiểu `auth`, `connection`, `message_status`, `inbound_message`, `failure` sang EventLog/domain workflow phù hợp; idempotent theo deterministic `occurrenceRef`; không nhận raw provider payload.
 - `WebhookDeliveryEnvelopeResolver` đã có ở `infrastructure-webhook`; slice này thêm **adapter** đọc từ repo (không đổi port).
-- `BaileysSocketProvider` (đã là port trong adapter package) — thêm **implementation** thật, không đổi type.
+- `BaileysAuthStateStore` / `AuthStateStorePort` (provider infrastructure port) — read/write auth state liên tục theo `sessionId`; mỗi save có `revision`, `updatedAtEpochMilliseconds`, `checksum` nếu đơn giản; `dataClassification=secret`; durable-json adapter không expose raw public DTO; production encryption là follow-up bắt buộc trước public production nếu chưa làm trong slice.
+- `BaileysSocketProvider` (đã là port trong adapter package) — giữ contract/fake; implementation thật chỉ được thêm sau AuthStateStore + SignalIngress + ProviderRuntime supervisor.
 - `BaileysOutboundMessageResolver` (đã tồn tại trong adapter package) — thêm implementation đọc `OutboundMessageIntentStorePort`/adapter store để dịch `outboundIntentRef` thành `{ jid, content }`; không expose Baileys types ra Application.
+- `ProviderRuntimeSupervisor` (runtime/app boundary) — long-lived loop start/stop session, giữ socket sống, drain signals đều đặn, enforce single-instance ownership guard; không chứa business logic.
+- `SingleInstanceOwnershipGuard` (runtime utility tối thiểu) — slice này khóa deliberate single-instance ownership, không distributed lease; nếu chạy nhiều provider-runtime process là unsupported deployment mode.
 
 > **Nguyên tắc UoW tối thiểu:** handler async (SendTextMessage) phải **store outbound intent + pass guardrail + save Message + bind message↔intent + enqueue WorkerJob + publish only-new MessageQueued** trước khi trả `accepted` (durable-before-accept theo `assertAsyncVisibilityBeforeAcceptance`). Chưa cần transaction đa-aggregate atomic đầy đủ; với in-memory là tuần tự, với Postgres (tương lai) bọc trong 1 transaction.
 
@@ -192,6 +202,18 @@ apps/webhook-dispatcher (loop)
 - Handler phải capture `baseEventCount` trước khi gọi domain transition, rồi gọi publisher với `aggregate.domainEvents.slice(baseEventCount)`.
 - Nếu không thêm được drain/clear event vào aggregate trong slice này, `DomainEventPublisher` phải tạo deterministic event id từ `commandRef`/`correlationId` + `aggregateType` + `aggregateId` + `eventName` + `eventIndex` và EventLog append phải skip/return existing khi gặp duplicate id.
 - Không handler nào được publish trực tiếp toàn bộ `aggregate.domainEvents` sau khi load aggregate cũ từ repository.
+
+### Provider signal ingress boundary
+
+- `SignalIngress` chỉ nhận `TranslatedProviderSignal`, không nhận Baileys native event, QR raw value, JID raw payload, message body, hoặc provider error object nguyên bản.
+- `occurrenceRef` phải deterministic với cùng provider/session/message observation để retry/drain lại không tạo duplicate EventLog/domain event.
+- `SignalIngress` map tối thiểu:
+  - `auth` → QR/action-required/paired events phù hợp.
+  - `connection` → connected/disconnected/logged-out workflow.
+  - `message_status` → message status domain workflow hoặc EventLog observation.
+  - `inbound_message` → safe inbound observation event tối thiểu, chưa sync chat/contact đầy đủ.
+  - `failure` → provider failure event với `failureCategory` safe.
+- Nếu signal thiếu hoặc corrupt required refs, ingress quarantine/drop safe và ghi observability safe metadata; không gọi domain workflow bằng payload không hợp lệ.
 
 ---
 
@@ -221,18 +243,78 @@ apps/webhook-dispatcher (loop)
 
 ## 9. Provider Baileys work cần implement
 
-**File:** `packages/infrastructure-provider-baileys/src/baileys-socket-provider.ts` (mới).
+**Files chính:** `packages/infrastructure-provider-baileys/src/baileys-auth-state-store.ts`, `packages/infrastructure-provider-baileys/src/baileys-socket-provider.ts`, signal mapper trong package Baileys, `packages/application/src/services/provider-signal-ingress.ts`, và `apps/provider-runtime/src/provider-runtime-supervisor.ts`.
 
-Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
-- Commit nhỏ 1: chốt contract/fake socket provider + tests để adapter chạy không cần WhatsApp thật.
-- Commit nhỏ 2: `getSocket(request, context)` → tạo/khôi phục `WASocket` bằng `makeWASocket` + auth state.
-- Commit nhỏ 3: lifecycle/signal mapping từ socket events sang translated provider signals.
-- **Auth state qua `SecretProvider`** (KHÔNG ghi khóa ra đĩa lộ liễu; dùng purpose `provider-session` đã có ở `provider-runtime.ts`).
-- Subscribe:
-  - `connection.update` → phát QR (`qr`) và trạng thái `open`/`close` → dịch thành `TranslatedProviderSignal` (kind `connection`/`auth`).
-  - `messages.update` / receipt → dịch thành signal `message_status` (cho bước Provider Receipt).
-- **Sanitize lỗi** Baileys → ném `BaileysProviderError` để adapter map sang `ApplicationPortFailure` (đã có sẵn cơ chế).
-- Wire `BaileysOutboundMessageResolver` trong provider runtime: resolver đọc `outboundIntentRef` từ intent store, validate/redact, rồi trả `{ jid, content }` cho `BaileysSocketGateway.sendOutboundMessage`.
+Implement provider thật theo thứ tự **không được đảo**:
+
+1. **AuthStateStore trước `makeWASocket`**
+   - Tạo `AuthStateStore` port trong `infrastructure-provider-baileys`, không đặt trong domain/application.
+   - Baileys auth state cần read/write liên tục theo `sessionId`; tuyệt đối **không** nhét write path vào `SecretProvider`.
+   - Store phải hỗ trợ tối thiểu `load(sessionId)`, `save(sessionId, state)`, `update(sessionId, patch)` hoặc operation tương đương theo Baileys auth state adapter.
+   - Mỗi record có metadata safe: `revision`, `updatedAtEpochMilliseconds`, `checksum` nếu đơn giản.
+   - `dataClassification=secret`; durable-json adapter không tạo public DTO chứa raw auth material; production encryption là follow-up nếu chưa implement trong slice.
+   - Test bắt buộc: save/load/update revision/checksum, missing state safe, durable-json không leak raw public DTO.
+
+2. **SignalIngress trước `makeWASocket`**
+   - Provider socket chỉ emit/drain `TranslatedProviderSignal`.
+   - `SignalIngress` consume từ `drainSignals`/signal sink, map tối thiểu `auth`, `connection`, `message_status`, `inbound_message`, `failure` sang EventLog/domain workflow phù hợp.
+   - `occurrenceRef` deterministic và idempotent; ingest lại cùng signal không append duplicate EventLog/domain event.
+   - Không expose raw provider payload, QR raw, JID, text, Baileys error object vào public DTO/log/EventLog payload.
+
+3. **ProviderRuntime supervisor trước `makeWASocket`**
+   - Runtime phải là long-lived loop giữ socket sống, không chỉ request/response `runOnce`.
+   - `runOnce` hiện có có thể giữ làm control-plane/test hook nếu hợp lý, nhưng production socket lifecycle thuộc supervisor.
+   - Supervisor hỗ trợ start/stop session, drain signal định kỳ, failure-safe shutdown, và state machine:
+     `CREATED → STARTING → QR_REQUIRED → PAIRING → CONNECTED → RECONNECTING → DISCONNECTED → LOGGED_OUT → DESTROYED`.
+   - Slice này chốt **single-instance ownership** có chủ đích: một provider-runtime process sở hữu một active socket/session tại một thời điểm. Không distributed lease; deploy nhiều provider-runtime process cho cùng instance là unsupported và phải fail fast bằng guard.
+
+4. **Sau đó mới implement RealBaileysSocketProvider**
+   - `getSocket(request, context)` → tạo/khôi phục `WASocket` bằng `makeWASocket` + `AuthStateStore`.
+   - Subscribe:
+     - `connection.update` → QR (`qr`) và trạng thái `open`/`close` → safe `TranslatedProviderSignal` (kind `connection`/`auth`).
+     - `messages.update` / receipt → signal `message_status`.
+     - inbound messages → signal `inbound_message` tối thiểu.
+     - provider failures/disconnect reasons → signal `failure` hoặc state transition safe.
+   - **Sanitize lỗi** Baileys → ném `BaileysProviderError` hoặc emit safe failure signal để adapter/ingress map sang `ApplicationPortFailure`/EventLog.
+   - Wire `BaileysOutboundMessageResolver` trong provider runtime: resolver đọc `outboundIntentRef` từ intent store, validate/redact, rồi trả `{ jid, content }` cho `BaileysSocketGateway.sendOutboundMessage`.
+
+### AuthStateStore requirements
+
+- Read/write theo `sessionId`, không theo process global.
+- Store operation là provider infrastructure concern; domain/application không biết Baileys auth state.
+- `SecretProvider` chỉ dùng cho secret/config/key material nếu cần, không dùng làm mutable auth-state repository.
+- In-memory fake dùng cho tests; durable-json dùng local/dev; production encryption được ghi là follow-up nếu chưa có.
+- Không log raw auth state, không đưa vào API response, EventLog public payload, audit public evidence, hoặc snapshot test.
+
+### SignalIngress requirements
+
+- Input duy nhất là `TranslatedProviderSignal` đã sanitize.
+- Mapping tối thiểu:
+  - `auth`: QR required / pairing required / authenticated safe event.
+  - `connection`: connected / disconnected / logged out / reconnecting.
+  - `message_status`: sent/delivered/read/failure observation.
+  - `inbound_message`: safe inbound observation; chưa cần full chat/contact sync.
+  - `failure`: provider failure with safe `failureCategory`.
+- Idempotency dựa trên deterministic `occurrenceRef`; nếu signal đã ingest thì return existing/skip.
+- QR lifecycle là async qua SignalIngress/SSE/EventLog, không mô hình request/response blocking.
+
+### ProviderRuntime supervisor requirements
+
+- Long-lived loop có `startSession`, `stopSession`, `tick/drain`, `shutdown`.
+- Supervisor chỉ giữ lifecycle/runtime state và gọi ports; không chứa business rules.
+- State machine tối thiểu:
+  - `CREATED`: session runtime được đăng ký nhưng chưa start.
+  - `STARTING`: đang tạo socket/auth state.
+  - `QR_REQUIRED`: provider yêu cầu QR.
+  - `PAIRING`: QR/pairing đang được user xử lý.
+  - `CONNECTED`: socket usable.
+  - `RECONNECTING`: transient disconnect đang retry.
+  - `DISCONNECTED`: socket đóng nhưng session chưa logged out.
+  - `LOGGED_OUT`: provider báo logout/revoked, cần operator action.
+  - `DESTROYED`: terminal runtime cleanup.
+- Single-instance ownership guard:
+  - Một `instanceId/sessionId` chỉ có một active socket owner trong process.
+  - Slice này không có distributed lease; production multi-node phải chặn hoặc thêm ADR/commit riêng trước khi scale provider-runtime ngang.
 
 **Ràng buộc:**
 - Chỉ file trong package `infrastructure-provider-baileys` được `import` Baileys (arch rule `baileys-contained-in-provider-adapter`). Giữ nguyên: adapter chỉ import **type**; implementation mới import runtime `@whiskeysockets/baileys` — **được phép** vì ở đúng package.
@@ -247,7 +329,7 @@ Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
 
 - Build repository-set (giữ profile in-memory/durable-json/postgresql hiện có) nhưng **inject thêm** vào `createApplicationDispatcher`: `messageRepository`, `sessionRepository`, `guardrailDecisionRepository`, `webhookSubscriptionRepository`, `webhookDeliveryRepository` (từ repo set), `OutboundMessageIntentStorePort`, `queueProvider` (`InMemoryQueueProvider`), `eventLog` (durable-json event log store — đã có `createDurableJsonEventLogStore`).
 - Đăng ký handler: `CreateInstance` (đã có), `ConnectInstance`, `StartQrPairing`, `ConfirmSessionActivated`, `SendTextMessage`, `ScheduleWebhookDelivery`.
-- `MessagingProviderPort` cho API: API **không gọi provider trực tiếp để send** (send đi qua queue → worker). API chỉ cần provider cho `StartQrPairing`/`ConnectInstance`. Inject provider port (fake ở test/local; thật ở provider-runtime process). Nếu muốn tách process, API enqueue lệnh connect thay vì gọi trực tiếp — **slice 01 chấp nhận gọi trực tiếp provider port cho connect/qr** để tối giản (ghi chú risk ở §16).
+- `MessagingProviderPort` cho API: API **không gọi provider trực tiếp để send** (send đi qua queue → worker). Với connect/qr, API chỉ gửi command/control-plane request; QR/connected state đi async qua ProviderRuntime supervisor + SignalIngress + EventLog/SSE. API runtime không được sở hữu long-lived socket.
 - Giữ `assertRuntimeProfileIsComposable` (production vẫn throw đến khi đủ adapter).
 
 **File:** `apps/api/src/index.ts` — không đổi logic, chỉ dùng composition mới.
@@ -261,6 +343,11 @@ Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
 - `runtime-composition.ts` — inject `MessagingProviderPort` (thật hoặc fake) + `messageRepository` + `instanceRepository` + `sessionRepository` + `OutboundMessageIntentStorePort` + `eventLog` vào dispatcher; đăng ký `ProcessOutboundMessageWork`, `ApplyProviderMessageStatus`, `ScheduleWebhookDelivery` handler.
 - `ProcessOutboundMessageWork` phải resolve active session trước khi gọi provider. Missing/inactive/stale session → return retryable hoặc failed safe outcome theo trạng thái Message, không gọi `provider.sendOutboundMessage`.
 
+**Provider Runtime (`apps/provider-runtime`):**
+- Supervisor giữ socket sống và drain signals; `runOnce` nếu giữ lại chỉ là control-plane/test hook, không thay thế long-lived loop.
+- Supervisor gọi `SignalIngress` để chuyển safe provider signals vào EventLog/domain workflow.
+- Single-instance ownership guard phải chặn dual socket cho cùng `instanceId/sessionId` trong slice này.
+
 **Queue:** giữ `InMemoryQueueProvider` (không sửa). Chỉ thêm **producer** (handler `SendTextMessage` gọi `enqueue`).
 
 **Webhook (`apps/webhook-dispatcher`):**
@@ -273,6 +360,8 @@ Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
 
 - **Slice 01 dùng in-memory (test) và durable-json (local)** cho tất cả repo — đã đủ để chạy thật end-to-end.
 - `OutboundMessageIntentStore` dùng in-memory cho test và durable-json/local encrypted-or-redacted storage cho local. Retention ngắn, keyed bằng `outboundIntentRef`; không ghi raw `to/text` vào EventLog, logs, metrics, DTO hoặc Domain aggregate.
+- `AuthStateStore` dùng in-memory cho test và durable-json cho local/dev; keyed theo `sessionId`; record có `revision`, `updatedAtEpochMilliseconds`, `checksum`; `dataClassification=secret`; không được expose raw auth state qua public DTO/log/EventLog.
+- Production encryption cho auth state là follow-up bắt buộc trước public production nếu slice này chỉ hoàn tất durable-json plaintext/redacted-at-boundary.
 - **Postgres**: giữ nguyên phạm vi hiện tại (chỉ `Instance`, `WorkerJob`). **KHÔNG** bắt buộc thêm bảng Message/Session/Webhook trong slice này (đưa vào slice sau). Nếu chạy profile `postgresql`, message/session/webhook repos lấy từ in-memory projection (như pattern `localProjectionRepositories` hiện có) — chấp nhận cho slice.
 - EventLog dùng `createDurableJsonEventLogStore` (đã có) cho local; in-memory cho test.
 - **Không** migration mới bắt buộc. Nếu thêm, phải qua migration review gate (§17).
@@ -297,14 +386,23 @@ Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
 - `services/handlers/schedule-webhook-delivery.handler.spec.ts`
 - `services/application-dispatcher.spec.ts` — **sửa**: registry lookup đúng handler; command không đăng ký vẫn `not_implemented`.
 - `services/domain-event-publisher.spec.ts` — append đúng số event vào EventLog, publish only-new-events, không publish trùng khi cùng aggregate được save/publish lại.
+- `services/provider-signal-ingress.spec.ts` hoặc adapter test tương đương — ingest `TranslatedProviderSignal` idempotent, deterministic `occurrenceRef`, map `auth`/`connection`/`message_status`/`inbound_message`/`failure` sang EventLog/domain workflow safe.
+- SignalIngress test phải assert QR signal đi qua ingress, connected/disconnected đi qua ingress, message_status/inbound_message đi qua ingress, và duplicate signal không tạo duplicate EventLog/domain event.
 
 **Provider:**
 - `packages/infrastructure-provider-baileys/src/baileys-socket-provider.spec.ts` — với fake socket: QR emit, open→connected, receipt→message_status signal; error→BaileysProviderError.
+- `packages/infrastructure-provider-baileys/src/baileys-auth-state-store.spec.ts` — save/load/update auth state theo `sessionId`, tăng revision/update timestamp/checksum, missing state safe, durable-json adapter không expose raw public DTO.
 - `packages/infrastructure-provider-baileys/src/baileys-outbound-message-resolver.spec.ts` — resolve `outboundIntentRef` thành `{ jid, content }`, missing intent fail safe, log/metadata không chứa raw text/JID.
+- `packages/infrastructure-provider-baileys/src/baileys-signal-mapper.spec.ts` — mapping QR/connection/disconnect reason/message status/inbound/failure thành `TranslatedProviderSignal` safe, không leak provider payload.
 
 **Worker:**
 - `apps/worker/src/worker-application-handlers.spec.ts` — **sửa**: outbound_message handler → dispatcher gọi đúng.
 - `apps/worker/src/message-dispatch.worker.spec.ts` — **mới**: enqueue → runOnce → message sent/delivered → `webhook_delivery` được enqueue.
+
+**Provider Runtime:**
+- `apps/provider-runtime/src/provider-runtime-supervisor.spec.ts` — state transitions `CREATED → STARTING → QR_REQUIRED → PAIRING → CONNECTED → RECONNECTING → DISCONNECTED → LOGGED_OUT → DESTROYED`.
+- `apps/provider-runtime/src/provider-runtime-supervisor.spec.ts` — ownership single-instance guard: không cho 2 active socket owner cùng `instanceId/sessionId`.
+- `apps/provider-runtime/src/provider-runtime-supervisor.spec.ts` — drain signals vào `SignalIngress`, stop/shutdown cleanup, no raw payload leakage.
 
 **API / Integration (1 bài E2E-lite):**
 - `apps/api/src/vertical-slice-01.integration.spec.ts` — **mới**: create instance → qr/refresh → confirm session → messages/text → worker.runOnce → webhook-dispatcher.dispatchNext → assert EventLog chứa `InstanceCreated`, `InstanceQrRequired`, `InstanceConnected`, `MessageQueued`, `MessageDelivered`, `WebhookDeliveryScheduled`, `WebhookDeliverySucceeded`. Dùng in-memory repos + fake Baileys socket + fake webhook transport.
@@ -321,20 +419,27 @@ Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
 | # | Commit | File chính | Test chạy sau commit |
 |---|---|---|---|
 | 1 | `refactor(application): dispatcher dùng handler registry (giữ 3 handler cũ)` | `application-dispatcher.ts`, `services/handlers/command-handler.ts` | `pnpm exec vitest run packages/application` + `pnpm arch:check` |
-| 2 | `feat(application): domain-event publisher qua EventLog port` | `services/domain-event-publisher.ts` (+spec) | `pnpm exec vitest run packages/application/src/services/domain-event-publisher.spec.ts` |
-| 3 | `feat(application): ConnectInstance + StartQrPairing + ConfirmSessionActivated handlers` | 3 handler + specs, đăng ký registry | `pnpm exec vitest run packages/application` |
-| 4 | `feat(application): outbound intent store + active session resolver` | `ports/outbound-message-intent-store.ts`, `active-session-resolver.ts` (+spec) | `pnpm exec vitest run packages/application` |
+| 2 | `feat(application): outbound intent store` | `ports/outbound-message-intent-store.ts`, in-memory/durable-json adapter nếu đã có boundary phù hợp | `pnpm exec vitest run packages/application packages/infrastructure-persistence` |
+| 3 | `feat(application): active session resolver` | `services/active-session-resolver.ts` (+spec) | `pnpm exec vitest run packages/application packages/infrastructure-persistence` |
+| 4 | `feat(application): guardrail minimum + domain event publish policy` | `minimal-message-guardrail`, `domain-event-publisher`, tests publish only-new-events | `pnpm exec vitest run packages/domain packages/application packages/infrastructure-persistence` |
 | 5 | `feat(application): SendTextMessage handler enqueue outbound_message` | `send-text-message.handler.ts` (+spec), guardrail decision repo usage, message↔intent binding | `pnpm exec vitest run packages/application/src/services/handlers/send-text-message.handler.spec.ts` |
-| 6 | `feat(application): ProcessOutboundMessageWork + ScheduleWebhookDelivery handlers` | 2 handler (+spec), active-session fail-closed path | `pnpm exec vitest run packages/application` |
-| 7 | `test(provider-baileys): socket-provider contract and fake socket` | fake socket provider/test fixture + adapter tests | `pnpm exec vitest run packages/infrastructure-provider-baileys` + `pnpm arch:check` |
-| 8 | `feat(provider-baileys): makeWASocket socket provider implementation` | `baileys-socket-provider.ts` auth/session integration | `pnpm exec vitest run packages/infrastructure-provider-baileys` + `pnpm arch:check` |
-| 9 | `feat(provider-baileys): signal mapping and outbound resolver` | signal mapper, `baileys-outbound-message-resolver.ts` (+spec) | `pnpm exec vitest run packages/infrastructure-provider-baileys` + `pnpm arch:check` |
-| 10 | `feat(provider-runtime): composition root thật thay stub index.ts` | `apps/provider-runtime/src/runtime-composition.ts`, `index.ts`, wire `BaileysOutboundMessageResolver` | `pnpm exec vitest run apps/provider-runtime` |
-| 11 | `feat(worker): outbound_message handler + wire provider/message repo` | `worker-application-handlers.ts`, `runtime-composition.ts`, `message-dispatch.worker.spec.ts` | `pnpm exec vitest run apps/worker` |
-| 12 | `feat(webhook): envelope resolver adapter + wire dispatcher` | `webhook-envelope-resolver.ts`, `apps/webhook-dispatcher/src/runtime-composition.ts` | `pnpm exec vitest run apps/webhook-dispatcher packages/infrastructure-webhook` |
-| 13 | `feat(api): wire provider + queue + repos + eventlog vào dispatcher` | `apps/api/src/runtime-composition.ts`, interface input store wiring | `pnpm exec vitest run apps/api` |
-| 14 | `test(api): integration slice create→qr→connect→send→receipt→webhook` | `vertical-slice-01.integration.spec.ts` | `pnpm exec vitest run apps/api/src/vertical-slice-01.integration.spec.ts` |
-| 15 | `chore(persistence): tách repository-set builder dùng chung api/worker` (dọn trùng lặp) | `infrastructure-persistence` helper, `apps/api` + `apps/worker` composition | `pnpm check` |
+| 6 | `feat(api): wire send text intent storage` | `interface-api`, `apps/api` runtime composition tối thiểu | `pnpm exec vitest run packages/interface-api packages/application apps/api` |
+| 7 | `feat(worker): process outbound_message jobs` | `ProcessOutboundMessageWork`, worker handler, provider fake | `pnpm exec vitest run packages/application apps/worker` |
+| 8 | `feat(worker): persist outbound job metadata` | WorkerJob metadata/recovery path, no raw payload | `pnpm exec vitest run packages/application packages/infrastructure-queue packages/infrastructure-persistence apps/worker` |
+| 9 | `test(provider-baileys): socket-provider contract and fake socket` | fake socket provider/test fixture + adapter tests | `pnpm exec vitest run packages/infrastructure-provider-baileys packages/application` + `pnpm arch:check` |
+| 10 | `feat(provider-baileys): AuthStateStore port and adapters` | `baileys-auth-state-store.ts`, fake/in-memory/durable-json, revision/updatedAt/checksum | `pnpm exec vitest run packages/infrastructure-provider-baileys` + `pnpm arch:check` |
+| 11 | `feat(provider-runtime): SignalIngress consumer and signal event mapping` | `SignalIngress`, signal→EventLog/domain mapping, deterministic `occurrenceRef` idempotency | `pnpm exec vitest run apps/provider-runtime packages/application packages/infrastructure-persistence` + `pnpm arch:check` |
+| 12 | `feat(provider-runtime): supervisor loop and single-instance ownership` | ProviderRuntime supervisor/loop, lifecycle state machine, ownership guard, keep `runOnce` as control-plane/test hook | `pnpm exec vitest run apps/provider-runtime` + `pnpm arch:check` |
+| 13 | `feat(provider-baileys): RealBaileysSocketProvider using makeWASocket` | `baileys-socket-provider.ts`, `makeWASocket`, AuthStateStore integration, safe error mapping | `pnpm exec vitest run packages/infrastructure-provider-baileys apps/provider-runtime` + `pnpm arch:check` |
+| 14 | `feat(provider-runtime): reconnect supervisor and DisconnectReason mapping` | reconnect policy, `DisconnectReason` → safe state/failure mapping, no dual socket | `pnpm exec vitest run packages/infrastructure-provider-baileys apps/provider-runtime` |
+| 15 | `feat(provider-runtime): async QR lifecycle through SignalIngress` | QR signal emission/drain/ingress/EventLog/SSE path, no request/response QR blocking | `pnpm exec vitest run apps/provider-runtime apps/api packages/infrastructure-provider-baileys` |
+| 16 | `feat(provider-baileys): inbound message signal mapping` | inbound provider event → safe `TranslatedProviderSignal(kind=inbound_message)` → SignalIngress | `pnpm exec vitest run packages/infrastructure-provider-baileys apps/provider-runtime` |
+| 17 | `feat(provider-baileys): receipt and message status signal mapping` | receipt/messages.update → `message_status` signal → message status workflow/EventLog | `pnpm exec vitest run packages/infrastructure-provider-baileys apps/provider-runtime packages/application` |
+| 18 | `feat(provider-runtime): composition root thật thay stub index.ts` | `apps/provider-runtime/src/runtime-composition.ts`, `index.ts`, wire resolver + auth store + signal ingress + supervisor | `pnpm exec vitest run apps/provider-runtime` |
+| 19 | `feat(webhook): envelope resolver adapter + wire dispatcher` | `webhook-envelope-resolver.ts`, `apps/webhook-dispatcher/src/runtime-composition.ts` | `pnpm exec vitest run apps/webhook-dispatcher packages/infrastructure-webhook` |
+| 20 | `feat(api): wire provider control-plane + queue + repos + eventlog` | `apps/api/src/runtime-composition.ts`, interface input store wiring, async provider control-plane | `pnpm exec vitest run apps/api` |
+| 21 | `test(api): integration slice create→qr→connect→send→receipt→webhook` | `vertical-slice-01.integration.spec.ts` | `pnpm exec vitest run apps/api/src/vertical-slice-01.integration.spec.ts` |
+| 22 | `chore(persistence): tách repository-set builder dùng chung api/worker` (dọn trùng lặp) | `infrastructure-persistence` helper, `apps/api` + `apps/worker` composition | `pnpm check` |
 
 **Lệnh kiểm tra tổng cuối slice:** `pnpm check` (lint + typecheck + test + arch + openapi + client-contract + sdk + regression + production + release).
 
@@ -355,6 +460,9 @@ Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
 - [ ] Raw `to/text` không xuất hiện trong Domain aggregate, EventLog payload, log, metric, API response, audit evidence hoặc test snapshots.
 - [ ] Domain event publisher publish only-new-events/idempotent; save/publish aggregate lại không tạo duplicate platform events.
 - [ ] Provider adapter vẫn chỉ nhận socket qua injection; fake socket chạy được toàn bộ test không cần WhatsApp thật.
+- [ ] `AuthStateStore` read/write theo `sessionId`, có revision/updatedAt/checksum, không dùng `SecretProvider` làm mutable auth-state repository.
+- [ ] `SignalIngress` ingest `TranslatedProviderSignal` idempotent theo deterministic `occurrenceRef`; QR/connection/message_status/inbound/failure đều đi qua ingress, không qua request/response blocking.
+- [ ] ProviderRuntime supervisor là long-lived loop, có state machine tối thiểu và single-instance ownership guard; API runtime không sở hữu long-lived socket.
 - [ ] Không sửa `dist/`, `node_modules/`, `target/`, file generated.
 - [ ] Provider-runtime chạy được `node` entrypoint thật (không còn stub JSON).
 
@@ -371,9 +479,14 @@ Implement `BaileysSocketProvider` (port đã định nghĩa trong adapter):
 | Provider send không có content resolver | Cao | Wire `BaileysOutboundMessageResolver` trong provider-runtime; missing intent fail safe trước `socket.sendMessage` |
 | Active session race/stale session khi worker gửi | Cao | `ActiveSessionResolver` load current session ngay trước provider call; missing/inactive/stale session không gọi provider và trả retry/fail safe |
 | Idempotent duplicate send tạo nhiều Message/WorkerJob | Cao | Idempotency lookup trước tạo Message; queue idempotency key stable; integration test duplicate send không double enqueue |
-| API gọi provider trực tiếp cho connect/qr (thay vì qua provider-runtime process) | Trung bình | Chấp nhận cho slice 01; ghi TODO tách sang provider-runtime ở slice sau; giữ port nên đổi sau không phá contract |
-| API runtime sở hữu provider socket lâu dài có thể phá provider-runtime boundary | Trung bình | Chỉ cho phép connect/qr tối thiểu trong slice; mọi send đi qua queue/worker; follow-up phải chuyển connect/qr sang provider-runtime command/queue nếu mở rộng multi-process |
-| Ownership guard in-memory không đảm bảo single-owner đa-process | Trung bình | Ngoài scope; ghi rõ là điều kiện production; slice chạy single-process |
+| Mất session nếu auth state không persist đúng | Cao | Commit #10 tạo `AuthStateStore` read/write theo `sessionId`, durable-json local/dev, tests revision/checksum/load-after-restart |
+| Dual socket cho cùng instance/session gây `connectionReplaced` hoặc ban risk | Cao | Commit #12 single-instance ownership guard; chỉ một active owner/socket per `instanceId/sessionId`; distributed lease là follow-up trước horizontal scale |
+| Signal mất nếu không có ingress loop | Cao | Commit #11 + #12 SignalIngress + supervisor drain loop; tests QR/connection/status/inbound/failure đi qua ingress |
+| Duplicate event nếu `occurrenceRef` không deterministic | Cao | Signal mapper tạo deterministic occurrenceRef; SignalIngress/EventLog idempotency skip duplicate; tests ingest lại cùng signal |
+| QR async không phù hợp request/response | Trung bình | QR đi qua provider signal → SignalIngress → EventLog/SSE; API chỉ trigger/control-plane và đọc event/status |
+| Production encryption for auth state chưa xong | Trung bình | Durable-json local/dev được phép; public production phải có encrypted AuthStateStore hoặc SecretProvider-backed encryption key trước release gate |
+| API runtime sở hữu provider socket lâu dài có thể phá provider-runtime boundary | Trung bình | API không sở hữu socket; connect/qr chuyển sang provider-runtime control-plane + SignalIngress; test đảm bảo socket lifecycle thuộc supervisor |
+| Ownership guard in-memory không đảm bảo single-owner đa-process | Trung bình | Đây là quyết định có chủ đích của slice; deploy nhiều provider-runtime process cho cùng instance unsupported, fail-fast; distributed lease là phase sau |
 | UoW không atomic đa-aggregate (save Message + enqueue) | Trung bình | Thứ tự: save trước, enqueue sau, publish cuối; idempotency key ở queue chống double-enqueue |
 | Baileys `7.0.0-rc13` API đổi | Thấp | Cô lập trong `baileys-socket-provider.ts`; test bằng fake socket |
 | Thêm spec nhưng quên vào `regression:check` | Thấp | Commit tương ứng cập nhật `package.json` (chỉ thêm) |
@@ -389,10 +502,13 @@ Ràng buộc enforced bởi `tooling/architecture/check-boundaries.mjs` (chạy 
 - `packages/domain` **không** import application/interface/infrastructure/baileys. Handler mới **không** đặt trong domain.
 - `packages/application` **chỉ** dùng **ports**, **không** import adapter cụ thể, **không** import `@whiskeysockets/baileys`. Các handler mới nằm ở đây và chỉ nhận **port** qua constructor.
 - `packages/application` chỉ được truyền `outboundIntentRef`/safe refs cho outbound payload; không giữ raw `to/text`, không tạo Baileys `AnyMessageContent`, không biết JID provider-native.
+- `packages/application` chỉ consume `TranslatedProviderSignal` đã sanitize; không biết Baileys native event, raw QR, raw JID/message body, hoặc auth state material.
 - `packages/interface-api` **không** bypass Application (không import domain/infra trực tiếp).
 - **Chỉ** `packages/infrastructure-provider-baileys` được import Baileys — `BaileysSocketProvider` thật đặt đúng ở đây.
+- `AuthStateStore` là provider infrastructure concern; Domain/Application không import hoặc persist Baileys auth state.
 - `BaileysOutboundMessageResolver` là nơi duy nhất dịch outbound intent thành `{ jid, content }`; resolver phải redact logs và không leak payload ra EventLog/API response.
-- `apps/*` **chỉ compose** (khởi tạo adapter + wire dependency + chạy loop). **Không** đặt quyết định nghiệp vụ trong app — nếu thấy `if` nghiệp vụ trong `apps/`, phải chuyển vào handler application hoặc domain.
+- `SignalIngress` không đưa raw `to/text`/JID/provider payload/auth state vào public DTO, log, audit public evidence hoặc EventLog public payload.
+- `apps/*` **chỉ compose/runtime** (khởi tạo adapter + wire dependency + chạy loop/supervisor). **Không** đặt quyết định nghiệp vụ trong app — nếu thấy `if` nghiệp vụ trong `apps/`, phải chuyển vào handler application hoặc domain.
 - `packages/testing` chỉ dùng trong test.
 - **Không** sửa file generated (OpenAPI generated, Rust operations generated, `dist`, `*.d.ts`), `node_modules`, `target`. Nếu đổi API surface phải qua `openapi:check` + `openapi:compat` + `client-contract:check` + `sdk:check` (slice 01 **không** đổi API surface — mọi route đã tồn tại trong OpenAPI).
 
