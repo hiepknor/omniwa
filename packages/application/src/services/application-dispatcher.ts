@@ -3,6 +3,7 @@ import {
   createInstanceId,
   type GuardrailDecisionRepositoryPort,
   type HealthStatusRepositoryPort,
+  type Instance,
   type InstanceRepositoryPort,
   type MessageRepositoryPort,
   type SessionRepositoryPort,
@@ -256,6 +257,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
 
     return queryOutcome(envelope, this.clock, instances.length === 0 ? "empty" : "result", {
       resultRef: `instances:list:${instances.length}`,
+      items: instances.map(instanceQueryItem),
     });
   }
 
@@ -312,6 +314,7 @@ function queryOutcome(
   input: Readonly<{
     resultRef?: string;
     reasonCode?: string;
+    items?: readonly unknown[];
   }> = {},
 ): ApplicationQueryOutcome {
   return createApplicationQueryOutcome({
@@ -325,6 +328,17 @@ function queryOutcome(
     },
     ...optional("resultRef", input.resultRef),
     ...optional("reasonCode", input.reasonCode),
+    ...optional("items", input.items),
+  });
+}
+
+function instanceQueryItem(instance: Instance): Readonly<{
+  id: string;
+  status: Instance["status"];
+}> {
+  return Object.freeze({
+    id: String(instance.id),
+    status: instance.status,
   });
 }
 

@@ -111,8 +111,15 @@ describe("application dispatcher", () => {
         refreshedAtEpochMilliseconds: 1_782_864_000_000,
       },
       resultRef: "instances:list:1",
+      items: [
+        {
+          id: "inst:550e8400-e29b-41d4-a716-446655440000",
+          status: "created",
+        },
+      ],
     });
     expect(instanceRepository.list()).toHaveLength(1);
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
   });
 
   it("executes GetHealthStatus through the Health repository", async () => {

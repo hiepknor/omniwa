@@ -1,5 +1,6 @@
 import {
   createApplicationCommandOutcome,
+  createApplicationDispatcher,
   createApplicationQueryOutcome,
   createOutboundMessageIntentRef,
   type ApplicationCommandEnvelope,
@@ -15,7 +16,10 @@ import {
   type StoredTextOutboundMessageIntent,
   type TextOutboundMessageIntentInput,
 } from "@omniwa/application";
-import { createInMemoryEventLogStore } from "@omniwa/infrastructure-persistence";
+import {
+  createInMemoryEventLogStore,
+  createInMemoryRepositorySet,
+} from "@omniwa/infrastructure-persistence";
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
 import { ok } from "@omniwa/shared";
 import { describe, expect, it } from "vitest";
@@ -609,6 +613,63 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(response.body)).not.toContain("cmd_internal");
     expect(JSON.stringify(response.body)).not.toContain("providerPayload");
     expect(JSON.stringify(response.body)).not.toContain("sessionSecret");
+  });
+
+  it("materializes instances from the real Application query into public collection items", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+      },
+    });
+
+    const createResponse = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-create-instance",
+          "x-correlation-id": "corr-create-instance",
+          "idempotency-key": "idem-create-instance",
+        },
+        body: {},
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-create-instance",
+      },
+    );
+    const listResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-instance",
+          "x-correlation-id": "corr-list-instance",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-instance",
+      },
+    );
+
+    expect(createResponse.statusCode).toBe(200);
+    expect(listResponse.statusCode).toBe(200);
+    expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([
+      {
+        resourceType: "instance",
+        id: expect.stringMatching(/^inst:/u),
+        status: "created",
+      },
+    ]);
+    expect(JSON.stringify(listResponse.body)).not.toContain("domainEvents");
   });
 
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {

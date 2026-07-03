@@ -106,7 +106,7 @@
       "status": "implemented_public",
       "recommendedForTui": true,
       "dto": "InstanceDto|OperationData",
-      "notes": "List and create routes are public. Current real dispatcher persists created instances but list item payloads are not materialized yet in the public collection."
+      "notes": "List and create routes are public. List returns safe instance collection items from the Application query outcome."
     },
     "sessions": {
       "status": "missing",
@@ -239,7 +239,7 @@
       "dto": "InstanceDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "status"],
       "responseEnvelope": "CollectionEnvelope",
-      "notes": "Collection item payloads are currently not materialized by the real dispatcher."
+      "notes": "Returns safe instance collection items materialized by the real Application dispatcher."
     },
     {
       "feature": "instances",

@@ -42,6 +42,7 @@ export type ApplicationQueryOutcome = Readonly<{
   freshness: ReadFreshness;
   resultRef?: string;
   reasonCode?: string;
+  items?: readonly unknown[];
 }>;
 
 export type ApplicationQueryOutcomeInput = Omit<ApplicationQueryOutcome, "kind">;
@@ -69,8 +70,18 @@ export function createApplicationQueryOutcome(
     throw new TypeError("ApplicationQueryOutcome.outcome must be approved.");
   }
 
+  const items = input.items === undefined ? undefined : Object.freeze([...input.items]);
+
   return Object.freeze({
     ...input,
+    ...optional("items", items),
     kind: "query_outcome",
   });
+}
+
+function optional<TKey extends string, TValue>(
+  key: TKey,
+  value: TValue | undefined,
+): Partial<Record<TKey, TValue>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
 }
