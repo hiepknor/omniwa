@@ -672,6 +672,68 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(listResponse.body)).not.toContain("domainEvents");
   });
 
+  it("materializes instance detail from the real Application query into public resource data", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+      },
+    });
+
+    const createResponse = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-create-instance-detail",
+          "x-correlation-id": "corr-create-instance-detail",
+          "idempotency-key": "idem-create-instance-detail",
+        },
+        body: {},
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-create-instance-detail",
+      },
+    );
+    const createdResourceId = safeResponseString(createResponse, "resultRef");
+
+    expect(createdResourceId).toMatch(/^inst:/u);
+
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: `/v1/instances/${encodeURIComponent(createdResourceId)}`,
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-get-instance-detail",
+          "x-correlation-id": "corr-get-instance-detail",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-instance-detail",
+      },
+    );
+
+    expect(createResponse.statusCode).toBe(200);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "instance",
+      resourceId: createdResourceId,
+      id: createdResourceId,
+      status: "created",
+      readStatus: "result",
+      consistency: "strong_owner",
+    });
+    expect(JSON.stringify(detailResponse.body)).not.toContain("domainEvents");
+  });
+
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
     const dispatcher = new CapturingDispatcher({
       ListGroupMembers: {
@@ -1291,6 +1353,22 @@ function getCollectionMeta(response: ApiHttpResponse): HttpCollectionResponseMet
   }
 
   throw new Error("Expected collection response meta.");
+}
+
+function safeResponseString(response: ApiHttpResponse, key: string): string {
+  if ("data" in response.body && isTestRecord(response.body.data)) {
+    const value = response.body.data[key];
+
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  throw new Error(`Expected response data string field '${key}'.`);
+}
+
+function isTestRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 class CapturingDispatcher implements ApplicationInterfaceDispatcher {

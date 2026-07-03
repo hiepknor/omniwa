@@ -42,6 +42,7 @@ export type ApplicationQueryOutcome = Readonly<{
   freshness: ReadFreshness;
   resultRef?: string;
   reasonCode?: string;
+  resource?: Readonly<Record<string, unknown>>;
   items?: readonly unknown[];
 }>;
 
@@ -70,10 +71,13 @@ export function createApplicationQueryOutcome(
     throw new TypeError("ApplicationQueryOutcome.outcome must be approved.");
   }
 
+  const resource =
+    input.resource === undefined ? undefined : Object.freeze({ ...input.resource });
   const items = input.items === undefined ? undefined : Object.freeze([...input.items]);
 
   return Object.freeze({
     ...input,
+    ...optional("resource", resource),
     ...optional("items", items),
     kind: "query_outcome",
   });

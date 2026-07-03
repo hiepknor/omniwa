@@ -256,10 +256,11 @@
       "feature": "instances",
       "method": "GET",
       "path": "/v1/instances/{instanceId}",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "InstanceDto",
-      "responseEnvelope": "SuccessEnvelope"
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns a safe instance resource with readStatus, consistency, resultRef, id, and status."
     },
     {
       "feature": "sessions",
@@ -623,6 +624,7 @@
     "authMissingError": "docs/api/client-contract/fixtures/auth.missing.error.json",
     "instancesEmpty": "docs/api/client-contract/fixtures/instances.empty.json",
     "instancesList": "docs/api/client-contract/fixtures/instances.list.json",
+    "instanceDetail": "docs/api/client-contract/fixtures/instance.detail.json",
     "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
   }

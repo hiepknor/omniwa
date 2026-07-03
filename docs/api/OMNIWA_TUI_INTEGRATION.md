@@ -113,6 +113,7 @@ Wire these first:
 | --------- | ----------------------- | -------------------- | ------------------------------------------------------------ |
 | Health    | `GET /v1/health`        | `implemented_public` | Backend connectivity and top-level status.                   |
 | Instances | `GET /v1/instances`     | `implemented_public` | Instance list screen with empty/loading/error support.       |
+| Instances | `GET /v1/instances/{id}` | `implemented_public` | Instance detail/status panel after selecting a list item.    |
 | Instances | `POST /v1/instances`    | `implemented_public` | Optional create-instance action; requires `idempotency-key`. |
 | Realtime  | `GET /v1/events/stream` | `implemented_public` | SSE connection status and heartbeat support.                 |
 
@@ -182,6 +183,7 @@ KEY=local-dev-secret-change-me
 
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/health"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"

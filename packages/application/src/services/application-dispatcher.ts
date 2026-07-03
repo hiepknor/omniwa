@@ -167,6 +167,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private buildQueryHandlers(): QueryHandlerRegistry {
     return new Map<ApplicationQueryName, QueryHandler>([
       ["GetHealthStatus", (envelope) => this.getHealthStatus(envelope)],
+      ["GetInstanceStatus", (envelope) => this.getInstanceStatus(envelope)],
       ["ListInstances", (envelope) => this.listInstances(envelope)],
     ]);
   }
@@ -261,6 +262,31 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     });
   }
 
+  private async getInstanceStatus(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "instance_target_required",
+      });
+    }
+
+    const instance = await this.repositories.instanceRepository.load(
+      createInstanceId(envelope.targetRef),
+    );
+
+    if (instance === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `instance:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `instance:${instance.id}:${instance.status}`,
+      resource: instanceQueryItem(instance),
+    });
+  }
+
   private async getHealthStatus(
     envelope: ApplicationQueryEnvelope,
   ): Promise<ApplicationQueryOutcome> {
@@ -314,6 +340,7 @@ function queryOutcome(
   input: Readonly<{
     resultRef?: string;
     reasonCode?: string;
+    resource?: Readonly<Record<string, unknown>>;
     items?: readonly unknown[];
   }> = {},
 ): ApplicationQueryOutcome {
@@ -328,6 +355,7 @@ function queryOutcome(
     },
     ...optional("resultRef", input.resultRef),
     ...optional("reasonCode", input.reasonCode),
+    ...optional("resource", input.resource),
     ...optional("items", input.items),
   });
 }

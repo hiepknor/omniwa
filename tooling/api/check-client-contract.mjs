@@ -10,6 +10,7 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "GET /v1/health",
   "GET /v1/health/readiness",
   "GET /v1/instances",
+  "GET /v1/instances/{instanceId}",
   "POST /v1/instances",
   "GET /v1/events/stream",
 ]);

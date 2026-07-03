@@ -1832,13 +1832,23 @@ function publicQueryData(
   contract: Extract<PublicResponseContract, { shape: "resource" }>,
 ): Readonly<Record<string, unknown>> {
   const queryMeta = publicQueryMeta(data, contract.resourceType);
-  const resourceData = publicResourceData(contract.resourceType, data, contract.resourceId);
+  const resourceData = publicResourceData(
+    contract.resourceType,
+    queryResourceData(data),
+    contract.resourceId,
+  );
 
   return Object.freeze({
     ...queryMeta,
     ...resourceData,
     ...optional("resourceId", contract.resourceId),
   });
+}
+
+function queryResourceData(data: unknown): unknown {
+  const record = asRecord(data);
+
+  return isPlainObject(record.resource) ? record.resource : data;
 }
 
 function publicQueryMeta(data: unknown, resourceType: string): PublicQueryMeta {

@@ -14,13 +14,7 @@ describe("client contract check", () => {
 
     try {
       await createClientContractFixture(root, {
-        endpoints: [
-          implementedEndpoint("GET", "/v1/health"),
-          implementedEndpoint("GET", "/v1/health/readiness"),
-          implementedEndpoint("GET", "/v1/instances"),
-          implementedEndpoint("POST", "/v1/instances"),
-          implementedEndpoint("GET", "/v1/events/stream"),
-        ],
+        endpoints: implementedPublicEndpoints(),
         fixtures: requiredFixtureMap(),
       });
 
@@ -41,11 +35,7 @@ describe("client contract check", () => {
     try {
       await createClientContractFixture(root, {
         endpoints: [
-          implementedEndpoint("GET", "/v1/health"),
-          implementedEndpoint("GET", "/v1/health/readiness"),
-          implementedEndpoint("GET", "/v1/instances"),
-          implementedEndpoint("POST", "/v1/instances"),
-          implementedEndpoint("GET", "/v1/events/stream"),
+          ...implementedPublicEndpoints(),
           implementedEndpoint("GET", "/v1/groups/{groupId}"),
         ],
         fixtures: requiredFixtureMap(),
@@ -94,13 +84,7 @@ describe("client contract check", () => {
 
     try {
       await createClientContractFixture(root, {
-        endpoints: [
-          implementedEndpoint("GET", "/v1/health"),
-          implementedEndpoint("GET", "/v1/health/readiness"),
-          implementedEndpoint("GET", "/v1/instances"),
-          implementedEndpoint("POST", "/v1/instances"),
-          implementedEndpoint("GET", "/v1/events/stream"),
-        ],
+        endpoints: implementedPublicEndpoints(),
         fixtures: requiredFixtureMap(),
       });
       await writeFile(
@@ -138,6 +122,17 @@ function implementedEndpoint(method: string, path: string) {
     status: "implemented_public",
     authRequired: true,
   };
+}
+
+function implementedPublicEndpoints() {
+  return [
+    implementedEndpoint("GET", "/v1/health"),
+    implementedEndpoint("GET", "/v1/health/readiness"),
+    implementedEndpoint("GET", "/v1/instances"),
+    implementedEndpoint("GET", "/v1/instances/{instanceId}"),
+    implementedEndpoint("POST", "/v1/instances"),
+    implementedEndpoint("GET", "/v1/events/stream"),
+  ];
 }
 
 function requiredFixtureMap() {

@@ -1,0 +1,20 @@
+{
+  "data": {
+    "resourceType": "instance",
+    "readStatus": "result",
+    "consistency": "strong_owner",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209791
+    },
+    "resultRef": "instance:inst_demo:connected",
+    "id": "inst_demo",
+    "status": "connected",
+    "resourceId": "inst_demo"
+  },
+  "meta": {
+    "requestId": "tui-instance-detail-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z"
+  }
+}

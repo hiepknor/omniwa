@@ -122,6 +122,82 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");
   });
 
+  it("executes GetInstanceStatus as a side-effect free repository query", async () => {
+    const instanceRepository = new FakeInstanceRepository();
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository },
+      uuidGenerator: fixedUuidGenerator,
+      clock: fixedClock,
+    });
+
+    await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "CreateInstance",
+        commandRef: "cmd-create-instance",
+        requestContext,
+        actorRef: "api_key:test",
+        idempotencyKey: "idem-create-instance",
+      }),
+    );
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetInstanceStatus",
+        queryRef: "qry-get-instance",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst:550e8400-e29b-41d4-a716-446655440000",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-instance",
+      outcome: "result",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "instance:inst:550e8400-e29b-41d4-a716-446655440000:created",
+      resource: {
+        id: "inst:550e8400-e29b-41d4-a716-446655440000",
+        status: "created",
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("returns empty for missing instance status queries", async () => {
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository: new FakeInstanceRepository() },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetInstanceStatus",
+        queryRef: "qry-get-missing-instance",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst_missing",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-missing-instance",
+      outcome: "empty",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "instance:inst_missing:empty",
+    });
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
