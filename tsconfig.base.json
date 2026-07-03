@@ -19,6 +19,8 @@
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
     "paths": {
+      "@omniwa/app-provider-runtime": ["apps/provider-runtime/src/index.ts"],
+      "@omniwa/app-worker": ["apps/worker/src/index.ts"],
       "@omniwa/application": ["packages/application/src/index.ts"],
       "@omniwa/config": ["packages/config/src/index.ts"],
       "@omniwa/domain": ["packages/domain/src/index.ts"],

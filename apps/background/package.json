@@ -4,7 +4,13 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@omniwa/app-provider-runtime": "workspace:*",
+    "@omniwa/app-worker": "workspace:*",
     "@omniwa/application": "workspace:*",
+    "@omniwa/domain": "workspace:*",
+    "@omniwa/infrastructure-persistence": "workspace:*",
+    "@omniwa/infrastructure-provider-baileys": "workspace:*",
+    "@omniwa/infrastructure-queue": "workspace:*",
     "@omniwa/shared": "workspace:*"
   },
   "scripts": {

@@ -53,9 +53,27 @@ importers:
 
   apps/background:
     dependencies:
+      '@omniwa/app-provider-runtime':
+        specifier: workspace:*
+        version: link:../provider-runtime
+      '@omniwa/app-worker':
+        specifier: workspace:*
+        version: link:../worker
       '@omniwa/application':
         specifier: workspace:*
         version: link:../../packages/application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@omniwa/infrastructure-persistence':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-persistence
+      '@omniwa/infrastructure-provider-baileys':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-provider-baileys
+      '@omniwa/infrastructure-queue':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-queue
       '@omniwa/shared':
         specifier: workspace:*
         version: link:../../packages/shared
