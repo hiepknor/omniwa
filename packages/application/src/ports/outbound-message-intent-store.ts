@@ -45,6 +45,11 @@ export interface OutboundMessageIntentStorePort {
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<OutboundMessageIntentBinding>>;
 
+  verifyTextIntent(
+    outboundIntentRef: OutboundMessageIntentRef,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>>;
+
   resolveTextIntent(
     outboundIntentRef: OutboundMessageIntentRef,
     context: ApplicationPortContext,

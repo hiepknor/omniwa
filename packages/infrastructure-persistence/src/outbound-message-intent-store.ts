@@ -137,6 +137,21 @@ export class InMemoryOutboundMessageIntentStore implements OutboundMessageIntent
     );
   }
 
+  verifyTextIntent(
+    outboundIntentRef: OutboundMessageIntentRef,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    return Promise.resolve(
+      this.capturePortFailure(() => {
+        void context;
+
+        const result = this.findAvailableTextIntent(outboundIntentRef);
+
+        return result.ok ? ok(receiptFor(result.value)) : result;
+      }),
+    );
+  }
+
   resolveTextIntent(
     outboundIntentRef: OutboundMessageIntentRef,
     context: ApplicationPortContext,
@@ -145,27 +160,23 @@ export class InMemoryOutboundMessageIntentStore implements OutboundMessageIntent
       this.capturePortFailure(() => {
         void context;
 
-        const stored = this.state.intents[this.indexOf(outboundIntentRef)];
+        const result = this.findAvailableTextIntent(outboundIntentRef);
 
-        if (stored === undefined) {
-          return err(intentFailure("rejected", "outbound_intent_not_found", outboundIntentRef));
+        if (!result.ok) {
+          return result;
         }
 
-        if (isExpired(stored, this.clock.epochMilliseconds())) {
-          return err(intentFailure("rejected", "outbound_intent_expired", outboundIntentRef));
-        }
-
-        const payload = decodePayload(stored.payload);
+        const payload = decodePayload(result.value.payload);
 
         return ok(
           freezeResolvedIntent({
-            outboundIntentRef: createOutboundMessageIntentRef(stored.outboundIntentRef),
+            outboundIntentRef: createOutboundMessageIntentRef(result.value.outboundIntentRef),
             kind: "text",
             recipientRef: payload.recipientRef,
             text: payload.text,
-            createdAtEpochMilliseconds: stored.createdAtEpochMilliseconds,
-            ...optional("expiresAtEpochMilliseconds", stored.expiresAtEpochMilliseconds),
-            ...optional("messageId", stored.messageId as MessageId | undefined),
+            createdAtEpochMilliseconds: result.value.createdAtEpochMilliseconds,
+            ...optional("expiresAtEpochMilliseconds", result.value.expiresAtEpochMilliseconds),
+            ...optional("messageId", result.value.messageId as MessageId | undefined),
           }),
         );
       }),
@@ -187,6 +198,22 @@ export class InMemoryOutboundMessageIntentStore implements OutboundMessageIntent
   private indexOf(outboundIntentRef: OutboundMessageIntentRef): number {
     const key = String(outboundIntentRef);
     return this.state.intents.findIndex((intent) => intent.outboundIntentRef === key);
+  }
+
+  private findAvailableTextIntent(
+    outboundIntentRef: OutboundMessageIntentRef,
+  ): ApplicationPortResult<StoredEncodedTextIntent> {
+    const stored = this.state.intents[this.indexOf(outboundIntentRef)];
+
+    if (stored === undefined) {
+      return err(intentFailure("rejected", "outbound_intent_not_found", outboundIntentRef));
+    }
+
+    if (isExpired(stored, this.clock.epochMilliseconds())) {
+      return err(intentFailure("rejected", "outbound_intent_expired", outboundIntentRef));
+    }
+
+    return ok(stored);
   }
 
   private capturePortFailure<T>(action: () => ApplicationPortResult<T>): ApplicationPortResult<T> {

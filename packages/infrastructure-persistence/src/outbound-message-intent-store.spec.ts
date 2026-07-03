@@ -91,6 +91,34 @@ describe("outbound message intent store", () => {
     expect(resolved.ok ? resolved.value.text : undefined).toBe(rawText);
   });
 
+  it("verifies a text intent without exposing raw provider payload", async () => {
+    const store = new InMemoryOutboundMessageIntentStore({
+      clock: fixedClock,
+      uuidGenerator: fixedUuidGenerator,
+    });
+    const stored = await store.storeTextIntent(
+      {
+        recipientRef: rawRecipient,
+        text: rawText,
+      },
+      context,
+    );
+
+    expect(stored.ok).toBe(true);
+
+    const verified = await store.verifyTextIntent(
+      stored.ok
+        ? stored.value.outboundIntentRef
+        : createOutboundMessageIntentRef("outbound_intent:unused"),
+      context,
+    );
+
+    expect(verified.ok).toBe(true);
+    expect(verified.ok ? verified.value : undefined).toEqual(stored.ok ? stored.value : undefined);
+    expect(JSON.stringify(verified)).not.toContain(rawRecipient);
+    expect(JSON.stringify(verified)).not.toContain(rawText);
+  });
+
   it("returns safe errors for missing intents", async () => {
     const store = new InMemoryOutboundMessageIntentStore({
       clock: fixedClock,

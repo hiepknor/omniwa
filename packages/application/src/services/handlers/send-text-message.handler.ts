@@ -192,6 +192,7 @@ class SendTextMessageHandler {
           backoffMultiplier: 2,
         }),
         idempotencyKey: `send_text:${String(input.idempotencyKey)}`,
+        safeInputRef: String(input.outboundIntentRef),
       },
       input.context,
     );

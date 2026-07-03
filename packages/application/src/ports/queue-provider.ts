@@ -20,12 +20,17 @@ export type QueueWorkRequest = Readonly<{
   workType: QueueWorkType;
   retryPolicy: RetryPolicy;
   idempotencyKey: string;
+  safeInputRef?: string;
 }>;
 
 export type QueueReservation = Readonly<{
   jobId: JobId;
   reservationRef: string;
   attempt: number;
+  ownerContext?: DomainOwnerContext;
+  ownerRef?: string;
+  workType?: QueueWorkType;
+  safeInputRef?: string;
 }>;
 
 export type QueueVisibilityReceipt = Readonly<{

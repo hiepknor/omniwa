@@ -7,7 +7,13 @@ import {
   type ApplicationQueryOutcome,
   type QueueWorkRequest,
 } from "@omniwa/application";
-import { createJobId, createRetryPolicy, type JobId, type JobStatus } from "@omniwa/domain";
+import {
+  createJobId,
+  createMessageId,
+  createRetryPolicy,
+  type JobId,
+  type JobStatus,
+} from "@omniwa/domain";
 import { createInMemoryRepositorySet } from "@omniwa/infrastructure-persistence";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
@@ -62,7 +68,8 @@ describe("Application worker handlers", () => {
     expect(scenario.dispatcher.commands).toHaveLength(1);
     expect(scenario.dispatcher.commands[0]).toMatchObject({
       name: "ProcessOutboundMessageWork",
-      targetRef: String(jobId),
+      targetRef: "msg-worker-outbound",
+      safeInputRef: "intent-worker-outbound",
       actorRef: "worker-runtime-test",
       dataClassification: "internal",
     });
@@ -176,10 +183,11 @@ function workRequest(jobId: JobId): QueueWorkRequest {
   return Object.freeze({
     jobId,
     ownerContext: "messaging",
-    ownerRef: String(jobId),
+    ownerRef: String(createMessageId("msg-worker-outbound")),
     workType: "outbound_message",
     retryPolicy,
     idempotencyKey: `${jobId}:idempotency`,
+    safeInputRef: "intent-worker-outbound",
   });
 }
 

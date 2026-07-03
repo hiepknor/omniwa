@@ -81,9 +81,10 @@ async function dispatchWorkerCommand(
         name: options.commandName,
         commandRef: commandRefFor(job),
         requestContext: context.requestContext,
-        targetRef: String(job.reservation.jobId),
+        targetRef: targetRefFor(job, options),
         actorRef: context.actorRef ?? workerRuntimeActorRef,
         idempotencyKey: idempotencyKeyFor(job, context),
+        ...optional("safeInputRef", safeInputRefFor(job, options)),
         dataClassification: context.dataClassification ?? "internal",
       }),
     );
@@ -143,6 +144,28 @@ function commandRefFor(job: WorkerRuntimeJob): string {
   return `worker:${job.workType}:${job.reservation.jobId}:attempt:${job.reservation.attempt}`;
 }
 
+function targetRefFor(job: WorkerRuntimeJob, options: ApplicationWorkerHandlerOptions): string {
+  if (
+    options.commandName === "ProcessOutboundMessageWork" &&
+    job.reservation.ownerRef !== undefined
+  ) {
+    return job.reservation.ownerRef;
+  }
+
+  return String(job.reservation.jobId);
+}
+
+function safeInputRefFor(
+  job: WorkerRuntimeJob,
+  options: ApplicationWorkerHandlerOptions,
+): string | undefined {
+  if (options.commandName !== "ProcessOutboundMessageWork") {
+    return undefined;
+  }
+
+  return job.reservation.safeInputRef;
+}
+
 function idempotencyKeyFor(job: WorkerRuntimeJob, context: ApplicationPortContext): string {
   const prefix = context.idempotencyKey ?? "worker";
 
@@ -176,4 +199,11 @@ function assertPositiveInteger(value: number, label: string): void {
   if (!Number.isInteger(value) || value <= 0) {
     throw new TypeError(`${label} must be a positive integer.`);
   }
+}
+
+function optional<TKey extends string, TValue>(
+  key: TKey,
+  value: TValue | undefined,
+): Partial<Record<TKey, TValue>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
 }

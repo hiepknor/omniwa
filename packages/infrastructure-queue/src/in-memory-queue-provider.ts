@@ -68,6 +68,7 @@ export type InMemoryQueueEntrySnapshot = Readonly<{
   visible: boolean;
   queueRef: string;
   visibleAtEpochMilliseconds: number;
+  safeInputRef?: string;
   reservationRef?: string;
   deadLetterReasonCode?: string;
 }>;
@@ -170,6 +171,10 @@ export class InMemoryQueueProvider implements QueueProviderPort {
         jobId: entry.work.jobId,
         reservationRef,
         attempt,
+        ownerContext: entry.work.ownerContext,
+        ownerRef: entry.work.ownerRef,
+        workType: entry.work.workType,
+        ...optional("safeInputRef", entry.work.safeInputRef),
       });
     });
   }
@@ -310,6 +315,7 @@ export class InMemoryQueueProvider implements QueueProviderPort {
           visible: this.isEntryVisible(entry),
           queueRef: this.queueRefFor(entry.work.jobId),
           visibleAtEpochMilliseconds: entry.visibleAtEpochMilliseconds,
+          ...optional("safeInputRef", entry.work.safeInputRef),
           ...optional("reservationRef", entry.reservationRef),
           ...optional("deadLetterReasonCode", entry.deadLetterReasonCode),
         }),

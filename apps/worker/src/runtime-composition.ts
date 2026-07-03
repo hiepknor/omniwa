@@ -1,16 +1,41 @@
-import { createApplicationDispatcher, type ApplicationDispatcher } from "@omniwa/application";
+import { join } from "node:path";
+
+import {
+  createApplicationDispatcher,
+  createApplicationPortFailure,
+  createDomainEventPublisher,
+  type ApplicationDispatcher,
+  type ApplicationPortContext,
+  type ApplicationPortResult,
+  type MessagingProviderPort,
+  type ProviderCapabilitySummary,
+  type ProviderConnectionRequest,
+  type ProviderConnectionResult,
+  type ProviderOutboundMessageRequest,
+  type ProviderOutboundMessageResult,
+  type ProviderQrPairingChallenge,
+  type ProviderQrPairingRequest,
+} from "@omniwa/application";
 import type {
   HealthStatusRepositoryPort,
   InstanceRepositoryPort,
+  MessageRepositoryPort,
+  ProviderId,
+  SessionRepositoryPort,
   WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import {
+  DurableJsonOutboundMessageIntentStore,
+  InMemoryOutboundMessageIntentStore,
+  createDurableJsonEventLogStore,
   createDurableJsonRepositorySet,
+  createInMemoryEventLogStore,
   createInMemoryRepositorySet,
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
+import { err, ok } from "@omniwa/shared";
 
 import { WorkerRuntimeApp } from "./worker-app.js";
 import { createApplicationWorkerHandlers } from "./worker-application-handlers.js";
@@ -34,6 +59,8 @@ export type WorkerRuntimeComposition = Readonly<{
 
 type WorkerRuntimeRepositories = Readonly<{
   instanceRepository: InstanceRepositoryPort;
+  sessionRepository?: SessionRepositoryPort;
+  messageRepository?: MessageRepositoryPort;
   workerJobRepository: WorkerJobRepositoryPort;
   healthStatusRepository?: HealthStatusRepositoryPort;
 }>;
@@ -47,11 +74,29 @@ export function createWorkerRuntimeComposition(
   assertWorkerRuntimeProfileIsComposable(profile);
 
   const repositories = createWorkerRuntimeRepositories(env, repositoryProfile);
+  const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
+  const eventLog =
+    eventLogPath === undefined || eventLogPath.length === 0
+      ? createInMemoryEventLogStore()
+      : createDurableJsonEventLogStore(eventLogPath);
+  const outboundMessageIntentStore = createRuntimeOutboundMessageIntentStore(
+    env,
+    repositoryProfile,
+  );
+  const domainEventPublisher = createDomainEventPublisher({
+    eventLog,
+    nowIso: () => new Date().toISOString(),
+  });
   const dispatcher = createApplicationDispatcher({
     repositories: {
       instanceRepository: repositories.instanceRepository,
+      ...optional("sessionRepository", repositories.sessionRepository),
+      ...optional("messageRepository", repositories.messageRepository),
       ...optional("healthStatusRepository", repositories.healthStatusRepository),
     },
+    outboundMessageIntentStore,
+    messagingProvider: createUnavailableMessagingProvider(),
+    domainEventPublisher,
   });
   const queueProvider = new InMemoryQueueProvider({
     workerJobRepository: repositories.workerJobRepository,
@@ -153,6 +198,8 @@ function createWorkerRuntimeRepositories(
     return Object.freeze({
       instanceRepository: postgresqlRepositories.instanceRepository,
       workerJobRepository: postgresqlRepositories.workerJobRepository,
+      sessionRepository: localProjectionRepositories.sessionRepository,
+      messageRepository: localProjectionRepositories.messageRepository,
       healthStatusRepository: localProjectionRepositories.healthStatusRepository,
     });
   }
@@ -175,6 +222,97 @@ function assertWorkerRuntimeProfileIsComposable(profile: WorkerRuntimeProfile): 
       "OmniWA Worker production profile requires distributed queue, provider, secret, and observability adapters before runtime composition is allowed.",
     );
   }
+}
+
+function createRuntimeOutboundMessageIntentStore(
+  env: NodeJS.ProcessEnv,
+  repositoryProfile: WorkerRepositoryProfile,
+): InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore {
+  if (repositoryProfile !== "durable-json") {
+    return new InMemoryOutboundMessageIntentStore();
+  }
+
+  const stateDirectory =
+    env.OMNIWA_WORKER_REPOSITORY_STATE_DIR?.trim() ?? env.OMNIWA_API_REPOSITORY_STATE_DIR?.trim();
+
+  if (stateDirectory === undefined || stateDirectory.length === 0) {
+    throw new Error(
+      "OMNIWA_WORKER_REPOSITORY_STATE_DIR is required when OMNIWA_WORKER_REPOSITORY_PROFILE=durable-json.",
+    );
+  }
+
+  return new DurableJsonOutboundMessageIntentStore(
+    join(stateDirectory, "outbound-message-intents.json"),
+  );
+}
+
+function createUnavailableMessagingProvider(): MessagingProviderPort {
+  return Object.freeze({
+    requestConnection: (
+      request: ProviderConnectionRequest,
+    ): Promise<ApplicationPortResult<ProviderConnectionResult>> =>
+      Promise.resolve(
+        ok({
+          instanceId: request.instanceId,
+          providerId: request.providerId,
+          state: "action_required",
+          failureCategory: "provider",
+        }),
+      ),
+    requestQrPairing: (
+      request: ProviderQrPairingRequest,
+      context: ApplicationPortContext,
+    ): Promise<ApplicationPortResult<ProviderQrPairingChallenge>> => {
+      void request;
+      return Promise.resolve(err(unavailableProviderFailure(context)));
+    },
+    disconnect: (
+      request: ProviderConnectionRequest,
+    ): Promise<ApplicationPortResult<ProviderConnectionResult>> =>
+      Promise.resolve(
+        ok({
+          instanceId: request.instanceId,
+          providerId: request.providerId,
+          state: "disconnected",
+          failureCategory: "provider",
+        }),
+      ),
+    sendOutboundMessage: (
+      request: ProviderOutboundMessageRequest,
+      context: ApplicationPortContext,
+    ): Promise<ApplicationPortResult<ProviderOutboundMessageResult>> => {
+      void request;
+      return Promise.resolve(err(unavailableProviderFailure(context)));
+    },
+    getCapabilitySummary: (
+      providerId: ProviderId,
+      context: ApplicationPortContext,
+    ): Promise<ApplicationPortResult<ProviderCapabilitySummary>> => {
+      void context;
+      return Promise.resolve(
+        ok({
+          providerId,
+          supportedMessageTypes: Object.freeze([]),
+          degraded: true,
+          failureCategory: "provider",
+        }),
+      );
+    },
+  });
+}
+
+function unavailableProviderFailure(context: ApplicationPortContext) {
+  return createApplicationPortFailure({
+    category: "unavailable",
+    code: "worker_messaging_provider_not_configured",
+    message: "Worker MessagingProvider is not configured.",
+    retryable: true,
+    ownerContext: "provider_integration",
+    failureCategory: "provider",
+    safeMetadata: {
+      correlationId: String(context.requestContext.correlationId),
+    },
+  });
 }
 
 function readBooleanEnv(value: string | undefined): boolean {

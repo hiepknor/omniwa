@@ -1303,6 +1303,18 @@ class CapturingOutboundMessageIntentStore implements OutboundMessageIntentStoreP
     return Promise.resolve(ok(binding));
   }
 
+  verifyTextIntent(
+    outboundIntentRef: OutboundMessageIntentRef,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    return Promise.resolve(
+      ok({
+        outboundIntentRef,
+        kind: "text",
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+
   resolveTextIntent(
     outboundIntentRef: OutboundMessageIntentRef,
   ): Promise<ApplicationPortResult<StoredTextOutboundMessageIntent>> {

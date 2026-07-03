@@ -116,6 +116,7 @@ describe("send text message handler", () => {
       ownerRef: "msg:00000000-0000-4000-8000-000000000002",
       workType: "outbound_message",
       idempotencyKey: "send_text:idem-send-text-1",
+      safeInputRef: String(outboundIntentRef),
     });
     expect(harness.domainEventPublisher.eventNames()).toEqual([
       "GuardrailPassed",
@@ -567,6 +568,25 @@ class FakeOutboundMessageIntentStore implements OutboundMessageIntentStorePort {
     );
 
     return Promise.resolve(ok(binding));
+  }
+
+  verifyTextIntent(
+    ref: OutboundMessageIntentRef,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    const stored = this.records.get(String(ref));
+
+    return Promise.resolve(
+      stored === undefined
+        ? err(portFailure("outbound_intent_not_found", false))
+        : ok({
+            outboundIntentRef: stored.outboundIntentRef,
+            kind: "text",
+            createdAtEpochMilliseconds: stored.createdAtEpochMilliseconds,
+            ...(stored.expiresAtEpochMilliseconds === undefined
+              ? {}
+              : { expiresAtEpochMilliseconds: stored.expiresAtEpochMilliseconds }),
+          }),
+    );
   }
 
   resolveTextIntent(

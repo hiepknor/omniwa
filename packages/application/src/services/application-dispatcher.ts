@@ -34,11 +34,13 @@ import {
 } from "./active-session-resolver.js";
 import type { OutboundMessageIntentStorePort } from "../ports/outbound-message-intent-store.js";
 import type { QueueProviderPort } from "../ports/queue-provider.js";
+import type { MessagingProviderPort } from "../ports/messaging-provider.js";
 import type { DomainEventPublisher } from "./domain-event-publisher.js";
 import {
   createMinimalMessageGuardrailService,
   type MinimalMessageGuardrailService,
 } from "./minimal-message-guardrail.js";
+import { createProcessOutboundMessageWorkHandler } from "./handlers/process-outbound-message-work.handler.js";
 import { createSendTextMessageHandler } from "./handlers/send-text-message.handler.js";
 
 export type ApplicationDispatcherRepositories = Readonly<{
@@ -58,6 +60,7 @@ export type ApplicationDispatcherOptions = Readonly<{
   outboundMessageIntentStore?: OutboundMessageIntentStorePort;
   guardrailService?: MinimalMessageGuardrailService;
   queueProvider?: QueueProviderPort;
+  messagingProvider?: MessagingProviderPort;
   domainEventPublisher?: DomainEventPublisher;
 }>;
 
@@ -81,6 +84,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly outboundMessageIntentStore: OutboundMessageIntentStorePort | undefined;
   private readonly guardrailService: MinimalMessageGuardrailService | undefined;
   private readonly queueProvider: QueueProviderPort | undefined;
+  private readonly messagingProvider: MessagingProviderPort | undefined;
   private readonly domainEventPublisher: DomainEventPublisher | undefined;
   private readonly commandHandlers: CommandHandlerRegistry;
   private readonly queryHandlers: QueryHandlerRegistry;
@@ -94,6 +98,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     this.outboundMessageIntentStore = options.outboundMessageIntentStore;
     this.guardrailService = options.guardrailService;
     this.queueProvider = options.queueProvider;
+    this.messagingProvider = options.messagingProvider;
     this.domainEventPublisher = options.domainEventPublisher;
     this.commandHandlers = this.buildCommandHandlers();
     this.queryHandlers = this.buildQueryHandlers();
@@ -147,6 +152,12 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
 
     if (sendTextHandler !== undefined) {
       handlers.set("SendTextMessage", sendTextHandler);
+    }
+
+    const processOutboundMessageWorkHandler = this.createProcessOutboundMessageWorkHandler();
+
+    if (processOutboundMessageWorkHandler !== undefined) {
+      handlers.set("ProcessOutboundMessageWork", processOutboundMessageWorkHandler);
     }
 
     return handlers;
@@ -207,6 +218,34 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       queueProvider: this.queueProvider,
       domainEventPublisher: this.domainEventPublisher,
       uuidGenerator: this.uuidGenerator,
+    });
+  }
+
+  private createProcessOutboundMessageWorkHandler(): CommandHandler | undefined {
+    const sessionRepository = this.repositories.sessionRepository;
+    const messageRepository = this.repositories.messageRepository;
+
+    if (
+      sessionRepository === undefined ||
+      messageRepository === undefined ||
+      this.outboundMessageIntentStore === undefined ||
+      this.messagingProvider === undefined ||
+      this.domainEventPublisher === undefined
+    ) {
+      return undefined;
+    }
+
+    return createProcessOutboundMessageWorkHandler({
+      activeSessionResolver:
+        this.activeSessionResolver ??
+        createActiveSessionResolver({
+          instanceRepository: this.repositories.instanceRepository,
+          sessionRepository,
+        }),
+      messageRepository,
+      outboundMessageIntentStore: this.outboundMessageIntentStore,
+      messagingProvider: this.messagingProvider,
+      domainEventPublisher: this.domainEventPublisher,
     });
   }
 

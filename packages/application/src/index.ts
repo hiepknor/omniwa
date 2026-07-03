@@ -22,6 +22,7 @@ export * from "./services/application-dispatcher.js";
 export * from "./services/authorization-audit-service.js";
 export * from "./services/domain-event-publisher.js";
 export * from "./services/handlers/command-handler.js";
+export * from "./services/handlers/process-outbound-message-work.handler.js";
 export * from "./services/handlers/send-text-message.handler.js";
 export * from "./services/minimal-message-guardrail.js";
 export * from "./transactions/unit-of-work.js";
