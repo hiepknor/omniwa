@@ -39,6 +39,8 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
           runtime: "provider",
           status: "started",
           profile: composition.profile,
+          liveMode: composition.liveMode,
+          readiness: composition.readiness,
           stateDirectory: composition.paths.stateDirectory,
           eventLogPath: composition.paths.eventLogPath,
           authStatePath: composition.paths.authStatePath,

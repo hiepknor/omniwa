@@ -26,6 +26,18 @@ export const providerRuntimeCompositionProfiles = ["local", "test", "production"
 
 export type ProviderRuntimeCompositionProfile = (typeof providerRuntimeCompositionProfiles)[number];
 
+export const providerRuntimeLiveModes = ["disabled", "local_live"] as const;
+
+export type ProviderRuntimeLiveMode = (typeof providerRuntimeLiveModes)[number];
+
+export type ProviderRuntimeReadiness = Readonly<{
+  liveMode: ProviderRuntimeLiveMode;
+  localOnly: boolean;
+  productionReady: false;
+  authStateEncryption: "not_configured";
+  ownershipMode: "single_instance_in_memory";
+}>;
+
 export type ProviderRuntimeCompositionPaths = Readonly<{
   stateDirectory: string;
   eventLogPath: string;
@@ -40,6 +52,8 @@ export type ProviderRuntimeCompositionDrainLoop = Readonly<{
 
 export type ProviderRuntimeComposition = Readonly<{
   profile: ProviderRuntimeCompositionProfile;
+  liveMode: ProviderRuntimeLiveMode;
+  readiness: ProviderRuntimeReadiness;
   paths: ProviderRuntimeCompositionPaths;
   eventLog: EventLogPort;
   authStateStore: BaileysAuthStateStore;
@@ -70,6 +84,7 @@ export function createProviderRuntimeComposition(
   overrides: ProviderRuntimeCompositionOverrides = {},
 ): ProviderRuntimeComposition {
   const profile = readProviderRuntimeCompositionProfile(env);
+  const liveMode = readProviderRuntimeLiveMode(env);
 
   assertProviderRuntimeProfileIsComposable(profile);
 
@@ -99,6 +114,8 @@ export function createProviderRuntimeComposition(
 
   return Object.freeze({
     profile,
+    liveMode,
+    readiness: providerRuntimeReadiness(liveMode),
     paths,
     eventLog,
     authStateStore,
@@ -138,6 +155,28 @@ export function createProviderRuntimeCompositionContext(): ApplicationPortContex
     idempotencyKey: `provider-runtime:${id}`,
     dataClassification: "internal",
   });
+}
+
+export function readProviderRuntimeLiveMode(
+  env: NodeJS.ProcessEnv = process.env,
+): ProviderRuntimeLiveMode {
+  const value = env.OMNIWA_LIVE_DEMO_MODE?.trim().toLowerCase();
+
+  switch (value) {
+    case "1":
+    case "true":
+    case "local":
+    case "local_live":
+      return "local_live";
+    case "0":
+    case "false":
+    case "disabled":
+    case undefined:
+    case "":
+      return "disabled";
+    default:
+      throw new Error("Unsupported OmniWA provider runtime live demo mode.");
+  }
 }
 
 export function readProviderRuntimeCompositionProfile(
@@ -241,6 +280,16 @@ function assertProviderRuntimeProfileIsComposable(
       "OmniWA provider runtime production profile requires encrypted auth state and distributed ownership before composition is allowed.",
     );
   }
+}
+
+function providerRuntimeReadiness(liveMode: ProviderRuntimeLiveMode): ProviderRuntimeReadiness {
+  return Object.freeze({
+    liveMode,
+    localOnly: liveMode === "local_live",
+    productionReady: false,
+    authStateEncryption: "not_configured",
+    ownershipMode: "single_instance_in_memory",
+  });
 }
 
 function optional<TKey extends string, TValue>(

@@ -21,6 +21,7 @@ import {
   readProviderRuntimeCompositionPaths,
   readProviderRuntimeDrainIntervalMilliseconds,
   readProviderRuntimeEventLogPath,
+  readProviderRuntimeLiveMode,
   readProviderRuntimeStateDirectory,
 } from "./runtime-composition.js";
 
@@ -49,6 +50,15 @@ describe("provider runtime composition", () => {
     const stateDirectory = createTemporaryDirectory();
     const composition = createProviderRuntimeComposition(envFor(stateDirectory));
 
+    expect(composition.profile).toBe("local");
+    expect(composition.liveMode).toBe("disabled");
+    expect(composition.readiness).toEqual({
+      liveMode: "disabled",
+      localOnly: false,
+      productionReady: false,
+      authStateEncryption: "not_configured",
+      ownershipMode: "single_instance_in_memory",
+    });
     expect(composition.supervisor).toBeInstanceOf(ProviderRuntimeSupervisor);
     expect(composition.socketProvider).toBeInstanceOf(RealBaileysSocketProvider);
     expect(composition.authStateStore).toBeInstanceOf(DurableJsonBaileysAuthStateStore);
@@ -59,6 +69,53 @@ describe("provider runtime composition", () => {
     });
 
     composition.shutdown();
+  });
+
+  it("composes explicit local live mode with real provider deps and local-only readiness", () => {
+    const stateDirectory = createTemporaryDirectory();
+    const composition = createProviderRuntimeComposition({
+      ...envFor(stateDirectory),
+      OMNIWA_LIVE_DEMO_MODE: "1",
+    });
+
+    expect(composition.profile).toBe("local");
+    expect(composition.liveMode).toBe("local_live");
+    expect(composition.readiness).toEqual({
+      liveMode: "local_live",
+      localOnly: true,
+      productionReady: false,
+      authStateEncryption: "not_configured",
+      ownershipMode: "single_instance_in_memory",
+    });
+    expect(composition.socketProvider).toBeInstanceOf(RealBaileysSocketProvider);
+    expect(composition.authStateStore).toBeInstanceOf(DurableJsonBaileysAuthStateStore);
+    expect(composition.paths.authStatePath).toBe(
+      join(stateDirectory, "provider-runtime", "baileys-auth-state.json"),
+    );
+
+    composition.shutdown();
+  });
+
+  it("blocks production local live mode until encryption and distributed ownership exist", () => {
+    const unsafeStateDirectory = [rawAuthPayload, rawQrPayload, rawProviderPayload].join("-");
+    let caught: unknown;
+
+    try {
+      createProviderRuntimeComposition({
+        OMNIWA_PROVIDER_RUNTIME_PROFILE: "production",
+        OMNIWA_LIVE_DEMO_MODE: "1",
+        OMNIWA_PROVIDER_RUNTIME_STATE_DIR: unsafeStateDirectory,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(String(caught)).toContain(
+      "requires encrypted auth state and distributed ownership before composition is allowed",
+    );
+    expect(String(caught)).not.toContain(rawAuthPayload);
+    expect(String(caught)).not.toContain(rawQrPayload);
+    expect(String(caught)).not.toContain(rawProviderPayload);
   });
 
   it("uses the shared durable EventLog path", () => {
@@ -131,6 +188,8 @@ describe("provider runtime composition", () => {
 
     expect(source).toContain("createProviderRuntimeComposition");
     expect(source).toContain('status: "started"');
+    expect(source).toContain("liveMode: composition.liveMode");
+    expect(source).toContain("readiness: composition.readiness");
     expect(source).not.toContain("requires MessagingProviderPort and SecretProvider");
   });
 
@@ -187,6 +246,14 @@ describe("provider runtime composition", () => {
         OMNIWA_PROVIDER_RUNTIME_DRAIN_INTERVAL_MS: "25",
       }),
     ).toBe(25);
+    expect(readProviderRuntimeLiveMode({})).toBe("disabled");
+    expect(readProviderRuntimeLiveMode({ OMNIWA_LIVE_DEMO_MODE: "1" })).toBe("local_live");
+    expect(readProviderRuntimeLiveMode({ OMNIWA_LIVE_DEMO_MODE: "true" })).toBe("local_live");
+    expect(readProviderRuntimeLiveMode({ OMNIWA_LIVE_DEMO_MODE: "local_live" })).toBe("local_live");
+    expect(readProviderRuntimeLiveMode({ OMNIWA_LIVE_DEMO_MODE: "false" })).toBe("disabled");
+    expect(() =>
+      readProviderRuntimeLiveMode({ OMNIWA_LIVE_DEMO_MODE: rawProviderPayload }),
+    ).toThrow("Unsupported OmniWA provider runtime live demo mode.");
   });
 
   it("creates a provider runtime application context", () => {
