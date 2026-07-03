@@ -32,6 +32,8 @@ import {
   FakeBaileysSocketProvider,
   RealBaileysSocketProvider,
   mapBaileysDisconnectReason,
+  type BaileysQrCodeOperatorEvent,
+  type BaileysQrCodeOperatorSink,
   type BaileysSocketRequest,
 } from "./baileys-socket-provider.js";
 
@@ -349,6 +351,75 @@ describe("RealBaileysSocketProvider", () => {
     expect(qrSignal?.occurrenceRef).toContain(qrSignal?.safeMetadata?.challengeRef);
     expect(JSON.stringify(signals)).not.toContain(rawQrSecret);
     expect(JSON.stringify(signals)).not.toContain("12025550123");
+  });
+
+  it("sends raw QR only to the local-only operator sink and keeps signals safe", async () => {
+    const capturedQrEvents: BaileysQrCodeOperatorEvent[] = [];
+    const rawQrSecret = "raw-local-operator-qr-secret-token";
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+      qrCodeOperatorSink: {
+        captureQrCode: (event) => {
+          capturedQrEvents.push(event);
+        },
+      },
+    });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", {
+      qr: rawQrSecret,
+    });
+    await flushAsyncSignals();
+
+    const signals = harness.provider.drainSignals({ sessionId });
+    const qrSignal = signals.find((signal) => signal.signalRef === "provider.baileys.qr_required");
+
+    expect(capturedQrEvents).toEqual([
+      {
+        instanceId,
+        providerId,
+        sessionId,
+        challengeRef: qrSignal?.safeMetadata?.challengeRef,
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+        qrCode: rawQrSecret,
+        dataClassification: "secret",
+        localOnly: true,
+      },
+    ]);
+    expect(JSON.stringify(signals)).not.toContain(rawQrSecret);
+  });
+
+  it("maps local QR operator sink failures to safe provider signals", async () => {
+    const rawQrSecret = "raw-failing-operator-qr-secret-token";
+    const harness = createRealProviderHarness({
+      qrCodeOperatorSink: {
+        captureQrCode: () => {
+          throw new Error(`sink failed for ${rawQrSecret}`);
+        },
+      },
+    });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", {
+      qr: rawQrSecret,
+    });
+    await flushAsyncSignals();
+
+    const signals = harness.provider.drainSignals({ sessionId });
+
+    expect(signals.map((signal) => signal.signalRef)).toContain(
+      "provider.baileys.qr_operator_sink_failed",
+    );
+    expect(signals.at(-1)).toMatchObject({
+      kind: "failure",
+      signalRef: "provider.baileys.qr_operator_sink_failed",
+      dataClassification: "confidential",
+      safeMetadata: {
+        reasonCode: "qr_operator_sink_failed",
+        challengeRef: expect.stringMatching(/^qr_challenge_[a-f0-9]{16}$/u),
+      },
+    });
+    expect(JSON.stringify(signals)).not.toContain(rawQrSecret);
   });
 
   it("creates stable QR occurrence refs and distinct refresh challenge refs", async () => {
@@ -917,6 +988,7 @@ function createRealProviderHarness(
     authStateStore?: BaileysAuthStateStore;
     nowEpochMilliseconds?: () => number;
     qrChallengeTtlMs?: number;
+    qrCodeOperatorSink?: BaileysQrCodeOperatorSink;
   }> = {},
 ): Readonly<{
   provider: RealBaileysSocketProvider;
@@ -938,6 +1010,9 @@ function createRealProviderHarness(
     ...(options.qrChallengeTtlMs === undefined
       ? {}
       : { qrChallengeTtlMs: options.qrChallengeTtlMs }),
+    ...(options.qrCodeOperatorSink === undefined
+      ? {}
+      : { qrCodeOperatorSink: options.qrCodeOperatorSink }),
   });
 
   return {

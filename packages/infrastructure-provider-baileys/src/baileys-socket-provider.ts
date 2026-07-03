@@ -73,6 +73,22 @@ export type RealBaileysSocketProviderOptions = Readonly<{
   socketFactory?: BaileysSocketFactory;
   nowEpochMilliseconds?: () => number;
   qrChallengeTtlMs?: number;
+  qrCodeOperatorSink?: BaileysQrCodeOperatorSink;
+}>;
+
+export type BaileysQrCodeOperatorEvent = Readonly<{
+  instanceId: InstanceId;
+  providerId: ProviderId;
+  sessionId?: SessionId;
+  challengeRef: string;
+  expiresAtEpochMilliseconds: number;
+  qrCode: string;
+  dataClassification: "secret";
+  localOnly: true;
+}>;
+
+export type BaileysQrCodeOperatorSink = Readonly<{
+  captureQrCode(event: BaileysQrCodeOperatorEvent): void;
 }>;
 
 export const baileysDisconnectActions = [
@@ -283,6 +299,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
   private readonly socketFactory: BaileysSocketFactory;
   private readonly nowEpochMilliseconds: () => number;
   private readonly qrChallengeTtlMs: number;
+  private readonly qrCodeOperatorSink: BaileysQrCodeOperatorSink | undefined;
   private readonly sockets = new Map<string, WASocket>();
   private readonly signals: TranslatedProviderSignal[] = [];
 
@@ -291,6 +308,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     this.socketFactory = options.socketFactory ?? makeWASocket;
     this.nowEpochMilliseconds = options.nowEpochMilliseconds ?? Date.now;
     this.qrChallengeTtlMs = options.qrChallengeTtlMs ?? 60_000;
+    this.qrCodeOperatorSink = options.qrCodeOperatorSink;
   }
 
   getSocket(request: BaileysSocketRequest, context: ApplicationPortContext): BaileysSocketLike {
@@ -452,6 +470,32 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
         refreshPolicy: "replace_active",
       },
     );
+
+    try {
+      this.qrCodeOperatorSink?.captureQrCode({
+        instanceId: request.instanceId,
+        providerId: request.providerId,
+        ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
+        challengeRef,
+        expiresAtEpochMilliseconds,
+        qrCode: qr,
+        dataClassification: "secret",
+        localOnly: true,
+      });
+    } catch {
+      this.recordSignal(
+        request,
+        "failure",
+        "qr_operator_sink_failed",
+        "confidential",
+        `qr_operator_sink_failed.${challengeRef}`,
+        createFailureCategory("provider"),
+        {
+          reasonCode: "qr_operator_sink_failed",
+          challengeRef,
+        },
+      );
+    }
   }
 
   private recordMessagesUpsert(request: BaileysSocketRequest, upsert: unknown): void {

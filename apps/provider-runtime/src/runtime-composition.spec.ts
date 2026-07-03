@@ -59,6 +59,9 @@ describe("provider runtime composition", () => {
       authStateEncryption: "not_configured",
       ownershipMode: "single_instance_in_memory",
     });
+    expect(composition.localQrOutput).toEqual({
+      mode: "disabled",
+    });
     expect(composition.supervisor).toBeInstanceOf(ProviderRuntimeSupervisor);
     expect(composition.socketProvider).toBeInstanceOf(RealBaileysSocketProvider);
     expect(composition.authStateStore).toBeInstanceOf(DurableJsonBaileysAuthStateStore);
@@ -76,6 +79,7 @@ describe("provider runtime composition", () => {
     const composition = createProviderRuntimeComposition({
       ...envFor(stateDirectory),
       OMNIWA_LIVE_DEMO_MODE: "1",
+      OMNIWA_LOCAL_QR_OUTPUT: "file",
     });
 
     expect(composition.profile).toBe("local");
@@ -89,6 +93,10 @@ describe("provider runtime composition", () => {
     });
     expect(composition.socketProvider).toBeInstanceOf(RealBaileysSocketProvider);
     expect(composition.authStateStore).toBeInstanceOf(DurableJsonBaileysAuthStateStore);
+    expect(composition.localQrOutput).toEqual({
+      mode: "file",
+      filePath: join(stateDirectory, "provider-runtime", "local-qr.secret.json"),
+    });
     expect(composition.paths.authStatePath).toBe(
       join(stateDirectory, "provider-runtime", "baileys-auth-state.json"),
     );
@@ -190,6 +198,7 @@ describe("provider runtime composition", () => {
     expect(source).toContain('status: "started"');
     expect(source).toContain("liveMode: composition.liveMode");
     expect(source).toContain("readiness: composition.readiness");
+    expect(source).toContain("localQrOutput: composition.localQrOutput");
     expect(source).not.toContain("requires MessagingProviderPort and SecretProvider");
   });
 

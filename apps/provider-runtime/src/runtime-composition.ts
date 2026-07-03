@@ -21,6 +21,11 @@ import {
   ProviderRuntimeSupervisor,
   type ProviderRuntimeSupervisorOwnershipGuard,
 } from "./provider-runtime-supervisor.js";
+import {
+  createLocalQrOperatorSink,
+  readLocalQrOperatorOutputConfig,
+  type LocalQrOperatorOutputConfig,
+} from "./local-qr-operator-output.js";
 
 export const providerRuntimeCompositionProfiles = ["local", "test", "production"] as const;
 
@@ -54,6 +59,7 @@ export type ProviderRuntimeComposition = Readonly<{
   profile: ProviderRuntimeCompositionProfile;
   liveMode: ProviderRuntimeLiveMode;
   readiness: ProviderRuntimeReadiness;
+  localQrOutput: LocalQrOperatorOutputConfig;
   paths: ProviderRuntimeCompositionPaths;
   eventLog: EventLogPort;
   authStateStore: BaileysAuthStateStore;
@@ -89,6 +95,8 @@ export function createProviderRuntimeComposition(
   assertProviderRuntimeProfileIsComposable(profile);
 
   const paths = readProviderRuntimeCompositionPaths(env);
+  const localQrOutput = readLocalQrOperatorOutputConfig(env, paths.stateDirectory);
+  const qrCodeOperatorSink = createLocalQrOperatorSink(localQrOutput);
   const eventLog = overrides.eventLog ?? createDurableJsonEventLogStore(paths.eventLogPath);
   const authStateStore =
     overrides.authStateStore ?? new DurableJsonBaileysAuthStateStore(paths.authStatePath);
@@ -96,6 +104,7 @@ export function createProviderRuntimeComposition(
     overrides.socketProvider ??
     new RealBaileysSocketProvider({
       authStateStore,
+      ...optional("qrCodeOperatorSink", qrCodeOperatorSink),
     });
   const signalIngress =
     overrides.signalIngress ??
@@ -116,6 +125,7 @@ export function createProviderRuntimeComposition(
     profile,
     liveMode,
     readiness: providerRuntimeReadiness(liveMode),
+    localQrOutput,
     paths,
     eventLog,
     authStateStore,

@@ -8,6 +8,7 @@ import {
 export * from "./provider-runtime.js";
 export * from "./provider-runtime-app.js";
 export * from "./provider-runtime-supervisor.js";
+export * from "./local-qr-operator-output.js";
 export * from "./runtime-composition.js";
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -41,6 +42,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
           profile: composition.profile,
           liveMode: composition.liveMode,
           readiness: composition.readiness,
+          localQrOutput: composition.localQrOutput,
           stateDirectory: composition.paths.stateDirectory,
           eventLogPath: composition.paths.eventLogPath,
           authStatePath: composition.paths.authStatePath,

@@ -33,6 +33,7 @@ target/
 .env.*
 !.env.example
 deploy/docker/env/*.env
+.omniwa-local/
 
 # Logs
 *.log
