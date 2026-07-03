@@ -1,8 +1,11 @@
 import {
   createInstance,
   createInstanceId,
+  type GuardrailDecisionRepositoryPort,
   type HealthStatusRepositoryPort,
   type InstanceRepositoryPort,
+  type MessageRepositoryPort,
+  type SessionRepositoryPort,
 } from "@omniwa/domain";
 import { cryptoUUIDGenerator, systemClock, type Clock, type UUIDGenerator } from "@omniwa/shared";
 
@@ -25,10 +28,25 @@ import type {
   QueryHandler,
   QueryHandlerRegistry,
 } from "./handlers/command-handler.js";
+import {
+  createActiveSessionResolver,
+  type ActiveSessionResolver,
+} from "./active-session-resolver.js";
+import type { OutboundMessageIntentStorePort } from "../ports/outbound-message-intent-store.js";
+import type { QueueProviderPort } from "../ports/queue-provider.js";
+import type { DomainEventPublisher } from "./domain-event-publisher.js";
+import {
+  createMinimalMessageGuardrailService,
+  type MinimalMessageGuardrailService,
+} from "./minimal-message-guardrail.js";
+import { createSendTextMessageHandler } from "./handlers/send-text-message.handler.js";
 
 export type ApplicationDispatcherRepositories = Readonly<{
   instanceRepository: InstanceRepositoryPort;
   healthStatusRepository?: HealthStatusRepositoryPort;
+  sessionRepository?: SessionRepositoryPort;
+  messageRepository?: MessageRepositoryPort;
+  guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
 }>;
 
 export type ApplicationDispatcherOptions = Readonly<{
@@ -36,6 +54,11 @@ export type ApplicationDispatcherOptions = Readonly<{
   uuidGenerator?: UUIDGenerator;
   clock?: Clock;
   healthSubjectRef?: string;
+  activeSessionResolver?: ActiveSessionResolver;
+  outboundMessageIntentStore?: OutboundMessageIntentStorePort;
+  guardrailService?: MinimalMessageGuardrailService;
+  queueProvider?: QueueProviderPort;
+  domainEventPublisher?: DomainEventPublisher;
 }>;
 
 export type ApplicationDispatcher = Readonly<{
@@ -54,6 +77,11 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly uuidGenerator: UUIDGenerator;
   private readonly clock: Clock;
   private readonly healthSubjectRef: string;
+  private readonly activeSessionResolver: ActiveSessionResolver | undefined;
+  private readonly outboundMessageIntentStore: OutboundMessageIntentStorePort | undefined;
+  private readonly guardrailService: MinimalMessageGuardrailService | undefined;
+  private readonly queueProvider: QueueProviderPort | undefined;
+  private readonly domainEventPublisher: DomainEventPublisher | undefined;
   private readonly commandHandlers: CommandHandlerRegistry;
   private readonly queryHandlers: QueryHandlerRegistry;
 
@@ -62,6 +90,11 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     this.uuidGenerator = options.uuidGenerator ?? cryptoUUIDGenerator;
     this.clock = options.clock ?? systemClock;
     this.healthSubjectRef = options.healthSubjectRef ?? "platform";
+    this.activeSessionResolver = options.activeSessionResolver;
+    this.outboundMessageIntentStore = options.outboundMessageIntentStore;
+    this.guardrailService = options.guardrailService;
+    this.queueProvider = options.queueProvider;
+    this.domainEventPublisher = options.domainEventPublisher;
     this.commandHandlers = this.buildCommandHandlers();
     this.queryHandlers = this.buildQueryHandlers();
   }
@@ -107,9 +140,16 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   }
 
   private buildCommandHandlers(): CommandHandlerRegistry {
-    return new Map<ApplicationCommandName, CommandHandler>([
+    const handlers = new Map<ApplicationCommandName, CommandHandler>([
       ["CreateInstance", (envelope) => this.createInstance(envelope)],
     ]);
+    const sendTextHandler = this.createSendTextMessageHandler();
+
+    if (sendTextHandler !== undefined) {
+      handlers.set("SendTextMessage", sendTextHandler);
+    }
+
+    return handlers;
   }
 
   private buildQueryHandlers(): QueryHandlerRegistry {
@@ -131,6 +171,42 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       accepted: true,
       retryable: false,
       resultRef: instance.id,
+    });
+  }
+
+  private createSendTextMessageHandler(): CommandHandler | undefined {
+    const sessionRepository = this.repositories.sessionRepository;
+    const messageRepository = this.repositories.messageRepository;
+    const guardrailDecisionRepository = this.repositories.guardrailDecisionRepository;
+
+    if (
+      sessionRepository === undefined ||
+      messageRepository === undefined ||
+      guardrailDecisionRepository === undefined ||
+      this.outboundMessageIntentStore === undefined ||
+      this.queueProvider === undefined ||
+      this.domainEventPublisher === undefined
+    ) {
+      return undefined;
+    }
+
+    return createSendTextMessageHandler({
+      activeSessionResolver:
+        this.activeSessionResolver ??
+        createActiveSessionResolver({
+          instanceRepository: this.repositories.instanceRepository,
+          sessionRepository,
+        }),
+      messageRepository,
+      outboundMessageIntentStore: this.outboundMessageIntentStore,
+      guardrailService:
+        this.guardrailService ??
+        createMinimalMessageGuardrailService({
+          guardrailDecisionRepository,
+        }),
+      queueProvider: this.queueProvider,
+      domainEventPublisher: this.domainEventPublisher,
+      uuidGenerator: this.uuidGenerator,
     });
   }
 
