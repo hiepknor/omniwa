@@ -5,9 +5,13 @@ import {
   type HealthStatusRepositoryPort,
   type Instance,
   type InstanceRepositoryPort,
+  createJobId,
+  jobStatuses,
   type MessageRepositoryPort,
   type Session,
   type SessionRepositoryPort,
+  type WorkerJob,
+  type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import { cryptoUUIDGenerator, systemClock, type Clock, type UUIDGenerator } from "@omniwa/shared";
 
@@ -52,6 +56,7 @@ export type ApplicationDispatcherRepositories = Readonly<{
   sessionRepository?: SessionRepositoryPort;
   messageRepository?: MessageRepositoryPort;
   guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
+  workerJobRepository?: WorkerJobRepositoryPort;
 }>;
 
 export type ApplicationDispatcherOptions = Readonly<{
@@ -176,6 +181,8 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["ListInstances", (envelope) => this.listInstances(envelope)],
       ["ListInstanceSessions", (envelope) => this.listInstanceSessions(envelope)],
       ["ListEvents", (envelope) => this.listEvents(envelope)],
+      ["ListWorkerJobs", (envelope) => this.listWorkerJobs(envelope)],
+      ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
     ]);
   }
 
@@ -364,6 +371,58 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       items: replay.value.events.map(eventQueryItem),
     });
   }
+
+  private async listWorkerJobs(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.workerJobRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "worker_job_repository_not_configured",
+      });
+    }
+
+    const jobs = (
+      await Promise.all(jobStatuses.map((status) => repository.findByStatus(status)))
+    ).flat();
+
+    return queryOutcome(envelope, this.clock, jobs.length === 0 ? "empty" : "result", {
+      resultRef: `jobs:list:${jobs.length}`,
+      items: jobs.map(workerJobQueryItem),
+    });
+  }
+
+  private async getWorkerJobStatus(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.workerJobRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "worker_job_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "worker_job_target_required",
+      });
+    }
+
+    const job = await repository.load(createJobId(envelope.targetRef));
+
+    if (job === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `job:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `job:${job.id}:${job.status}`,
+      resource: workerJobQueryItem(job),
+    });
+  }
 }
 
 function commandOutcome(
@@ -450,6 +509,24 @@ function eventQueryItem(event: PlatformEventRecord): Readonly<{
     timestamp: event.timestamp,
     ...optional("resourceRef", event.resourceRef),
     ...optional("correlationId", event.correlationId),
+  });
+}
+
+function workerJobQueryItem(job: WorkerJob): Readonly<{
+  id: string;
+  status: WorkerJob["status"];
+  workType: string;
+  ownerContext: string;
+  attemptCount?: number;
+  resourceRef?: string;
+}> {
+  return Object.freeze({
+    id: String(job.id),
+    status: job.status,
+    workType: job.workType,
+    ownerContext: job.ownerContext,
+    ...optional("attemptCount", job.attemptNumber),
+    ...optional("resourceRef", job.safeMetadata?.messageId ?? job.safeMetadata?.instanceId),
   });
 }
 

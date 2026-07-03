@@ -860,6 +860,98 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(response.body)).not.toContain("hidden");
   });
 
+  it("materializes worker jobs through the monitoring API boundary", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        workerJobRepository: repositories.workerJobRepository,
+      },
+    });
+
+    await repositories.workerJobRepository.save({
+      id: "job:demo",
+      ownerContext: "operations",
+      workType: "outbound_message",
+      safeMetadata: {
+        jobKind: "outbound_message",
+        instanceId: "inst_demo",
+        messageId: "msg_demo",
+        outboundIntentRef: "intent_hidden",
+      },
+      status: "queued",
+      retryPolicy: {
+        maxAttempts: 3,
+        initialDelayMilliseconds: 100,
+        backoffMultiplier: 2,
+      },
+      recoveryActionRequired: false,
+      domainEvents: [],
+    } as unknown as Parameters<typeof repositories.workerJobRepository.save>[0]);
+
+    const listResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/jobs",
+        headers: {
+          "x-api-key": "monitoring-secret",
+          "x-request-id": "req-list-jobs",
+          "x-correlation-id": "corr-list-jobs",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-jobs",
+      },
+    );
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: `/v1/jobs/${encodeURIComponent("job:demo")}`,
+        headers: {
+          "x-api-key": "monitoring-secret",
+          "x-request-id": "req-get-job",
+          "x-correlation-id": "corr-get-job",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-job",
+      },
+    );
+
+    expect(listResponse.statusCode).toBe(200);
+    expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([
+      {
+        resourceType: "job",
+        id: "job:demo",
+        status: "queued",
+        workType: "outbound_message",
+        ownerContext: "operations",
+        resourceRef: "msg_demo",
+      },
+    ]);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "job",
+      resourceId: "job:demo",
+      id: "job:demo",
+      status: "queued",
+      workType: "outbound_message",
+      ownerContext: "operations",
+      resourceRef: "msg_demo",
+      readStatus: "result",
+    });
+    expect(JSON.stringify(listResponse.body)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(listResponse.body)).not.toContain("intent_hidden");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("intent_hidden");
+  });
+
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
     const dispatcher = new CapturingDispatcher({
       ListGroupMembers: {

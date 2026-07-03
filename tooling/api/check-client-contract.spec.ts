@@ -134,6 +134,8 @@ function implementedPublicEndpoints() {
     implementedEndpoint("POST", "/v1/instances"),
     implementedEndpoint("GET", "/v1/events"),
     implementedEndpoint("GET", "/v1/events/stream"),
+    implementedEndpoint("GET", "/v1/jobs"),
+    implementedEndpoint("GET", "/v1/jobs/{jobId}"),
   ];
 }
 
@@ -144,6 +146,7 @@ function requiredFixtureMap() {
     instancesEmpty: "docs/api/client-contract/fixtures/instances.empty.json",
     instancesList: "docs/api/client-contract/fixtures/instances.list.json",
     eventsList: "docs/api/client-contract/fixtures/events.list.json",
+    jobsList: "docs/api/client-contract/fixtures/jobs.list.json",
     groupUnavailable: "docs/api/client-contract/fixtures/group.unavailable.json",
     sseHeartbeat: "docs/api/client-contract/fixtures/events-stream.heartbeat.sse",
   };

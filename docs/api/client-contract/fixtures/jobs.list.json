@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "resourceType": "job",
+      "id": "job_demo",
+      "status": "queued",
+      "workType": "outbound_message",
+      "ownerContext": "operations",
+      "resourceRef": "msg_demo"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-jobs-list-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "job",
+      "readStatus": "result",
+      "consistency": "eventual_projection",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "jobs:list:1"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}

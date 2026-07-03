@@ -15,6 +15,8 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "POST /v1/instances",
   "GET /v1/events",
   "GET /v1/events/stream",
+  "GET /v1/jobs",
+  "GET /v1/jobs/{jobId}",
 ]);
 
 export async function evaluateClientContractReadiness(options = {}) {

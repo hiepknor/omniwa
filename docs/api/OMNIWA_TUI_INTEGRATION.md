@@ -118,6 +118,8 @@ Wire these first:
 | Sessions  | `GET /v1/instances/{id}/sessions` | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable. |
 | Events    | `GET /v1/events`        | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs. |
 | Realtime  | `GET /v1/events/stream` | `implemented_public` | SSE connection status and heartbeat support.                 |
+| Jobs      | `GET /v1/jobs`          | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope. |
+| Jobs      | `GET /v1/jobs/{id}`     | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed. |
 
 Keep these disabled or read-only with a backend-not-ready state:
 
@@ -187,6 +189,8 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/sessions"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/events"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs/job_demo"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"

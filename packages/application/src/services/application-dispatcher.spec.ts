@@ -1,10 +1,14 @@
 import {
   classifyHealthy,
+  createJobId,
   createInstanceId,
   createHealthStatus,
   createHealthStatusId,
+  createRetryPolicy,
   createSession,
   createSessionId,
+  queueWorkerJob,
+  type DomainOwnerContext,
   type HealthCategory,
   type HealthStatus,
   type HealthStatusId,
@@ -13,11 +17,15 @@ import {
   type InstanceId,
   type InstanceRepositoryPort,
   type InstanceStatus,
+  type JobId,
+  type JobStatus,
   type RepositorySaveResult,
   type Session,
   type SessionId,
   type SessionRepositoryPort,
   type SessionStatus,
+  type WorkerJob,
+  type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import {
   createCorrelationId,
@@ -55,6 +63,12 @@ const fixedClock: Clock = {
 const fixedUuidGenerator: UUIDGenerator = {
   random: () => createUuid("550e8400-e29b-41d4-a716-446655440000"),
 };
+
+const retryPolicy = createRetryPolicy({
+  maxAttempts: 3,
+  initialDelayMilliseconds: 100,
+  backoffMultiplier: 2,
+});
 
 describe("application dispatcher", () => {
   it("executes CreateInstance through the Instance repository", async () => {
@@ -307,6 +321,113 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("hidden");
   });
 
+  it("executes ListWorkerJobs through the WorkerJob repository", async () => {
+    const workerJob = queueWorkerJob(
+      createJobId("job:one"),
+      "operations",
+      "outbound_message",
+      retryPolicy,
+      {
+        jobKind: "outbound_message",
+        instanceId: "inst:one",
+        messageId: "msg:one",
+        outboundIntentRef: "intent:secret-ref",
+      },
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        workerJobRepository: new FakeWorkerJobRepository([workerJob]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListWorkerJobs",
+        queryRef: "qry-list-worker-jobs",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-worker-jobs",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "jobs:list:1",
+      items: [
+        {
+          id: "job:one",
+          status: "queued",
+          workType: "outbound_message",
+          ownerContext: "operations",
+          resourceRef: "msg:one",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(outcome)).not.toContain("secret-ref");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes GetWorkerJobStatus through the WorkerJob repository", async () => {
+    const workerJob = queueWorkerJob(
+      createJobId("job:detail"),
+      "operations",
+      "outbound_message",
+      retryPolicy,
+      {
+        jobKind: "outbound_message",
+        instanceId: "inst:detail",
+      },
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        workerJobRepository: new FakeWorkerJobRepository([workerJob]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetWorkerJobStatus",
+        queryRef: "qry-get-worker-job",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "job:detail",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-worker-job",
+      outcome: "result",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "job:job:detail:queued",
+      resource: {
+        id: "job:detail",
+        status: "queued",
+        workType: "outbound_message",
+        ownerContext: "operations",
+        resourceRef: "inst:detail",
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
@@ -521,6 +642,45 @@ class FakeEventLogReplayPort implements EventLogReplayPort {
       ...optional("oldestCursor", this.events[0]?.cursor),
       ...optional("latestCursor", this.events.at(-1)?.cursor),
     });
+  }
+}
+
+class FakeWorkerJobRepository implements WorkerJobRepositoryPort {
+  private readonly records = new Map<string, WorkerJob>();
+
+  constructor(initialRecords: readonly WorkerJob[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: JobId): Promise<WorkerJob | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: WorkerJob): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: JobId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByStatus(status: JobStatus): Promise<readonly WorkerJob[]> {
+    return Promise.resolve(this.list().filter((job) => job.status === status));
+  }
+
+  findByOwnerContext(ownerContext: DomainOwnerContext): Promise<readonly WorkerJob[]> {
+    return Promise.resolve(this.list().filter((job) => job.ownerContext === ownerContext));
+  }
+
+  findByIdempotencyKey(): Promise<WorkerJob | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  private list(): readonly WorkerJob[] {
+    return Object.freeze([...this.records.values()]);
   }
 }
 

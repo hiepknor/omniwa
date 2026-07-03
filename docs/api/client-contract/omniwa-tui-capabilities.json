@@ -156,10 +156,10 @@
       "notes": "Only /v1/queue summary route exists. Queue item/action routes are missing."
     },
     "jobs": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "JobDto",
-      "notes": "Read routes exist but Application handlers are unavailable and require jobs:read or admin scope."
+      "notes": "Read routes are public and require jobs:read, monitoring, or admin credentials."
     },
     "webhooks": {
       "status": "route_exists_not_implemented",
@@ -427,11 +427,22 @@
       "feature": "jobs",
       "method": "GET",
       "path": "/v1/jobs",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "JobDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "status", "workType", "ownerContext"],
-      "responseEnvelope": "CollectionEnvelope"
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Requires jobs:read or admin scope. Public DTO does not expose safeMetadata or outbound intent references."
+    },
+    {
+      "feature": "jobs",
+      "method": "GET",
+      "path": "/v1/jobs/{jobId}",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "JobDto",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires jobs:read or admin scope. Public DTO does not expose safeMetadata or outbound intent references."
     },
     {
       "feature": "webhooks",
@@ -628,6 +639,8 @@
     "instanceDetail": "docs/api/client-contract/fixtures/instance.detail.json",
     "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
+    "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",
+    "jobDetail": "docs/api/client-contract/fixtures/job.detail.json",
     "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
   }

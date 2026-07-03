@@ -1,0 +1,23 @@
+{
+  "data": {
+    "resourceType": "job",
+    "readStatus": "result",
+    "consistency": "strong_owner",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209791
+    },
+    "resultRef": "job:job_demo:queued",
+    "id": "job_demo",
+    "status": "queued",
+    "workType": "outbound_message",
+    "ownerContext": "operations",
+    "resourceRef": "msg_demo",
+    "resourceId": "job_demo"
+  },
+  "meta": {
+    "requestId": "tui-job-detail-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z"
+  }
+}
