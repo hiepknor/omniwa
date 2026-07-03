@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_CONNECTION_CONFIG,
   DisconnectReason,
+  WAMessageStatus,
   initAuthCreds,
   makeWASocket,
   type AuthenticationCreds,
@@ -21,6 +22,7 @@ import {
   type SignalKeyStore,
   type UserFacingSocketConfig,
   type WAMessage,
+  type WAMessageUpdate,
   type WASocket,
 } from "@whiskeysockets/baileys";
 
@@ -349,6 +351,9 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       socket.ev.on("messages.upsert", (update) => {
         this.recordMessagesUpsert(request, update);
       });
+      socket.ev.on("messages.update", (updates) => {
+        this.recordMessagesUpdate(request, updates);
+      });
 
       this.sockets.set(socketKey(request), socket);
 
@@ -460,6 +465,74 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     });
   }
 
+  private recordMessagesUpdate(request: BaileysSocketRequest, updates: unknown): void {
+    if (!Array.isArray(updates)) {
+      this.recordStatusFailure(request, "malformed_message_status_update", "status_malformed");
+      return;
+    }
+
+    updates.forEach((update, index) => {
+      this.recordMessageStatusUpdate(request, update, index);
+    });
+  }
+
+  private recordMessageStatusUpdate(
+    request: BaileysSocketRequest,
+    rawUpdate: unknown,
+    index: number,
+  ): void {
+    const update = isObjectRecord(rawUpdate) ? (rawUpdate as Partial<WAMessageUpdate>) : undefined;
+    const key = isObjectRecord(update?.key) ? update.key : undefined;
+    const providerMessageId = typeof key?.id === "string" ? key.id : undefined;
+
+    if (providerMessageId === undefined) {
+      this.recordStatusFailure(
+        request,
+        "malformed_message_status_update",
+        `status_malformed.${index}`,
+      );
+      return;
+    }
+
+    const providerMessageRef = createProviderMessageRef(request, providerMessageId);
+    const status = mapBaileysMessageStatus(readMessageUpdateStatus(update?.update));
+
+    if (status === undefined) {
+      this.recordStatusFailure(
+        request,
+        "unsupported_message_status",
+        `status_unsupported.${providerMessageRef}`,
+        {
+          providerMessageRef,
+        },
+      );
+      return;
+    }
+
+    const occurredAt = occurredAtIso(update?.update?.messageTimestamp, this.nowEpochMilliseconds);
+    const failureReasonRef =
+      status === "failed"
+        ? createFailureReasonRef(request, providerMessageId, "status_failed")
+        : undefined;
+
+    this.recordSignal(
+      request,
+      "message_status",
+      `message_${status}`,
+      "confidential",
+      `message_status.${providerMessageRef}.${status}`,
+      undefined,
+      {
+        instanceId: String(request.instanceId),
+        sessionId: String(request.sessionId ?? request.instanceId),
+        providerMessageRef,
+        status,
+        occurredAt,
+        ...(failureReasonRef === undefined ? {} : { failureReasonRef }),
+      },
+    );
+  }
+
   private recordInboundMessage(
     request: BaileysSocketRequest,
     rawMessage: unknown,
@@ -514,6 +587,28 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
         occurredAt: occurredAtIso(message?.messageTimestamp, this.nowEpochMilliseconds),
         contentKind,
         conversationKind: conversationKindFromJid(remoteJid),
+      },
+    );
+  }
+
+  private recordStatusFailure(
+    request: BaileysSocketRequest,
+    reasonCode: string,
+    occurrenceCode: string,
+    safeMetadata: TranslatedProviderSignal["safeMetadata"] = {},
+  ): void {
+    this.recordSignal(
+      request,
+      "failure",
+      "message_status_unsupported",
+      "confidential",
+      occurrenceCode,
+      createFailureCategory("provider"),
+      {
+        instanceId: String(request.instanceId),
+        sessionId: String(request.sessionId ?? request.instanceId),
+        reasonCode,
+        ...safeMetadata,
       },
     );
   }
@@ -732,6 +827,19 @@ function createConversationRef(request: BaileysSocketRequest, remoteJid: string)
   )}`;
 }
 
+function createFailureReasonRef(
+  request: BaileysSocketRequest,
+  providerMessageId: string,
+  reasonCode: string,
+): string {
+  return `failure_reason_${safeDigest(
+    String(request.providerId),
+    String(request.sessionId ?? request.instanceId),
+    providerMessageId,
+    reasonCode,
+  )}`;
+}
+
 function safeDigest(...parts: readonly string[]): string {
   const hash = createHash("sha256");
 
@@ -747,6 +855,32 @@ function isMessageUpsertPayload(
   value: unknown,
 ): value is Readonly<{ messages: readonly unknown[] }> {
   return isObjectRecord(value) && Array.isArray(value.messages);
+}
+
+function readMessageUpdateStatus(update: unknown): unknown {
+  if (!isObjectRecord(update)) {
+    return undefined;
+  }
+
+  return update.status;
+}
+
+function mapBaileysMessageStatus(
+  status: unknown,
+): "sent" | "delivered" | "read" | "failed" | undefined {
+  switch (status) {
+    case WAMessageStatus.ERROR:
+      return "failed";
+    case WAMessageStatus.SERVER_ACK:
+      return "sent";
+    case WAMessageStatus.DELIVERY_ACK:
+      return "delivered";
+    case WAMessageStatus.READ:
+    case WAMessageStatus.PLAYED:
+      return "read";
+    default:
+      return undefined;
+  }
 }
 
 function detectInboundContentKind(

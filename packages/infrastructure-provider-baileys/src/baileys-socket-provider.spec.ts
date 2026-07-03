@@ -9,9 +9,10 @@ import type {
   BaileysEventMap,
   UserFacingSocketConfig,
   WAMessage,
+  WAMessageUpdate,
   WASocket,
 } from "@whiskeysockets/baileys";
-import { DisconnectReason } from "@whiskeysockets/baileys";
+import { DisconnectReason, WAMessageStatus } from "@whiskeysockets/baileys";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -537,6 +538,148 @@ describe("RealBaileysSocketProvider", () => {
     expect(JSON.stringify(failureSignals)).not.toContain("BAILEYS_UNSUPPORTED_MESSAGE_ID");
   });
 
+  it("maps messages.update delivery status into safe message_status signals", async () => {
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+    });
+    const rawProviderMessageId = "BAILEYS_STATUS_MESSAGE_ID_1";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.update",
+      messageUpdates([
+        statusUpdate(rawProviderMessageId, WAMessageStatus.DELIVERY_ACK, {
+          messageTimestamp: 1_804_000_002,
+        }),
+      ]),
+    );
+    await flushAsyncSignals();
+
+    const statusSignal = harness.provider
+      .drainSignals({ sessionId })
+      .find((signal) => signal.kind === "message_status");
+
+    expect(statusSignal).toMatchObject({
+      signalRef: "provider.baileys.message_delivered",
+      targetRef: sessionId,
+      dataClassification: "confidential",
+      safeMetadata: {
+        instanceId,
+        sessionId,
+        providerMessageRef: expect.stringMatching(/^provider_msg_[a-f0-9]{16}$/u),
+        status: "delivered",
+        occurredAt: "2027-03-02T15:06:42.000Z",
+      },
+    });
+    expect(statusSignal?.occurrenceRef).toContain(
+      String(statusSignal?.safeMetadata?.providerMessageRef),
+    );
+    expect(JSON.stringify(statusSignal)).not.toContain(rawProviderMessageId);
+  });
+
+  it("maps read and failed message statuses safely", async () => {
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+    });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.update",
+      messageUpdates([
+        statusUpdate("BAILEYS_READ_MESSAGE_ID", WAMessageStatus.READ, {
+          messageTimestamp: 1_804_000_003,
+        }),
+        statusUpdate("BAILEYS_FAILED_MESSAGE_ID", WAMessageStatus.ERROR, {
+          messageTimestamp: 1_804_000_004,
+          message: {
+            conversation: "raw failed message text",
+          },
+        }),
+      ]),
+    );
+    await flushAsyncSignals();
+
+    const statusSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "message_status");
+
+    expect(statusSignals.map((signal) => signal.safeMetadata?.status)).toEqual(["read", "failed"]);
+    expect(statusSignals[0]).toMatchObject({
+      signalRef: "provider.baileys.message_read",
+      safeMetadata: {
+        occurredAt: "2027-03-02T15:06:43.000Z",
+      },
+    });
+    expect(statusSignals[1]).toMatchObject({
+      signalRef: "provider.baileys.message_failed",
+      safeMetadata: {
+        occurredAt: "2027-03-02T15:06:44.000Z",
+        failureReasonRef: expect.stringMatching(/^failure_reason_[a-f0-9]{16}$/u),
+      },
+    });
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_READ_MESSAGE_ID");
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_FAILED_MESSAGE_ID");
+    expect(JSON.stringify(statusSignals)).not.toContain("raw failed message text");
+  });
+
+  it("uses deterministic occurrence refs for duplicate message status updates", async () => {
+    const harness = createRealProviderHarness();
+    const update = statusUpdate("BAILEYS_DUPLICATE_STATUS_ID", WAMessageStatus.SERVER_ACK);
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("messages.update", messageUpdates([update]));
+    harness.socket.ev.emit("messages.update", messageUpdates([update]));
+    await flushAsyncSignals();
+
+    const statusSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "message_status");
+
+    expect(statusSignals).toHaveLength(2);
+    expect(statusSignals[0]?.occurrenceRef).toBe(statusSignals[1]?.occurrenceRef);
+    expect(statusSignals[0]?.safeMetadata?.providerMessageRef).toBe(
+      statusSignals[1]?.safeMetadata?.providerMessageRef,
+    );
+    expect(statusSignals[0]?.safeMetadata?.status).toBe("sent");
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_DUPLICATE_STATUS_ID");
+  });
+
+  it("fails safe for malformed or unsupported message status updates", async () => {
+    const harness = createRealProviderHarness();
+    const rawProviderMessageId = "BAILEYS_UNSUPPORTED_STATUS_ID";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.update",
+      messageUpdates([
+        statusUpdate(rawProviderMessageId, WAMessageStatus.PENDING),
+        { key: {}, update: {} } as WAMessageUpdate,
+      ]),
+    );
+    await flushAsyncSignals();
+
+    const failureSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "failure");
+
+    expect(failureSignals).toEqual([
+      expect.objectContaining({
+        signalRef: "provider.baileys.message_status_unsupported",
+        safeMetadata: expect.objectContaining({
+          reasonCode: "unsupported_message_status",
+          providerMessageRef: expect.stringMatching(/^provider_msg_[a-f0-9]{16}$/u),
+        }),
+      }),
+      expect.objectContaining({
+        signalRef: "provider.baileys.message_status_unsupported",
+        safeMetadata: expect.objectContaining({
+          reasonCode: "malformed_message_status_update",
+        }),
+      }),
+    ]);
+    expect(JSON.stringify(failureSignals)).not.toContain(rawProviderMessageId);
+  });
+
   it("maps provider factory errors without leaking raw provider payload or auth state", async () => {
     const rawAuthSecret = "raw-auth-state-secret-token";
     const rawProviderPayload = "raw provider payload with jid 12025550123@s.whatsapp.net";
@@ -822,6 +965,28 @@ function inboundUpsert(message: Partial<WAMessage>): BaileysEventMap["messages.u
     messages: [message as WAMessage],
     type: "notify",
   } as BaileysEventMap["messages.upsert"];
+}
+
+function messageUpdates(updates: readonly WAMessageUpdate[]): BaileysEventMap["messages.update"] {
+  return [...updates];
+}
+
+function statusUpdate(
+  providerMessageId: string,
+  status: number,
+  update: Partial<WAMessage> = {},
+): WAMessageUpdate {
+  return {
+    key: {
+      id: providerMessageId,
+      remoteJid: "12025550123@s.whatsapp.net",
+      fromMe: true,
+    },
+    update: {
+      status,
+      ...update,
+    },
+  } as WAMessageUpdate;
 }
 
 async function flushAsyncSignals(): Promise<void> {

@@ -47,6 +47,7 @@ const safeTokenPattern = /^[A-Za-z0-9_.:-]+$/u;
 const safeQrChallengeRefPattern = /^qr_challenge_[a-f0-9]{16}$/u;
 const safeProviderMessageRefPattern = /^provider_msg_[a-f0-9]{16}$/u;
 const safeConversationRefPattern = /^conversation_[a-f0-9]{16}$/u;
+const safeFailureReasonRefPattern = /^failure_reason_[a-f0-9]{16}$/u;
 const providerSignalSafeMetadataKeys = [
   "challengeRef",
   "expiresAtEpochMilliseconds",
@@ -60,6 +61,8 @@ const providerSignalSafeMetadataKeys = [
   "occurredAt",
   "contentKind",
   "conversationKind",
+  "status",
+  "failureReasonRef",
 ] as const;
 
 export function createProviderSignalIngress(
@@ -290,6 +293,8 @@ function isSafeMetadataValue(key: string, value: unknown): boolean {
       return typeof value === "string" && safeProviderMessageRefPattern.test(value);
     case "conversationRef":
       return typeof value === "string" && safeConversationRefPattern.test(value);
+    case "failureReasonRef":
+      return typeof value === "string" && safeFailureReasonRefPattern.test(value);
     case "occurredAt":
       return typeof value === "string" && isSafeToken(value) && Number.isFinite(Date.parse(value));
     case "contentKind":
@@ -307,6 +312,8 @@ function isSafeMetadataValue(key: string, value: unknown): boolean {
       );
     case "conversationKind":
       return value === "private" || value === "group" || value === "unknown";
+    case "status":
+      return value === "sent" || value === "delivered" || value === "read" || value === "failed";
     default:
       return false;
   }
