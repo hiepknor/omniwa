@@ -167,6 +167,9 @@ importers:
       '@omniwa/infrastructure-persistence':
         specifier: workspace:*
         version: link:../../packages/infrastructure-persistence
+      '@omniwa/infrastructure-provider-baileys':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-provider-baileys
       '@omniwa/infrastructure-queue':
         specifier: workspace:*
         version: link:../../packages/infrastructure-queue

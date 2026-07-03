@@ -34,6 +34,14 @@ import {
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
+import {
+  BaileysMessagingProviderAdapter,
+  BaileysSocketGateway,
+  FakeBaileysSocketProvider,
+  OutboundMessageIntentBaileysResolver,
+  type BaileysOutboundMessageResolver,
+  type BaileysSocketProvider,
+} from "@omniwa/infrastructure-provider-baileys";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import { err, ok } from "@omniwa/shared";
 
@@ -49,12 +57,31 @@ export const workerRepositoryProfiles = ["in-memory", "durable-json", "postgresq
 
 export type WorkerRepositoryProfile = (typeof workerRepositoryProfiles)[number];
 
+export const workerProviderModes = [
+  "same-process-local-demo",
+  "multi-process-unsupported",
+] as const;
+
+export type WorkerProviderMode = (typeof workerProviderModes)[number];
+
 export type WorkerRuntimeComposition = Readonly<{
   profile: WorkerRuntimeProfile;
   repositoryProfile: WorkerRepositoryProfile;
+  providerMode: WorkerProviderMode;
+  repositories: WorkerRuntimeRepositories;
+  outboundMessageIntentStore:
+    InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore;
+  messagingProvider: MessagingProviderPort;
   dispatcher: ApplicationDispatcher;
   queueProvider: InMemoryQueueProvider;
   app: WorkerRuntimeApp;
+  socketProvider?: BaileysSocketProvider;
+  outboundMessageResolver?: BaileysOutboundMessageResolver;
+}>;
+
+export type WorkerRuntimeCompositionOverrides = Readonly<{
+  socketProvider?: BaileysSocketProvider;
+  outboundMessageResolver?: BaileysOutboundMessageResolver;
 }>;
 
 type WorkerRuntimeRepositories = Readonly<{
@@ -67,9 +94,11 @@ type WorkerRuntimeRepositories = Readonly<{
 
 export function createWorkerRuntimeComposition(
   env: NodeJS.ProcessEnv = process.env,
+  overrides: WorkerRuntimeCompositionOverrides = {},
 ): WorkerRuntimeComposition {
   const profile = readWorkerRuntimeProfile(env);
   const repositoryProfile = readWorkerRepositoryProfile(env);
+  const providerMode = readWorkerProviderMode(env);
 
   assertWorkerRuntimeProfileIsComposable(profile);
 
@@ -87,6 +116,12 @@ export function createWorkerRuntimeComposition(
     eventLog,
     nowIso: () => new Date().toISOString(),
   });
+  const providerComposition = createWorkerMessagingProvider({
+    providerMode,
+    outboundMessageIntentStore,
+    ...optional("socketProvider", overrides.socketProvider),
+    ...optional("outboundMessageResolver", overrides.outboundMessageResolver),
+  });
   const dispatcher = createApplicationDispatcher({
     repositories: {
       instanceRepository: repositories.instanceRepository,
@@ -95,7 +130,7 @@ export function createWorkerRuntimeComposition(
       ...optional("healthStatusRepository", repositories.healthStatusRepository),
     },
     outboundMessageIntentStore,
-    messagingProvider: createUnavailableMessagingProvider(),
+    messagingProvider: providerComposition.messagingProvider,
     domainEventPublisher,
   });
   const queueProvider = new InMemoryQueueProvider({
@@ -121,12 +156,18 @@ export function createWorkerRuntimeComposition(
   return Object.freeze({
     profile,
     repositoryProfile,
+    providerMode,
+    repositories,
+    outboundMessageIntentStore,
+    messagingProvider: providerComposition.messagingProvider,
     dispatcher,
     queueProvider,
     app: new WorkerRuntimeApp({
       runtime,
       queueProvider,
     }),
+    ...optional("socketProvider", providerComposition.socketProvider),
+    ...optional("outboundMessageResolver", providerComposition.outboundMessageResolver),
   });
 }
 
@@ -167,6 +208,22 @@ export function readWorkerRepositoryProfile(
       return "in-memory";
     default:
       throw new Error(`Unsupported OmniWA Worker repository profile: ${value}`);
+  }
+}
+
+export function readWorkerProviderMode(env: NodeJS.ProcessEnv = process.env): WorkerProviderMode {
+  const value = env.OMNIWA_WORKER_PROVIDER_MODE?.trim();
+
+  switch (value) {
+    case "multi-process-unsupported":
+      return "multi-process-unsupported";
+    case "same-process-local-demo":
+    case "local-demo":
+    case undefined:
+    case "":
+      return "same-process-local-demo";
+    default:
+      throw new Error("Unsupported OmniWA Worker provider mode.");
   }
 }
 
@@ -246,7 +303,60 @@ function createRuntimeOutboundMessageIntentStore(
   );
 }
 
-function createUnavailableMessagingProvider(): MessagingProviderPort {
+type WorkerMessagingProviderComposition = Readonly<{
+  messagingProvider: MessagingProviderPort;
+  socketProvider?: BaileysSocketProvider;
+  outboundMessageResolver?: BaileysOutboundMessageResolver;
+}>;
+
+function createWorkerMessagingProvider(
+  input: Readonly<{
+    providerMode: WorkerProviderMode;
+    outboundMessageIntentStore:
+      InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore;
+    socketProvider?: BaileysSocketProvider;
+    outboundMessageResolver?: BaileysOutboundMessageResolver;
+  }>,
+): WorkerMessagingProviderComposition {
+  if (input.providerMode === "multi-process-unsupported") {
+    return Object.freeze({
+      messagingProvider: createUnavailableMessagingProvider({
+        code: "worker_messaging_provider_ipc_required",
+        message:
+          "Worker MessagingProvider cannot access provider-runtime sockets before IPC or shared socket ownership is implemented.",
+      }),
+    });
+  }
+
+  const socketProvider = input.socketProvider ?? new FakeBaileysSocketProvider();
+  const outboundMessageResolver =
+    input.outboundMessageResolver ??
+    new OutboundMessageIntentBaileysResolver({
+      intentStore: input.outboundMessageIntentStore,
+    });
+  const messagingProvider = new BaileysMessagingProviderAdapter({
+    gateway: new BaileysSocketGateway({
+      socketProvider,
+      outboundMessageResolver,
+    }),
+  });
+
+  return Object.freeze({
+    messagingProvider,
+    socketProvider,
+    outboundMessageResolver,
+  });
+}
+
+function createUnavailableMessagingProvider(
+  input: Readonly<{
+    code: string;
+    message: string;
+  }> = {
+    code: "worker_messaging_provider_not_configured",
+    message: "Worker MessagingProvider is not configured.",
+  },
+): MessagingProviderPort {
   return Object.freeze({
     requestConnection: (
       request: ProviderConnectionRequest,
@@ -264,7 +374,7 @@ function createUnavailableMessagingProvider(): MessagingProviderPort {
       context: ApplicationPortContext,
     ): Promise<ApplicationPortResult<ProviderQrPairingChallenge>> => {
       void request;
-      return Promise.resolve(err(unavailableProviderFailure(context)));
+      return Promise.resolve(err(unavailableProviderFailure(context, input)));
     },
     disconnect: (
       request: ProviderConnectionRequest,
@@ -282,7 +392,7 @@ function createUnavailableMessagingProvider(): MessagingProviderPort {
       context: ApplicationPortContext,
     ): Promise<ApplicationPortResult<ProviderOutboundMessageResult>> => {
       void request;
-      return Promise.resolve(err(unavailableProviderFailure(context)));
+      return Promise.resolve(err(unavailableProviderFailure(context, input)));
     },
     getCapabilitySummary: (
       providerId: ProviderId,
@@ -301,11 +411,17 @@ function createUnavailableMessagingProvider(): MessagingProviderPort {
   });
 }
 
-function unavailableProviderFailure(context: ApplicationPortContext) {
+function unavailableProviderFailure(
+  context: ApplicationPortContext,
+  input: Readonly<{
+    code: string;
+    message: string;
+  }>,
+) {
   return createApplicationPortFailure({
     category: "unavailable",
-    code: "worker_messaging_provider_not_configured",
-    message: "Worker MessagingProvider is not configured.",
+    code: input.code,
+    message: input.message,
     retryable: true,
     ownerContext: "provider_integration",
     failureCategory: "provider",
