@@ -17,7 +17,6 @@ import {
   type EventLogReplayRequest,
   type EventLogReplayResult,
   type EventOutboxPublishResult,
-  type EventOutboxQuery,
   type EventOutboxRecord,
   type PlatformEventAppendInput,
   type PlatformEventRecord,
@@ -163,7 +162,7 @@ class FakeEventLogPort implements EventLogPort {
     });
   }
 
-  listOutbox(_query?: EventOutboxQuery): ApplicationPortResult<readonly EventOutboxRecord[]> {
+  listOutbox(): ApplicationPortResult<readonly EventOutboxRecord[]> {
     return ok([]);
   }
 
