@@ -266,6 +266,86 @@ describe("RealBaileysSocketProvider", () => {
     );
   });
 
+  it("restarts from durable auth without requiring another QR when stored credentials are accepted", async () => {
+    const filePath = join(
+      mkdtempSync(join(tmpdir(), "omniwa-real-provider-auth-restart-")),
+      "auth-state.json",
+    );
+    const rawFirstQr = "raw-first-live-demo-qr-secret-token";
+    const rawSecondQr = "raw-second-live-demo-qr-secret-token";
+    const rawAuthSecret = "raw-live-demo-restart-auth-secret-token";
+    const firstQrEvents: BaileysQrCodeOperatorEvent[] = [];
+    const secondQrEvents: BaileysQrCodeOperatorEvent[] = [];
+
+    const firstHarness = createRealProviderHarness({
+      authStateStore: new DurableJsonBaileysAuthStateStore(filePath),
+      qrCodeOperatorSink: {
+        captureQrCode: (event) => {
+          firstQrEvents.push(event);
+        },
+      },
+    });
+
+    await firstHarness.provider.startSession(socketRequest(), context);
+    firstHarness.socket.ev.emit("connection.update", {
+      qr: rawFirstQr,
+    });
+    firstHarness.socket.ev.emit("creds.update", {
+      advSecretKey: rawAuthSecret,
+    } as Partial<AuthenticationCreds>);
+    await flushAsyncSignals();
+
+    const firstSignals = firstHarness.provider.drainSignals({ sessionId });
+    expect(firstSignals.map((signal) => signal.signalRef)).toContain(
+      "provider.baileys.qr_required",
+    );
+    expect(firstQrEvents).toHaveLength(1);
+    expect(JSON.stringify(firstSignals)).not.toContain(rawFirstQr);
+    expect(JSON.stringify(firstSignals)).not.toContain(rawAuthSecret);
+
+    const secondSocket = new MockRealBaileysSocket();
+    const secondFactoryCalls: UserFacingSocketConfig[] = [];
+    const secondProvider = new RealBaileysSocketProvider({
+      authStateStore: new DurableJsonBaileysAuthStateStore(filePath),
+      qrCodeOperatorSink: {
+        captureQrCode: (event) => {
+          secondQrEvents.push(event);
+        },
+      },
+      socketFactory: (config) => {
+        secondFactoryCalls.push(config);
+
+        queueMicrotask(() => {
+          const loadedAuthSecret = (config.auth.creds as Partial<AuthenticationCreds>).advSecretKey;
+          secondSocket.ev.emit(
+            "connection.update",
+            loadedAuthSecret === rawAuthSecret ? { connection: "open" } : { qr: rawSecondQr },
+          );
+        });
+
+        return secondSocket.asWASocket();
+      },
+    });
+
+    await secondProvider.startSession(socketRequest(), context);
+    await flushAsyncSignals();
+
+    const secondSignals = secondProvider.drainSignals({ sessionId });
+
+    expect(secondFactoryCalls).toHaveLength(1);
+    expect(secondFactoryCalls[0]?.auth.creds).toMatchObject({
+      advSecretKey: rawAuthSecret,
+    });
+    expect(secondSignals.map((signal) => signal.signalRef)).toEqual([
+      "provider.baileys.connecting",
+      "provider.baileys.connected",
+    ]);
+    expect(secondQrEvents).toEqual([]);
+    expect(JSON.stringify(secondSignals)).not.toContain(rawFirstQr);
+    expect(JSON.stringify(secondSignals)).not.toContain(rawSecondQr);
+    expect(JSON.stringify(secondSignals)).not.toContain(rawAuthSecret);
+  });
+
   it("returns the created socket by instance/session", async () => {
     const harness = createRealProviderHarness();
 
