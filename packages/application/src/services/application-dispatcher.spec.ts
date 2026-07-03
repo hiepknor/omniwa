@@ -178,6 +178,33 @@ describe("application dispatcher", () => {
       reasonCode: "application_handler_not_implemented",
     });
   });
+
+  it("returns safe failed outcomes for commands not implemented in this slice", async () => {
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository: new FakeInstanceRepository() },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "SendTextMessage",
+        commandRef: "cmd-send-text",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst_1",
+        idempotencyKey: "idem-send-text",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-send-text",
+      outcome: "failed",
+      accepted: false,
+      retryable: false,
+      reasonCode: "application_handler_not_implemented",
+    });
+  });
 });
 
 class FakeInstanceRepository implements InstanceRepositoryPort {

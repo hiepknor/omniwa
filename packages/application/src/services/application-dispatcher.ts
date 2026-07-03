@@ -11,12 +11,20 @@ import {
   type ApplicationCommandOutcome,
   createApplicationCommandOutcome,
 } from "../commands/command-model.js";
+import type { ApplicationCommandName } from "../commands/command-catalog.js";
 import { getApplicationQueryDefinition } from "../queries/query-catalog.js";
+import type { ApplicationQueryName } from "../queries/query-catalog.js";
 import {
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
   createApplicationQueryOutcome,
 } from "../queries/query-model.js";
+import type {
+  CommandHandler,
+  CommandHandlerRegistry,
+  QueryHandler,
+  QueryHandlerRegistry,
+} from "./handlers/command-handler.js";
 
 export type ApplicationDispatcherRepositories = Readonly<{
   instanceRepository: InstanceRepositoryPort;
@@ -46,26 +54,31 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly uuidGenerator: UUIDGenerator;
   private readonly clock: Clock;
   private readonly healthSubjectRef: string;
+  private readonly commandHandlers: CommandHandlerRegistry;
+  private readonly queryHandlers: QueryHandlerRegistry;
 
   constructor(options: ApplicationDispatcherOptions) {
     this.repositories = options.repositories;
     this.uuidGenerator = options.uuidGenerator ?? cryptoUUIDGenerator;
     this.clock = options.clock ?? systemClock;
     this.healthSubjectRef = options.healthSubjectRef ?? "platform";
+    this.commandHandlers = this.buildCommandHandlers();
+    this.queryHandlers = this.buildQueryHandlers();
   }
 
   async executeCommand(envelope: ApplicationCommandEnvelope): Promise<ApplicationCommandOutcome> {
     try {
-      switch (envelope.name) {
-        case "CreateInstance":
-          return this.createInstance(envelope);
-        default:
-          return commandOutcome(envelope, "failed", {
-            accepted: false,
-            retryable: false,
-            reasonCode: "application_handler_not_implemented",
-          });
+      const handler = this.commandHandlers.get(envelope.name);
+
+      if (handler === undefined) {
+        return commandOutcome(envelope, "failed", {
+          accepted: false,
+          retryable: false,
+          reasonCode: "application_handler_not_implemented",
+        });
       }
+
+      return handler(envelope);
     } catch {
       return commandOutcome(envelope, "failed", {
         accepted: false,
@@ -77,21 +90,33 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
 
   async executeQuery(envelope: ApplicationQueryEnvelope): Promise<ApplicationQueryOutcome> {
     try {
-      switch (envelope.name) {
-        case "GetHealthStatus":
-          return this.getHealthStatus(envelope);
-        case "ListInstances":
-          return this.listInstances(envelope);
-        default:
-          return queryOutcome(envelope, this.clock, "unavailable", {
-            reasonCode: "application_handler_not_implemented",
-          });
+      const handler = this.queryHandlers.get(envelope.name);
+
+      if (handler === undefined) {
+        return queryOutcome(envelope, this.clock, "unavailable", {
+          reasonCode: "application_handler_not_implemented",
+        });
       }
+
+      return handler(envelope);
     } catch {
       return queryOutcome(envelope, this.clock, "unavailable", {
         reasonCode: "application_dependency_failure",
       });
     }
+  }
+
+  private buildCommandHandlers(): CommandHandlerRegistry {
+    return new Map<ApplicationCommandName, CommandHandler>([
+      ["CreateInstance", (envelope) => this.createInstance(envelope)],
+    ]);
+  }
+
+  private buildQueryHandlers(): QueryHandlerRegistry {
+    return new Map<ApplicationQueryName, QueryHandler>([
+      ["GetHealthStatus", (envelope) => this.getHealthStatus(envelope)],
+      ["ListInstances", (envelope) => this.listInstances(envelope)],
+    ]);
   }
 
   private async createInstance(
