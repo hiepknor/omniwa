@@ -4,12 +4,28 @@ import { join, relative } from "node:path";
 import { type ApplicationPortContext, type TranslatedProviderSignal } from "@omniwa/application";
 import { createInstanceId, createProviderId, createSessionId } from "@omniwa/domain";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
+import type {
+  AuthenticationCreds,
+  BaileysEventMap,
+  UserFacingSocketConfig,
+  WASocket,
+} from "@whiskeysockets/baileys";
 import { describe, expect, it } from "vitest";
 
+import {
+  InMemoryBaileysAuthStateStore,
+  type BaileysAuthStateSnapshot,
+  type BaileysAuthStateStore,
+  type BaileysAuthStateStoreResult,
+  type BaileysAuthStateRecord,
+  type BaileysAuthStateMetadata,
+} from "./baileys-auth-state-store.js";
 import { BaileysProviderError } from "./baileys-messaging-provider.adapter.js";
 import {
+  type BaileysSocketFactory,
   FakeBaileysSocket,
   FakeBaileysSocketProvider,
+  RealBaileysSocketProvider,
   type BaileysSocketRequest,
 } from "./baileys-socket-provider.js";
 
@@ -147,12 +163,201 @@ describe("Baileys socket provider contract", () => {
   });
 });
 
+describe("RealBaileysSocketProvider", () => {
+  it("loads auth state before creating a socket", async () => {
+    const store = new RecordingAuthStateStore();
+    const harness = createRealProviderHarness({ authStateStore: store });
+
+    const started = await harness.provider.startSession(socketRequest(), context);
+
+    expect(started.map(signalSummary)).toEqual([
+      {
+        kind: "connection",
+        signalRef: "provider.baileys.connecting",
+        targetRef: sessionId,
+        dataClassification: "internal",
+      },
+    ]);
+    expect(store.loads).toEqual([sessionId]);
+    expect(harness.factoryCalls).toHaveLength(1);
+    expect(harness.factoryCalls[0]?.auth).toBeDefined();
+  });
+
+  it("saves auth state when Baileys emits creds.update", async () => {
+    const store = new RecordingAuthStateStore();
+    const harness = createRealProviderHarness({ authStateStore: store });
+    const rawAuthSecret = "raw-auth-update-secret-token";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("creds.update", {
+      advSecretKey: rawAuthSecret,
+    } as Partial<AuthenticationCreds>);
+    await Promise.resolve();
+
+    expect(store.saves).toHaveLength(1);
+    expect(store.saveResults).toEqual([
+      expect.objectContaining({
+        sessionId,
+        revision: 1,
+        dataClassification: "secret",
+      }),
+    ]);
+    expect(JSON.stringify(store.saveResults)).not.toContain(rawAuthSecret);
+  });
+
+  it("returns the created socket by instance/session", async () => {
+    const harness = createRealProviderHarness();
+
+    await harness.provider.startSession(socketRequest(), context);
+
+    expect(harness.provider.getSocket(socketRequest(), context)).toBe(harness.socket);
+  });
+
+  it("returns safe errors when real provider socket is missing", () => {
+    const harness = createRealProviderHarness();
+
+    let caught: unknown;
+
+    try {
+      harness.provider.getSocket(socketRequest(), context);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(BaileysProviderError);
+    expect(caught).toMatchObject({
+      code: "baileys_socket_missing",
+      category: "rejected",
+      failureCategory: "provider",
+      retryable: false,
+    });
+    expect(String(caught)).not.toContain(String(sessionId));
+  });
+
+  it("maps connection.update QR/open/close to safe translated provider signals", async () => {
+    const harness = createRealProviderHarness();
+    const rawQrSecret = "raw-real-provider-qr-secret-token";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", {
+      qr: rawQrSecret,
+    });
+    harness.socket.ev.emit("connection.update", {
+      connection: "open",
+    });
+    harness.socket.ev.emit("connection.update", {
+      connection: "close",
+      lastDisconnect: {
+        error: Object.assign(new Error("raw disconnect with jid 12025550123@s.whatsapp.net"), {
+          output: { statusCode: 503 },
+        }),
+        date: new Date("2026-07-03T00:00:00.000Z"),
+      },
+    });
+
+    const signals = harness.provider.drainSignals({ sessionId });
+
+    expect(signals.map(signalSummary)).toEqual([
+      {
+        kind: "connection",
+        signalRef: "provider.baileys.connecting",
+        targetRef: sessionId,
+        dataClassification: "internal",
+      },
+      {
+        kind: "auth",
+        signalRef: "provider.baileys.qr_required",
+        targetRef: sessionId,
+        dataClassification: "confidential",
+      },
+      {
+        kind: "connection",
+        signalRef: "provider.baileys.connected",
+        targetRef: sessionId,
+        dataClassification: "internal",
+      },
+      {
+        kind: "connection",
+        signalRef: "provider.baileys.disconnected",
+        targetRef: sessionId,
+        dataClassification: "internal",
+      },
+    ]);
+    expect(JSON.stringify(signals)).not.toContain(rawQrSecret);
+    expect(JSON.stringify(signals)).not.toContain("12025550123");
+  });
+
+  it("maps provider factory errors without leaking raw provider payload or auth state", async () => {
+    const rawAuthSecret = "raw-auth-state-secret-token";
+    const rawProviderPayload = "raw provider payload with jid 12025550123@s.whatsapp.net";
+    const provider = new RealBaileysSocketProvider({
+      authStateStore: new RecordingAuthStateStore({
+        creds: {
+          advSecretKey: rawAuthSecret,
+        },
+      }),
+      socketFactory: () => {
+        throw Object.assign(new Error(rawProviderPayload), {
+          output: { statusCode: 503 },
+        });
+      },
+    });
+
+    let caught: unknown;
+
+    try {
+      await provider.startSession(socketRequest(), context);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(BaileysProviderError);
+    expect(caught).toMatchObject({
+      code: "baileys_socket_provider_failure",
+      category: "unavailable",
+      failureCategory: "network",
+      retryable: true,
+    });
+    expect(String(caught)).not.toContain(rawProviderPayload);
+    expect(JSON.stringify(caught)).not.toContain(rawProviderPayload);
+    expect(JSON.stringify(caught)).not.toContain(rawAuthSecret);
+    expect(JSON.stringify(provider.drainSignals())).toEqual("[]");
+  });
+});
+
 function socketRequest(): BaileysSocketRequest {
   return {
     instanceId,
     providerId,
     sessionId,
     reasonCode: "socket_provider_test",
+  };
+}
+
+function createRealProviderHarness(
+  options: Readonly<{
+    authStateStore?: BaileysAuthStateStore;
+  }> = {},
+): Readonly<{
+  provider: RealBaileysSocketProvider;
+  socket: MockRealBaileysSocket;
+  factoryCalls: UserFacingSocketConfig[];
+}> {
+  const socket = new MockRealBaileysSocket();
+  const factoryCalls: UserFacingSocketConfig[] = [];
+  const socketFactory: BaileysSocketFactory = (config) => {
+    factoryCalls.push(config);
+    return socket.asWASocket();
+  };
+  const provider = new RealBaileysSocketProvider({
+    authStateStore: options.authStateStore ?? new RecordingAuthStateStore(),
+    socketFactory,
+  });
+
+  return {
+    provider,
+    socket,
+    factoryCalls,
   };
 }
 
@@ -165,6 +370,109 @@ function signalSummary(
     targetRef: signal.targetRef,
     dataClassification: signal.dataClassification,
   };
+}
+
+class RecordingAuthStateStore implements BaileysAuthStateStore {
+  readonly loads = [] as (typeof sessionId)[];
+  readonly saves: BaileysAuthStateSnapshot[] = [];
+  readonly saveResults: BaileysAuthStateMetadata[] = [];
+  private readonly delegate = new InMemoryBaileysAuthStateStore();
+
+  constructor(initialState?: BaileysAuthStateSnapshot) {
+    if (initialState !== undefined) {
+      void this.delegate.save(sessionId, initialState);
+    }
+  }
+
+  async load(
+    requestedSessionId: typeof sessionId,
+  ): Promise<BaileysAuthStateStoreResult<BaileysAuthStateRecord | undefined>> {
+    this.loads.push(requestedSessionId);
+    return this.delegate.load(requestedSessionId);
+  }
+
+  async save(
+    requestedSessionId: typeof sessionId,
+    state: BaileysAuthStateSnapshot,
+  ): Promise<BaileysAuthStateStoreResult<BaileysAuthStateMetadata>> {
+    this.saves.push(state);
+    const result = await this.delegate.save(requestedSessionId, state);
+
+    if (result.ok) {
+      this.saveResults.push(result.value);
+    }
+
+    return result;
+  }
+
+  clear(
+    requestedSessionId: typeof sessionId,
+  ): Promise<BaileysAuthStateStoreResult<BaileysAuthStateMetadata | undefined>> {
+    return this.delegate.clear(requestedSessionId);
+  }
+}
+
+class MockRealBaileysSocket {
+  readonly ev = new MockBaileysEventEmitter();
+  readonly user = {
+    id: "mock-real-baileys-user",
+  };
+  logoutCalled = false;
+
+  sendMessage: FakeBaileysSocket["sendMessage"] = async () =>
+    ({
+      key: {
+        id: "real-provider-fake-receipt",
+      },
+    }) as Awaited<ReturnType<FakeBaileysSocket["sendMessage"]>>;
+
+  logout: FakeBaileysSocket["logout"] = async () => {
+    this.logoutCalled = true;
+  };
+
+  requestPairingCode: FakeBaileysSocket["requestPairingCode"] = async () => "pairing-code";
+
+  asWASocket(): WASocket {
+    return this as unknown as WASocket;
+  }
+}
+
+class MockBaileysEventEmitter {
+  private readonly listeners = new Map<string, Set<(arg: unknown) => void>>();
+
+  on<TEvent extends keyof BaileysEventMap>(
+    event: TEvent,
+    listener: (arg: BaileysEventMap[TEvent]) => void,
+  ): void {
+    const listeners = this.listeners.get(event) ?? new Set<(arg: unknown) => void>();
+    listeners.add(listener as (arg: unknown) => void);
+    this.listeners.set(event, listeners);
+  }
+
+  off<TEvent extends keyof BaileysEventMap>(
+    event: TEvent,
+    listener: (arg: BaileysEventMap[TEvent]) => void,
+  ): void {
+    this.listeners.get(event)?.delete(listener as (arg: unknown) => void);
+  }
+
+  removeAllListeners<TEvent extends keyof BaileysEventMap>(event: TEvent): void {
+    this.listeners.delete(event);
+  }
+
+  emit<TEvent extends keyof BaileysEventMap>(event: TEvent, arg: BaileysEventMap[TEvent]): boolean {
+    const listeners = this.listeners.get(event);
+
+    if (listeners === undefined) {
+      return false;
+    }
+
+    for (const listener of listeners) {
+      listener(arg);
+    }
+
+    return true;
+  }
 }
 
 function findWorkspaceSourceFiles(): string[] {
