@@ -45,12 +45,21 @@ const providerSignalDataClassifications = [
 
 const safeTokenPattern = /^[A-Za-z0-9_.:-]+$/u;
 const safeQrChallengeRefPattern = /^qr_challenge_[a-f0-9]{16}$/u;
+const safeProviderMessageRefPattern = /^provider_msg_[a-f0-9]{16}$/u;
+const safeConversationRefPattern = /^conversation_[a-f0-9]{16}$/u;
 const providerSignalSafeMetadataKeys = [
   "challengeRef",
   "expiresAtEpochMilliseconds",
   "refreshPolicy",
   "reasonCode",
   "backoffMs",
+  "instanceId",
+  "sessionId",
+  "providerMessageRef",
+  "conversationRef",
+  "occurredAt",
+  "contentKind",
+  "conversationKind",
 ] as const;
 
 export function createProviderSignalIngress(
@@ -274,7 +283,30 @@ function isSafeMetadataValue(key: string, value: unknown): boolean {
     case "refreshPolicy":
       return value === "replace_active";
     case "reasonCode":
+    case "instanceId":
+    case "sessionId":
       return typeof value === "string" && isSafeToken(value);
+    case "providerMessageRef":
+      return typeof value === "string" && safeProviderMessageRefPattern.test(value);
+    case "conversationRef":
+      return typeof value === "string" && safeConversationRefPattern.test(value);
+    case "occurredAt":
+      return typeof value === "string" && isSafeToken(value) && Number.isFinite(Date.parse(value));
+    case "contentKind":
+      return (
+        value === "text" ||
+        value === "image" ||
+        value === "video" ||
+        value === "document" ||
+        value === "audio" ||
+        value === "sticker" ||
+        value === "location" ||
+        value === "contact" ||
+        value === "unsupported" ||
+        value === "unknown"
+      );
+    case "conversationKind":
+      return value === "private" || value === "group" || value === "unknown";
     default:
       return false;
   }

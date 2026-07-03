@@ -8,6 +8,7 @@ import type {
   AuthenticationCreds,
   BaileysEventMap,
   UserFacingSocketConfig,
+  WAMessage,
   WASocket,
 } from "@whiskeysockets/baileys";
 import { DisconnectReason } from "@whiskeysockets/baileys";
@@ -363,6 +364,179 @@ describe("RealBaileysSocketProvider", () => {
     expect(JSON.stringify(signals)).not.toContain("   ");
   });
 
+  it("maps messages.upsert into safe inbound_message signals", async () => {
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+    });
+    const rawJid = "12025550123@s.whatsapp.net";
+    const rawText = "raw inbound text secret";
+    const rawProviderMessageId = "BAILEYS_RAW_MESSAGE_ID_1";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.upsert",
+      inboundUpsert({
+        key: {
+          id: rawProviderMessageId,
+          remoteJid: rawJid,
+          fromMe: false,
+        },
+        messageTimestamp: 1_804_000_001,
+        message: {
+          conversation: rawText,
+        },
+      }),
+    );
+    await flushAsyncSignals();
+
+    const signals = harness.provider.drainSignals({ sessionId });
+    const inboundSignal = signals.find(
+      (signal) => signal.signalRef === "provider.baileys.inbound_message",
+    );
+
+    expect(inboundSignal).toMatchObject({
+      kind: "inbound_message",
+      targetRef: sessionId,
+      dataClassification: "confidential",
+      safeMetadata: {
+        instanceId,
+        sessionId,
+        providerMessageRef: expect.stringMatching(/^provider_msg_[a-f0-9]{16}$/u),
+        conversationRef: expect.stringMatching(/^conversation_[a-f0-9]{16}$/u),
+        occurredAt: "2027-03-02T15:06:41.000Z",
+        contentKind: "text",
+        conversationKind: "private",
+      },
+    });
+    expect(inboundSignal?.occurrenceRef).toContain(
+      String(inboundSignal?.safeMetadata?.providerMessageRef),
+    );
+    expect(JSON.stringify(signals)).not.toContain(rawJid);
+    expect(JSON.stringify(signals)).not.toContain(rawText);
+    expect(JSON.stringify(signals)).not.toContain(rawProviderMessageId);
+  });
+
+  it("uses deterministic occurrence refs for duplicate inbound provider messages", async () => {
+    const harness = createRealProviderHarness();
+    const message = {
+      key: {
+        id: "BAILEYS_DUPLICATE_MESSAGE_ID",
+        remoteJid: "12025550123@s.whatsapp.net",
+        fromMe: false,
+      },
+      messageTimestamp: 1_804_000_001,
+      message: {
+        extendedTextMessage: {
+          text: "raw duplicate inbound text",
+        },
+      },
+    };
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("messages.upsert", inboundUpsert(message));
+    harness.socket.ev.emit("messages.upsert", inboundUpsert(message));
+    await flushAsyncSignals();
+
+    const inboundSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "inbound_message");
+
+    expect(inboundSignals).toHaveLength(2);
+    expect(inboundSignals[0]?.occurrenceRef).toBe(inboundSignals[1]?.occurrenceRef);
+    expect(inboundSignals[0]?.safeMetadata?.providerMessageRef).toBe(
+      inboundSignals[1]?.safeMetadata?.providerMessageRef,
+    );
+    expect(JSON.stringify(inboundSignals)).not.toContain("BAILEYS_DUPLICATE_MESSAGE_ID");
+    expect(JSON.stringify(inboundSignals)).not.toContain("raw duplicate inbound text");
+  });
+
+  it("normalizes group inbound metadata without exposing the group JID", async () => {
+    const harness = createRealProviderHarness();
+    const rawGroupJid = "12025550123-1111111111@g.us";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.upsert",
+      inboundUpsert({
+        key: {
+          id: "BAILEYS_GROUP_MESSAGE_ID",
+          remoteJid: rawGroupJid,
+          fromMe: false,
+        },
+        messageTimestamp: 1_804_000_001,
+        message: {
+          imageMessage: {
+            caption: "raw group image caption",
+          },
+        },
+      }),
+    );
+    await flushAsyncSignals();
+
+    const inboundSignal = harness.provider
+      .drainSignals({ sessionId })
+      .find((signal) => signal.kind === "inbound_message");
+
+    expect(inboundSignal?.safeMetadata).toMatchObject({
+      contentKind: "image",
+      conversationKind: "group",
+      conversationRef: expect.stringMatching(/^conversation_[a-f0-9]{16}$/u),
+    });
+    expect(JSON.stringify(inboundSignal)).not.toContain(rawGroupJid);
+    expect(JSON.stringify(inboundSignal)).not.toContain("raw group image caption");
+  });
+
+  it("fails safe for unsupported or malformed inbound provider messages", async () => {
+    const harness = createRealProviderHarness();
+    const rawJid = "12025550123@s.whatsapp.net";
+    const rawText = "raw unsupported inbound payload";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.upsert",
+      inboundUpsert({
+        key: {
+          id: "BAILEYS_UNSUPPORTED_MESSAGE_ID",
+          remoteJid: rawJid,
+          fromMe: false,
+        },
+        message: {
+          protocolMessage: {
+            raw: rawText,
+          } as never,
+        },
+      }),
+    );
+    harness.socket.ev.emit("messages.upsert", { messages: [{}], type: "notify" } as never);
+    await flushAsyncSignals();
+
+    const failureSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "failure");
+
+    expect(failureSignals).toEqual([
+      expect.objectContaining({
+        signalRef: "provider.baileys.inbound_message_unsupported",
+        safeMetadata: expect.objectContaining({
+          reasonCode: "unsupported_inbound_message",
+          providerMessageRef: expect.stringMatching(/^provider_msg_[a-f0-9]{16}$/u),
+          conversationRef: expect.stringMatching(/^conversation_[a-f0-9]{16}$/u),
+          contentKind: "unsupported",
+          conversationKind: "private",
+        }),
+      }),
+      expect.objectContaining({
+        signalRef: "provider.baileys.inbound_message_unsupported",
+        safeMetadata: expect.objectContaining({
+          reasonCode: "malformed_inbound_message",
+        }),
+      }),
+    ]);
+    expect(JSON.stringify(failureSignals)).not.toContain(rawJid);
+    expect(JSON.stringify(failureSignals)).not.toContain(rawText);
+    expect(JSON.stringify(failureSignals)).not.toContain("BAILEYS_UNSUPPORTED_MESSAGE_ID");
+  });
+
   it("maps provider factory errors without leaking raw provider payload or auth state", async () => {
     const rawAuthSecret = "raw-auth-state-secret-token";
     const rawProviderPayload = "raw provider payload with jid 12025550123@s.whatsapp.net";
@@ -641,6 +815,13 @@ function closeUpdate(
       date: new Date("2026-07-03T00:00:00.000Z"),
     },
   };
+}
+
+function inboundUpsert(message: Partial<WAMessage>): BaileysEventMap["messages.upsert"] {
+  return {
+    messages: [message as WAMessage],
+    type: "notify",
+  } as BaileysEventMap["messages.upsert"];
 }
 
 async function flushAsyncSignals(): Promise<void> {

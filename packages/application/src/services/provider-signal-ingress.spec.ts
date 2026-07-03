@@ -178,10 +178,19 @@ describe("provider signal ingress", () => {
     const result = await ingress.ingestSignal(
       providerSignal({
         signalRef: "provider.baileys.inbound_message",
-        targetRef: "inbound_message_safe_ref_1",
-        occurrenceRef: "provider.baileys.inbound.safe_ref_1",
+        targetRef: "session_provider_signal_1",
+        occurrenceRef: "provider.baileys.session_1.inbound.provider_msg_0123456789abcdef",
         kind: "inbound_message",
         dataClassification: "confidential",
+        safeMetadata: {
+          instanceId: "instance_provider_signal_1",
+          sessionId: "session_provider_signal_1",
+          providerMessageRef: "provider_msg_0123456789abcdef",
+          conversationRef: "conversation_fedcba9876543210",
+          occurredAt: "2026-07-03T00:00:00.000Z",
+          contentKind: "text",
+          conversationKind: "private",
+        },
       }),
       context,
     );
@@ -189,12 +198,53 @@ describe("provider signal ingress", () => {
     expect(result.ok ? result.value.event : undefined).toMatchObject({
       type: "provider.inbound_message.v1",
       dataClassification: "confidential",
-      resourceRef: "inbound_message_safe_ref_1",
+      resourceRef: "session_provider_signal_1",
       payload: {
         signalKind: "inbound_message",
-        targetRef: "inbound_message_safe_ref_1",
+        targetRef: "session_provider_signal_1",
+        instanceId: "instance_provider_signal_1",
+        sessionId: "session_provider_signal_1",
+        providerMessageRef: "provider_msg_0123456789abcdef",
+        conversationRef: "conversation_fedcba9876543210",
+        occurredAt: "2026-07-03T00:00:00.000Z",
+        contentKind: "text",
+        conversationKind: "private",
       },
     });
+    expect(JSON.stringify(eventLog.records())).not.toContain(rawJid);
+    expect(JSON.stringify(eventLog.records())).not.toContain(rawText);
+  });
+
+  it("deduplicates inbound message signals by provider message occurrence", async () => {
+    const eventLog = new FakeEventLogPort();
+    const ingress = createProviderSignalIngress({
+      eventLog,
+      nowIso: () => timestamp,
+    });
+    const signal = providerSignal({
+      signalRef: "provider.baileys.inbound_message",
+      occurrenceRef: "provider.baileys.session_1.inbound.provider_msg_0123456789abcdef",
+      kind: "inbound_message",
+      dataClassification: "confidential",
+      safeMetadata: {
+        instanceId: "instance_provider_signal_1",
+        sessionId: "session_provider_signal_1",
+        providerMessageRef: "provider_msg_0123456789abcdef",
+        conversationRef: "conversation_fedcba9876543210",
+        occurredAt: "2026-07-03T00:00:00.000Z",
+        contentKind: "text",
+        conversationKind: "group",
+      },
+    });
+
+    const first = await ingress.ingestSignal(signal, context);
+    const duplicate = await ingress.ingestSignal(signal, context);
+
+    expect(first.ok).toBe(true);
+    expect(duplicate.ok ? duplicate.value.event : undefined).toEqual(
+      first.ok ? first.value.event : undefined,
+    );
+    expect(eventLog.records()).toHaveLength(1);
     expect(JSON.stringify(eventLog.records())).not.toContain(rawJid);
     expect(JSON.stringify(eventLog.records())).not.toContain(rawText);
   });

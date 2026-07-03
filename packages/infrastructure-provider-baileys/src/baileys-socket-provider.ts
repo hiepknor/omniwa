@@ -346,6 +346,9 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       socket.ev.on("connection.update", (update) => {
         void this.recordConnectionUpdate(request, update);
       });
+      socket.ev.on("messages.upsert", (update) => {
+        this.recordMessagesUpsert(request, update);
+      });
 
       this.sockets.set(socketKey(request), socket);
 
@@ -442,6 +445,97 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
         challengeRef,
         expiresAtEpochMilliseconds,
         refreshPolicy: "replace_active",
+      },
+    );
+  }
+
+  private recordMessagesUpsert(request: BaileysSocketRequest, upsert: unknown): void {
+    if (!isMessageUpsertPayload(upsert)) {
+      this.recordInboundFailure(request, "malformed_inbound_upsert", "inbound_upsert_malformed");
+      return;
+    }
+
+    upsert.messages.forEach((message, index) => {
+      this.recordInboundMessage(request, message, index);
+    });
+  }
+
+  private recordInboundMessage(
+    request: BaileysSocketRequest,
+    rawMessage: unknown,
+    index: number,
+  ): void {
+    const message = isObjectRecord(rawMessage) ? (rawMessage as Partial<WAMessage>) : undefined;
+    const key = isObjectRecord(message?.key) ? message.key : undefined;
+
+    if (key?.fromMe === true) {
+      return;
+    }
+
+    const providerMessageId = typeof key?.id === "string" ? key.id : undefined;
+    const remoteJid = typeof key?.remoteJid === "string" ? key.remoteJid : undefined;
+
+    if (providerMessageId === undefined || remoteJid === undefined) {
+      this.recordInboundFailure(request, "malformed_inbound_message", `inbound_malformed.${index}`);
+      return;
+    }
+
+    const providerMessageRef = createProviderMessageRef(request, providerMessageId);
+    const conversationRef = createConversationRef(request, remoteJid);
+    const contentKind = detectInboundContentKind(message?.message);
+
+    if (contentKind === undefined) {
+      this.recordInboundFailure(
+        request,
+        "unsupported_inbound_message",
+        `inbound_unsupported.${providerMessageRef}`,
+        {
+          providerMessageRef,
+          conversationRef,
+          contentKind: "unsupported",
+          conversationKind: conversationKindFromJid(remoteJid),
+        },
+      );
+      return;
+    }
+
+    this.recordSignal(
+      request,
+      "inbound_message",
+      "inbound_message",
+      "confidential",
+      `inbound.${providerMessageRef}`,
+      undefined,
+      {
+        instanceId: String(request.instanceId),
+        sessionId: String(request.sessionId ?? request.instanceId),
+        providerMessageRef,
+        conversationRef,
+        occurredAt: occurredAtIso(message?.messageTimestamp, this.nowEpochMilliseconds),
+        contentKind,
+        conversationKind: conversationKindFromJid(remoteJid),
+      },
+    );
+  }
+
+  private recordInboundFailure(
+    request: BaileysSocketRequest,
+    reasonCode: string,
+    occurrenceCode: string,
+    safeMetadata: TranslatedProviderSignal["safeMetadata"] = {},
+  ): void {
+    this.recordSignal(
+      request,
+      "failure",
+      "inbound_message_unsupported",
+      "confidential",
+      occurrenceCode,
+      createFailureCategory("provider"),
+      {
+        instanceId: String(request.instanceId),
+        sessionId: String(request.sessionId ?? request.instanceId),
+        reasonCode,
+        ...safeMetadata,
       },
     );
   }
@@ -617,6 +711,134 @@ function createQrChallengeRef(request: BaileysSocketRequest, qr: string): string
     .slice(0, 16);
 
   return `qr_challenge_${digest}`;
+}
+
+function createProviderMessageRef(
+  request: BaileysSocketRequest,
+  providerMessageId: string,
+): string {
+  return `provider_msg_${safeDigest(
+    String(request.providerId),
+    String(request.sessionId ?? request.instanceId),
+    providerMessageId,
+  )}`;
+}
+
+function createConversationRef(request: BaileysSocketRequest, remoteJid: string): string {
+  return `conversation_${safeDigest(
+    String(request.providerId),
+    String(request.sessionId ?? request.instanceId),
+    remoteJid,
+  )}`;
+}
+
+function safeDigest(...parts: readonly string[]): string {
+  const hash = createHash("sha256");
+
+  for (const part of parts) {
+    hash.update(part);
+    hash.update(":");
+  }
+
+  return hash.digest("hex").slice(0, 16);
+}
+
+function isMessageUpsertPayload(
+  value: unknown,
+): value is Readonly<{ messages: readonly unknown[] }> {
+  return isObjectRecord(value) && Array.isArray(value.messages);
+}
+
+function detectInboundContentKind(
+  message: WAMessage["message"] | null | undefined,
+):
+  | "text"
+  | "image"
+  | "video"
+  | "document"
+  | "audio"
+  | "sticker"
+  | "location"
+  | "contact"
+  | undefined {
+  if (!isObjectRecord(message)) {
+    return undefined;
+  }
+
+  if (typeof message.conversation === "string" || isObjectRecord(message.extendedTextMessage)) {
+    return "text";
+  }
+
+  if (isObjectRecord(message.imageMessage)) return "image";
+  if (isObjectRecord(message.videoMessage)) return "video";
+  if (isObjectRecord(message.documentMessage)) return "document";
+  if (isObjectRecord(message.audioMessage)) return "audio";
+  if (isObjectRecord(message.stickerMessage)) return "sticker";
+  if (isObjectRecord(message.locationMessage)) return "location";
+  if (isObjectRecord(message.contactMessage) || isObjectRecord(message.contactsArrayMessage)) {
+    return "contact";
+  }
+
+  return undefined;
+}
+
+function conversationKindFromJid(remoteJid: string): "private" | "group" | "unknown" {
+  if (remoteJid.endsWith("@g.us")) {
+    return "group";
+  }
+
+  if (remoteJid.endsWith("@s.whatsapp.net") || remoteJid.endsWith("@c.us")) {
+    return "private";
+  }
+
+  return "unknown";
+}
+
+function occurredAtIso(
+  timestamp: WAMessage["messageTimestamp"] | null | undefined,
+  nowEpochMilliseconds: () => number,
+): string {
+  const epochMilliseconds = timestampToEpochMilliseconds(timestamp) ?? nowEpochMilliseconds();
+
+  return new Date(epochMilliseconds).toISOString();
+}
+
+function timestampToEpochMilliseconds(timestamp: unknown): number | undefined {
+  const numericTimestamp = numericTimestampValue(timestamp);
+
+  if (numericTimestamp === undefined || numericTimestamp <= 0) {
+    return undefined;
+  }
+
+  return Math.trunc(
+    numericTimestamp > 1_000_000_000_000 ? numericTimestamp : numericTimestamp * 1000,
+  );
+}
+
+function numericTimestampValue(timestamp: unknown): number | undefined {
+  if (typeof timestamp === "number" && Number.isFinite(timestamp)) {
+    return timestamp;
+  }
+
+  if (typeof timestamp === "string" && timestamp.trim().length > 0) {
+    const parsed = Number(timestamp);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  if (typeof timestamp === "bigint") {
+    return Number(timestamp);
+  }
+
+  if (isObjectRecord(timestamp) && typeof timestamp.toNumber === "function") {
+    const value = timestamp.toNumber();
+    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  }
+
+  return undefined;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function signalMatchesQuery(
