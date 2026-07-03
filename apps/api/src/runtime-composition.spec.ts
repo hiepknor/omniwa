@@ -58,6 +58,7 @@ describe("API runtime composition", () => {
     expect(composition.repositoryProfile).toBe("in-memory");
     expect(composition.options.apiKeys).toEqual([]);
     expect(composition.options.dispatcher).toBeDefined();
+    expect(composition.options.outboundMessageIntentStore).toBeDefined();
   });
 
   it("composes a durable JSON repository profile for restartable local state", async () => {

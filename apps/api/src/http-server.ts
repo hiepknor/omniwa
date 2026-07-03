@@ -4,10 +4,13 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import {
   createApplicationCommandOutcome,
   createApplicationQueryOutcome,
+  createOutboundMessageIntentRef,
+  type ApplicationPortContext,
   type ApplicationCommandEnvelope,
   type ApplicationCommandOutcome,
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
+  type OutboundMessageIntentStorePort,
 } from "@omniwa/application";
 import {
   ApiInterfaceAdapter,
@@ -21,6 +24,12 @@ import {
   type ApiScope,
   type ApplicationInterfaceDispatcher,
 } from "@omniwa/interface-api";
+import {
+  createCorrelationId,
+  createRequestContext,
+  createRequestId,
+  createTraceId,
+} from "@omniwa/shared";
 
 import {
   createApiKeyVerifierFromPlaintext,
@@ -73,6 +82,7 @@ export type ApiHttpServerOptions = Readonly<{
   resourceOwnershipResolver?: ApiResourceOwnershipResolver;
   securityAuditSink?: ApiSecurityAuditSink;
   eventSource?: RealtimeEventSource;
+  outboundMessageIntentStore?: OutboundMessageIntentStorePort;
   sseReplayLimit?: number;
   now?: () => Date;
   requestRefGenerator?: () => string;
@@ -356,6 +366,17 @@ export async function handleApiHttpRequest(
     });
 
     return createErrorHttpResponse(rateLimit.failure, metaBase);
+  }
+
+  const outboundIntentFailure = await storeOutboundIntentForAdapterRequest(
+    match,
+    request.body,
+    context,
+    options.outboundMessageIntentStore,
+  );
+
+  if (outboundIntentFailure !== undefined) {
+    return createErrorHttpResponse(outboundIntentFailure, metaBase);
   }
 
   const adapter =
@@ -1046,6 +1067,86 @@ function createCommandRequest(
     ...optional("traceId", context.traceId),
     ...optional("idempotencyKey", context.idempotencyKey),
   });
+}
+
+async function storeOutboundIntentForAdapterRequest(
+  match: Extract<RouteMatch, { kind: "adapter" }>,
+  body: unknown,
+  context: RouteContext,
+  outboundMessageIntentStore: OutboundMessageIntentStorePort | undefined,
+): Promise<HttpFailure | undefined> {
+  if (
+    outboundMessageIntentStore === undefined ||
+    match.request.kind !== "command" ||
+    match.request.name !== "SendTextMessage"
+  ) {
+    return undefined;
+  }
+
+  if (!isPlainObject(body) || typeof body.to !== "string" || typeof body.text !== "string") {
+    return validation("invalid_body", "Send text request body must contain safe text input.");
+  }
+
+  if (match.request.safeInputRef === undefined) {
+    return {
+      category: "internal",
+      code: "outbound_intent_ref_missing",
+      message: "Send text request could not be mapped to a safe outbound intent reference.",
+      statusCode: 500,
+    };
+  }
+
+  try {
+    const outboundIntentRef = createOutboundMessageIntentRef(match.request.safeInputRef);
+    const result = await outboundMessageIntentStore.storeTextIntent(
+      {
+        outboundIntentRef,
+        recipientRef: body.to,
+        text: body.text,
+      },
+      createHttpApplicationPortContext(match.request, context),
+    );
+
+    if (!result.ok) {
+      return {
+        category: result.error.category === "unsafe_payload" ? "validation" : "infrastructure",
+        code: result.error.code,
+        message: "Outbound message intent could not be accepted.",
+        statusCode: result.error.category === "unsafe_payload" ? 400 : 503,
+        details: {
+          retryable: result.error.retryable,
+        },
+      };
+    }
+
+    return undefined;
+  } catch {
+    return {
+      category: "validation",
+      code: "outbound_intent_ref_invalid",
+      message: "Send text request could not be mapped to a safe outbound intent reference.",
+      statusCode: 400,
+    };
+  }
+}
+
+function createHttpApplicationPortContext(
+  request: ApiCommandRequest,
+  context: RouteContext,
+): ApplicationPortContext {
+  return {
+    requestContext: createRequestContext({
+      requestId: createRequestId(request.requestId ?? context.requestId),
+      correlationId: createCorrelationId(request.correlationId ?? context.correlationId),
+      ...optional(
+        "traceId",
+        request.traceId === undefined ? undefined : createTraceId(request.traceId),
+      ),
+    }),
+    actorRef: `api_key:${context.credential.keyId}`,
+    ...optional("idempotencyKey", request.idempotencyKey),
+    ...optional("dataClassification", request.dataClassification),
+  };
 }
 
 function createQueryRequest(

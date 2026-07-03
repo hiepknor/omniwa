@@ -1,14 +1,22 @@
+import { join } from "node:path";
+
+import type { WorkerJobRepositoryPort } from "@omniwa/domain";
 import {
   createApplicationDispatcher,
+  createDomainEventPublisher,
   type ApplicationDispatcherRepositories,
 } from "@omniwa/application";
 import {
+  DurableJsonOutboundMessageIntentStore,
+  InMemoryOutboundMessageIntentStore,
   createDurableJsonRepositorySet,
   createDurableJsonEventLogStore,
+  createInMemoryEventLogStore,
   createInMemoryRepositorySet,
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
+import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 
 import { createApiKeyVerifierFromPlaintext } from "./api-key-auth.js";
 import { readApiKeysFromEnv, type ApiHttpServerOptions, type ApiKeyConfig } from "./http-server.js";
@@ -28,6 +36,11 @@ export type ApiRuntimeComposition = Readonly<{
   options: ApiHttpServerOptions;
 }>;
 
+type ApiRuntimeRepositorySet = ApplicationDispatcherRepositories &
+  Readonly<{
+    workerJobRepository: WorkerJobRepositoryPort;
+  }>;
+
 export function createApiRuntimeComposition(
   env: NodeJS.ProcessEnv = process.env,
 ): ApiRuntimeComposition {
@@ -39,15 +52,36 @@ export function createApiRuntimeComposition(
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
   const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
+  const eventLog =
+    eventLogPath === undefined || eventLogPath.length === 0
+      ? createInMemoryEventLogStore()
+      : createDurableJsonEventLogStore(eventLogPath);
   const eventSource =
     eventLogPath === undefined || eventLogPath.length === 0
       ? undefined
-      : createEventLogRealtimeEventSource(createDurableJsonEventLogStore(eventLogPath));
+      : createEventLogRealtimeEventSource(eventLog);
+  const outboundMessageIntentStore = createRuntimeOutboundMessageIntentStore(
+    env,
+    repositoryProfile,
+  );
+  const queueProvider = new InMemoryQueueProvider({
+    workerJobRepository: repositories.workerJobRepository,
+  });
+  const domainEventPublisher = createDomainEventPublisher({
+    eventLog,
+    nowIso: () => new Date().toISOString(),
+  });
   const dispatcher = createApplicationDispatcher({
     repositories: {
       instanceRepository: repositories.instanceRepository,
       ...optional("healthStatusRepository", repositories.healthStatusRepository),
+      ...optional("sessionRepository", repositories.sessionRepository),
+      ...optional("messageRepository", repositories.messageRepository),
+      ...optional("guardrailDecisionRepository", repositories.guardrailDecisionRepository),
     },
+    outboundMessageIntentStore,
+    queueProvider,
+    domainEventPublisher,
   });
 
   return Object.freeze({
@@ -55,12 +89,34 @@ export function createApiRuntimeComposition(
     repositoryProfile,
     options: Object.freeze({
       dispatcher,
+      outboundMessageIntentStore,
       ...optional("eventSource", eventSource),
       ...(apiKeys.length === 0
         ? { apiKeys }
         : { apiKeyVerifier: createApiKeyVerifierFromPlaintext(apiKeys) }),
     }),
   });
+}
+
+function createRuntimeOutboundMessageIntentStore(
+  env: NodeJS.ProcessEnv,
+  repositoryProfile: ApiRepositoryProfile,
+): InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore {
+  if (repositoryProfile !== "durable-json") {
+    return new InMemoryOutboundMessageIntentStore();
+  }
+
+  const stateDirectory = env.OMNIWA_API_REPOSITORY_STATE_DIR?.trim();
+
+  if (stateDirectory === undefined || stateDirectory.length === 0) {
+    throw new Error(
+      "OMNIWA_API_REPOSITORY_STATE_DIR is required when OMNIWA_API_REPOSITORY_PROFILE=durable-json.",
+    );
+  }
+
+  return new DurableJsonOutboundMessageIntentStore(
+    join(stateDirectory, "outbound-message-intents.json"),
+  );
 }
 
 function optional<TKey extends string, TValue>(
@@ -108,7 +164,7 @@ export function readRepositoryProfile(env: NodeJS.ProcessEnv = process.env): Api
 function createRuntimeRepositories(
   env: NodeJS.ProcessEnv,
   repositoryProfile: ApiRepositoryProfile,
-): ApplicationDispatcherRepositories {
+): ApiRuntimeRepositorySet {
   if (repositoryProfile === "in-memory") {
     return createInMemoryRepositorySet();
   }
@@ -133,6 +189,10 @@ function createRuntimeRepositories(
     return Object.freeze({
       instanceRepository: postgresqlRepositories.instanceRepository,
       healthStatusRepository: localProjectionRepositories.healthStatusRepository,
+      sessionRepository: localProjectionRepositories.sessionRepository,
+      messageRepository: localProjectionRepositories.messageRepository,
+      guardrailDecisionRepository: localProjectionRepositories.guardrailDecisionRepository,
+      workerJobRepository: postgresqlRepositories.workerJobRepository,
     });
   }
 

@@ -1,13 +1,23 @@
 import {
   createApplicationCommandOutcome,
   createApplicationQueryOutcome,
+  createOutboundMessageIntentRef,
   type ApplicationCommandEnvelope,
   type ApplicationCommandOutcome,
+  type ApplicationPortContext,
+  type ApplicationPortResult,
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
+  type OutboundMessageIntentBinding,
+  type OutboundMessageIntentReceipt,
+  type OutboundMessageIntentRef,
+  type OutboundMessageIntentStorePort,
+  type StoredTextOutboundMessageIntent,
+  type TextOutboundMessageIntentInput,
 } from "@omniwa/application";
 import { createInMemoryEventLogStore } from "@omniwa/infrastructure-persistence";
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
+import { ok } from "@omniwa/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -815,14 +825,18 @@ describe("API HTTP transport", () => {
 
   it("wraps validation failures in the public error envelope", async () => {
     const dispatcher = new CapturingDispatcher();
+    const outboundMessageIntentStore = new CapturingOutboundMessageIntentStore();
     const response = await request(dispatcher, "POST", "/v1/instances/inst_allowed/messages/text", {
       body: {
-        to: "12025550123",
+        to: "84999999999@s.whatsapp.net",
+        text: "",
       },
       headers: {
         "idempotency-key": "send-text-1",
       },
+      outboundMessageIntentStore,
     });
+    const serialized = JSON.stringify(response.body);
 
     expect(response.statusCode).toBe(400);
     expect("error" in response.body ? response.body.error : undefined).toMatchObject({
@@ -834,19 +848,26 @@ describe("API HTTP transport", () => {
     });
     expect("error" in response.body ? response.body.meta.requestId : undefined).toBe("req-test");
     expect(dispatcher.commandEnvelopes).toHaveLength(0);
+    expect(outboundMessageIntentStore.textIntents).toHaveLength(0);
+    expect(serialized).not.toContain("84999999999@s.whatsapp.net");
   });
 
   it("maps send text message to the internal command without exposing command names in the URL", async () => {
     const dispatcher = new CapturingDispatcher();
+    const outboundMessageIntentStore = new CapturingOutboundMessageIntentStore();
+    const rawJid = "84999999999@s.whatsapp.net";
+    const rawText = "hello from raw request";
     const response = await request(dispatcher, "POST", "/v1/instances/inst_allowed/messages/text", {
       body: {
-        to: "12025550123",
-        text: "hello",
+        to: rawJid,
+        text: rawText,
       },
       headers: {
         "idempotency-key": "send-text-1",
       },
+      outboundMessageIntentStore,
     });
+    const serialized = JSON.stringify(response.body);
 
     expect(response.statusCode).toBe(202);
     expect("data" in response.body ? response.body.data : undefined).toMatchObject({
@@ -857,6 +878,22 @@ describe("API HTTP transport", () => {
       retryable: false,
     });
     expect(JSON.stringify(response.body)).not.toContain("command_outcome");
+    expect(serialized).not.toContain(rawJid);
+    expect(serialized).not.toContain(rawText);
+    expect(outboundMessageIntentStore.textIntents).toEqual([
+      {
+        outboundIntentRef: "http:SendTextMessage:http-test",
+        recipientRef: rawJid,
+        text: rawText,
+      },
+    ]);
+    expect(outboundMessageIntentStore.contexts).toEqual([
+      expect.objectContaining({
+        actorRef: "api_key:test-public-key",
+        idempotencyKey: "send-text-1",
+        dataClassification: "confidential",
+      }),
+    ]);
     expect(dispatcher.commandEnvelopes).toEqual([
       expect.objectContaining({
         name: "SendTextMessage",
@@ -1158,6 +1195,7 @@ function request(
     apiKey?: string;
     body?: unknown;
     headers?: Readonly<Record<string, string>>;
+    outboundMessageIntentStore?: OutboundMessageIntentStorePort;
   }> = {},
 ): Promise<ApiHttpResponse> {
   return handleApiHttpRequest(
@@ -1177,6 +1215,7 @@ function request(
       apiKeys,
       now: fixedNow,
       requestRefGenerator: () => "http-test",
+      ...optional("outboundMessageIntentStore", input.outboundMessageIntentStore),
     },
   );
 }
@@ -1232,6 +1271,50 @@ class CapturingDispatcher implements ApplicationInterfaceDispatcher {
       }),
       ...payload,
     }) as ApplicationQueryOutcome;
+  }
+}
+
+class CapturingOutboundMessageIntentStore implements OutboundMessageIntentStorePort {
+  readonly textIntents: TextOutboundMessageIntentInput[] = [];
+  readonly contexts: ApplicationPortContext[] = [];
+  readonly bindings: OutboundMessageIntentBinding[] = [];
+
+  storeTextIntent(
+    intent: TextOutboundMessageIntentInput,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    this.textIntents.push(intent);
+    this.contexts.push(context);
+
+    return Promise.resolve(
+      ok({
+        outboundIntentRef:
+          intent.outboundIntentRef ?? createOutboundMessageIntentRef("intent_generated"),
+        kind: "text",
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+
+  bindMessageIntent(
+    binding: OutboundMessageIntentBinding,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentBinding>> {
+    this.bindings.push(binding);
+    return Promise.resolve(ok(binding));
+  }
+
+  resolveTextIntent(
+    outboundIntentRef: OutboundMessageIntentRef,
+  ): Promise<ApplicationPortResult<StoredTextOutboundMessageIntent>> {
+    return Promise.resolve(
+      ok({
+        outboundIntentRef,
+        kind: "text",
+        recipientRef: "stored-recipient",
+        text: "stored-text",
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
   }
 }
 

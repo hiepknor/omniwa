@@ -11,6 +11,7 @@
     "@omniwa/application": "workspace:*",
     "@omniwa/config": "workspace:*",
     "@omniwa/infrastructure-persistence": "workspace:*",
+    "@omniwa/infrastructure-queue": "workspace:*",
     "@omniwa/interface-api": "workspace:*",
     "@omniwa/shared": "workspace:*"
   }

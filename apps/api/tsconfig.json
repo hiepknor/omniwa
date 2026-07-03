@@ -11,6 +11,7 @@
     { "path": "../../packages/config" },
     { "path": "../../packages/application" },
     { "path": "../../packages/infrastructure-persistence" },
+    { "path": "../../packages/infrastructure-queue" },
     { "path": "../../packages/interface-api" }
   ]
 }

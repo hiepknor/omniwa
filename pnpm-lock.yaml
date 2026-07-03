@@ -41,6 +41,9 @@ importers:
       '@omniwa/infrastructure-persistence':
         specifier: workspace:*
         version: link:../../packages/infrastructure-persistence
+      '@omniwa/infrastructure-queue':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-queue
       '@omniwa/interface-api':
         specifier: workspace:*
         version: link:../../packages/interface-api
