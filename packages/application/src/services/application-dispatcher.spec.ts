@@ -24,6 +24,7 @@ import {
   createRequestContext,
   createRequestId,
   createUuid,
+  ok,
   toIsoTimestamp,
   type Clock,
   type UUIDGenerator,
@@ -31,6 +32,12 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { createApplicationCommandEnvelope } from "../commands/command-model.js";
+import type { ApplicationPortResult } from "../ports/application-port.js";
+import type {
+  EventLogReplayPort,
+  EventLogReplayResult,
+  PlatformEventRecord,
+} from "../ports/event-log.js";
 import { createApplicationQueryEnvelope } from "../queries/query-model.js";
 import { createApplicationDispatcher } from "./application-dispatcher.js";
 
@@ -246,6 +253,60 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");
   });
 
+  it("executes ListEvents through the EventLog replay port", async () => {
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository: new FakeInstanceRepository() },
+      clock: fixedClock,
+      eventLog: new FakeEventLogReplayPort([
+        platformEvent({
+          id: "event_demo",
+          type: "message.sent.v1",
+          source: "domain:Message",
+          resourceRef: "msg_demo",
+          correlationId: "corr_demo",
+          timestamp: "2026-07-01T00:00:00.000Z",
+          payload: {
+            raw: "hidden",
+          },
+        }),
+      ]),
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListEvents",
+        queryRef: "qry-list-events",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "retention_bound",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-events",
+      outcome: "result",
+      consistency: "retention_bound",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "events:list:1",
+      items: [
+        {
+          id: "event_demo",
+          type: "message.sent.v1",
+          source: "domain:Message",
+          resourceRef: "msg_demo",
+          correlationId: "corr_demo",
+          timestamp: "2026-07-01T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("payload");
+    expect(JSON.stringify(outcome)).not.toContain("hidden");
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
@@ -448,4 +509,49 @@ class FakeSessionRepository implements SessionRepositoryPort {
   private list(): readonly Session[] {
     return Object.freeze([...this.records.values()]);
   }
+}
+
+class FakeEventLogReplayPort implements EventLogReplayPort {
+  constructor(private readonly events: readonly PlatformEventRecord[]) {}
+
+  replayEvents(): ApplicationPortResult<EventLogReplayResult> {
+    return ok({
+      events: this.events,
+      cursorStatus: "no_cursor",
+      ...optional("oldestCursor", this.events[0]?.cursor),
+      ...optional("latestCursor", this.events.at(-1)?.cursor),
+    });
+  }
+}
+
+function platformEvent(
+  input: Readonly<{
+    id: string;
+    type: string;
+    source: string;
+    timestamp: string;
+    payload?: PlatformEventRecord["payload"];
+    resourceRef?: string;
+    correlationId?: string;
+  }>,
+): PlatformEventRecord {
+  return Object.freeze({
+    id: input.id,
+    cursor: `eventlog:${input.id}`,
+    type: input.type,
+    version: "v1",
+    timestamp: input.timestamp,
+    dataClassification: "internal",
+    source: input.source,
+    payload: Object.freeze(input.payload ?? {}),
+    ...optional("resourceRef", input.resourceRef),
+    ...optional("correlationId", input.correlationId),
+  });
+}
+
+function optional<TKey extends string, TValue>(
+  key: TKey,
+  value: TValue | undefined,
+): Partial<Record<TKey, TValue>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
 }

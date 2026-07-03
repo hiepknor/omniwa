@@ -13,6 +13,7 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "GET /v1/instances/{instanceId}",
   "GET /v1/instances/{instanceId}/sessions",
   "POST /v1/instances",
+  "GET /v1/events",
   "GET /v1/events/stream",
 ]);
 

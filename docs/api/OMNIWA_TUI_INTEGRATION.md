@@ -116,6 +116,7 @@ Wire these first:
 | Instances | `GET /v1/instances/{id}` | `implemented_public` | Instance detail/status panel after selecting a list item.    |
 | Instances | `POST /v1/instances`    | `implemented_public` | Optional create-instance action; requires `idempotency-key`. |
 | Sessions  | `GET /v1/instances/{id}/sessions` | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable. |
+| Events    | `GET /v1/events`        | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs. |
 | Realtime  | `GET /v1/events/stream` | `implemented_public` | SSE connection status and heartbeat support.                 |
 
 Keep these disabled or read-only with a backend-not-ready state:
@@ -185,6 +186,7 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/health"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/sessions"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/events"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"

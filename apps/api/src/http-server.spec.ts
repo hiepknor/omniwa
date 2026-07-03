@@ -803,6 +803,63 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(sessionsResponse.body)).not.toContain("domainEvents");
   });
 
+  it("materializes events from the real EventLog query into public collection items", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const eventLog = createInMemoryEventLogStore();
+
+    eventLog.appendEvent({
+      id: "event_demo",
+      type: "provider.connection.updated.v1",
+      timestamp: "2026-06-30T00:00:00.000Z",
+      dataClassification: "internal",
+      source: "provider_runtime",
+      resourceRef: "inst_demo",
+      correlationId: "corr_demo",
+      payload: {
+        raw: "hidden",
+      },
+    });
+
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+      },
+      eventLog,
+    });
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/events",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-events",
+          "x-correlation-id": "corr-list-events",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-events",
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toEqual([
+      {
+        resourceType: "event",
+        id: "event_demo",
+        type: "provider.connection.updated.v1",
+        source: "provider_runtime",
+        resourceRef: "inst_demo",
+        correlationId: "corr_demo",
+        timestamp: "2026-06-30T00:00:00.000Z",
+      },
+    ]);
+    expect(JSON.stringify(response.body)).not.toContain("payload");
+    expect(JSON.stringify(response.body)).not.toContain("hidden");
+  });
+
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
     const dispatcher = new CapturingDispatcher({
       ListGroupMembers: {

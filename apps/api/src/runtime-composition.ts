@@ -82,6 +82,7 @@ export function createApiRuntimeComposition(
     outboundMessageIntentStore,
     queueProvider,
     domainEventPublisher,
+    eventLog,
   });
 
   return Object.freeze({

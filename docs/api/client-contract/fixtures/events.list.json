@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "resourceType": "event",
+      "id": "event_demo",
+      "type": "provider.connection.updated.v1",
+      "source": "provider_runtime",
+      "resourceRef": "inst_demo",
+      "correlationId": "tui-correlation-fixture",
+      "timestamp": "2026-07-02T11:20:09.000Z"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-events-list-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "event",
+      "readStatus": "result",
+      "consistency": "retention_bound",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "events:list:1"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}

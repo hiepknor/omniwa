@@ -80,7 +80,7 @@
     "mustNotCallInternalCommandOrQueryHandlers": true,
     "mustTreatRouteExistsNotImplementedAsDisabledAction": true,
     "mustPreserveRequestAndCorrelationIds": true,
-    "recommendedInitialScreens": ["health", "instances", "sessions", "eventsStream"],
+    "recommendedInitialScreens": ["health", "instances", "sessions", "events", "eventsStream"],
     "disabledUntilBackendHandlersExist": [
       "chats",
       "contacts",
@@ -168,10 +168,10 @@
       "notes": "Routes exist but Application handlers are unavailable."
     },
     "events": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "EventDto",
-      "notes": "List route exists but Application handler is unavailable."
+      "notes": "Event list is public and backed by EventLog replay. Payload is not exposed in public DTOs."
     },
     "eventsStream": {
       "status": "implemented_public",
@@ -447,11 +447,12 @@
       "feature": "events",
       "method": "GET",
       "path": "/v1/events",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "EventDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "type", "source", "resourceRef"],
-      "responseEnvelope": "CollectionEnvelope"
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Returns safe EventDto collection items from EventLog replay."
     },
     {
       "feature": "eventsStream",
@@ -626,6 +627,7 @@
     "instancesList": "docs/api/client-contract/fixtures/instances.list.json",
     "instanceDetail": "docs/api/client-contract/fixtures/instance.detail.json",
     "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
+    "eventsList": "docs/api/client-contract/fixtures/events.list.json",
     "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
   }

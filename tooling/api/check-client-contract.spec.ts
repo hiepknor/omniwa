@@ -132,6 +132,7 @@ function implementedPublicEndpoints() {
     implementedEndpoint("GET", "/v1/instances/{instanceId}"),
     implementedEndpoint("GET", "/v1/instances/{instanceId}/sessions"),
     implementedEndpoint("POST", "/v1/instances"),
+    implementedEndpoint("GET", "/v1/events"),
     implementedEndpoint("GET", "/v1/events/stream"),
   ];
 }
@@ -142,6 +143,7 @@ function requiredFixtureMap() {
     authMissingError: "docs/api/client-contract/fixtures/auth.missing.error.json",
     instancesEmpty: "docs/api/client-contract/fixtures/instances.empty.json",
     instancesList: "docs/api/client-contract/fixtures/instances.list.json",
+    eventsList: "docs/api/client-contract/fixtures/events.list.json",
     groupUnavailable: "docs/api/client-contract/fixtures/group.unavailable.json",
     sseHeartbeat: "docs/api/client-contract/fixtures/events-stream.heartbeat.sse",
   };

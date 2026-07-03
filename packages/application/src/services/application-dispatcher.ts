@@ -24,6 +24,7 @@ import {
   type ApplicationQueryOutcome,
   createApplicationQueryOutcome,
 } from "../queries/query-model.js";
+import type { EventLogReplayPort, PlatformEventRecord } from "../ports/event-log.js";
 import type {
   CommandHandler,
   CommandHandlerRegistry,
@@ -64,6 +65,7 @@ export type ApplicationDispatcherOptions = Readonly<{
   queueProvider?: QueueProviderPort;
   messagingProvider?: MessagingProviderPort;
   domainEventPublisher?: DomainEventPublisher;
+  eventLog?: EventLogReplayPort;
 }>;
 
 export type ApplicationDispatcher = Readonly<{
@@ -88,6 +90,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly queueProvider: QueueProviderPort | undefined;
   private readonly messagingProvider: MessagingProviderPort | undefined;
   private readonly domainEventPublisher: DomainEventPublisher | undefined;
+  private readonly eventLog: EventLogReplayPort | undefined;
   private readonly commandHandlers: CommandHandlerRegistry;
   private readonly queryHandlers: QueryHandlerRegistry;
 
@@ -102,6 +105,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     this.queueProvider = options.queueProvider;
     this.messagingProvider = options.messagingProvider;
     this.domainEventPublisher = options.domainEventPublisher;
+    this.eventLog = options.eventLog;
     this.commandHandlers = this.buildCommandHandlers();
     this.queryHandlers = this.buildQueryHandlers();
   }
@@ -171,6 +175,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["GetInstanceStatus", (envelope) => this.getInstanceStatus(envelope)],
       ["ListInstances", (envelope) => this.listInstances(envelope)],
       ["ListInstanceSessions", (envelope) => this.listInstanceSessions(envelope)],
+      ["ListEvents", (envelope) => this.listEvents(envelope)],
     ]);
   }
 
@@ -338,6 +343,27 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       resultRef: `health:${health.id}:${health.category}`,
     });
   }
+
+  private async listEvents(envelope: ApplicationQueryEnvelope): Promise<ApplicationQueryOutcome> {
+    if (this.eventLog === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "event_log_not_configured",
+      });
+    }
+
+    const replay = this.eventLog.replayEvents({ limit: 1_000 });
+
+    if (!replay.ok) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: replay.error.code,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, replay.value.events.length === 0 ? "empty" : "result", {
+      resultRef: `events:list:${replay.value.events.length}`,
+      items: replay.value.events.map(eventQueryItem),
+    });
+  }
 }
 
 function commandOutcome(
@@ -406,6 +432,24 @@ function sessionQueryItem(session: Session): Readonly<{
     id: String(session.id),
     instanceId: String(session.instanceId),
     status: session.status,
+  });
+}
+
+function eventQueryItem(event: PlatformEventRecord): Readonly<{
+  id: string;
+  type: string;
+  source: string;
+  timestamp: string;
+  resourceRef?: string;
+  correlationId?: string;
+}> {
+  return Object.freeze({
+    id: event.id,
+    type: event.type,
+    source: event.source,
+    timestamp: event.timestamp,
+    ...optional("resourceRef", event.resourceRef),
+    ...optional("correlationId", event.correlationId),
   });
 }
 
