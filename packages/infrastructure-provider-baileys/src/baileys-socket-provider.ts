@@ -8,6 +8,7 @@ import {
 } from "@omniwa/domain";
 import {
   DEFAULT_CONNECTION_CONFIG,
+  DisconnectReason,
   initAuthCreds,
   makeWASocket,
   type AuthenticationCreds,
@@ -66,6 +67,27 @@ export type BaileysSocketFactory = (config: UserFacingSocketConfig) => WASocket;
 export type RealBaileysSocketProviderOptions = Readonly<{
   authStateStore: BaileysAuthStateStore;
   socketFactory?: BaileysSocketFactory;
+}>;
+
+export const baileysDisconnectActions = [
+  "reconnect",
+  "clear_auth_and_logged_out",
+  "surrender_ownership",
+  "stop_no_retry",
+  "unknown_retryable",
+] as const;
+
+export type BaileysDisconnectAction = (typeof baileysDisconnectActions)[number];
+
+export type BaileysDisconnectDecision = Readonly<{
+  action: BaileysDisconnectAction;
+  signalCode: string;
+  retryable: boolean;
+  clearAuthState: boolean;
+  surrenderOwnership: boolean;
+  backoffMs?: number;
+  statusCode?: number;
+  failureCategory: FailureCategory;
 }>;
 
 export type FakeBaileysSocketOptions = Readonly<{
@@ -314,7 +336,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
         void auth.persist();
       });
       socket.ev.on("connection.update", (update) => {
-        this.recordConnectionUpdate(request, update);
+        void this.recordConnectionUpdate(request, update);
       });
 
       this.sockets.set(socketKey(request), socket);
@@ -359,10 +381,10 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     return Object.freeze(drained);
   }
 
-  private recordConnectionUpdate(
+  private async recordConnectionUpdate(
     request: BaileysSocketRequest,
     update: BaileysEventMap["connection.update"],
-  ): void {
+  ): Promise<void> {
     if (update.qr !== undefined) {
       this.recordSignal(request, "auth", "qr_required", "confidential", "qr_required");
     }
@@ -373,7 +395,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     }
 
     if (update.connection === "close") {
-      this.recordSignal(request, "connection", "disconnected", "internal", "disconnected");
+      await this.recordDisconnectUpdate(request, update);
       return;
     }
 
@@ -382,12 +404,46 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     }
   }
 
+  private async recordDisconnectUpdate(
+    request: BaileysSocketRequest,
+    update: BaileysEventMap["connection.update"],
+  ): Promise<void> {
+    const decision = mapBaileysDisconnectReason(
+      extractProviderStatusCode(update.lastDisconnect?.error),
+    );
+
+    if (decision.clearAuthState && request.sessionId !== undefined) {
+      const cleared = await this.authStateStore.clear(request.sessionId);
+
+      if (!cleared.ok) {
+        this.recordSignal(
+          request,
+          "failure",
+          "auth_clear_failed",
+          "confidential",
+          "auth_clear_failed",
+          createFailureCategory("provider"),
+        );
+      }
+    }
+
+    this.recordSignal(
+      request,
+      disconnectSignalKind(decision),
+      decision.signalCode,
+      disconnectSignalClassification(decision),
+      decision.action,
+      decision.failureCategory,
+    );
+  }
+
   private recordSignal(
     request: BaileysSocketRequest,
     kind: TranslatedProviderSignal["kind"],
     signalCode: string,
     dataClassification: TranslatedProviderSignal["dataClassification"],
     occurrenceCode: string,
+    failureCategory?: FailureCategory,
   ): TranslatedProviderSignal {
     const targetRef = request.sessionId ?? request.instanceId;
     const signal = Object.freeze({
@@ -402,6 +458,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       ].join("."),
       kind,
       dataClassification,
+      ...(failureCategory === undefined ? {} : { failureCategory }),
     });
 
     this.signals.push(signal);
@@ -424,6 +481,79 @@ export function mapBaileysSocketProviderError(error: unknown): BaileysProviderEr
     failureCategory: socketFailureCategoryFromStatusCode(statusCode),
     retryable: socketProviderRetryableFromStatusCode(statusCode),
     message: "Baileys socket provider failed with a sanitized provider error.",
+  });
+}
+
+export function mapBaileysDisconnectReason(
+  statusCode: number | undefined,
+): BaileysDisconnectDecision {
+  if (
+    statusCode === DisconnectReason.loggedOut ||
+    statusCode === DisconnectReason.badSession ||
+    statusCode === DisconnectReason.multideviceMismatch
+  ) {
+    return disconnectDecision({
+      action: "clear_auth_and_logged_out",
+      signalCode: "logged_out",
+      retryable: false,
+      clearAuthState: true,
+      surrenderOwnership: false,
+      statusCode,
+      failureCategory: createFailureCategory("provider"),
+    });
+  }
+
+  if (statusCode === DisconnectReason.connectionReplaced) {
+    return disconnectDecision({
+      action: "surrender_ownership",
+      signalCode: "connection_replaced",
+      retryable: false,
+      clearAuthState: false,
+      surrenderOwnership: true,
+      statusCode,
+      failureCategory: createFailureCategory("provider"),
+    });
+  }
+
+  if (
+    statusCode === DisconnectReason.restartRequired ||
+    statusCode === DisconnectReason.connectionClosed ||
+    statusCode === DisconnectReason.connectionLost ||
+    statusCode === DisconnectReason.timedOut
+  ) {
+    return disconnectDecision({
+      action: "reconnect",
+      signalCode: "reconnecting",
+      retryable: true,
+      clearAuthState: false,
+      surrenderOwnership: false,
+      backoffMs: 1_000,
+      statusCode,
+      failureCategory: createFailureCategory("network"),
+    });
+  }
+
+  if (statusCode === DisconnectReason.forbidden) {
+    return disconnectDecision({
+      action: "stop_no_retry",
+      signalCode: "disconnected",
+      retryable: false,
+      clearAuthState: false,
+      surrenderOwnership: false,
+      statusCode,
+      failureCategory: createFailureCategory("provider"),
+    });
+  }
+
+  return disconnectDecision({
+    action: "unknown_retryable",
+    signalCode: "reconnecting",
+    retryable: true,
+    clearAuthState: false,
+    surrenderOwnership: false,
+    backoffMs: 1_000,
+    failureCategory: createFailureCategory("unexpected"),
+    ...optional("statusCode", statusCode),
   });
 }
 
@@ -488,6 +618,41 @@ function socketFailureCategoryFromStatusCode(statusCode: number | undefined): Fa
   }
 
   return createFailureCategory("unexpected");
+}
+
+function disconnectDecision(
+  input: Omit<BaileysDisconnectDecision, "statusCode" | "backoffMs"> &
+    Readonly<{
+      statusCode?: number;
+      backoffMs?: number;
+    }>,
+): BaileysDisconnectDecision {
+  return Object.freeze({
+    action: input.action,
+    signalCode: input.signalCode,
+    retryable: input.retryable,
+    clearAuthState: input.clearAuthState,
+    surrenderOwnership: input.surrenderOwnership,
+    failureCategory: input.failureCategory,
+    ...optional("backoffMs", input.backoffMs),
+    ...optional("statusCode", input.statusCode),
+  });
+}
+
+function disconnectSignalKind(
+  decision: BaileysDisconnectDecision,
+): TranslatedProviderSignal["kind"] {
+  return decision.action === "reconnect" || decision.action === "unknown_retryable"
+    ? "connection"
+    : "failure";
+}
+
+function disconnectSignalClassification(
+  decision: BaileysDisconnectDecision,
+): TranslatedProviderSignal["dataClassification"] {
+  return decision.action === "reconnect" || decision.action === "unknown_retryable"
+    ? "internal"
+    : "confidential";
 }
 
 function safeSocketProviderFailure(code: string, retryable: boolean): BaileysProviderError {
@@ -680,4 +845,11 @@ function fromJsonValue(value: BaileysAuthStateJsonValue): unknown {
   }
 
   return value;
+}
+
+function optional<TKey extends string, TValue>(
+  key: TKey,
+  value: TValue | undefined,
+): Partial<Record<TKey, TValue>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
 }

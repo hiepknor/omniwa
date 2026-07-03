@@ -152,6 +152,49 @@ describe("ProviderRuntimeSupervisor", () => {
     );
   });
 
+  it("moves RECONNECTING for reconnect signals and surrenders ownership on connection replacement", async () => {
+    const guard = new InMemoryProviderRuntimeSupervisorOwnershipGuard();
+    const socketProvider = new QueuedSignalSocketProvider();
+    const { supervisor } = createSupervisorHarness({ socketProvider, ownershipGuard: guard });
+
+    await supervisor.startSession(startInput(), context);
+    socketProvider.enqueueSignal(
+      providerSignal({
+        signalRef: "provider.baileys.reconnecting",
+        occurrenceRef: "provider.baileys.provider_supervisor_session.reconnecting",
+        kind: "connection",
+        dataClassification: "internal",
+      }),
+    );
+    await supervisor.tick(context);
+
+    expect(supervisor.snapshot().sessions[0]).toMatchObject({
+      state: "RECONNECTING",
+      lastSignalRef: "provider.baileys.reconnecting",
+    });
+    expect(guard.currentOwner(startInput())).toBe("provider-supervisor-owner");
+
+    socketProvider.enqueueSignal(
+      providerSignal({
+        signalRef: "provider.baileys.connection_replaced",
+        occurrenceRef: "provider.baileys.provider_supervisor_session.connection_replaced",
+        kind: "failure",
+        dataClassification: "confidential",
+      }),
+    );
+    await supervisor.tick(context);
+
+    expect(supervisor.snapshot().sessions[0]).toMatchObject({
+      state: "DISCONNECTED",
+      lastSignalRef: "provider.baileys.connection_replaced",
+      failure: {
+        code: "provider_signal_connection_replaced",
+        retryable: false,
+      },
+    });
+    expect(guard.currentOwner(startInput())).toBeUndefined();
+  });
+
   it("transitions stopSession to DESTROYED and closes the socket", async () => {
     const socketProvider = new FakeBaileysSocketProvider();
     const socket = new FakeBaileysSocket();

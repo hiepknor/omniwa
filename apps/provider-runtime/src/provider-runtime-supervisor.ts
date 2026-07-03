@@ -294,11 +294,16 @@ export class ProviderRuntimeSupervisor {
         }
 
         const nextState = stateFromSignal(signal, session.state);
+        const failure = failureFromSignal(signal);
 
         if (nextState !== undefined) {
-          this.transition(session, nextState, signal.signalRef);
+          this.transition(session, nextState, signal.signalRef, failure);
         } else {
           this.rememberSignal(session, signal.signalRef);
+        }
+
+        if (shouldSurrenderOwnership(signal)) {
+          this.ownershipGuard.release(session, this.ownerRef);
         }
 
         drainedSignals.push(
@@ -448,10 +453,33 @@ function stateFromSignal(
   }
 
   if (signal.kind === "failure") {
-    return signalCode === "logged_out" ? "LOGGED_OUT" : "DISCONNECTED";
+    if (signalCode === "logged_out") return "LOGGED_OUT";
+    if (signalCode === "connection_replaced") return "DISCONNECTED";
+    return "DISCONNECTED";
   }
 
   return undefined;
+}
+
+function failureFromSignal(
+  signal: TranslatedProviderSignal,
+): ProviderRuntimeSupervisorFailure | undefined {
+  if (signal.kind !== "failure") {
+    return undefined;
+  }
+
+  const signalCode = signal.signalRef.split(".").at(-1) ?? "failure";
+
+  return safeFailure({
+    code: `provider_signal_${signalCode}`,
+    message: "Provider runtime supervisor received a provider failure signal.",
+    retryable: signalCode !== "logged_out" && signalCode !== "connection_replaced",
+    source: "provider",
+  });
+}
+
+function shouldSurrenderOwnership(signal: TranslatedProviderSignal): boolean {
+  return signal.kind === "failure" && signal.signalRef.split(".").at(-1) === "connection_replaced";
 }
 
 function snapshotSession(

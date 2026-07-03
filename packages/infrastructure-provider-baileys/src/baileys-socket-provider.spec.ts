@@ -10,6 +10,7 @@ import type {
   UserFacingSocketConfig,
   WASocket,
 } from "@whiskeysockets/baileys";
+import { DisconnectReason } from "@whiskeysockets/baileys";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -26,6 +27,7 @@ import {
   FakeBaileysSocket,
   FakeBaileysSocketProvider,
   RealBaileysSocketProvider,
+  mapBaileysDisconnectReason,
   type BaileysSocketRequest,
 } from "./baileys-socket-provider.js";
 
@@ -245,15 +247,8 @@ describe("RealBaileysSocketProvider", () => {
     harness.socket.ev.emit("connection.update", {
       connection: "open",
     });
-    harness.socket.ev.emit("connection.update", {
-      connection: "close",
-      lastDisconnect: {
-        error: Object.assign(new Error("raw disconnect with jid 12025550123@s.whatsapp.net"), {
-          output: { statusCode: 503 },
-        }),
-        date: new Date("2026-07-03T00:00:00.000Z"),
-      },
-    });
+    harness.socket.ev.emit("connection.update", closeUpdate(DisconnectReason.connectionClosed));
+    await flushAsyncSignals();
 
     const signals = harness.provider.drainSignals({ sessionId });
 
@@ -278,7 +273,7 @@ describe("RealBaileysSocketProvider", () => {
       },
       {
         kind: "connection",
-        signalRef: "provider.baileys.disconnected",
+        signalRef: "provider.baileys.reconnecting",
         targetRef: sessionId,
         dataClassification: "internal",
       },
@@ -322,6 +317,136 @@ describe("RealBaileysSocketProvider", () => {
     expect(JSON.stringify(caught)).not.toContain(rawProviderPayload);
     expect(JSON.stringify(caught)).not.toContain(rawAuthSecret);
     expect(JSON.stringify(provider.drainSignals())).toEqual("[]");
+  });
+
+  it("maps loggedOut to clear auth and a logged_out signal", async () => {
+    const store = new RecordingAuthStateStore();
+    const harness = createRealProviderHarness({ authStateStore: store });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", closeUpdate(DisconnectReason.loggedOut));
+    await flushAsyncSignals();
+
+    expect(store.clears).toEqual([sessionId]);
+    expect(harness.provider.drainSignals({ sessionId }).map(signalSummary)).toEqual([
+      {
+        kind: "connection",
+        signalRef: "provider.baileys.connecting",
+        targetRef: sessionId,
+        dataClassification: "internal",
+      },
+      {
+        kind: "failure",
+        signalRef: "provider.baileys.logged_out",
+        targetRef: sessionId,
+        dataClassification: "confidential",
+      },
+    ]);
+  });
+
+  it("maps connectionReplaced to surrender ownership without blind reconnect", async () => {
+    const store = new RecordingAuthStateStore();
+    const harness = createRealProviderHarness({ authStateStore: store });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", closeUpdate(DisconnectReason.connectionReplaced));
+    await flushAsyncSignals();
+
+    expect(mapBaileysDisconnectReason(DisconnectReason.connectionReplaced)).toMatchObject({
+      action: "surrender_ownership",
+      signalCode: "connection_replaced",
+      retryable: false,
+      surrenderOwnership: true,
+    });
+    expect(store.clears).toEqual([]);
+    expect(harness.provider.drainSignals({ sessionId }).map(signalSummary).at(-1)).toEqual({
+      kind: "failure",
+      signalRef: "provider.baileys.connection_replaced",
+      targetRef: sessionId,
+      dataClassification: "confidential",
+    });
+  });
+
+  it("maps restartRequired to a reconnect decision with backoff", () => {
+    expect(mapBaileysDisconnectReason(DisconnectReason.restartRequired)).toMatchObject({
+      action: "reconnect",
+      signalCode: "reconnecting",
+      retryable: true,
+      clearAuthState: false,
+      surrenderOwnership: false,
+      backoffMs: 1_000,
+    });
+  });
+
+  it("maps closed, lost, and timed out disconnects to retryable reconnect decisions", () => {
+    for (const statusCode of [
+      DisconnectReason.connectionClosed,
+      DisconnectReason.connectionLost,
+      DisconnectReason.timedOut,
+    ]) {
+      expect(mapBaileysDisconnectReason(statusCode)).toMatchObject({
+        action: "reconnect",
+        signalCode: "reconnecting",
+        retryable: true,
+        backoffMs: 1_000,
+      });
+    }
+  });
+
+  it("maps badSession and multideviceMismatch to clear-auth no-retry decisions", async () => {
+    for (const statusCode of [DisconnectReason.badSession, DisconnectReason.multideviceMismatch]) {
+      expect(mapBaileysDisconnectReason(statusCode)).toMatchObject({
+        action: "clear_auth_and_logged_out",
+        signalCode: "logged_out",
+        retryable: false,
+        clearAuthState: true,
+      });
+    }
+
+    const store = new RecordingAuthStateStore();
+    const harness = createRealProviderHarness({ authStateStore: store });
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", closeUpdate(DisconnectReason.badSession));
+    await flushAsyncSignals();
+
+    expect(store.clears).toEqual([sessionId]);
+  });
+
+  it("maps unknown close codes to safe retryable reconnect decisions", async () => {
+    const harness = createRealProviderHarness();
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", closeUpdate(499));
+    await flushAsyncSignals();
+
+    expect(mapBaileysDisconnectReason(499)).toMatchObject({
+      action: "unknown_retryable",
+      signalCode: "reconnecting",
+      retryable: true,
+      backoffMs: 1_000,
+    });
+    expect(harness.provider.drainSignals({ sessionId }).map(signalSummary).at(-1)).toEqual({
+      kind: "connection",
+      signalRef: "provider.baileys.reconnecting",
+      targetRef: sessionId,
+      dataClassification: "internal",
+    });
+  });
+
+  it("does not leak raw provider payloads from disconnect error DTOs or signals", async () => {
+    const rawDisconnectPayload =
+      "raw disconnect payload with auth-secret and 12025550123@s.whatsapp.net";
+    const harness = createRealProviderHarness();
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", closeUpdate(499, rawDisconnectPayload));
+    await flushAsyncSignals();
+
+    const signals = harness.provider.drainSignals({ sessionId });
+
+    expect(JSON.stringify(signals)).not.toContain(rawDisconnectPayload);
+    expect(JSON.stringify(signals)).not.toContain("auth-secret");
+    expect(JSON.stringify(signals)).not.toContain("12025550123");
   });
 });
 
@@ -376,6 +501,7 @@ class RecordingAuthStateStore implements BaileysAuthStateStore {
   readonly loads = [] as (typeof sessionId)[];
   readonly saves: BaileysAuthStateSnapshot[] = [];
   readonly saveResults: BaileysAuthStateMetadata[] = [];
+  readonly clears = [] as (typeof sessionId)[];
   private readonly delegate = new InMemoryBaileysAuthStateStore();
 
   constructor(initialState?: BaileysAuthStateSnapshot) {
@@ -408,8 +534,29 @@ class RecordingAuthStateStore implements BaileysAuthStateStore {
   clear(
     requestedSessionId: typeof sessionId,
   ): Promise<BaileysAuthStateStoreResult<BaileysAuthStateMetadata | undefined>> {
+    this.clears.push(requestedSessionId);
     return this.delegate.clear(requestedSessionId);
   }
+}
+
+function closeUpdate(
+  statusCode: number,
+  message = "raw disconnect payload with jid 12025550123@s.whatsapp.net",
+): BaileysEventMap["connection.update"] {
+  return {
+    connection: "close",
+    lastDisconnect: {
+      error: Object.assign(new Error(message), {
+        output: { statusCode },
+      }),
+      date: new Date("2026-07-03T00:00:00.000Z"),
+    },
+  };
+}
+
+async function flushAsyncSignals(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 class MockRealBaileysSocket {
