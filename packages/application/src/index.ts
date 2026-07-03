@@ -25,6 +25,7 @@ export * from "./services/handlers/command-handler.js";
 export * from "./services/handlers/process-outbound-message-work.handler.js";
 export * from "./services/handlers/send-text-message.handler.js";
 export * from "./services/minimal-message-guardrail.js";
+export * from "./services/provider-signal-ingress.js";
 export * from "./transactions/unit-of-work.js";
 export * from "./workflows/workflow-catalog.js";
 export * from "./workflows/workflow-state.js";
