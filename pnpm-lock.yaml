@@ -101,6 +101,9 @@ importers:
       '@omniwa/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@omniwa/infrastructure-provider-baileys':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-provider-baileys
       '@omniwa/observability':
         specifier: workspace:*
         version: link:../../packages/observability

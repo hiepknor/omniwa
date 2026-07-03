@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 
 export * from "./provider-runtime.js";
 export * from "./provider-runtime-app.js";
+export * from "./provider-runtime-supervisor.js";
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   console.log(

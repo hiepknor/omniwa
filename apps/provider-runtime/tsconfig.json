@@ -11,6 +11,7 @@
     { "path": "../../packages/config" },
     { "path": "../../packages/domain" },
     { "path": "../../packages/errors" },
+    { "path": "../../packages/infrastructure-provider-baileys" },
     { "path": "../../packages/observability" },
     { "path": "../../packages/shared" }
   ]
