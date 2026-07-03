@@ -80,6 +80,7 @@ export function createApiRuntimeComposition(
       ...optional("guardrailDecisionRepository", repositories.guardrailDecisionRepository),
       ...optional("workerJobRepository", repositories.workerJobRepository),
       ...optional("webhookSubscriptionRepository", repositories.webhookSubscriptionRepository),
+      ...optional("webhookDeliveryRepository", repositories.webhookDeliveryRepository),
     },
     outboundMessageIntentStore,
     queueProvider,
@@ -196,6 +197,8 @@ function createRuntimeRepositories(
       messageRepository: localProjectionRepositories.messageRepository,
       guardrailDecisionRepository: localProjectionRepositories.guardrailDecisionRepository,
       workerJobRepository: postgresqlRepositories.workerJobRepository,
+      webhookSubscriptionRepository: localProjectionRepositories.webhookSubscriptionRepository,
+      webhookDeliveryRepository: localProjectionRepositories.webhookDeliveryRepository,
     });
   }
 

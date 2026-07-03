@@ -165,7 +165,7 @@
       "status": "implemented_public",
       "recommendedForTui": true,
       "dto": "WebhookDto|WebhookDeliveryDto|OperationData",
-      "notes": "Read routes are public. Public DTO does not expose targetUrl."
+      "notes": "Subscription and delivery read routes are public. Public DTO does not expose targetUrl, retryPolicy, or domainEvents."
     },
     "events": {
       "status": "implemented_public",
@@ -466,6 +466,27 @@
       "notes": "Returns safe webhook subscription resource data. targetUrl is not exposed."
     },
     {
+      "feature": "webhooks",
+      "method": "GET",
+      "path": "/v1/webhook-deliveries",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "WebhookDeliveryDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status", "webhookId"],
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Returns safe webhook delivery collection items. retryPolicy and domainEvents are not exposed."
+    },
+    {
+      "feature": "webhooks",
+      "method": "GET",
+      "path": "/v1/webhook-deliveries/{deliveryId}/history",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "WebhookDeliveryDto",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns safe webhook delivery history/status data. retryPolicy and domainEvents are not exposed."
+    },
+    {
       "feature": "events",
       "method": "GET",
       "path": "/v1/events",
@@ -654,6 +675,8 @@
     "jobDetail": "docs/api/client-contract/fixtures/job.detail.json",
     "webhooksList": "docs/api/client-contract/fixtures/webhooks.list.json",
     "webhookDetail": "docs/api/client-contract/fixtures/webhook.detail.json",
+    "webhookDeliveriesList": "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
+    "webhookDeliveryHistory": "docs/api/client-contract/fixtures/webhook-delivery.history.json",
     "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
   }

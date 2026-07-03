@@ -138,6 +138,8 @@ function implementedPublicEndpoints() {
     implementedEndpoint("GET", "/v1/jobs/{jobId}"),
     implementedEndpoint("GET", "/v1/webhooks"),
     implementedEndpoint("GET", "/v1/webhooks/{webhookId}"),
+    implementedEndpoint("GET", "/v1/webhook-deliveries"),
+    implementedEndpoint("GET", "/v1/webhook-deliveries/{deliveryId}/history"),
   ];
 }
 
@@ -150,6 +152,7 @@ function requiredFixtureMap() {
     eventsList: "docs/api/client-contract/fixtures/events.list.json",
     jobsList: "docs/api/client-contract/fixtures/jobs.list.json",
     webhooksList: "docs/api/client-contract/fixtures/webhooks.list.json",
+    webhookDeliveriesList: "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
     groupUnavailable: "docs/api/client-contract/fixtures/group.unavailable.json",
     sseHeartbeat: "docs/api/client-contract/fixtures/events-stream.heartbeat.sse",
   };

@@ -19,6 +19,8 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "GET /v1/jobs/{jobId}",
   "GET /v1/webhooks",
   "GET /v1/webhooks/{webhookId}",
+  "GET /v1/webhook-deliveries",
+  "GET /v1/webhook-deliveries/{deliveryId}/history",
 ]);
 
 export async function evaluateClientContractReadiness(options = {}) {

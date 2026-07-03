@@ -74,21 +74,23 @@ Error:
 
 ## Implemented P0 Routes
 
-| Method | Path                                       | Status      | Notes                                               |
-| ------ | ------------------------------------------ | ----------- | --------------------------------------------------- |
-| GET    | `/v1/health`                               | Implemented | Reads safe health status                            |
-| GET    | `/v1/instances`                            | Implemented | Lists instances through current query boundary      |
-| GET    | `/v1/instances/:instanceId`                | Implemented | Reads one instance status                           |
-| POST   | `/v1/instances`                            | Implemented | Creates instance intent                             |
-| POST   | `/v1/instances/:instanceId/connect`        | Implemented | Async connection intent                             |
-| POST   | `/v1/instances/:instanceId/disconnect`     | Implemented | Disconnect intent                                   |
-| POST   | `/v1/instances/:instanceId/qr/refresh`     | Implemented | QR refresh intent                                   |
-| POST   | `/v1/instances/:instanceId/messages/text`  | Implemented | Text-message send intent                            |
-| POST   | `/v1/instances/:instanceId/messages/media` | Implemented | Media-message send intent                           |
-| GET    | `/v1/jobs`                                 | Partial     | Returns `501` until job-list projection exists      |
-| GET    | `/v1/jobs/:jobId`                          | Implemented | Reads worker job status through monitoring boundary |
-| GET    | `/v1/webhooks`                             | Partial     | Returns `501` until webhook-list projection exists  |
-| POST   | `/v1/webhooks`                             | Implemented | Registers webhook subscription intent               |
+| Method | Path                                         | Status      | Notes                                               |
+| ------ | -------------------------------------------- | ----------- | --------------------------------------------------- |
+| GET    | `/v1/health`                                 | Implemented | Reads safe health status                            |
+| GET    | `/v1/instances`                              | Implemented | Lists instances through current query boundary      |
+| GET    | `/v1/instances/:instanceId`                  | Implemented | Reads one instance status                           |
+| POST   | `/v1/instances`                              | Implemented | Creates instance intent                             |
+| POST   | `/v1/instances/:instanceId/connect`          | Implemented | Async connection intent                             |
+| POST   | `/v1/instances/:instanceId/disconnect`       | Implemented | Disconnect intent                                   |
+| POST   | `/v1/instances/:instanceId/qr/refresh`       | Implemented | QR refresh intent                                   |
+| POST   | `/v1/instances/:instanceId/messages/text`    | Implemented | Text-message send intent                            |
+| POST   | `/v1/instances/:instanceId/messages/media`   | Implemented | Media-message send intent                           |
+| GET    | `/v1/jobs`                                   | Implemented | Lists worker jobs through monitoring boundary       |
+| GET    | `/v1/jobs/:jobId`                            | Implemented | Reads worker job status through monitoring boundary |
+| GET    | `/v1/webhooks`                               | Implemented | Lists safe webhook subscription rows                |
+| GET    | `/v1/webhook-deliveries`                     | Implemented | Lists safe webhook delivery rows                    |
+| GET    | `/v1/webhook-deliveries/:deliveryId/history` | Implemented | Reads one safe webhook delivery history/status      |
+| POST   | `/v1/webhooks`                               | Implemented | Registers webhook subscription intent               |
 
 ## Minimal Request Body Validation
 
@@ -111,8 +113,8 @@ Error:
   detailed DTO contracts.
 - The internal Application command envelope accepts `safeInputRef`, so Phase A
   does not persist or execute full message/webhook payloads.
-- `GET /v1/jobs` and `GET /v1/webhooks` require read projections that are not
-  present in the current source.
+- Message timeline and queue-item projections are not present in the current
+  source.
 
 ## Historical Phase B Requirements
 
@@ -120,6 +122,6 @@ Before SDK/OpenAPI work, Phase B should:
 
 - add route traceability tests for every implemented route,
 - decide concrete request/response resource DTOs,
-- add collection read models for jobs and webhooks,
+- extend collection read models beyond jobs, webhooks, and webhook deliveries,
 - align monitoring/admin boundary behavior for worker-job reads,
 - keep all public paths resource-oriented.

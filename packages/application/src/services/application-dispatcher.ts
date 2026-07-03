@@ -1,6 +1,7 @@
 import {
   createInstance,
   createInstanceId,
+  createWebhookDeliveryId,
   createWebhookId,
   type GuardrailDecisionRepositoryPort,
   type HealthStatusRepositoryPort,
@@ -11,6 +12,9 @@ import {
   type MessageRepositoryPort,
   type Session,
   type SessionRepositoryPort,
+  type WebhookDelivery,
+  type WebhookDeliveryRepositoryPort,
+  webhookDeliveryStatuses,
   type WebhookSubscription,
   type WebhookSubscriptionRepositoryPort,
   webhookSubscriptionStatuses,
@@ -62,6 +66,7 @@ export type ApplicationDispatcherRepositories = Readonly<{
   guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
   workerJobRepository?: WorkerJobRepositoryPort;
   webhookSubscriptionRepository?: WebhookSubscriptionRepositoryPort;
+  webhookDeliveryRepository?: WebhookDeliveryRepositoryPort;
 }>;
 
 export type ApplicationDispatcherOptions = Readonly<{
@@ -190,6 +195,8 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
       ["ListWebhookSubscriptions", (envelope) => this.listWebhookSubscriptions(envelope)],
       ["GetWebhookStatus", (envelope) => this.getWebhookStatus(envelope)],
+      ["ListWebhookDeliveries", (envelope) => this.listWebhookDeliveries(envelope)],
+      ["GetWebhookDeliveryHistory", (envelope) => this.getWebhookDeliveryHistory(envelope)],
     ]);
   }
 
@@ -373,10 +380,15 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       });
     }
 
-    return queryOutcome(envelope, this.clock, replay.value.events.length === 0 ? "empty" : "result", {
-      resultRef: `events:list:${replay.value.events.length}`,
-      items: replay.value.events.map(eventQueryItem),
-    });
+    return queryOutcome(
+      envelope,
+      this.clock,
+      replay.value.events.length === 0 ? "empty" : "result",
+      {
+        resultRef: `events:list:${replay.value.events.length}`,
+        items: replay.value.events.map(eventQueryItem),
+      },
+    );
   }
 
   private async listWorkerJobs(
@@ -482,6 +494,58 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return queryOutcome(envelope, this.clock, "result", {
       resultRef: `webhook:${webhook.id}:${webhook.status}`,
       resource: webhookSubscriptionQueryItem(webhook),
+    });
+  }
+
+  private async listWebhookDeliveries(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.webhookDeliveryRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "webhook_delivery_repository_not_configured",
+      });
+    }
+
+    const deliveries = (
+      await Promise.all(webhookDeliveryStatuses.map((status) => repository.findByStatus(status)))
+    ).flat();
+
+    return queryOutcome(envelope, this.clock, deliveries.length === 0 ? "empty" : "result", {
+      resultRef: `webhook-deliveries:list:${deliveries.length}`,
+      items: deliveries.map(webhookDeliveryQueryItem),
+    });
+  }
+
+  private async getWebhookDeliveryHistory(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.webhookDeliveryRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "webhook_delivery_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "webhook_delivery_target_required",
+      });
+    }
+
+    const delivery = await repository.load(createWebhookDeliveryId(envelope.targetRef));
+
+    if (delivery === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `webhook-delivery:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `webhook-delivery:${delivery.id}:${delivery.status}`,
+      resource: webhookDeliveryQueryItem(delivery),
     });
   }
 }
@@ -598,6 +662,22 @@ function webhookSubscriptionQueryItem(webhook: WebhookSubscription): Readonly<{
   return Object.freeze({
     id: String(webhook.id),
     status: webhook.status,
+  });
+}
+
+function webhookDeliveryQueryItem(delivery: WebhookDelivery): Readonly<{
+  id: string;
+  webhookId: string;
+  status: WebhookDelivery["status"];
+  eventType: string;
+  attemptCount?: number;
+}> {
+  return Object.freeze({
+    id: String(delivery.id),
+    webhookId: String(delivery.webhookId),
+    status: delivery.status,
+    eventType: delivery.sourceSignalRef,
+    ...optional("attemptCount", delivery.attemptNumber),
   });
 }
 

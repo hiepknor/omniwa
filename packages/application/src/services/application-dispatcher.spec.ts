@@ -7,10 +7,12 @@ import {
   createRetryPolicy,
   createSession,
   createSessionId,
+  createWebhookDeliveryId,
   createWebhookId,
   createWebhookSubscription,
   createWebhookUrl,
   queueWorkerJob,
+  scheduleWebhookDelivery,
   type DomainOwnerContext,
   type HealthCategory,
   type HealthStatus,
@@ -27,6 +29,10 @@ import {
   type SessionId,
   type SessionRepositoryPort,
   type SessionStatus,
+  type WebhookDelivery,
+  type WebhookDeliveryId,
+  type WebhookDeliveryRepositoryPort,
+  type WebhookDeliveryStatus,
   type WebhookId,
   type WebhookSubscription,
   type WebhookSubscriptionRepositoryPort,
@@ -524,6 +530,101 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");
   });
 
+  it("executes ListWebhookDeliveries through the Webhook delivery repository", async () => {
+    const delivery = scheduleWebhookDelivery(
+      createWebhookDeliveryId("webhook-delivery:one"),
+      createWebhookId("webhook:one"),
+      "message.accepted.v1",
+      retryPolicy,
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: new FakeWebhookDeliveryRepository([delivery]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListWebhookDeliveries",
+        queryRef: "qry-list-webhook-deliveries",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "retention_bound",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-webhook-deliveries",
+      outcome: "result",
+      consistency: "retention_bound",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "webhook-deliveries:list:1",
+      items: [
+        {
+          id: "webhook-delivery:one",
+          webhookId: "webhook:one",
+          status: "pending",
+          eventType: "message.accepted.v1",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+    expect(JSON.stringify(outcome)).not.toContain("retryPolicy");
+  });
+
+  it("executes GetWebhookDeliveryHistory through the Webhook delivery repository", async () => {
+    const delivery = scheduleWebhookDelivery(
+      createWebhookDeliveryId("webhook-delivery:detail"),
+      createWebhookId("webhook:detail"),
+      "message.delivered.v1",
+      retryPolicy,
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: new FakeWebhookDeliveryRepository([delivery]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetWebhookDeliveryHistory",
+        queryRef: "qry-get-webhook-delivery",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "webhook-delivery:detail",
+        requestedConsistency: "retention_bound",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-webhook-delivery",
+      outcome: "result",
+      consistency: "retention_bound",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "webhook-delivery:webhook-delivery:detail:pending",
+      resource: {
+        id: "webhook-delivery:detail",
+        webhookId: "webhook:detail",
+        status: "pending",
+        eventType: "message.delivered.v1",
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+    expect(JSON.stringify(outcome)).not.toContain("retryPolicy");
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
@@ -715,7 +816,9 @@ class FakeSessionRepository implements SessionRepositoryPort {
     status: SessionStatus,
   ): Promise<readonly Session[]> {
     return Promise.resolve(
-      this.list().filter((session) => session.instanceId === instanceId && session.status === status),
+      this.list().filter(
+        (session) => session.instanceId === instanceId && session.status === status,
+      ),
     );
   }
 
@@ -811,6 +914,47 @@ class FakeWebhookSubscriptionRepository implements WebhookSubscriptionRepository
   }
 
   private list(): readonly WebhookSubscription[] {
+    return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeWebhookDeliveryRepository implements WebhookDeliveryRepositoryPort {
+  private readonly records = new Map<string, WebhookDelivery>();
+
+  constructor(initialRecords: readonly WebhookDelivery[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: WebhookDeliveryId): Promise<WebhookDelivery | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: WebhookDelivery): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: WebhookDeliveryId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByStatus(status: WebhookDeliveryStatus): Promise<readonly WebhookDelivery[]> {
+    return Promise.resolve(this.list().filter((delivery) => delivery.status === status));
+  }
+
+  findBySourceSignal(sourceSignalRef: string): Promise<readonly WebhookDelivery[]> {
+    return Promise.resolve(
+      this.list().filter((delivery) => delivery.sourceSignalRef === sourceSignalRef),
+    );
+  }
+
+  findByIdempotencyKey(): Promise<WebhookDelivery | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  private list(): readonly WebhookDelivery[] {
     return Object.freeze([...this.records.values()]);
   }
 }

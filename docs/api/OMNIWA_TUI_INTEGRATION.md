@@ -109,19 +109,21 @@ Error response:
 
 Wire these first:
 
-| Area      | Endpoint                | Status               | TUI use                                                      |
-| --------- | ----------------------- | -------------------- | ------------------------------------------------------------ |
-| Health    | `GET /v1/health`        | `implemented_public` | Backend connectivity and top-level status.                   |
-| Instances | `GET /v1/instances`     | `implemented_public` | Instance list screen with empty/loading/error support.       |
-| Instances | `GET /v1/instances/{id}` | `implemented_public` | Instance detail/status panel after selecting a list item.    |
-| Instances | `POST /v1/instances`    | `implemented_public` | Optional create-instance action; requires `idempotency-key`. |
-| Sessions  | `GET /v1/instances/{id}/sessions` | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable. |
-| Events    | `GET /v1/events`        | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs. |
-| Realtime  | `GET /v1/events/stream` | `implemented_public` | SSE connection status and heartbeat support.                 |
-| Jobs      | `GET /v1/jobs`          | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope. |
-| Jobs      | `GET /v1/jobs/{id}`     | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed. |
-| Webhooks  | `GET /v1/webhooks`      | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs. |
-| Webhooks  | `GET /v1/webhooks/{id}` | `implemented_public` | Webhook subscription detail/status panel. |
+| Area      | Endpoint                                  | Status               | TUI use                                                                          |
+| --------- | ----------------------------------------- | -------------------- | -------------------------------------------------------------------------------- |
+| Health    | `GET /v1/health`                          | `implemented_public` | Backend connectivity and top-level status.                                       |
+| Instances | `GET /v1/instances`                       | `implemented_public` | Instance list screen with empty/loading/error support.                           |
+| Instances | `GET /v1/instances/{id}`                  | `implemented_public` | Instance detail/status panel after selecting a list item.                        |
+| Instances | `POST /v1/instances`                      | `implemented_public` | Optional create-instance action; requires `idempotency-key`.                     |
+| Sessions  | `GET /v1/instances/{id}/sessions`         | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable.   |
+| Events    | `GET /v1/events`                          | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs.   |
+| Realtime  | `GET /v1/events/stream`                   | `implemented_public` | SSE connection status and heartbeat support.                                     |
+| Jobs      | `GET /v1/jobs`                            | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope.         |
+| Jobs      | `GET /v1/jobs/{id}`                       | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed. |
+| Webhooks  | `GET /v1/webhooks`                        | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.           |
+| Webhooks  | `GET /v1/webhooks/{id}`                   | `implemented_public` | Webhook subscription detail/status panel.                                        |
+| Webhooks  | `GET /v1/webhook-deliveries`              | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.           |
+| Webhooks  | `GET /v1/webhook-deliveries/{id}/history` | `implemented_public` | Webhook delivery detail/history panel.                                           |
 
 Keep these disabled or read-only with a backend-not-ready state:
 
@@ -131,9 +133,6 @@ Keep these disabled or read-only with a backend-not-ready state:
 - Group members
 - Messages
 - Queue
-- Jobs
-- Webhooks
-- Events list
 - Logs
 - Audit
 - Settings
@@ -195,6 +194,8 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs/job_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks/webhook_demo"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries/webhook_delivery_demo/history"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"

@@ -1025,6 +1025,89 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(detailResponse.body)).not.toContain("secret-path");
   });
 
+  it("materializes webhook deliveries through the public API boundary without exposing retry policy internals", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        webhookDeliveryRepository: repositories.webhookDeliveryRepository,
+      },
+    });
+
+    await repositories.webhookDeliveryRepository.save({
+      id: "webhook-delivery:demo",
+      webhookId: "webhook:demo",
+      sourceSignalRef: "message.accepted.v1",
+      status: "pending",
+      retryPolicy: {
+        maxAttempts: 3,
+        initialDelayMilliseconds: 100,
+        backoffMultiplier: 2,
+      },
+      domainEvents: [],
+    } as unknown as Parameters<typeof repositories.webhookDeliveryRepository.save>[0]);
+
+    const listResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/webhook-deliveries",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-webhook-deliveries",
+          "x-correlation-id": "corr-list-webhook-deliveries",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-webhook-deliveries",
+      },
+    );
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: `/v1/webhook-deliveries/${encodeURIComponent("webhook-delivery:demo")}/history`,
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-get-webhook-delivery",
+          "x-correlation-id": "corr-get-webhook-delivery",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-webhook-delivery",
+      },
+    );
+
+    expect(listResponse.statusCode).toBe(200);
+    expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([
+      {
+        resourceType: "webhookDelivery",
+        id: "webhook-delivery:demo",
+        webhookId: "webhook:demo",
+        status: "pending",
+        eventType: "message.accepted.v1",
+      },
+    ]);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "webhookDelivery",
+      resourceId: "webhook-delivery:demo",
+      id: "webhook-delivery:demo",
+      webhookId: "webhook:demo",
+      status: "pending",
+      eventType: "message.accepted.v1",
+      readStatus: "result",
+    });
+    expect(JSON.stringify(listResponse.body)).not.toContain("retryPolicy");
+    expect(JSON.stringify(listResponse.body)).not.toContain("domainEvents");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("retryPolicy");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("domainEvents");
+  });
+
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
     const dispatcher = new CapturingDispatcher({
       ListGroupMembers: {

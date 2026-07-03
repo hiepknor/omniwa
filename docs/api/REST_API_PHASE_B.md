@@ -98,11 +98,7 @@ The route exists and returns a safe `501` error envelope.
 
 | Method | Path                                  | Reason                                                             |
 | ------ | ------------------------------------- | ------------------------------------------------------------------ |
-| GET    | `/v1/jobs`                            | No job-list projection in current source                           |
-| GET    | `/v1/webhooks`                        | No webhook-list projection in current source                       |
-| GET    | `/v1/webhook-deliveries`              | No webhook-delivery-list projection in current source              |
 | GET    | `/v1/instances/:instanceId/messages`  | No message timeline projection in current source                   |
-| GET    | `/v1/instances/:instanceId/sessions`  | No dedicated session list query in current source                  |
 | POST   | `/v1/instances/:instanceId/reconnect` | Reconnect is scheduler-owned in current Application catalog        |
 | POST   | `/v1/provider/capabilities/refresh`   | Provider refresh is scheduler-owned in current Application catalog |
 

@@ -1560,7 +1560,9 @@ function resourceTypeForOperation(name: string): string {
 }
 
 function resourceTypeForQuery(name: string): string {
-  if (name.includes("WebhookDelivery")) return "webhookDelivery";
+  if (name.includes("WebhookDelivery") || name.includes("WebhookDeliveries")) {
+    return "webhookDelivery";
+  }
   if (name.includes("Webhook")) return "webhook";
   if (name.includes("WorkerJob")) return "job";
   if (name.includes("GroupMember")) return "groupMember";

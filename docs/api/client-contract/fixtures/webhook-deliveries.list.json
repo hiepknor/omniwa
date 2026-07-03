@@ -1,0 +1,32 @@
+{
+  "data": [
+    {
+      "resourceType": "webhookDelivery",
+      "id": "webhook_delivery_demo",
+      "webhookId": "webhook_demo",
+      "status": "pending",
+      "eventType": "message.accepted.v1"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-webhook-deliveries-list-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "webhookDelivery",
+      "readStatus": "result",
+      "consistency": "retention_bound",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "webhook-deliveries:list:1"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}
