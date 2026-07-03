@@ -139,6 +139,72 @@ describe("realtime event stream", () => {
     expect(encoded).not.toContain(rawQr);
   });
 
+  it("streams provider inbound and status events without leaking raw provider payloads", () => {
+    const rawJid = "12025550123@s.whatsapp.net";
+    const rawText = "private inbound body";
+    const rawProviderMessageId = "BAILEYS_RAW_PROVIDER_MESSAGE_ID";
+    const eventLog = createInMemoryEventLogStore({ retentionLimit: 10 });
+
+    eventLog.appendEvent({
+      id: "provider_signal:inbound",
+      type: "provider.inbound_message.v1",
+      timestamp: "2026-06-30T00:00:00.000Z",
+      dataClassification: "confidential",
+      source: "provider_runtime",
+      resourceRef: "session_1",
+      payload: {
+        providerId: "provider.baileys",
+        signalRef: "provider.baileys.inbound_message",
+        signalKind: "inbound_message",
+        targetRef: "session_1",
+        occurrenceRef: "provider.baileys.session_1.inbound.provider_msg_0123456789abcdef",
+        dataClassification: "confidential",
+        providerMessageRef: "provider_msg_0123456789abcdef",
+        conversationRef: "conversation_fedcba9876543210",
+        occurredAt: "2026-06-30T00:00:00.000Z",
+        contentKind: "text",
+        conversationKind: "private",
+      },
+    });
+    eventLog.appendEvent({
+      id: "provider_signal:status",
+      type: "provider.message_status.v1",
+      timestamp: "2026-06-30T00:00:01.000Z",
+      dataClassification: "confidential",
+      source: "provider_runtime",
+      resourceRef: "session_1",
+      payload: {
+        providerId: "provider.baileys",
+        signalRef: "provider.baileys.message_delivered",
+        signalKind: "message_status",
+        targetRef: "session_1",
+        occurrenceRef:
+          "provider.baileys.session_1.message_status.provider_msg_0123456789abcdef.delivered",
+        dataClassification: "confidential",
+        providerMessageRef: "provider_msg_0123456789abcdef",
+        status: "delivered",
+        occurredAt: "2026-06-30T00:00:01.000Z",
+      },
+    });
+
+    const source = createEventLogRealtimeEventSource(eventLog);
+    const encoded = encodeServerSentEvents({
+      events: source.replay({ limit: 10 }),
+      requestId: "req_provider_events",
+      correlationId: "corr_provider_events",
+      timestamp: "2026-06-30T00:00:02.000Z",
+    });
+
+    expect(encoded).toContain("event: provider.inbound_message.v1");
+    expect(encoded).toContain("event: provider.message_status.v1");
+    expect(encoded).toContain("provider_msg_0123456789abcdef");
+    expect(encoded).toContain("conversation_fedcba9876543210");
+    expect(encoded).toContain("delivered");
+    expect(encoded).not.toContain(rawJid);
+    expect(encoded).not.toContain(rawText);
+    expect(encoded).not.toContain(rawProviderMessageId);
+  });
+
   it("rejects unsafe nested payloads", () => {
     expect(() =>
       createRealtimeEventEnvelope({

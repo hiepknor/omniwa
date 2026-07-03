@@ -112,6 +112,107 @@ describe("ProviderRuntimeSupervisor", () => {
     );
   });
 
+  it("drains inbound message signals into EventLog without raw message identifiers or text", async () => {
+    const socketProvider = new QueuedSignalSocketProvider();
+    const { supervisor, eventLog } = createSupervisorHarness({ socketProvider });
+    const rawProviderMessageId = "BAILEYS_RAW_INBOUND_MESSAGE_ID";
+
+    await supervisor.startSession(startInput(), context);
+    socketProvider.enqueueSignal(
+      providerSignal({
+        signalRef: "provider.baileys.inbound_message",
+        occurrenceRef:
+          "provider.baileys.provider_supervisor_session.inbound.provider_msg_0123456789abcdef",
+        kind: "inbound_message",
+        dataClassification: "confidential",
+        safeMetadata: {
+          instanceId: "provider_supervisor_instance",
+          sessionId: "provider_supervisor_session",
+          providerMessageRef: "provider_msg_0123456789abcdef",
+          conversationRef: "conversation_fedcba9876543210",
+          occurredAt: "2026-07-03T00:00:00.000Z",
+          contentKind: "text",
+          conversationKind: "private",
+        },
+      }),
+    );
+
+    const tick = await supervisor.tick(context);
+
+    expect(tick.ok).toBe(true);
+    expect(eventLog.records()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "provider.inbound_message.v1",
+          dataClassification: "confidential",
+          payload: expect.objectContaining({
+            signalRef: "provider.baileys.inbound_message",
+            signalKind: "inbound_message",
+            providerMessageRef: "provider_msg_0123456789abcdef",
+            conversationRef: "conversation_fedcba9876543210",
+            contentKind: "text",
+          }),
+        }),
+      ]),
+    );
+    expect(JSON.stringify([tick, eventLog.records(), supervisor.snapshot()])).not.toContain(rawJid);
+    expect(JSON.stringify([tick, eventLog.records(), supervisor.snapshot()])).not.toContain(
+      rawText,
+    );
+    expect(JSON.stringify([tick, eventLog.records(), supervisor.snapshot()])).not.toContain(
+      rawProviderMessageId,
+    );
+  });
+
+  it("drains message status signals into EventLog without raw provider message ids", async () => {
+    const socketProvider = new QueuedSignalSocketProvider();
+    const { supervisor, eventLog } = createSupervisorHarness({ socketProvider });
+    const rawProviderMessageId = "BAILEYS_RAW_STATUS_MESSAGE_ID";
+
+    await supervisor.startSession(startInput(), context);
+    socketProvider.enqueueSignal(
+      providerSignal({
+        signalRef: "provider.baileys.message_delivered",
+        occurrenceRef:
+          "provider.baileys.provider_supervisor_session.message_status.provider_msg_89abcdef01234567.delivered",
+        kind: "message_status",
+        dataClassification: "confidential",
+        safeMetadata: {
+          instanceId: "provider_supervisor_instance",
+          sessionId: "provider_supervisor_session",
+          providerMessageRef: "provider_msg_89abcdef01234567",
+          status: "delivered",
+          occurredAt: "2026-07-03T00:00:00.000Z",
+        },
+      }),
+    );
+
+    const tick = await supervisor.tick(context);
+
+    expect(tick.ok).toBe(true);
+    expect(eventLog.records()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "provider.message_status.v1",
+          dataClassification: "confidential",
+          payload: expect.objectContaining({
+            signalRef: "provider.baileys.message_delivered",
+            signalKind: "message_status",
+            providerMessageRef: "provider_msg_89abcdef01234567",
+            status: "delivered",
+          }),
+        }),
+      ]),
+    );
+    expect(JSON.stringify([tick, eventLog.records(), supervisor.snapshot()])).not.toContain(
+      rawProviderMessageId,
+    );
+    expect(JSON.stringify([tick, eventLog.records(), supervisor.snapshot()])).not.toContain(rawJid);
+    expect(JSON.stringify([tick, eventLog.records(), supervisor.snapshot()])).not.toContain(
+      rawText,
+    );
+  });
+
   it("moves DISCONNECTED and LOGGED_OUT for disconnect and failure signals", async () => {
     const socketProvider = new QueuedSignalSocketProvider();
     const { supervisor, eventLog } = createSupervisorHarness({ socketProvider });
