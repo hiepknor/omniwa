@@ -1,4 +1,4 @@
-import type { DomainOwnerContext, JobId, RetryPolicy } from "@omniwa/domain";
+import type { DomainOwnerContext, JobId, RetryPolicy, WorkerJobSafeMetadata } from "@omniwa/domain";
 
 import type { ApplicationPortContext, ApplicationPortResult } from "./application-port.js";
 
@@ -21,6 +21,7 @@ export type QueueWorkRequest = Readonly<{
   retryPolicy: RetryPolicy;
   idempotencyKey: string;
   safeInputRef?: string;
+  safeMetadata?: WorkerJobSafeMetadata;
 }>;
 
 export type QueueReservation = Readonly<{
@@ -31,6 +32,7 @@ export type QueueReservation = Readonly<{
   ownerRef?: string;
   workType?: QueueWorkType;
   safeInputRef?: string;
+  safeMetadata?: WorkerJobSafeMetadata;
 }>;
 
 export type QueueVisibilityReceipt = Readonly<{

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -72,6 +72,37 @@ describeWorkerJobRepositoryContract({
 });
 
 describe("durable JSON repository adapters", () => {
+  it("persists WorkerJob safe metadata without raw outbound payload", async () => {
+    const directory = createTemporaryDirectory();
+    const repositorySet = createDurableJsonRepositorySet(directory);
+    const rawRecipient = "12025550123@s.whatsapp.net";
+    const rawText = "secret durable worker text";
+    const safeMetadata = Object.freeze({
+      jobKind: "outbound_message",
+      instanceId: "inst-durable-worker-metadata",
+      messageId: "msg-durable-worker-metadata",
+      outboundIntentRef: "intent-durable-worker-metadata",
+    });
+    const workerJob = queueWorkerJob(
+      createJobId("job-durable-worker-metadata"),
+      "messaging",
+      "outbound_message",
+      retryPolicy,
+      safeMetadata,
+    );
+
+    await repositorySet.workerJobRepository.save(workerJob);
+
+    const persisted = readFileSync(join(directory, "worker-jobs.json"), "utf8");
+
+    expect(persisted).toContain(safeMetadata.messageId);
+    expect(persisted).toContain(safeMetadata.instanceId);
+    expect(persisted).toContain(safeMetadata.outboundIntentRef);
+    expect(persisted).not.toContain(rawRecipient);
+    expect(persisted).not.toContain(rawText);
+    await expect(repositorySet.workerJobRepository.load(workerJob.id)).resolves.toEqual(workerJob);
+  });
+
   it("persists aggregates and implementation indexes across repository instances", async () => {
     const directory = createTemporaryDirectory();
     const firstRepositorySet = createDurableJsonRepositorySet(directory);

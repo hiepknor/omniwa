@@ -102,11 +102,18 @@ export function describeWorkerJobRepositoryContract(
     it("saves, loads, and reports aggregate existence by JobId", async () => {
       const repository = factory.create();
       const jobId = createJobId(`${safeFactoryName(factory.name)}-job-load`);
+      const safeMetadata = {
+        jobKind: "outbound_message",
+        instanceId: `${safeFactoryName(factory.name)}-instance-safe-meta`,
+        messageId: `${safeFactoryName(factory.name)}-message-safe-meta`,
+        outboundIntentRef: `${safeFactoryName(factory.name)}-intent-safe-meta`,
+      };
       const workerJob = queueWorkerJob(
         jobId,
         "operations",
         "outbound_message",
         standardRetryPolicy(),
+        safeMetadata,
       );
 
       await expect(repository.exists(jobId)).resolves.toBe(false);

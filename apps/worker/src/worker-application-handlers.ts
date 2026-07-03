@@ -147,6 +147,13 @@ function commandRefFor(job: WorkerRuntimeJob): string {
 function targetRefFor(job: WorkerRuntimeJob, options: ApplicationWorkerHandlerOptions): string {
   if (
     options.commandName === "ProcessOutboundMessageWork" &&
+    job.reservation.safeMetadata?.messageId !== undefined
+  ) {
+    return job.reservation.safeMetadata.messageId;
+  }
+
+  if (
+    options.commandName === "ProcessOutboundMessageWork" &&
     job.reservation.ownerRef !== undefined
   ) {
     return job.reservation.ownerRef;
@@ -163,7 +170,7 @@ function safeInputRefFor(
     return undefined;
   }
 
-  return job.reservation.safeInputRef;
+  return job.reservation.safeMetadata?.outboundIntentRef ?? job.reservation.safeInputRef;
 }
 
 function idempotencyKeyFor(job: WorkerRuntimeJob, context: ApplicationPortContext): string {

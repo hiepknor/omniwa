@@ -11,6 +11,7 @@ import {
   createJobStatus,
   createRetryPolicy,
   createSessionId,
+  createWorkerJobSafeMetadata,
   type DomainEvent,
   type DomainOwnerContext,
   type IdempotencyKey,
@@ -506,6 +507,10 @@ function decodeWorkerJobAggregate(value: unknown): WorkerJob {
       requiredString(aggregate.ownerContext, "WorkerJob.ownerContext"),
     ),
     workType: requiredString(aggregate.workType, "WorkerJob.workType"),
+    ...optional(
+      "safeMetadata",
+      optionalWorkerJobSafeMetadata(aggregate.safeMetadata, "WorkerJob.safeMetadata"),
+    ),
     status: createJobStatus(requiredString(aggregate.status, "WorkerJob.status")),
     retryPolicy,
     ...optional(
@@ -530,6 +535,30 @@ function decodeWorkerJobAggregate(value: unknown): WorkerJob {
       requiredArray(aggregate.domainEvents, "WorkerJob.domainEvents").map(decodeDomainEvent),
     ),
   });
+}
+
+function optionalWorkerJobSafeMetadata(value: unknown, label: string) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    throw new TypeError(`${label} must be an object when present.`);
+  }
+
+  return createWorkerJobSafeMetadata({
+    jobKind: requiredString(value.jobKind, `${label}.jobKind`),
+    ...optional("instanceId", optionalSafeString(value.instanceId, `${label}.instanceId`)),
+    ...optional("messageId", optionalSafeString(value.messageId, `${label}.messageId`)),
+    ...optional(
+      "outboundIntentRef",
+      optionalSafeString(value.outboundIntentRef, `${label}.outboundIntentRef`),
+    ),
+  });
+}
+
+function optionalSafeString(value: unknown, label: string): string | undefined {
+  return optionalString(value, label, (input) => input);
 }
 
 function decodeDomainEvent(value: unknown): DomainEvent {

@@ -6,6 +6,8 @@ import type {
 import {
   createIdempotencyKey,
   createJobId,
+  createInstanceId,
+  createMessageId,
   createRetryPolicy,
   queueWorkerJob,
   type DomainOwnerContext,
@@ -35,6 +37,12 @@ const retryPolicy = createRetryPolicy({
   initialDelayMilliseconds: 100,
   backoffMultiplier: 2,
 });
+const outboundSafeMetadata = Object.freeze({
+  jobKind: "outbound_message",
+  instanceId: String(createInstanceId("inst-queue-safe-metadata")),
+  messageId: String(createMessageId("msg-queue-safe-metadata")),
+  outboundIntentRef: "intent-queue-safe-metadata",
+});
 
 describe("InMemoryQueueProvider", () => {
   it("enqueues visible WorkerJob state and replays duplicate idempotency keys", async () => {
@@ -50,6 +58,8 @@ describe("InMemoryQueueProvider", () => {
         workType: "outbound_message",
         retryPolicy,
         idempotencyKey: "message-1-send",
+        safeInputRef: outboundSafeMetadata.outboundIntentRef,
+        safeMetadata: outboundSafeMetadata,
       },
       context,
     );
@@ -70,9 +80,48 @@ describe("InMemoryQueueProvider", () => {
     expect(first.value.visible).toBe(true);
     expect(duplicate.value.jobId).toBe(jobId);
     await expect(workerJobs.findByStatus("queued")).resolves.toHaveLength(1);
+    await expect(workerJobs.load(jobId)).resolves.toMatchObject({
+      safeMetadata: outboundSafeMetadata,
+    });
     await expect(
       workerJobs.findByIdempotencyKey(createIdempotencyKey("message-1-send")),
     ).resolves.toEqual(await workerJobs.load(jobId));
+  });
+
+  it("recovers queued outbound message metadata after a queue restart", async () => {
+    const workerJobs = new TestWorkerJobRepository();
+    const firstQueue = new InMemoryQueueProvider({ workerJobRepository: workerJobs });
+    const jobId = createJobId("queue-job-recovery-metadata");
+
+    expectOk(
+      await firstQueue.enqueue(
+        {
+          jobId,
+          ownerContext: "messaging",
+          ownerRef: outboundSafeMetadata.messageId,
+          workType: "outbound_message",
+          retryPolicy,
+          idempotencyKey: "queue-job-recovery-metadata-idem",
+          safeInputRef: outboundSafeMetadata.outboundIntentRef,
+          safeMetadata: outboundSafeMetadata,
+        },
+        context,
+      ),
+    );
+
+    const restartedQueue = new InMemoryQueueProvider({ workerJobRepository: workerJobs });
+
+    await expect(restartedQueue.recoverVisibleJobs()).resolves.toEqual({ recovered: 1 });
+
+    const reservation = await restartedQueue.reserve("outbound_message", context);
+
+    expectOk(reservation);
+    expect(reservation.value).toMatchObject({
+      jobId,
+      ownerRef: outboundSafeMetadata.messageId,
+      safeInputRef: outboundSafeMetadata.outboundIntentRef,
+      safeMetadata: outboundSafeMetadata,
+    });
   });
 
   it("awaits asynchronous repository idempotency recording before enqueue returns", async () => {

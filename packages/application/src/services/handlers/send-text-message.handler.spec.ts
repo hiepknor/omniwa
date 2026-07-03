@@ -117,6 +117,12 @@ describe("send text message handler", () => {
       workType: "outbound_message",
       idempotencyKey: "send_text:idem-send-text-1",
       safeInputRef: String(outboundIntentRef),
+      safeMetadata: {
+        jobKind: "outbound_message",
+        instanceId: String(instanceId),
+        messageId: "msg:00000000-0000-4000-8000-000000000002",
+        outboundIntentRef: String(outboundIntentRef),
+      },
     });
     expect(harness.domainEventPublisher.eventNames()).toEqual([
       "GuardrailPassed",

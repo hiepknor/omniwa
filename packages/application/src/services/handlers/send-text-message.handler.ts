@@ -193,6 +193,12 @@ class SendTextMessageHandler {
         }),
         idempotencyKey: `send_text:${String(input.idempotencyKey)}`,
         safeInputRef: String(input.outboundIntentRef),
+        safeMetadata: {
+          jobKind: "outbound_message",
+          instanceId: String(message.instanceId),
+          messageId: String(message.id),
+          outboundIntentRef: String(input.outboundIntentRef),
+        },
       },
       input.context,
     );

@@ -69,6 +69,7 @@ export type InMemoryQueueEntrySnapshot = Readonly<{
   queueRef: string;
   visibleAtEpochMilliseconds: number;
   safeInputRef?: string;
+  safeMetadata?: QueueWorkRequest["safeMetadata"];
   reservationRef?: string;
   deadLetterReasonCode?: string;
 }>;
@@ -119,6 +120,7 @@ export class InMemoryQueueProvider implements QueueProviderPort {
         work.ownerContext,
         work.workType,
         work.retryPolicy,
+        work.safeMetadata,
       );
 
       await this.workerJobRepository.save(workerJob);
@@ -175,6 +177,7 @@ export class InMemoryQueueProvider implements QueueProviderPort {
         ownerRef: entry.work.ownerRef,
         workType: entry.work.workType,
         ...optional("safeInputRef", entry.work.safeInputRef),
+        ...optional("safeMetadata", entry.work.safeMetadata),
       });
     });
   }
@@ -287,10 +290,12 @@ export class InMemoryQueueProvider implements QueueProviderPort {
         work: {
           jobId: job.id,
           ownerContext: job.ownerContext,
-          ownerRef: String(job.id),
+          ownerRef: job.safeMetadata?.messageId ?? String(job.id),
           workType: job.workType,
           retryPolicy: job.retryPolicy,
           idempotencyKey: String(job.id),
+          ...optional("safeInputRef", job.safeMetadata?.outboundIntentRef),
+          ...optional("safeMetadata", job.safeMetadata),
         },
         visibleAtEpochMilliseconds: this.now(),
         attempt: job.attemptNumber ?? 0,
@@ -316,6 +321,7 @@ export class InMemoryQueueProvider implements QueueProviderPort {
           queueRef: this.queueRefFor(entry.work.jobId),
           visibleAtEpochMilliseconds: entry.visibleAtEpochMilliseconds,
           ...optional("safeInputRef", entry.work.safeInputRef),
+          ...optional("safeMetadata", entry.work.safeMetadata),
           ...optional("reservationRef", entry.reservationRef),
           ...optional("deadLetterReasonCode", entry.deadLetterReasonCode),
         }),
@@ -349,8 +355,14 @@ export class InMemoryQueueProvider implements QueueProviderPort {
         ...work,
         jobId: existingJob.id,
         ownerContext: existingJob.ownerContext,
+        ownerRef: existingJob.safeMetadata?.messageId ?? work.ownerRef,
         workType: toQueueWorkType(existingJob.workType),
         retryPolicy: existingJob.retryPolicy,
+        ...optional(
+          "safeInputRef",
+          existingJob.safeMetadata?.outboundIntentRef ?? work.safeInputRef,
+        ),
+        ...optional("safeMetadata", existingJob.safeMetadata ?? work.safeMetadata),
       },
       visibleAtEpochMilliseconds: state === "completed" ? Number.POSITIVE_INFINITY : this.now(),
       attempt: existingJob.attemptNumber ?? 0,

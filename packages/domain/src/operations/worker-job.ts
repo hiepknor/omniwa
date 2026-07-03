@@ -22,6 +22,7 @@ export type WorkerJob = Readonly<{
   id: JobId;
   ownerContext: DomainOwnerContext;
   workType: string;
+  safeMetadata?: WorkerJobSafeMetadata;
   status: JobStatus;
   retryPolicy: RetryPolicy;
   attemptNumber?: AttemptNumber;
@@ -31,16 +32,25 @@ export type WorkerJob = Readonly<{
   domainEvents: readonly DomainEvent[];
 }>;
 
+export type WorkerJobSafeMetadata = Readonly<{
+  jobKind: string;
+  instanceId?: string;
+  messageId?: string;
+  outboundIntentRef?: string;
+}>;
+
 export function queueWorkerJob(
   id: JobId,
   ownerContext: DomainOwnerContext,
   workType: string,
   retryPolicy: RetryPolicy,
+  safeMetadata?: WorkerJobSafeMetadata,
 ): WorkerJob {
   return freezeWorkerJob({
     id,
     ownerContext,
     workType: createSafeDomainCode(workType, "WorkerJob.workType"),
+    ...optionalValue("safeMetadata", createWorkerJobSafeMetadata(safeMetadata), undefined),
     status: "queued",
     retryPolicy,
     recoveryActionRequired: false,
@@ -106,6 +116,7 @@ function transitionWorkerJob(
     id: job.id,
     ownerContext: job.ownerContext,
     workType: job.workType,
+    ...optionalValue("safeMetadata", undefined, job.safeMetadata),
     status: transitionStatus(job.status, status, workerJobTransitions, "WorkerJob"),
     retryPolicy: job.retryPolicy,
     recoveryActionRequired: job.recoveryActionRequired,
@@ -113,6 +124,25 @@ function transitionWorkerJob(
     ...optionalValue("failureCategory", patch.failureCategory, job.failureCategory),
     ...optionalValue("deadLetterReason", patch.deadLetterReason, job.deadLetterReason),
     domainEvents: appendDomainEvent(job.domainEvents, "WorkerJob", job.id, eventName),
+  });
+}
+
+export function createWorkerJobSafeMetadata(
+  input: WorkerJobSafeMetadata | undefined,
+): WorkerJobSafeMetadata | undefined {
+  if (input === undefined) {
+    return undefined;
+  }
+
+  return Object.freeze({
+    jobKind: createSafeDomainCode(input.jobKind, "WorkerJob.safeMetadata.jobKind"),
+    ...optionalToken("instanceId", input.instanceId, "WorkerJob.safeMetadata.instanceId"),
+    ...optionalToken("messageId", input.messageId, "WorkerJob.safeMetadata.messageId"),
+    ...optionalToken(
+      "outboundIntentRef",
+      input.outboundIntentRef,
+      "WorkerJob.safeMetadata.outboundIntentRef",
+    ),
   });
 }
 
@@ -132,6 +162,24 @@ function optionalValue<TKey extends string, TValue>(
 ): Partial<Record<TKey, TValue>> {
   const value = nextValue ?? currentValue;
   return value === undefined ? {} : ({ [key]: value } as Partial<Record<TKey, TValue>>);
+}
+
+function optionalToken<TKey extends string>(
+  key: TKey,
+  value: string | undefined,
+  label: string,
+): Partial<Record<TKey, string>> {
+  if (value === undefined) {
+    return {};
+  }
+
+  const normalized = value.trim();
+
+  if (!/^[A-Za-z0-9._:-]+$/u.test(normalized)) {
+    throw new TypeError(`${label} must be an opaque safe token.`);
+  }
+
+  return { [key]: normalized } as Partial<Record<TKey, string>>;
 }
 
 function freezeWorkerJob(job: WorkerJob): WorkerJob {
