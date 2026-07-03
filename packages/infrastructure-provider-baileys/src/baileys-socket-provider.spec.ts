@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
 import { type ApplicationPortContext, type TranslatedProviderSignal } from "@omniwa/application";
@@ -16,6 +17,7 @@ import { DisconnectReason, WAMessageStatus } from "@whiskeysockets/baileys";
 import { describe, expect, it } from "vitest";
 
 import {
+  DurableJsonBaileysAuthStateStore,
   InMemoryBaileysAuthStateStore,
   type BaileysAuthStateSnapshot,
   type BaileysAuthStateStore,
@@ -170,9 +172,26 @@ describe("Baileys socket provider contract", () => {
 describe("RealBaileysSocketProvider", () => {
   it("loads auth state before creating a socket", async () => {
     const store = new RecordingAuthStateStore();
-    const harness = createRealProviderHarness({ authStateStore: store });
+    const order: string[] = [];
+    const socket = new MockRealBaileysSocket();
+    const factoryCalls: UserFacingSocketConfig[] = [];
+    const provider = new RealBaileysSocketProvider({
+      authStateStore: {
+        load: async (requestedSessionId) => {
+          order.push("load");
+          return store.load(requestedSessionId);
+        },
+        save: (requestedSessionId, state) => store.save(requestedSessionId, state),
+        clear: (requestedSessionId) => store.clear(requestedSessionId),
+      },
+      socketFactory: (config) => {
+        order.push("factory");
+        factoryCalls.push(config);
+        return socket.asWASocket();
+      },
+    });
 
-    const started = await harness.provider.startSession(socketRequest(), context);
+    const started = await provider.startSession(socketRequest(), context);
 
     expect(started.map(signalSummary)).toEqual([
       {
@@ -183,8 +202,9 @@ describe("RealBaileysSocketProvider", () => {
       },
     ]);
     expect(store.loads).toEqual([sessionId]);
-    expect(harness.factoryCalls).toHaveLength(1);
-    expect(harness.factoryCalls[0]?.auth).toBeDefined();
+    expect(order).toEqual(["load", "factory"]);
+    expect(factoryCalls).toHaveLength(1);
+    expect(factoryCalls[0]?.auth).toBeDefined();
   });
 
   it("saves auth state when Baileys emits creds.update", async () => {
@@ -207,6 +227,41 @@ describe("RealBaileysSocketProvider", () => {
       }),
     ]);
     expect(JSON.stringify(store.saveResults)).not.toContain(rawAuthSecret);
+  });
+
+  it("reloads durable-json auth state into a recreated real provider after restart", async () => {
+    const filePath = join(
+      mkdtempSync(join(tmpdir(), "omniwa-real-provider-auth-")),
+      "auth-state.json",
+    );
+    const rawAuthSecret = "raw-restart-auth-secret-token";
+
+    const firstHarness = createRealProviderHarness({
+      authStateStore: new DurableJsonBaileysAuthStateStore(filePath),
+    });
+
+    await firstHarness.provider.startSession(socketRequest(), context);
+    firstHarness.socket.ev.emit("creds.update", {
+      advSecretKey: rawAuthSecret,
+    } as Partial<AuthenticationCreds>);
+    await flushAsyncSignals();
+
+    const rawFile = readFileSync(filePath, "utf8");
+    expect(rawFile).not.toContain(rawAuthSecret);
+
+    const secondHarness = createRealProviderHarness({
+      authStateStore: new DurableJsonBaileysAuthStateStore(filePath),
+    });
+
+    await secondHarness.provider.startSession(socketRequest(), context);
+
+    expect(secondHarness.factoryCalls).toHaveLength(1);
+    expect(secondHarness.factoryCalls[0]?.auth.creds).toMatchObject({
+      advSecretKey: rawAuthSecret,
+    });
+    expect(JSON.stringify(secondHarness.provider.drainSignals({ sessionId }))).not.toContain(
+      rawAuthSecret,
+    );
   });
 
   it("returns the created socket by instance/session", async () => {
