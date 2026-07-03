@@ -13,9 +13,8 @@ import {
   BaileysSocketGateway,
   createTranslatedBaileysSignal,
   type BaileysResolvedOutboundMessage,
-  type BaileysSentMessage,
-  type BaileysSocketLike,
 } from "./baileys-messaging-provider.adapter.js";
+import { FakeBaileysSocket, FakeBaileysSocketProvider } from "./baileys-socket-provider.js";
 
 const instanceId = createInstanceId("instance_provider_1");
 const providerId = createProviderId("provider.baileys");
@@ -237,14 +236,22 @@ describe("BaileysMessagingProviderAdapter", () => {
 });
 
 function createAdapter(options: {
-  socket: FakeSocket;
+  socket: FakeBaileysSocket;
   outboundMessage?: BaileysResolvedOutboundMessage;
   supportedMessageTypes?: readonly string[];
 }): BaileysMessagingProviderAdapter {
-  const gatewayOptions = {
-    socketProvider: {
-      getSocket: () => options.socket,
+  const socketProvider = new FakeBaileysSocketProvider();
+  socketProvider.registerSocket(
+    {
+      instanceId,
+      providerId,
+      sessionId,
+      reasonCode: "provider_adapter_test",
     },
+    options.socket,
+  );
+  const gatewayOptions = {
+    socketProvider,
     outboundMessageResolver: {
       resolveOutboundMessage: () =>
         options.outboundMessage ?? {
@@ -277,37 +284,8 @@ type SentMessage = Readonly<{
   options: BaileysResolvedOutboundMessage["options"] | undefined;
 }>;
 
-class FakeSocket implements BaileysSocketLike {
-  readonly user = { id: "connected-provider-user" };
-  readonly sentMessages: SentMessage[] = [];
-  logoutCalled = false;
-  private readonly sendError: unknown;
-
-  constructor(options: { sendError?: unknown } = {}) {
-    this.sendError = options.sendError;
-  }
-
-  sendMessage: BaileysSocketLike["sendMessage"] = async (jid, content, options) => {
-    if (this.sendError !== undefined) {
-      throw this.sendError;
-    }
-
-    this.sentMessages.push({ jid, content, options });
-
-    return {
-      key: {
-        id: "baileys-receipt-1",
-      },
-    } as BaileysSentMessage;
-  };
-
-  logout: BaileysSocketLike["logout"] = async () => {
-    this.logoutCalled = true;
-  };
-
-  requestPairingCode: BaileysSocketLike["requestPairingCode"] = async () => "pairing-code";
-}
-
-function createFakeSocket(options: { sendError?: unknown } = {}): FakeSocket {
-  return new FakeSocket(options);
+function createFakeSocket(options: { sendError?: unknown } = {}): FakeBaileysSocket & {
+  sentMessages: SentMessage[];
+} {
+  return new FakeBaileysSocket(options) as FakeBaileysSocket & { sentMessages: SentMessage[] };
 }

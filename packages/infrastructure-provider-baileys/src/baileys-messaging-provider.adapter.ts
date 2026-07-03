@@ -28,8 +28,9 @@ import type {
   AnyMessageContent,
   MiscMessageGenerationOptions,
   WAMessage,
-  WASocket,
 } from "@whiskeysockets/baileys";
+
+import type { BaileysSocketProvider, BaileysSocketRequest } from "./baileys-socket-provider.js";
 
 export const baileysProviderKind = "baileys";
 
@@ -40,28 +41,6 @@ const defaultSupportedMessageTypes = Object.freeze([
   createMessageType("document"),
   createMessageType("audio"),
 ]);
-
-export type BaileysSocketLike = Pick<
-  WASocket,
-  "sendMessage" | "logout" | "requestPairingCode"
-> &
-  Readonly<{
-    user?: Readonly<{ id?: string }>;
-  }>;
-
-export type BaileysSocketRequest = Readonly<{
-  instanceId: ProviderConnectionRequest["instanceId"];
-  providerId: ProviderId;
-  sessionId?: ProviderConnectionRequest["sessionId"];
-  reasonCode: string;
-}>;
-
-export type BaileysSocketProvider = Readonly<{
-  getSocket(
-    request: BaileysSocketRequest,
-    context: ApplicationPortContext,
-  ): Promise<BaileysSocketLike> | BaileysSocketLike;
-}>;
 
 export type BaileysResolvedOutboundMessage = Readonly<{
   jid: string;
@@ -157,8 +136,12 @@ export class BaileysSocketGateway implements BaileysProviderGateway {
     request: ProviderConnectionRequest,
     context: ApplicationPortContext,
   ): Promise<ProviderConnectionResult> {
-    const socket = await this.socketProvider.getSocket(socketRequestFromConnection(request), context);
-    const state: ProviderConnectionState = socket.user?.id === undefined ? "connecting" : "connected";
+    const socket = await this.socketProvider.getSocket(
+      socketRequestFromConnection(request),
+      context,
+    );
+    const state: ProviderConnectionState =
+      socket.user?.id === undefined ? "connecting" : "connected";
 
     return freezeConnectionResult({
       instanceId: request.instanceId,
@@ -208,7 +191,10 @@ export class BaileysSocketGateway implements BaileysProviderGateway {
     request: ProviderConnectionRequest,
     context: ApplicationPortContext,
   ): Promise<ProviderConnectionResult> {
-    const socket = await this.socketProvider.getSocket(socketRequestFromConnection(request), context);
+    const socket = await this.socketProvider.getSocket(
+      socketRequestFromConnection(request),
+      context,
+    );
     await socket.logout();
 
     return freezeConnectionResult({
@@ -278,7 +264,9 @@ export class BaileysMessagingProviderAdapter implements MessagingProviderPort {
     request: ProviderConnectionRequest,
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<ProviderConnectionResult>> {
-    return this.invoke("request_connection", () => this.gateway.requestConnection(request, context));
+    return this.invoke("request_connection", () =>
+      this.gateway.requestConnection(request, context),
+    );
   }
 
   async requestQrPairing(
@@ -396,9 +384,7 @@ function extractProviderStatusCode(error: unknown): number | undefined {
   return typeof output.statusCode === "number" ? output.statusCode : undefined;
 }
 
-function categoryFromStatusCode(
-  statusCode: number | undefined,
-): ApplicationPortFailureCategory {
+function categoryFromStatusCode(statusCode: number | undefined): ApplicationPortFailureCategory {
   if (statusCode === 408 || statusCode === 504) return "timeout";
   if (statusCode === 409) return "conflict";
   if (statusCode === 401 || statusCode === 403 || statusCode === 410) return "rejected";
