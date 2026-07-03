@@ -22,6 +22,7 @@ import {
 } from "@omniwa/app-worker";
 import {
   activateSession,
+  createInstance,
   createInstanceId,
   createMessageId,
   createProviderId,
@@ -42,6 +43,7 @@ import {
   BaileysMessagingProviderAdapter,
   BaileysSocketGateway,
   OutboundMessageIntentBaileysResolver,
+  type BaileysSocketProvider,
 } from "@omniwa/infrastructure-provider-baileys";
 import {
   DurableJsonOutboundMessageIntentStore,
@@ -97,7 +99,7 @@ export type LocalVerticalSliceRunResult = Readonly<{
 
 export type LocalVerticalSliceDemoOptions = Readonly<{
   stateDirectory?: string;
-  socketProvider?: FakeBaileysSocketProvider;
+  socketProvider?: BaileysSocketProvider;
   fakeSocket?: FakeBaileysSocket;
   nowIso?: () => string;
 }>;
@@ -105,6 +107,12 @@ export type LocalVerticalSliceDemoOptions = Readonly<{
 export type LocalVerticalSlicePrepareInput = Readonly<{
   runRef?: string;
   rawQrPayload?: string;
+}>;
+
+export type LocalVerticalSlicePrepareActiveInput = Readonly<{
+  runRef?: string;
+  instanceId?: InstanceId;
+  sessionId?: SessionId;
 }>;
 
 export type LocalVerticalSliceSendTextInput = Readonly<{
@@ -123,11 +131,14 @@ export type LocalVerticalSliceDemoComposition = Readonly<{
   authStateStore: DurableJsonBaileysAuthStateStore;
   outboundMessageIntentStore: DurableJsonOutboundMessageIntentStore;
   queueProvider: InMemoryQueueProvider;
-  socketProvider: FakeBaileysSocketProvider;
+  socketProvider: BaileysSocketProvider;
   fakeSocket: FakeBaileysSocket;
   providerSupervisor: ProviderRuntimeSupervisor;
   applicationDispatcher: ApplicationDispatcher;
   workerApp: WorkerRuntimeApp;
+  prepareActiveSessionState(
+    input?: LocalVerticalSlicePrepareActiveInput,
+  ): Promise<LocalVerticalSlicePreparedSession>;
   prepareConnectedSession(
     input?: LocalVerticalSlicePrepareInput,
     context?: ApplicationPortContext,
@@ -147,6 +158,7 @@ export type LocalVerticalSliceDemoComposition = Readonly<{
 
 type LocalVerticalSliceDemoRuntime = Omit<
   LocalVerticalSliceDemoComposition,
+  | "prepareActiveSessionState"
   | "prepareConnectedSession"
   | "sendTextMessage"
   | "runWorkerOnce"
@@ -235,6 +247,8 @@ export function createLocalVerticalSliceDemoComposition(
 
   return Object.freeze({
     ...runtime,
+    prepareActiveSessionState: (input: LocalVerticalSlicePrepareActiveInput = {}) =>
+      prepareActiveSessionState(runtime, input),
     prepareConnectedSession: (
       input: LocalVerticalSlicePrepareInput = {},
       context: ApplicationPortContext = createLocalVerticalSliceDemoContext("prepare"),
@@ -290,6 +304,7 @@ async function prepareConnectedSession(
   input: LocalVerticalSlicePrepareInput,
   context: ApplicationPortContext,
 ): Promise<LocalVerticalSlicePreparedSession> {
+  const fakeSocketProvider = requireFakeSocketProvider(composition.socketProvider);
   const runRef = input.runRef ?? `run_${randomUUID()}`;
   const createOutcome = await composition.applicationDispatcher.executeCommand(
     createApplicationCommandEnvelope({
@@ -328,12 +343,12 @@ async function prepareConnectedSession(
     reasonCode: "local_vertical_slice_demo",
   };
 
-  composition.socketProvider.registerSocket(socketRequest, composition.fakeSocket);
+  fakeSocketProvider.registerSocket(socketRequest, composition.fakeSocket);
   await composition.providerSupervisor.startSession(socketRequest, context);
-  composition.socketProvider.emitQrRequired(socketRequest, context, {
+  fakeSocketProvider.emitQrRequired(socketRequest, context, {
     qr: input.rawQrPayload ?? "local-demo-raw-qr",
   });
-  composition.socketProvider.emitConnected(socketRequest, context);
+  fakeSocketProvider.emitConnected(socketRequest, context);
   await composition.providerSupervisor.tick(context);
 
   const supervisorSession = composition.providerSupervisor
@@ -345,6 +360,30 @@ async function prepareConnectedSession(
     sessionId,
     providerId: defaultProviderId,
     supervisorState: supervisorSession?.state ?? "UNKNOWN",
+  });
+}
+
+async function prepareActiveSessionState(
+  composition: LocalVerticalSliceDemoRuntime,
+  input: LocalVerticalSlicePrepareActiveInput,
+): Promise<LocalVerticalSlicePreparedSession> {
+  const runRef = input.runRef ?? `run_${randomUUID()}`;
+  const instanceId =
+    input.instanceId ?? createInstanceId(`local_demo_instance_${stableRef(runRef)}`);
+  const sessionId = input.sessionId ?? createSessionId(`local_demo_session_${stableRef(runRef)}`);
+
+  await composition.repositories.sessionRepository.save(
+    activateSession(startSessionPairing(createSession(sessionId, instanceId))),
+  );
+  await composition.repositories.instanceRepository.save(
+    markInstanceConnected(markInstanceConnecting(createInstance(instanceId)), sessionId),
+  );
+
+  return Object.freeze({
+    instanceId,
+    sessionId,
+    providerId: defaultProviderId,
+    supervisorState: "EXTERNALLY_CONNECTED",
   });
 }
 
@@ -472,6 +511,18 @@ function stableRef(value: string): string {
   }
 
   return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function requireFakeSocketProvider(
+  socketProvider: BaileysSocketProvider,
+): FakeBaileysSocketProvider {
+  if (socketProvider instanceof FakeBaileysSocketProvider) {
+    return socketProvider;
+  }
+
+  throw new Error(
+    "Local vertical slice fake connection preparation requires FakeBaileysSocketProvider. Use prepareActiveSessionState for live provider send demos.",
+  );
 }
 
 function optional<TKey extends string, TValue>(

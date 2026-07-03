@@ -2,7 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createSessionId } from "@omniwa/domain";
+import { createProviderId, createSessionId } from "@omniwa/domain";
+import {
+  FakeBaileysSocket,
+  FakeBaileysSocketProvider,
+} from "@omniwa/infrastructure-provider-baileys";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -124,6 +128,98 @@ describe("local vertical slice demo composition", () => {
     expect(worker.deadLettered).toBe(0);
     expect(composition.fakeSocket.sentMessages).toHaveLength(1);
     expect(message?.status).toBe("sent");
+    expect(JSON.stringify({ worker, message, events: composition.replayEvents() })).not.toContain(
+      rawRecipient,
+    );
+    expect(JSON.stringify({ worker, message, events: composition.replayEvents() })).not.toContain(
+      rawText,
+    );
+
+    composition.shutdown();
+  });
+
+  it("supports local live send orchestration after an external provider connection is active", async () => {
+    const socketProvider = new FakeBaileysSocketProvider();
+    const socket = new FakeBaileysSocket();
+    const composition = createLocalVerticalSliceDemoComposition({
+      stateDirectory: createTemporaryDirectory(),
+      socketProvider,
+      fakeSocket: socket,
+    });
+    const prepared = await composition.prepareActiveSessionState({
+      runRef: "local_live_send",
+    });
+
+    socketProvider.registerSocket(
+      {
+        instanceId: prepared.instanceId,
+        providerId: createProviderId("baileys"),
+        sessionId: prepared.sessionId,
+        reasonCode: "local_live_send_test",
+      },
+      socket,
+    );
+
+    const queued = await composition.sendTextMessage({
+      instanceId: prepared.instanceId,
+      recipientRef: rawRecipient,
+      text: rawText,
+      runRef: "local_live_send",
+    });
+    const worker = await composition.runWorkerOnce(
+      createLocalVerticalSliceDemoContext("local_live_send"),
+    );
+    const message = await composition.repositories.messageRepository.load(queued.messageId);
+
+    expect(prepared.supervisorState).toBe("EXTERNALLY_CONNECTED");
+    expect(worker.completed).toBe(1);
+    expect(worker.deadLettered).toBe(0);
+    expect(socket.sentMessages).toEqual([
+      {
+        jid: rawRecipient,
+        content: {
+          text: rawText,
+        },
+        options: undefined,
+      },
+    ]);
+    expect(message?.status).toBe("sent");
+    expect(
+      JSON.stringify({ prepared, queued, worker, message, events: composition.replayEvents() }),
+    ).not.toContain(rawRecipient);
+    expect(
+      JSON.stringify({ prepared, queued, worker, message, events: composition.replayEvents() }),
+    ).not.toContain(rawText);
+
+    composition.shutdown();
+  });
+
+  it("keeps local live send fail-safe when the shared provider socket is missing", async () => {
+    const composition = createLocalVerticalSliceDemoComposition({
+      stateDirectory: createTemporaryDirectory(),
+      socketProvider: new FakeBaileysSocketProvider(),
+    });
+    const prepared = await composition.prepareActiveSessionState({
+      runRef: "local_live_missing_socket",
+    });
+    const queued = await composition.sendTextMessage({
+      instanceId: prepared.instanceId,
+      recipientRef: rawRecipient,
+      text: rawText,
+      runRef: "local_live_missing_socket",
+    });
+
+    const worker = await composition.runWorkerOnce(
+      createLocalVerticalSliceDemoContext("local_live_missing_socket"),
+    );
+    const message = await composition.repositories.messageRepository.load(queued.messageId);
+
+    expect(worker.completed).toBe(0);
+    expect(worker.deadLettered).toBe(1);
+    expect(message).toMatchObject({
+      status: "failed",
+      failureCategory: "provider",
+    });
     expect(JSON.stringify({ worker, message, events: composition.replayEvents() })).not.toContain(
       rawRecipient,
     );
