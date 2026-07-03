@@ -16,6 +16,7 @@ export * from "./ports/session-store.js";
 export * from "./ports/webhook-transport.js";
 export * from "./queries/query-catalog.js";
 export * from "./queries/query-model.js";
+export * from "./services/active-session-resolver.js";
 export * from "./services/application-service-catalog.js";
 export * from "./services/application-dispatcher.js";
 export * from "./services/authorization-audit-service.js";
