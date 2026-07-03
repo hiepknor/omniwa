@@ -44,6 +44,14 @@ const providerSignalDataClassifications = [
 ] as const satisfies readonly TranslatedProviderSignal["dataClassification"][];
 
 const safeTokenPattern = /^[A-Za-z0-9_.:-]+$/u;
+const safeQrChallengeRefPattern = /^qr_challenge_[a-f0-9]{16}$/u;
+const providerSignalSafeMetadataKeys = [
+  "challengeRef",
+  "expiresAtEpochMilliseconds",
+  "refreshPolicy",
+  "reasonCode",
+  "backoffMs",
+] as const;
 
 export function createProviderSignalIngress(
   options: ProviderSignalIngressOptions,
@@ -151,6 +159,12 @@ function validateSignal(
     );
   }
 
+  const metadataValidation = validateSafeMetadata(signal);
+
+  if (!metadataValidation.ok) {
+    return metadataValidation;
+  }
+
   return ok(signal);
 }
 
@@ -178,6 +192,7 @@ function providerSignalPayload(signal: TranslatedProviderSignal): PlatformEventP
     occurrenceRef: signal.occurrenceRef,
     dataClassification: signal.dataClassification,
     ...optional("failureCategory", signal.failureCategory?.toString()),
+    ...(signal.safeMetadata ?? {}),
   });
 }
 
@@ -204,6 +219,65 @@ function isProviderSignalDataClassification(
 
 function isSafeToken(value: string): boolean {
   return value.trim().length > 0 && safeTokenPattern.test(value);
+}
+
+function validateSafeMetadata(
+  signal: TranslatedProviderSignal,
+): ApplicationPortResult<TranslatedProviderSignal> {
+  if (signal.safeMetadata === undefined) {
+    return ok(signal);
+  }
+
+  for (const [key, value] of Object.entries(signal.safeMetadata)) {
+    if (!isSupportedSafeMetadataKey(key)) {
+      return err(
+        providerSignalIngressFailure({
+          code: "provider_signal_metadata_key_unsupported",
+          message: "Provider signal metadata key is not supported by SignalIngress.",
+          safeMetadata: {
+            signalKind: signal.kind,
+          },
+        }),
+      );
+    }
+
+    if (!isSafeMetadataValue(key, value)) {
+      return err(
+        providerSignalIngressFailure({
+          code: "provider_signal_metadata_invalid",
+          message: "Provider signal metadata value is not safe.",
+          safeMetadata: {
+            fieldName: key,
+            signalKind: signal.kind,
+          },
+        }),
+      );
+    }
+  }
+
+  return ok(signal);
+}
+
+function isSupportedSafeMetadataKey(
+  key: string,
+): key is (typeof providerSignalSafeMetadataKeys)[number] {
+  return providerSignalSafeMetadataKeys.some((safeKey) => safeKey === key);
+}
+
+function isSafeMetadataValue(key: string, value: unknown): boolean {
+  switch (key) {
+    case "challengeRef":
+      return typeof value === "string" && safeQrChallengeRefPattern.test(value);
+    case "expiresAtEpochMilliseconds":
+    case "backoffMs":
+      return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+    case "refreshPolicy":
+      return value === "replace_active";
+    case "reasonCode":
+      return typeof value === "string" && isSafeToken(value);
+    default:
+      return false;
+  }
 }
 
 function stableToken(value: string): string {

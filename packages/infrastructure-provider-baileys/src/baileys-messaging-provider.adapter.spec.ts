@@ -127,6 +127,40 @@ describe("BaileysMessagingProviderAdapter", () => {
     expect(socket.logoutCalled).toBe(true);
   });
 
+  it("returns only a safe QR challenge reference for pairing requests", async () => {
+    const rawQr = "raw-qr-secret-token";
+    const rawPairingCode = "raw-pairing-code-secret";
+    const socket = createFakeSocket();
+    socket.requestPairingCode = async () => rawPairingCode;
+    const adapter = createAdapter({
+      socket,
+      qrChallenge: {
+        challengeRef: "qr_challenge_0123456789abcdef",
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+      },
+    });
+
+    const result = await adapter.requestQrPairing(
+      {
+        instanceId,
+        providerId,
+        sessionId,
+        pairingAttemptRef: "pairing_attempt_raw_should_not_escape",
+      },
+      context,
+    );
+
+    expect(result.ok ? result.value : undefined).toEqual({
+      instanceId,
+      sessionId,
+      challengeRef: "qr_challenge_0123456789abcdef",
+      expiresAtEpochMilliseconds: 1_804_000_060_000,
+      dataClassification: "secret",
+    });
+    expect(JSON.stringify(result)).not.toContain(rawQr);
+    expect(JSON.stringify(result)).not.toContain(rawPairingCode);
+  });
+
   it("keeps provider capability summary inside approved MVP message types", async () => {
     const socket = createFakeSocket();
     const adapter = createAdapter({
@@ -238,6 +272,7 @@ describe("BaileysMessagingProviderAdapter", () => {
 function createAdapter(options: {
   socket: FakeBaileysSocket;
   outboundMessage?: BaileysResolvedOutboundMessage;
+  qrChallenge?: { challengeRef: string; expiresAtEpochMilliseconds?: number };
   supportedMessageTypes?: readonly string[];
 }): BaileysMessagingProviderAdapter {
   const socketProvider = new FakeBaileysSocketProvider();
@@ -260,10 +295,11 @@ function createAdapter(options: {
         },
     },
     qrChallengeResolver: {
-      resolveQrChallenge: () => ({
-        challengeRef: "qr.challenge.ref",
-        expiresAtEpochMilliseconds: 1_804_000_000_000,
-      }),
+      resolveQrChallenge: () =>
+        options.qrChallenge ?? {
+          challengeRef: "qr.challenge.ref",
+          expiresAtEpochMilliseconds: 1_804_000_000_000,
+        },
     },
   };
   const gateway = new BaileysSocketGateway(

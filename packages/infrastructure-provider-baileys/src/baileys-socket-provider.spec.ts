@@ -237,7 +237,10 @@ describe("RealBaileysSocketProvider", () => {
   });
 
   it("maps connection.update QR/open/close to safe translated provider signals", async () => {
-    const harness = createRealProviderHarness();
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+      qrChallengeTtlMs: 90_000,
+    });
     const rawQrSecret = "raw-real-provider-qr-secret-token";
 
     await harness.provider.startSession(socketRequest(), context);
@@ -278,8 +281,86 @@ describe("RealBaileysSocketProvider", () => {
         dataClassification: "internal",
       },
     ]);
+    const qrSignal = signals.find((signal) => signal.signalRef === "provider.baileys.qr_required");
+    expect(qrSignal).toMatchObject({
+      safeMetadata: {
+        challengeRef: expect.stringMatching(/^qr_challenge_[a-f0-9]{16}$/u),
+        expiresAtEpochMilliseconds: 1_804_000_090_000,
+        refreshPolicy: "replace_active",
+      },
+    });
+    expect(qrSignal?.occurrenceRef).toContain(qrSignal?.safeMetadata?.challengeRef);
     expect(JSON.stringify(signals)).not.toContain(rawQrSecret);
     expect(JSON.stringify(signals)).not.toContain("12025550123");
+  });
+
+  it("creates stable QR occurrence refs and distinct refresh challenge refs", async () => {
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+      qrChallengeTtlMs: 60_000,
+    });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", {
+      qr: "raw-qr-secret-token-a",
+    });
+    harness.socket.ev.emit("connection.update", {
+      qr: "raw-qr-secret-token-a",
+    });
+    harness.socket.ev.emit("connection.update", {
+      qr: "raw-qr-secret-token-b",
+    });
+    await flushAsyncSignals();
+
+    const qrSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.signalRef === "provider.baileys.qr_required");
+
+    expect(qrSignals).toHaveLength(3);
+    expect(qrSignals[0]?.occurrenceRef).toBe(qrSignals[1]?.occurrenceRef);
+    expect(qrSignals[0]?.safeMetadata?.challengeRef).toBe(qrSignals[1]?.safeMetadata?.challengeRef);
+    expect(qrSignals[2]?.occurrenceRef).not.toBe(qrSignals[0]?.occurrenceRef);
+    expect(qrSignals[2]?.safeMetadata?.challengeRef).not.toBe(
+      qrSignals[0]?.safeMetadata?.challengeRef,
+    );
+    expect(qrSignals.map((signal) => signal.safeMetadata)).toEqual([
+      expect.objectContaining({
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+        refreshPolicy: "replace_active",
+      }),
+      expect.objectContaining({
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+        refreshPolicy: "replace_active",
+      }),
+      expect.objectContaining({
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+        refreshPolicy: "replace_active",
+      }),
+    ]);
+    expect(JSON.stringify(qrSignals)).not.toContain("raw-qr-secret-token");
+  });
+
+  it("fails safe for malformed QR updates without leaking provider payloads", async () => {
+    const harness = createRealProviderHarness();
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("connection.update", {
+      qr: "   ",
+    });
+    await flushAsyncSignals();
+
+    const signals = harness.provider.drainSignals({ sessionId });
+
+    expect(signals.map(signalSummary).at(-1)).toEqual({
+      kind: "failure",
+      signalRef: "provider.baileys.qr_update_invalid",
+      targetRef: sessionId,
+      dataClassification: "confidential",
+    });
+    expect(signals.at(-1)?.safeMetadata).toEqual({
+      reasonCode: "malformed_qr",
+    });
+    expect(JSON.stringify(signals)).not.toContain("   ");
   });
 
   it("maps provider factory errors without leaking raw provider payload or auth state", async () => {
@@ -462,6 +543,8 @@ function socketRequest(): BaileysSocketRequest {
 function createRealProviderHarness(
   options: Readonly<{
     authStateStore?: BaileysAuthStateStore;
+    nowEpochMilliseconds?: () => number;
+    qrChallengeTtlMs?: number;
   }> = {},
 ): Readonly<{
   provider: RealBaileysSocketProvider;
@@ -477,6 +560,12 @@ function createRealProviderHarness(
   const provider = new RealBaileysSocketProvider({
     authStateStore: options.authStateStore ?? new RecordingAuthStateStore(),
     socketFactory,
+    ...(options.nowEpochMilliseconds === undefined
+      ? {}
+      : { nowEpochMilliseconds: options.nowEpochMilliseconds }),
+    ...(options.qrChallengeTtlMs === undefined
+      ? {}
+      : { qrChallengeTtlMs: options.qrChallengeTtlMs }),
   });
 
   return {

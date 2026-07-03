@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { ApplicationPortContext, TranslatedProviderSignal } from "@omniwa/application";
 import {
   createFailureCategory,
@@ -67,6 +69,8 @@ export type BaileysSocketFactory = (config: UserFacingSocketConfig) => WASocket;
 export type RealBaileysSocketProviderOptions = Readonly<{
   authStateStore: BaileysAuthStateStore;
   socketFactory?: BaileysSocketFactory;
+  nowEpochMilliseconds?: () => number;
+  qrChallengeTtlMs?: number;
 }>;
 
 export const baileysDisconnectActions = [
@@ -275,12 +279,16 @@ export class FakeBaileysSocketProvider implements BaileysSocketProvider {
 export class RealBaileysSocketProvider implements BaileysSocketProvider {
   private readonly authStateStore: BaileysAuthStateStore;
   private readonly socketFactory: BaileysSocketFactory;
+  private readonly nowEpochMilliseconds: () => number;
+  private readonly qrChallengeTtlMs: number;
   private readonly sockets = new Map<string, WASocket>();
   private readonly signals: TranslatedProviderSignal[] = [];
 
   constructor(options: RealBaileysSocketProviderOptions) {
     this.authStateStore = options.authStateStore;
     this.socketFactory = options.socketFactory ?? makeWASocket;
+    this.nowEpochMilliseconds = options.nowEpochMilliseconds ?? Date.now;
+    this.qrChallengeTtlMs = options.qrChallengeTtlMs ?? 60_000;
   }
 
   getSocket(request: BaileysSocketRequest, context: ApplicationPortContext): BaileysSocketLike {
@@ -386,7 +394,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     update: BaileysEventMap["connection.update"],
   ): Promise<void> {
     if (update.qr !== undefined) {
-      this.recordSignal(request, "auth", "qr_required", "confidential", "qr_required");
+      this.recordQrUpdate(request, update.qr);
     }
 
     if (update.connection === "open") {
@@ -402,6 +410,40 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     if (update.connection === "connecting") {
       this.recordSignal(request, "connection", "connecting", "internal", "connecting");
     }
+  }
+
+  private recordQrUpdate(request: BaileysSocketRequest, qr: unknown): void {
+    if (typeof qr !== "string" || qr.trim().length === 0) {
+      this.recordSignal(
+        request,
+        "failure",
+        "qr_update_invalid",
+        "confidential",
+        "qr_update_invalid",
+        createFailureCategory("provider"),
+        {
+          reasonCode: "malformed_qr",
+        },
+      );
+      return;
+    }
+
+    const challengeRef = createQrChallengeRef(request, qr);
+    const expiresAtEpochMilliseconds = this.nowEpochMilliseconds() + this.qrChallengeTtlMs;
+
+    this.recordSignal(
+      request,
+      "auth",
+      "qr_required",
+      "confidential",
+      `qr_required.${challengeRef}`,
+      undefined,
+      {
+        challengeRef,
+        expiresAtEpochMilliseconds,
+        refreshPolicy: "replace_active",
+      },
+    );
   }
 
   private async recordDisconnectUpdate(
@@ -444,6 +486,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     dataClassification: TranslatedProviderSignal["dataClassification"],
     occurrenceCode: string,
     failureCategory?: FailureCategory,
+    safeMetadata?: TranslatedProviderSignal["safeMetadata"],
   ): TranslatedProviderSignal {
     const targetRef = request.sessionId ?? request.instanceId;
     const signal = Object.freeze({
@@ -459,6 +502,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       kind,
       dataClassification,
       ...(failureCategory === undefined ? {} : { failureCategory }),
+      ...(safeMetadata === undefined ? {} : { safeMetadata: Object.freeze({ ...safeMetadata }) }),
     });
 
     this.signals.push(signal);
@@ -559,6 +603,20 @@ export function mapBaileysDisconnectReason(
 
 function socketKey(request: BaileysSocketRequest): string {
   return `${String(request.instanceId)}::${request.sessionId ?? "default"}`;
+}
+
+function createQrChallengeRef(request: BaileysSocketRequest, qr: string): string {
+  const targetRef = request.sessionId ?? request.instanceId;
+  const digest = createHash("sha256")
+    .update(String(request.providerId))
+    .update(":")
+    .update(String(targetRef))
+    .update(":")
+    .update(qr)
+    .digest("hex")
+    .slice(0, 16);
+
+  return `qr_challenge_${digest}`;
 }
 
 function signalMatchesQuery(

@@ -83,6 +83,10 @@ export type ProviderOutboundMessageResult = Readonly<{
   failureCategory?: FailureCategory;
 }>;
 
+export type ProviderSignalSafeMetadataValue = string | number | boolean | null;
+
+export type ProviderSignalSafeMetadata = Readonly<Record<string, ProviderSignalSafeMetadataValue>>;
+
 export type TranslatedProviderSignal = Readonly<{
   signalRef: string;
   providerId: ProviderId;
@@ -91,6 +95,7 @@ export type TranslatedProviderSignal = Readonly<{
   kind: "connection" | "auth" | "message_status" | "inbound_message" | "failure";
   dataClassification: Exclude<EventDataClassification, "public">;
   failureCategory?: FailureCategory;
+  safeMetadata?: ProviderSignalSafeMetadata;
 }>;
 
 export type ProviderCapabilitySummary = Readonly<{

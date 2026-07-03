@@ -321,6 +321,7 @@ export type BaileysSignalInput = Readonly<{
   kind: TranslatedProviderSignal["kind"];
   dataClassification?: TranslatedProviderSignal["dataClassification"];
   failureCategory?: FailureCategory;
+  safeMetadata?: TranslatedProviderSignal["safeMetadata"];
 }>;
 
 export function createTranslatedBaileysSignal(input: BaileysSignalInput): TranslatedProviderSignal {
@@ -332,6 +333,7 @@ export function createTranslatedBaileysSignal(input: BaileysSignalInput): Transl
     kind: input.kind,
     dataClassification: input.dataClassification ?? "internal",
     ...optionalValue("failureCategory", input.failureCategory),
+    ...optionalValue("safeMetadata", input.safeMetadata),
   });
 }
 

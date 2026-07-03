@@ -40,9 +40,14 @@ describe("provider signal ingress", () => {
     const result = await ingress.ingestSignal(
       providerSignal({
         signalRef: "provider.baileys.qr_required",
-        occurrenceRef: "provider.baileys.session_1.qr_required",
+        occurrenceRef: "provider.baileys.session_1.qr_required.qr_challenge_0123456789abcdef",
         kind: "auth",
         dataClassification: "confidential",
+        safeMetadata: {
+          challengeRef: "qr_challenge_0123456789abcdef",
+          expiresAtEpochMilliseconds: 1_804_000_060_000,
+          refreshPolicy: "replace_active",
+        },
       }),
       context,
     );
@@ -60,11 +65,45 @@ describe("provider signal ingress", () => {
         signalRef: "provider.baileys.qr_required",
         signalKind: "auth",
         targetRef: "session_provider_signal_1",
-        occurrenceRef: "provider.baileys.session_1.qr_required",
+        occurrenceRef: "provider.baileys.session_1.qr_required.qr_challenge_0123456789abcdef",
         dataClassification: "confidential",
+        challengeRef: "qr_challenge_0123456789abcdef",
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+        refreshPolicy: "replace_active",
       },
     });
     expect(JSON.stringify(eventLog.records())).not.toContain(rawAuthState);
+  });
+
+  it("deduplicates repeated QR signals by deterministic challenge occurrence", async () => {
+    const eventLog = new FakeEventLogPort();
+    const ingress = createProviderSignalIngress({
+      eventLog,
+      nowIso: () => timestamp,
+    });
+    const rawQr = "raw-qr-secret-token";
+    const signal = providerSignal({
+      signalRef: "provider.baileys.qr_required",
+      occurrenceRef: "provider.baileys.session_1.qr_required.qr_challenge_fedcba9876543210",
+      kind: "auth",
+      dataClassification: "confidential",
+      safeMetadata: {
+        challengeRef: "qr_challenge_fedcba9876543210",
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+        refreshPolicy: "replace_active",
+      },
+    });
+
+    const first = await ingress.ingestSignal(signal, context);
+    const duplicate = await ingress.ingestSignal(signal, context);
+
+    expect(first.ok).toBe(true);
+    expect(duplicate.ok ? duplicate.value.event : undefined).toEqual(
+      first.ok ? first.value.event : undefined,
+    );
+    expect(eventLog.records()).toHaveLength(1);
+    expect(JSON.stringify(eventLog.records())).toContain("qr_challenge_fedcba9876543210");
+    expect(JSON.stringify(eventLog.records())).not.toContain(rawQr);
   });
 
   it("ingests connected and disconnected signals into safe platform events", async () => {

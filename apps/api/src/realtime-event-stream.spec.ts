@@ -102,6 +102,43 @@ describe("realtime event stream", () => {
     expect(encoded).toContain(": heartbeat");
   });
 
+  it("streams QR lifecycle events from EventLog without leaking raw QR payloads", () => {
+    const rawQr = "raw-qr-secret-token";
+    const eventLog = createInMemoryEventLogStore({ retentionLimit: 10 });
+    eventLog.appendEvent({
+      id: "provider_signal:qr",
+      type: "provider.auth.v1",
+      timestamp: "2026-06-30T00:00:00.000Z",
+      dataClassification: "confidential",
+      source: "provider_runtime",
+      resourceRef: "session_1",
+      payload: {
+        providerId: "provider.baileys",
+        signalRef: "provider.baileys.qr_required",
+        signalKind: "auth",
+        targetRef: "session_1",
+        occurrenceRef: "provider.baileys.session_1.qr_required.qr_challenge_0123456789abcdef",
+        dataClassification: "confidential",
+        challengeRef: "qr_challenge_0123456789abcdef",
+        expiresAtEpochMilliseconds: 1_804_000_060_000,
+        refreshPolicy: "replace_active",
+      },
+    });
+
+    const source = createEventLogRealtimeEventSource(eventLog);
+    const encoded = encodeServerSentEvents({
+      events: source.replay({ limit: 10 }),
+      requestId: "req_qr",
+      correlationId: "corr_qr",
+      timestamp: "2026-06-30T00:00:01.000Z",
+    });
+
+    expect(encoded).toContain("event: provider.auth.v1");
+    expect(encoded).toContain("qr_challenge_0123456789abcdef");
+    expect(encoded).toContain("replace_active");
+    expect(encoded).not.toContain(rawQr);
+  });
+
   it("rejects unsafe nested payloads", () => {
     expect(() =>
       createRealtimeEventEnvelope({
