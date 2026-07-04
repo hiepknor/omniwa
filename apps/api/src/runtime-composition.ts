@@ -1,6 +1,11 @@
 import { join } from "node:path";
 
-import type { AuditRecordRepositoryPort, WorkerJobRepositoryPort } from "@omniwa/domain";
+import type {
+  AuditRecordRepositoryPort,
+  LabelRepositoryPort,
+  MediaAssetRepositoryPort,
+  WorkerJobRepositoryPort,
+} from "@omniwa/domain";
 import { createSecretName, createSecretPurpose, type SecretProvider } from "@omniwa/config";
 import {
   SecurityAuditEvidenceApplicationService,
@@ -81,6 +86,8 @@ type ApiRuntimeRepositorySet = ApplicationDispatcherRepositories &
   Readonly<{
     workerJobRepository: WorkerJobRepositoryPort;
     auditRecordRepository?: AuditRecordRepositoryPort & AuditRecordSourceSignalRecorder;
+    labelRepository?: LabelRepositoryPort;
+    mediaAssetRepository?: MediaAssetRepositoryPort;
   }>;
 
 export function createApiRuntimeComposition(
@@ -359,8 +366,10 @@ function createRuntimeResourceOwnershipResolver(
     ? new RepositoryApiResourceOwnershipResolver({
         ...optional("sessionRepository", repositories.sessionRepository),
         ...optional("messageRepository", repositories.messageRepository),
+        ...optional("mediaAssetRepository", repositories.mediaAssetRepository),
         ...optional("chatRepository", repositories.chatRepository),
         ...optional("contactRepository", repositories.contactRepository),
+        ...optional("labelRepository", repositories.labelRepository),
         ...optional("groupRepository", repositories.groupRepository),
         workerJobRepository: repositories.workerJobRepository,
       })

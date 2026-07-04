@@ -12,9 +12,9 @@ hooks that production adapters can persist later.
 
 | Area                           | Status   | Notes                                                                                         |
 | ------------------------------ | -------- | --------------------------------------------------------------------------------------------- |
-| Resource ownership types       | Complete | Ownership checks now classify instance, message, group, webhook, delivery, job, event.        |
+| Resource ownership types       | Complete | Ownership checks classify the public resource catalog.                                        |
 | Resource ownership resolver    | Complete | In-memory resource-to-instance resolver exists for runtime/test composition.                  |
-| Repository ownership resolver  | Partial  | Runtime can resolve session/message/chat/contact/group/job owners from repositories.          |
+| Repository ownership resolver  | Partial  | Runtime can resolve session/message/attached-media/chat/contact/label/group/job owners.       |
 | Admin bypass decision          | Complete | `admin:*` bypass is explicit in the ownership decision and can be audited.                    |
 | Instance-scoped rate limiting  | Complete | Rate-limit buckets prefer resolved `instanceRef` over non-instance resource ids.              |
 | Endpoint-class guardrails      | Complete | In-memory limiter supports per-endpoint-class limits such as lower message send caps.         |
@@ -84,9 +84,11 @@ Runtime composition can enable repository-backed ownership resolution with:
 - `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true`
 
 The resolver currently covers resources whose aggregate state already carries explicit instance
-ownership: session, message, chat, contact, group, and worker jobs with safe `instanceId` metadata.
-Resources without current instance-owner fields fail closed when this resolver is enabled and remain
-follow-up work for full production coverage.
+ownership, plus attached media that can be resolved through its owning message: session, message,
+attached media, chat, contact, label, group, and worker jobs with safe `instanceId` metadata.
+Resources without current instance-owner fields, unattached media, or repository coverage in the
+selected runtime profile fail closed when this resolver is enabled and remain follow-up work for
+full production coverage.
 
 Rate-limit snapshots can be converted into approved API metric points:
 
@@ -129,9 +131,7 @@ pnpm check
 
 ## Remaining Work
 
-- Replace the in-memory ownership resolver with a persistent resolver backed by production read
-  models or repositories.
 - Add the approved production Redis client adapter/dependency before multi-process production
   runtime.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current
-  aggregate state.
+  aggregate state or do not yet have production repository coverage.

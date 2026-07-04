@@ -7,6 +7,10 @@ import type {
   GroupRepositoryPort,
   InstanceId,
   JobId,
+  LabelId,
+  LabelRepositoryPort,
+  MediaAssetRepositoryPort,
+  MediaId,
   MessageId,
   MessageRepositoryPort,
   SessionId,
@@ -25,6 +29,8 @@ export type RepositoryApiResourceOwnershipResolverOptions = Readonly<{
   messageRepository?: MessageRepositoryPort;
   chatRepository?: ChatRepositoryPort;
   contactRepository?: ContactRepositoryPort;
+  labelRepository?: LabelRepositoryPort;
+  mediaAssetRepository?: MediaAssetRepositoryPort;
   groupRepository?: GroupRepositoryPort;
   workerJobRepository?: WorkerJobRepositoryPort;
 }>;
@@ -47,10 +53,14 @@ export class RepositoryApiResourceOwnershipResolver implements ApiResourceOwners
           return await this.resolveSession(request.targetRef);
         case "message":
           return await this.resolveMessage(request.targetRef);
+        case "media":
+          return await this.resolveMedia(request.targetRef);
         case "chat":
           return await this.resolveChat(request.targetRef);
         case "contact":
           return await this.resolveContact(request.targetRef);
+        case "label":
+          return await this.resolveLabel(request.targetRef);
         case "group":
           return await this.resolveGroup(request.targetRef);
         case "job":
@@ -79,6 +89,16 @@ export class RepositoryApiResourceOwnershipResolver implements ApiResourceOwners
     return message === undefined ? unresolved() : resolved(message.instanceId);
   }
 
+  private async resolveMedia(mediaRef: string): Promise<ApiResourceOwnershipResolution> {
+    const media = await this.repositories.mediaAssetRepository?.load(
+      opaqueDomainId<MediaId>(mediaRef),
+    );
+
+    return media?.messageId === undefined
+      ? unresolved()
+      : this.resolveMessage(String(media.messageId));
+  }
+
   private async resolveChat(chatRef: string): Promise<ApiResourceOwnershipResolution> {
     const chat = await this.repositories.chatRepository?.load(opaqueDomainId<ChatId>(chatRef));
 
@@ -91,6 +111,12 @@ export class RepositoryApiResourceOwnershipResolver implements ApiResourceOwners
     );
 
     return contact === undefined ? unresolved() : resolved(contact.instanceId);
+  }
+
+  private async resolveLabel(labelRef: string): Promise<ApiResourceOwnershipResolution> {
+    const label = await this.repositories.labelRepository?.load(opaqueDomainId<LabelId>(labelRef));
+
+    return label === undefined ? unresolved() : resolved(label.instanceId);
   }
 
   private async resolveGroup(groupRef: string): Promise<ApiResourceOwnershipResolution> {

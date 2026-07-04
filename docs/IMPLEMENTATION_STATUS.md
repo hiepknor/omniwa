@@ -125,17 +125,19 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `OMNIWA_API_SECURITY_AUDIT_RECORDS=true` through the selected repository profile's
   `AuditRecordRepositoryPort`. Runtime composition also supports opt-in repository-backed resource
   ownership resolution through `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for session, message,
-  chat, contact, group, and job resources with explicit instance ownership. Rate-limit snapshots can
-  now be converted into approved low-cardinality API metric points without exporting API key ids,
-  bucket keys, instance refs, or target refs. API production runtime composition now validates that
-  PostgreSQL configuration does not use local hosts or known development credentials before it
-  reaches the remaining production-adapter fail-safe. The rate-limit boundary is now
+  attached media, chat, contact, label, group, and job resources with explicit or safely derivable
+  instance ownership. Unattached media and resources without current owner fields fail closed when
+  this resolver is enabled. Rate-limit snapshots can now be converted into approved low-cardinality
+  API metric points without exporting API key ids, bucket keys, instance refs, or target refs. API
+  production runtime composition now validates that PostgreSQL configuration does not use local
+  hosts or known development credentials before it reaches the remaining production-adapter
+  fail-safe. The rate-limit boundary is now
   async-compatible and includes a shared counter-store limiter plus a Redis script store that hashes
   cache keys instead of writing key ids or instance refs into Redis keys. API runtime composition can
   select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` when an approved Redis script client is injected, and
   fails closed if that backend is requested without a client. A concrete production Redis client
-  adapter/dependency and full ownership coverage for resources without current owner fields remain
-  open N11.5 follow-up work.
+  adapter/dependency, production repository coverage for label/media ownership where required, and
+  owner modeling for resources without current owner fields remain open N11.5 follow-up work.
 
 ## Update Rule
 

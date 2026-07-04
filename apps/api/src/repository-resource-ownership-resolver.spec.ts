@@ -11,9 +11,16 @@ import type {
   InstanceId,
   Jid,
   JobId,
+  Label,
+  LabelId,
+  LabelRepositoryPort,
+  MediaAsset,
+  MediaAssetRepositoryPort,
+  MediaId,
   Message,
   MessageId,
   MessageRepositoryPort,
+  RetentionPolicy,
   Session,
   SessionId,
   SessionRepositoryPort,
@@ -26,14 +33,20 @@ import { describe, expect, it } from "vitest";
 import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 
 const instanceId = opaqueId<InstanceId>("inst_allowed");
+const mediaRetentionPolicy: RetentionPolicy = Object.freeze({
+  category: "media_metadata",
+  retentionDays: 30,
+});
 
 describe("Repository API resource ownership resolver", () => {
   it("resolves instance-scoped aggregates from repository ports", async () => {
     const resolver = new RepositoryApiResourceOwnershipResolver({
       sessionRepository: sessionRepository(session("sess_1", instanceId)),
       messageRepository: messageRepository(message("msg_1", instanceId)),
+      mediaAssetRepository: mediaAssetRepository(media("media_1", "msg_1")),
       chatRepository: chatRepository(chat("chat_1", instanceId)),
       contactRepository: contactRepository(contact("contact_1", instanceId)),
+      labelRepository: labelRepository(label("label_1", instanceId)),
       groupRepository: groupRepository(group("group_1", instanceId)),
     });
 
@@ -56,6 +69,14 @@ describe("Repository API resource ownership resolver", () => {
     await expect(
       resolver.resolve({
         credential: credential(),
+        resourceType: "media",
+        targetRef: "media_1",
+        operationRef: "GetMedia",
+      }),
+    ).resolves.toEqual({ status: "resolved", instanceRef: "inst_allowed" });
+    await expect(
+      resolver.resolve({
+        credential: credential(),
         resourceType: "chat",
         targetRef: "chat_1",
         operationRef: "GetChat",
@@ -67,6 +88,14 @@ describe("Repository API resource ownership resolver", () => {
         resourceType: "contact",
         targetRef: "contact_1",
         operationRef: "GetContact",
+      }),
+    ).resolves.toEqual({ status: "resolved", instanceRef: "inst_allowed" });
+    await expect(
+      resolver.resolve({
+        credential: credential(),
+        resourceType: "label",
+        targetRef: "label_1",
+        operationRef: "GetLabel",
       }),
     ).resolves.toEqual({ status: "resolved", instanceRef: "inst_allowed" });
     await expect(
@@ -99,6 +128,7 @@ describe("Repository API resource ownership resolver", () => {
   it("fails closed for missing repositories, missing aggregates, unsupported resources, and bad ids", async () => {
     const resolver = new RepositoryApiResourceOwnershipResolver({
       messageRepository: messageRepository(undefined),
+      mediaAssetRepository: mediaAssetRepository(media("media_unattached")),
       workerJobRepository: workerJobRepository(workerJob("job_missing_owner", undefined)),
     });
 
@@ -108,6 +138,14 @@ describe("Repository API resource ownership resolver", () => {
         resourceType: "message",
         targetRef: "msg_missing",
         operationRef: "GetMessage",
+      }),
+    ).resolves.toEqual({ status: "unresolved" });
+    await expect(
+      resolver.resolve({
+        credential: credential(),
+        resourceType: "media",
+        targetRef: "media_unattached",
+        operationRef: "GetMedia",
       }),
     ).resolves.toEqual({ status: "unresolved" });
     await expect(
@@ -145,12 +183,20 @@ function messageRepository(aggregate: Message | undefined): MessageRepositoryPor
   return aggregateRepository<Message>(aggregate) as unknown as MessageRepositoryPort;
 }
 
+function mediaAssetRepository(aggregate: MediaAsset | undefined): MediaAssetRepositoryPort {
+  return aggregateRepository<MediaAsset>(aggregate) as unknown as MediaAssetRepositoryPort;
+}
+
 function chatRepository(aggregate: Chat | undefined): ChatRepositoryPort {
   return aggregateRepository<Chat>(aggregate) as unknown as ChatRepositoryPort;
 }
 
 function contactRepository(aggregate: Contact | undefined): ContactRepositoryPort {
   return aggregateRepository<Contact>(aggregate) as unknown as ContactRepositoryPort;
+}
+
+function labelRepository(aggregate: Label | undefined): LabelRepositoryPort {
+  return aggregateRepository<Label>(aggregate) as unknown as LabelRepositoryPort;
 }
 
 function groupRepository(aggregate: Group | undefined): GroupRepositoryPort {
@@ -199,6 +245,20 @@ function message(id: string, owner: InstanceId): Message {
   });
 }
 
+function media(id: string, attachedMessageId?: string): MediaAsset {
+  return Object.freeze({
+    id: opaqueId<MediaId>(id),
+    category: "image",
+    status: attachedMessageId === undefined ? "processed" : "attached",
+    retentionPolicy: mediaRetentionPolicy,
+    ...(attachedMessageId === undefined
+      ? {}
+      : { messageId: opaqueId<MessageId>(attachedMessageId) }),
+    diagnosticCaptureRequested: false,
+    domainEvents: [],
+  });
+}
+
 function chat(id: string, owner: InstanceId): Chat {
   return Object.freeze({
     id: opaqueId<ChatId>(id),
@@ -218,6 +278,16 @@ function contact(id: string, owner: InstanceId): Contact {
     id: opaqueId<ContactId>(id),
     instanceId: owner,
     jid: "contact@s.whatsapp.net" as Jid,
+    status: "active",
+  });
+}
+
+function label(id: string, owner: InstanceId): Label {
+  return Object.freeze({
+    id: opaqueId<LabelId>(id),
+    instanceId: owner,
+    name: "Important",
+    colorCode: "green",
     status: "active",
   });
 }
