@@ -82,6 +82,8 @@ export type ApiRuntimeSecretCompositionOptions = Readonly<{
   adapters?: ApiRuntimeCompositionAdapterOptions;
 }>;
 
+type ApiSecurityAuditSinkKind = "none" | "in-memory" | "durable-json" | "audit-records";
+
 type ApiRuntimeRepositorySet = ApplicationDispatcherRepositories &
   Readonly<{
     workerJobRepository: WorkerJobRepositoryPort;
@@ -117,6 +119,7 @@ export function createApiRuntimeComposition(
       "OMNIWA_API_RATE_LIMIT_WINDOW_MS",
     ),
     hasRedisRateLimitScriptClient: adapters.redisRateLimitScriptClient !== undefined,
+    securityAuditSinkKind: readSecurityAuditSinkKind(env),
   });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
@@ -330,21 +333,9 @@ function createRuntimeSecurityAuditSink(
   repositories: ApiRuntimeRepositorySet,
 ): ApiSecurityAuditSink | undefined {
   const durablePath = env.OMNIWA_API_SECURITY_AUDIT_LOG_PATH?.trim();
-  const useInMemory = readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_IN_MEMORY);
-  const useAuditRecords = readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_RECORDS);
-  const configuredSinkCount = [
-    durablePath !== undefined && durablePath.length > 0,
-    useInMemory,
-    useAuditRecords,
-  ].filter(Boolean).length;
+  const sinkKind = readSecurityAuditSinkKind(env);
 
-  if (configuredSinkCount > 1) {
-    throw new Error(
-      "Configure only one API security audit sink: OMNIWA_API_SECURITY_AUDIT_LOG_PATH, OMNIWA_API_SECURITY_AUDIT_IN_MEMORY, or OMNIWA_API_SECURITY_AUDIT_RECORDS.",
-    );
-  }
-
-  if (useAuditRecords) {
+  if (sinkKind === "audit-records") {
     if (repositories.auditRecordRepository === undefined) {
       throw new Error(
         "OMNIWA_API_SECURITY_AUDIT_RECORDS requires an AuditRecordRepositoryPort-backed repository profile.",
@@ -358,11 +349,31 @@ function createRuntimeSecurityAuditSink(
     );
   }
 
-  if (durablePath !== undefined && durablePath.length > 0) {
+  if (sinkKind === "durable-json" && durablePath !== undefined && durablePath.length > 0) {
     return new DurableJsonApiSecurityAuditSink(durablePath);
   }
 
-  return useInMemory ? new InMemoryApiSecurityAuditSink() : undefined;
+  return sinkKind === "in-memory" ? new InMemoryApiSecurityAuditSink() : undefined;
+}
+
+function readSecurityAuditSinkKind(env: NodeJS.ProcessEnv): ApiSecurityAuditSinkKind {
+  const durablePath = env.OMNIWA_API_SECURITY_AUDIT_LOG_PATH?.trim();
+  const hasDurablePath = durablePath !== undefined && durablePath.length > 0;
+  const useInMemory = readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_IN_MEMORY);
+  const useAuditRecords = readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_RECORDS);
+  const configuredSinkCount = [hasDurablePath, useInMemory, useAuditRecords].filter(Boolean).length;
+
+  if (configuredSinkCount > 1) {
+    throw new Error(
+      "Configure only one API security audit sink: OMNIWA_API_SECURITY_AUDIT_LOG_PATH, OMNIWA_API_SECURITY_AUDIT_IN_MEMORY, or OMNIWA_API_SECURITY_AUDIT_RECORDS.",
+    );
+  }
+
+  if (useAuditRecords) return "audit-records";
+  if (hasDurablePath) return "durable-json";
+  if (useInMemory) return "in-memory";
+
+  return "none";
 }
 
 function createRuntimeResourceOwnershipResolver(
@@ -622,6 +633,7 @@ function assertRuntimeProfileIsComposable(
     rateLimitMaxRequests: number | undefined;
     rateLimitWindowMilliseconds: number | undefined;
     hasRedisRateLimitScriptClient: boolean;
+    securityAuditSinkKind: ApiSecurityAuditSinkKind;
   }>,
 ): void {
   if (profile === "production") {
@@ -633,6 +645,7 @@ function assertRuntimeProfileIsComposable(
 
     assertProductionPostgresqlDatabaseUrl(options.postgresDatabaseUrl);
     assertProductionRateLimitConfiguration(options);
+    assertProductionSecurityAuditConfiguration(options.securityAuditSinkKind);
 
     throw new Error(
       "OmniWA API production profile remains disabled until production queue and observability adapters are implemented.",
@@ -642,6 +655,14 @@ function assertRuntimeProfileIsComposable(
   if (profile !== "test" && !options.hasConfiguredApiKey) {
     throw new Error(
       "OmniWA API runtime requires OMNIWA_API_KEY or OMNIWA_API_KEY_HASH for local and production profiles.",
+    );
+  }
+}
+
+function assertProductionSecurityAuditConfiguration(sinkKind: ApiSecurityAuditSinkKind): void {
+  if (sinkKind !== "audit-records") {
+    throw new Error(
+      "OmniWA API production profile requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true.",
     );
   }
 }

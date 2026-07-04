@@ -77,7 +77,9 @@ Runtime composition can also enable the current security-audit sinks with:
 
 These sinks are mutually exclusive. The `OMNIWA_API_SECURITY_AUDIT_RECORDS=true` path records safe
 denied-decision evidence as approved domain `AuditRecord` aggregates when the selected repository
-profile provides `AuditRecordRepositoryPort`.
+profile provides `AuditRecordRepositoryPort`. Local and test profiles may still use in-memory or
+durable JSON evidence for development, but production API composition requires the AuditRecord-backed
+path.
 
 Runtime composition can enable repository-backed ownership resolution with:
 
@@ -112,7 +114,9 @@ follow-up.
 API production profile composition also validates PostgreSQL configuration before reaching the
 remaining production-adapter fail-safe. The validation rejects non-PostgreSQL repository profiles,
 local database hosts, missing username/password credentials, and known development database
-credentials without logging or serializing the configured database URL.
+credentials without logging or serializing the configured database URL. It also rejects missing,
+in-memory, or durable-JSON-only security-audit evidence and requires
+`OMNIWA_API_SECURITY_AUDIT_RECORDS=true`.
 
 ## Verification
 
