@@ -72,35 +72,48 @@ The preferred order is:
 
 ## Immediate Next Increment
 
-### Increment N10 - Controlled Group Mutations
+### Increment N11 - Production Hardening
 
 Goal:
 
-- Add group admin actions only where group/member state, permission checks, and audit evidence are
-  visible.
+- Close the production blockers that remain after the platform API, local-live WhatsApp proof,
+  PostgreSQL repository coverage for exposed runtime paths, and controlled mutations.
 
 Scope:
 
-- Keep public group mutations resource-oriented and avoid exposing internal command/query names.
-- Gate metadata and member actions behind explicit capability/permission checks.
-- Record safe audit evidence for create/update/leave/member-admin operations before promoting them
-  to `implemented_public`.
-- Keep raw group JIDs, member JIDs, invite links, provider payloads, and WhatsApp internals out of
-  public DTOs/logs.
-- Update OpenAPI, client contract fixtures, TUI integration docs, and Rust SDK operations when public
-  contract changes.
+- Reconcile production-readiness blockers with current implementation evidence before starting each
+  hardening sprint.
+- Keep production durability ahead of new client-facing feature breadth.
+- Prioritize queue durability, event durability, secret/auth hardening, provider ownership,
+  observability, backup/restore, and production regression gates.
+- Keep public contract, client-contract fixtures, and SDK synchronized only when a hardening sprint
+  changes a public surface.
 
 Definition of Done:
 
-- Mutation responses do not leak raw group/member/provider payload.
-- Duplicate idempotency keys do not create duplicate group operations or member jobs.
-- Group/member mutations are visible through existing group read models and audit/event surfaces.
-- Route-only group mutations remain disabled until their handler, audit, contract, and tests exist.
+- Every production hardening increment is traceable to `PRODUCTION_EXECUTION_PLAN.md`.
+- No hardening increment bypasses Application, Repository Ports, provider isolation, redaction, or
+  existing public contract rules.
+- Durable production behavior is covered by restart, concurrency, failure, and regression tests where
+  the increment changes runtime state.
 - `pnpm check` and relevant narrow tests pass.
 
 Rollback:
 
-- Revert the specific group mutation endpoint or handler commit and leave group read APIs intact.
+- Revert the specific hardening adapter/runtime commit and keep the prior local/dev behavior intact.
+
+### N11 Execution Order
+
+| Order | Increment                          | Goal                                                                 | Status  |
+| ----- | ---------------------------------- | -------------------------------------------------------------------- | ------- |
+| N11.0 | Production plan reconciliation     | Align execution docs with N8/N9/N10 implementation evidence          | Current |
+| N11.1 | Production queue foundation        | Replace in-memory-only queue semantics behind `QueueProviderPort`    | Next    |
+| N11.2 | Durable EventLog / outbox / replay | Make event visibility and SSE replay survive restart                 | Planned |
+| N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Planned |
+| N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Planned |
+| N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Planned |
+| N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Planned |
+| N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Planned |
 
 ## Planned Increments
 
@@ -196,9 +209,9 @@ VS02 does not solve:
 The project should not claim production readiness until the production gates in
 `docs/platform-evolution/PRODUCTION_EXECUTION_PLAN.md` and formal reviews pass.
 
-Production hardening remains a later track after the platform-client read surface and VS02 local
-runtime proof are stable. Durable PostgreSQL repository completion for runtime-exposed paths is done;
-the immediate platform work is now controlled message mutations before broader admin actions.
+Production hardening is now the active track after the platform-client read surface, VS02 local
+runtime proof, PostgreSQL repository completion for runtime-exposed paths, controlled message
+mutations, and controlled group mutations.
 
 ## Decision Summary
 
@@ -213,7 +226,7 @@ Message reads
   -> VS02 real WhatsApp local demo
   -> PostgreSQL repository completion (done)
   -> Controlled mutations
-  -> Production hardening
+  -> Production hardening (current)
 ```
 
 This order is intentionally incremental, rollbackable, testable, and compatible with the frozen

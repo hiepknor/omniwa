@@ -48,6 +48,44 @@ This plan is based on these current repository documents:
 | `docs/adr/ADR-0006-groups-domain.md`                                                      | Groups as an accepted first-class domain.                                   |
 | `docs/adr/ADR-0007-public-contract.md`                                                    | OpenAPI as public contract source of truth.                                 |
 
+## N11 Reconciliation Snapshot
+
+This section reconciles the original production blockers with the current implementation state at
+the start of N11. The original blocker definitions remain valid, but the next implementation work
+must use this status overlay instead of restarting already-completed foundation sprints.
+
+| ID    | N11 Status              | Evidence / Remaining Work                                                                                                                         |
+| ----- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0-01 | Partially closed        | Application dispatcher and real handlers exist for the exposed read/mutation paths. Keep open only for production-path completeness verification. |
+| P0-02 | Partially closed        | API runtime composition exists for local/dev and Docker local. Production profile hardening and unsafe-fallback refusal still need verification.  |
+| P0-03 | Partially closed        | Worker runtime and outbound job handlers exist. Production durability still depends on P0-06 queue semantics.                                     |
+| P0-04 | Partially closed        | Real Baileys provider, provider runtime, and VS02 local-live proof exist. Production ownership/lease and secret posture remain open.              |
+| P0-05 | Closed for exposed path | PostgreSQL repositories and CI contract tests cover runtime-exposed paths. Full catalog coverage remains follow-up, not the next N11 blocker.     |
+| P0-06 | Open                    | Queue provider remains in-memory; durable reserve/ack/retry/dead-letter/concurrency semantics are the next N11 implementation priority.           |
+| P0-07 | Partial                 | API key auth/lifecycle foundations exist. Production hashed storage, rotation, revocation, least privilege, and audit hardening remain open.      |
+| P0-08 | Partial                 | Rate limiter foundation exists. Production abuse throttling and guardrail integration need hardening.                                             |
+| P0-09 | Partial                 | Resource ownership checks exist for current surfaces. Production coverage and regression depth need hardening.                                    |
+| P0-10 | Partial                 | Env/local secret providers exist. Production secret provider and encrypted auth-state posture remain open.                                        |
+| P0-11 | Partial                 | EventLog/SSE foundation exists. Durable outbox/replay hardening remains open.                                                                     |
+| P0-12 | Partial                 | Webhook dispatcher runtime exists. Production durable retry/dead-letter/signing/replay hardening remains open.                                    |
+| P0-13 | Partial                 | Logging/health/readiness foundations exist. Production exporters, dashboards, alerts, and dependency SLOs remain open.                            |
+| P0-14 | Open                    | Backup/restore implementation and drills remain open.                                                                                             |
+| P0-15 | Partial                 | Broad unit/integration/regression gates exist. Production E2E path proof still needs hardening around durable queue/event/provider paths.         |
+| P0-16 | Partial                 | Security tests exist for current controls. Production auth/rate-limit/replay/ownership coverage remains open.                                     |
+| P0-17 | Partial                 | Load baseline tests exist. Production budgets and sustained runtime evidence remain open.                                                         |
+
+N11 should proceed in this order:
+
+```text
+N11.1 Production Queue Foundation
+  -> N11.2 Durable EventLog / Outbox / SSE Replay
+  -> N11.3 Provider Runtime Ownership
+  -> N11.4 Secret and API-Key Hardening
+  -> N11.5 Authorization and Rate Limits
+  -> N11.6 Webhook Reliability
+  -> N11.7 Production Validation Gates
+```
+
 ## Prioritized Backlog
 
 ### P0 - Required Before Production
@@ -1203,7 +1241,10 @@ Do not start by adding more client features. The next work should be production 
 
 Recommended next sprint:
 
-1. Start **PR-0 Execution Baseline And Governance Prep** immediately.
-2. Start **PR-1 Application Dispatcher Vertical Slice** and **PR-3 PostgreSQL Adapter Foundation** in parallel.
-3. Do not promote OmniWA beyond **NOT READY** until a real REST -> Application -> Domain -> Persistence path is operational and tested.
-4. Do not broaden TUI/Web/CLI/MCP capabilities until the backend production profile is at least **CONDITIONALLY READY**.
+1. Start **N11.1 / PR-4 Production Queue Foundation** immediately.
+2. Keep **PR-1**, **PR-2**, and **PR-3** as historical foundation references; do not restart them
+   unless a regression proves a specific foundation gap.
+3. Do not promote OmniWA beyond **NOT READY** until durable queue semantics, durable event replay,
+   provider ownership, secret hardening, and production validation gates are implemented and tested.
+4. Do not broaden TUI/Web/CLI/MCP capabilities until the backend production profile is at least
+   **CONDITIONALLY READY**.
