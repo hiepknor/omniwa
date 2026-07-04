@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## Context
 
@@ -96,7 +96,7 @@ Implementation after this ADR is accepted must prove:
 
 ## Migration Plan
 
-1. Review and accept or revise this ADR.
+1. Accept this ADR.
 2. Add the concrete Redis client dependency at the approved package boundary.
 3. Implement the adapter behind `RedisRateLimitScriptClient`.
 4. Wire production runtime composition from explicit Redis environment variables.
