@@ -9,7 +9,14 @@ import {
   createIdempotencyKey,
   createJobId,
   createJobStatus,
+  createMessageDirection,
+  createMessageId,
+  createMessageStatus,
+  createMessageType,
+  createMediaId,
+  createGuardrailDecisionId,
   createRetryPolicy,
+  createRetentionPolicy,
   createSessionId,
   createWorkerJobSafeMetadata,
   type DomainEvent,
@@ -21,6 +28,10 @@ import {
   type InstanceStatus,
   type JobId,
   type JobStatus,
+  type Message,
+  type MessageId,
+  type MessageRepositoryPort,
+  type MessageStatus,
   type SessionId,
   type WorkerJob,
   type WorkerJobRepositoryPort,
@@ -61,6 +72,7 @@ export type PostgresqlRepositorySetOptions = Readonly<{
 
 export type PostgresqlRepositorySet = Readonly<{
   instanceRepository: PostgresqlInstanceRepository;
+  messageRepository: PostgresqlMessageRepository;
   workerJobRepository: PostgresqlWorkerJobRepository;
 }>;
 
@@ -97,6 +109,21 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_status_idx ON omniwa_worker_jobs (status)",
       "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_owner_context_idx ON omniwa_worker_jobs (owner_context)",
       "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_work_type_idx ON omniwa_worker_jobs (work_type)",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260704_0003_message_repository",
+    description: "Create PostgreSQL source-state storage for MessageRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_messages (
+        id text PRIMARY KEY,
+        status text NOT NULL,
+        idempotency_key text NULL UNIQUE,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_messages_status_idx ON omniwa_messages (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_messages_recoverable_messaging_idx ON omniwa_messages (status) WHERE status IN ('queued', 'processing', 'failed')",
     ]),
   }),
 ]) satisfies readonly PostgresqlSqlMigration[];
@@ -205,6 +232,9 @@ export function createPostgresqlRepositorySet(
     instanceRepository: new PostgresqlInstanceRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
+    messageRepository: new PostgresqlMessageRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
     workerJobRepository: new PostgresqlWorkerJobRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
@@ -275,6 +305,77 @@ export class PostgresqlInstanceRepository
 export type PostgresqlWorkerJobRepositoryOptions = Readonly<{
   migrationBarrier?: () => Promise<void>;
 }>;
+
+export type PostgresqlMessageRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlMessageRepository
+  extends PostgresqlAggregateRepository<Message, MessageId>
+  implements MessageRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlMessageRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_messages",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "status",
+          value: (message: Message) => message.status,
+        }),
+        Object.freeze({
+          name: "idempotency_key",
+          value: (message: Message) => findMessageIdempotencyKeyByMessageId(connection, message.id),
+          updateExpression: "COALESCE(omniwa_messages.idempotency_key, EXCLUDED.idempotency_key)",
+        }),
+      ]),
+      decode: decodeMessageAggregate,
+      getId: (message) => keyOf(message.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  async findByStatus(status: MessageStatus): Promise<readonly Message[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_messages WHERE status = $1 ORDER BY id ASC",
+      [createMessageStatus(status)],
+    );
+  }
+
+  async findByIdempotencyKey(idempotencyKey: IdempotencyKey): Promise<Message | undefined> {
+    await this.ensureReady();
+
+    const result = await this.connection.query<MessageRow>(
+      "SELECT aggregate FROM omniwa_messages WHERE idempotency_key = $1",
+      [keyOf(createIdempotencyKey(keyOf(idempotencyKey)))],
+    );
+    const row = result.rows[0];
+
+    return row === undefined ? undefined : decodeMessageAggregate(row.aggregate);
+  }
+
+  findRecoverableByOwner(ownerContext: DomainOwnerContext): Promise<readonly Message[]> {
+    if (ownerContext !== "messaging") {
+      return Promise.resolve(Object.freeze([]));
+    }
+
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_messages WHERE status IN ($1, $2, $3) ORDER BY id ASC",
+      ["queued", "processing", "failed"],
+    );
+  }
+
+  async recordIdempotencyKey(idempotencyKey: IdempotencyKey, messageId: MessageId): Promise<void> {
+    await this.ensureReady();
+
+    await this.connection.query(
+      "UPDATE omniwa_messages SET idempotency_key = $1, updated_at = now() WHERE id = $2",
+      [keyOf(createIdempotencyKey(keyOf(idempotencyKey))), keyOf(messageId)],
+    );
+  }
+}
 
 export class PostgresqlWorkerJobRepository
   extends PostgresqlAggregateRepository<WorkerJob, JobId>
@@ -353,6 +454,22 @@ type WorkerJobRow = QueryResultRow & {
   aggregate: unknown;
 };
 
+type MessageRow = QueryResultRow & {
+  aggregate: unknown;
+};
+
+async function findMessageIdempotencyKeyByMessageId(
+  connection: PostgresqlQueryExecutor,
+  messageId: MessageId,
+): Promise<string | null> {
+  const result = await connection.query<{ idempotency_key: string | null }>(
+    "SELECT idempotency_key FROM omniwa_messages WHERE id = $1",
+    [keyOf(messageId)],
+  );
+
+  return result.rows[0]?.idempotency_key ?? null;
+}
+
 async function findWorkerJobIdempotencyKeyByJobId(
   connection: PostgresqlQueryExecutor,
   jobId: JobId,
@@ -399,6 +516,42 @@ function decodeInstanceAggregate(value: unknown): Instance {
   });
 }
 
+function decodeMessageAggregate(value: unknown): Message {
+  const aggregate = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+
+  if (!isRecord(aggregate)) {
+    throw new TypeError("PostgreSQL Message aggregate must be an object.");
+  }
+
+  return Object.freeze({
+    id: createMessageId(requiredString(aggregate.id, "Message.id")),
+    instanceId: createInstanceId(requiredString(aggregate.instanceId, "Message.instanceId")),
+    direction: createMessageDirection(requiredString(aggregate.direction, "Message.direction")),
+    type: createMessageType(requiredString(aggregate.type, "Message.type")),
+    status: createMessageStatus(requiredString(aggregate.status, "Message.status")),
+    ...optional(
+      "guardrailDecisionId",
+      optionalString(
+        aggregate.guardrailDecisionId,
+        "Message.guardrailDecisionId",
+        createGuardrailDecisionId,
+      ),
+    ),
+    ...optional("mediaId", optionalString(aggregate.mediaId, "Message.mediaId", createMediaId)),
+    ...optional(
+      "failureCategory",
+      optionalString(aggregate.failureCategory, "Message.failureCategory", createFailureCategory),
+    ),
+    ...optional(
+      "retentionPolicy",
+      optionalRetentionPolicy(aggregate.retentionPolicy, "Message.retentionPolicy"),
+    ),
+    domainEvents: Object.freeze(
+      requiredArray(aggregate.domainEvents, "Message.domainEvents").map(decodeDomainEvent),
+    ),
+  });
+}
+
 function decodeWorkerJobAggregate(value: unknown): WorkerJob {
   const aggregate = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
 
@@ -441,6 +594,24 @@ function decodeWorkerJobAggregate(value: unknown): WorkerJob {
     domainEvents: Object.freeze(
       requiredArray(aggregate.domainEvents, "WorkerJob.domainEvents").map(decodeDomainEvent),
     ),
+  });
+}
+
+function optionalRetentionPolicy(
+  value: unknown,
+  label: string,
+): ReturnType<typeof createRetentionPolicy> | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    throw new TypeError(`${label} must be an object.`);
+  }
+
+  return createRetentionPolicy({
+    category: requiredString(value.category, `${label}.category`),
+    retentionDays: requiredNumber(value.retentionDays, `${label}.retentionDays`),
   });
 }
 

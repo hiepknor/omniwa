@@ -70,6 +70,7 @@ import { describe, expect, it } from "vitest";
 import { createInMemoryRepositorySet } from "./in-memory-repositories.js";
 import {
   describeInstanceRepositoryContract,
+  describeMessageRepositoryContract,
   describeWorkerJobRepositoryContract,
 } from "./repository-contracts.spec-helper.js";
 
@@ -92,6 +93,11 @@ const auditRetention = createRetentionPolicy({
 describeInstanceRepositoryContract({
   name: "in-memory",
   create: () => createInMemoryRepositorySet().instanceRepository,
+});
+
+describeMessageRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().messageRepository,
 });
 
 describeWorkerJobRepositoryContract({

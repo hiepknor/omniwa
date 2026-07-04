@@ -4,6 +4,7 @@ import type { FieldDef, QueryResult, QueryResultRow } from "pg";
 import {
   createPostgresqlConnectionPool,
   PostgresqlInstanceRepository,
+  PostgresqlMessageRepository,
   PostgresqlWorkerJobRepository,
   postgresqlInstanceRepositoryMigrations,
   runPostgresqlSqlMigrations,
@@ -12,6 +13,7 @@ import {
   type PostgresqlTransactionClient,
 } from "./postgresql-repositories.js";
 import { describeInstanceRepositoryContract } from "./repository-contracts.spec-helper.js";
+import { describeMessageRepositoryContract } from "./repository-contracts.spec-helper.js";
 import { describeWorkerJobRepositoryContract } from "./repository-contracts.spec-helper.js";
 
 describe("PostgreSQL migration runner", () => {
@@ -67,12 +69,19 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260702_0002_worker_job_repository",
         description: expect.stringContaining("WorkerJobRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260704_0003_message_repository",
+        description: expect.stringContaining("MessageRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
     );
     expect(postgresqlInstanceRepositoryMigrations[1]?.statements.join("\n")).toContain(
       "omniwa_worker_jobs",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[2]?.statements.join("\n")).toContain(
+      "omniwa_messages",
     );
   });
 });
@@ -91,7 +100,9 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
-      await connection.query("TRUNCATE TABLE omniwa_worker_jobs, omniwa_instances");
+      await connection.query(
+        "TRUNCATE TABLE omniwa_worker_jobs, omniwa_messages, omniwa_instances",
+      );
     });
 
     afterAll(async () => {
@@ -101,6 +112,11 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeInstanceRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlInstanceRepository(connection),
+    });
+
+    describeMessageRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlMessageRepository(connection),
     });
 
     describeWorkerJobRepositoryContract({

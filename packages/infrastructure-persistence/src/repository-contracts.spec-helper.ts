@@ -4,15 +4,23 @@ import {
   createAttemptNumber,
   createIdempotencyKey,
   createJobId,
+  createGuardrailDecisionId,
   createRetryPolicy,
   createSessionId,
+  createMessageId,
+  createMessageType,
+  createOutboundMessageAggregate,
+  queueMessage,
   markInstanceConnected,
   markInstanceConnecting,
+  markMessageProcessing,
   queueWorkerJob,
   reserveWorkerJob,
   type InstanceRepositoryPort,
   type IdempotencyKey,
   type JobId,
+  type MessageId,
+  type MessageRepositoryPort,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -171,6 +179,101 @@ export function describeWorkerJobRepositoryContract(
       await recordIdempotencyKey.call(repository, idempotencyKey, jobId);
 
       await expect(repository.findByIdempotencyKey(idempotencyKey)).resolves.toEqual(workerJob);
+    });
+  });
+}
+
+export type MessageRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): MessageRepositoryPort &
+    Partial<{
+      recordIdempotencyKey(
+        idempotencyKey: IdempotencyKey,
+        messageId: MessageId,
+      ): Promise<void> | void;
+    }>;
+}>;
+
+export function describeMessageRepositoryContract(factory: MessageRepositoryContractFactory): void {
+  describe(`${factory.name} MessageRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and reports aggregate existence by MessageId", async () => {
+      const repository = factory.create();
+      const messageId = createMessageId(`${safeFactoryName(factory.name)}-message-load`);
+      const message = createOutboundMessageAggregate({
+        id: messageId,
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-message-load`),
+        type: createMessageType("text"),
+      });
+
+      await expect(repository.exists(messageId)).resolves.toBe(false);
+      await repository.save(message);
+
+      await expect(repository.exists(messageId)).resolves.toBe(true);
+      await expect(repository.load(messageId)).resolves.toEqual(message);
+    });
+
+    it("filters messages by status and recoverable owner", async () => {
+      const repository = factory.create();
+      const accepted = createOutboundMessageAggregate({
+        id: createMessageId(`${safeFactoryName(factory.name)}-message-accepted`),
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-message-accepted`),
+        type: createMessageType("text"),
+        guardrailDecisionId: createGuardrailDecisionId(
+          `${safeFactoryName(factory.name)}-guardrail-accepted`,
+        ),
+      });
+      const queued = queueMessage(accepted);
+      const processing = markMessageProcessing(
+        queueMessage(
+          createOutboundMessageAggregate({
+            id: createMessageId(`${safeFactoryName(factory.name)}-message-processing`),
+            instanceId: createInstanceId(
+              `${safeFactoryName(factory.name)}-instance-message-processing`,
+            ),
+            type: createMessageType("text"),
+            guardrailDecisionId: createGuardrailDecisionId(
+              `${safeFactoryName(factory.name)}-guardrail-processing`,
+            ),
+          }),
+        ),
+      );
+
+      await repository.save(queued);
+      await repository.save(processing);
+
+      await expect(repository.findByStatus("queued")).resolves.toEqual([queued]);
+      await expect(repository.findByStatus("processing")).resolves.toEqual([processing]);
+      const recoverable = await repository.findRecoverableByOwner("messaging");
+      expect(recoverable).toHaveLength(2);
+      expect(recoverable).toEqual(expect.arrayContaining([queued, processing]));
+      await expect(repository.findRecoverableByOwner("operations")).resolves.toEqual([]);
+    });
+
+    it("resolves idempotency keys when the adapter supports the optional index", async () => {
+      const repository = factory.create();
+      const recordIdempotencyKey = repository.recordIdempotencyKey;
+
+      if (recordIdempotencyKey === undefined) {
+        return;
+      }
+
+      const messageId = createMessageId(`${safeFactoryName(factory.name)}-message-idempotency`);
+      const idempotencyKey = createIdempotencyKey(`${safeFactoryName(factory.name)}-idem-message`);
+      const message = createOutboundMessageAggregate({
+        id: messageId,
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-idempotency`),
+        type: createMessageType("text"),
+      });
+
+      await repository.save(message);
+      await recordIdempotencyKey.call(repository, idempotencyKey, messageId);
+
+      await expect(repository.findByIdempotencyKey(idempotencyKey)).resolves.toEqual(message);
     });
   });
 }
