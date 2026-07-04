@@ -61,6 +61,33 @@ export const productionMetricDefinitions = Object.freeze([
     allowedLabels: ["source", "reason_code"],
     description: "SSE/event stream error count by safe source and reason category.",
   }),
+  metricDefinition({
+    name: "api.rate_limit.bucket.count",
+    kind: "gauge",
+    runtimeRole: "api",
+    unit: "requests",
+    allowedLabels: ["endpoint_class", "scope_kind"],
+    description:
+      "Aggregated API rate-limit bucket usage by endpoint class and scope kind without raw bucket identifiers.",
+  }),
+  metricDefinition({
+    name: "api.rate_limit.bucket.remaining",
+    kind: "gauge",
+    runtimeRole: "api",
+    unit: "requests",
+    allowedLabels: ["endpoint_class", "scope_kind"],
+    description:
+      "Aggregated API rate-limit remaining capacity by endpoint class and scope kind without raw bucket identifiers.",
+  }),
+  metricDefinition({
+    name: "api.rate_limit.bucket.limit",
+    kind: "gauge",
+    runtimeRole: "api",
+    unit: "requests",
+    allowedLabels: ["endpoint_class", "scope_kind"],
+    description:
+      "Aggregated API rate-limit configured capacity by endpoint class and scope kind without raw bucket identifiers.",
+  }),
 ]);
 
 export type ProductionMetricName = (typeof productionMetricDefinitions)[number]["name"];

@@ -67,6 +67,33 @@ export function createMetricsRuntimeSmokeSnapshot(): MetricsRuntimeSmokeSnapshot
       }),
     }),
   );
+  runtime.recordMetric(
+    createCatalogMetricPoint("api.rate_limit.bucket.count", {
+      value: 3,
+      labels: toSafeLogFields({
+        endpoint_class: classifyValue("read", "public"),
+        scope_kind: classifyValue("instance", "public"),
+      }),
+    }),
+  );
+  runtime.recordMetric(
+    createCatalogMetricPoint("api.rate_limit.bucket.remaining", {
+      value: 7,
+      labels: toSafeLogFields({
+        endpoint_class: classifyValue("read", "public"),
+        scope_kind: classifyValue("instance", "public"),
+      }),
+    }),
+  );
+  runtime.recordMetric(
+    createCatalogMetricPoint("api.rate_limit.bucket.limit", {
+      value: 10,
+      labels: toSafeLogFields({
+        endpoint_class: classifyValue("read", "public"),
+        scope_kind: classifyValue("instance", "public"),
+      }),
+    }),
+  );
 
   const exported = exportMetricsText(runtime.snapshot().metrics);
 

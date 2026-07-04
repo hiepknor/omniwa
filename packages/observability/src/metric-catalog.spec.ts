@@ -18,6 +18,9 @@ describe("production observability catalogs", () => {
       "webhook.delivery.success.total",
       "worker.utilization.ratio",
       "event_stream.errors.total",
+      "api.rate_limit.bucket.count",
+      "api.rate_limit.bucket.remaining",
+      "api.rate_limit.bucket.limit",
     ]);
   });
 
@@ -52,6 +55,38 @@ describe("production observability catalogs", () => {
         labels: toSafeLogFields({
           state: classifyValue("connected", "public"),
           instanceId: classifyValue("inst_high_cardinality", "internal"),
+        }),
+      }),
+    ).toThrow(TypeError);
+  });
+
+  it("creates rate-limit catalog metrics with low-cardinality labels only", () => {
+    const metric = createCatalogMetricPoint("api.rate_limit.bucket.count", {
+      value: 3,
+      labels: toSafeLogFields({
+        endpoint_class: classifyValue("message_send", "public"),
+        scope_kind: classifyValue("instance", "public"),
+      }),
+    });
+
+    expect(metric).toMatchObject({
+      name: "api.rate_limit.bucket.count",
+      kind: "gauge",
+      runtimeRole: "api",
+      unit: "requests",
+      labels: {
+        endpoint_class: "message_send",
+        scope_kind: "instance",
+      },
+    });
+
+    expect(() =>
+      createCatalogMetricPoint("api.rate_limit.bucket.count", {
+        value: 3,
+        labels: toSafeLogFields({
+          endpoint_class: classifyValue("message_send", "public"),
+          scope_kind: classifyValue("instance", "public"),
+          scopeRef: classifyValue("inst_high_cardinality", "internal"),
         }),
       }),
     ).toThrow(TypeError);

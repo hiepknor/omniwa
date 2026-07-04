@@ -123,9 +123,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   evidence through `OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true`, durable JSON security-audit evidence
   through `OMNIWA_API_SECURITY_AUDIT_LOG_PATH`, and opt-in repository-backed resource ownership
   resolution through `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for session, message, chat,
-  contact, group, and job resources with explicit instance ownership. Distributed rate limiting,
-  full ownership coverage for resources without current owner fields, approved AuditRecord
-  persistence, and metrics export remain open N11.5 follow-up work.
+  contact, group, and job resources with explicit instance ownership. Rate-limit snapshots can now be
+  converted into approved low-cardinality API metric points without exporting API key ids, bucket
+  keys, instance refs, or target refs. Distributed rate limiting, full ownership coverage for
+  resources without current owner fields, and approved AuditRecord persistence remain open N11.5
+  follow-up work.
 
 ## Update Rule
 

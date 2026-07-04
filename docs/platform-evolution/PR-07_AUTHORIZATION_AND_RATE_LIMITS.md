@@ -19,7 +19,7 @@ hooks that production adapters can persist later.
 | Instance-scoped rate limiting | Complete | Rate-limit buckets prefer resolved `instanceRef` over non-instance resource ids.       |
 | Endpoint-class guardrails     | Complete | In-memory limiter supports per-endpoint-class limits such as lower message send caps.  |
 | Runtime rate-limit wiring     | Complete | API runtime can opt in through env-configured fixed-window limits.                     |
-| Rate-limit observability      | Complete | Limiter exposes safe bucket snapshots with key id, endpoint class, scope, and counts.  |
+| Rate-limit observability      | Complete | Limiter exposes safe snapshots and exports low-cardinality API metric points.          |
 | Security audit hook           | Complete | HTTP boundary records auth, authorization, rate-limit denial, and admin bypass events. |
 | Runtime audit wiring          | Complete | API runtime can opt in to in-memory or durable JSON denied-decision evidence.          |
 | Regression coverage           | Complete | Tests cover resource ownership, rate exhaustion, audit events, and admin bypass.       |
@@ -85,6 +85,15 @@ ownership: session, message, chat, contact, group, and worker jobs with safe `in
 Resources without current instance-owner fields fail closed when this resolver is enabled and remain
 follow-up work for full production coverage.
 
+Rate-limit snapshots can be converted into approved API metric points:
+
+- `api.rate_limit.bucket.count`
+- `api.rate_limit.bucket.remaining`
+- `api.rate_limit.bucket.limit`
+
+The exporter aggregates by endpoint class and scope kind only. It does not export API key ids, bucket
+keys, instance refs, target refs, or raw request data.
+
 ## Verification
 
 Targeted tests:
@@ -109,6 +118,5 @@ pnpm check
   models or repositories.
 - Persist `ApiSecurityAuditSink` events into approved domain `AuditRecord` storage.
 - Wire production-grade distributed rate limiting before multi-process production runtime.
-- Export rate-limit snapshots through the approved metrics runtime.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current
   aggregate state.

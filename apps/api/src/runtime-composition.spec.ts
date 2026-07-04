@@ -20,6 +20,7 @@ import {
   DurableJsonApiSecurityAuditSink,
   InMemoryApiSecurityAuditSink,
 } from "./api-security-audit.js";
+import { createApiRateLimitMetricPoints } from "./api-rate-limit-metrics.js";
 import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 
 const runtimeRateLimitCredential: ApiCredential = {
@@ -371,6 +372,23 @@ describe("API runtime composition", () => {
         remaining: 0,
       },
     });
+    expect(
+      createApiRateLimitMetricPoints(
+        composition.options.rateLimiter?.snapshot?.() ?? {
+          windowMilliseconds: 0,
+          buckets: [],
+        },
+      ),
+    ).toContainEqual(
+      expect.objectContaining({
+        name: "api.rate_limit.bucket.count",
+        value: 1,
+        labels: {
+          endpoint_class: "read",
+          scope_kind: "global",
+        },
+      }),
+    );
   });
 
   it("wires endpoint-class rate limits for message sends", () => {

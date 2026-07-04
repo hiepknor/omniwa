@@ -50,6 +50,9 @@ importers:
       '@omniwa/interface-api':
         specifier: workspace:*
         version: link:../../packages/interface-api
+      '@omniwa/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@omniwa/shared':
         specifier: workspace:*
         version: link:../../packages/shared

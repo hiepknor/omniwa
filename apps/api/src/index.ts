@@ -5,6 +5,7 @@ import { EnvSecretProvider } from "@omniwa/infrastructure-secrets";
 export * from "./http-server.js";
 export * from "./api-key-auth.js";
 export * from "./api-key-lifecycle.js";
+export * from "./api-rate-limit-metrics.js";
 export * from "./api-security-audit.js";
 export * from "./realtime-event-stream.js";
 export * from "./runtime-composition.js";
