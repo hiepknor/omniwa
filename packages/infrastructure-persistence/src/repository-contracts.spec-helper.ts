@@ -10,6 +10,9 @@ import {
   createMessageId,
   createMessageType,
   createOutboundMessageAggregate,
+  createSessionAggregate,
+  activateSession,
+  expireSession,
   queueMessage,
   markInstanceConnected,
   markInstanceConnecting,
@@ -21,6 +24,7 @@ import {
   type JobId,
   type MessageId,
   type MessageRepositoryPort,
+  type SessionRepositoryPort,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -274,6 +278,72 @@ export function describeMessageRepositoryContract(factory: MessageRepositoryCont
       await recordIdempotencyKey.call(repository, idempotencyKey, messageId);
 
       await expect(repository.findByIdempotencyKey(idempotencyKey)).resolves.toEqual(message);
+    });
+  });
+}
+
+export type SessionRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): SessionRepositoryPort;
+}>;
+
+export function describeSessionRepositoryContract(factory: SessionRepositoryContractFactory): void {
+  describe(`${factory.name} SessionRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and reports aggregate existence by SessionId", async () => {
+      const repository = factory.create();
+      const sessionId = createSessionId(`${safeFactoryName(factory.name)}-session-load`);
+      const session = createSessionAggregate({
+        id: sessionId,
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-session-load`),
+      });
+
+      await expect(repository.exists(sessionId)).resolves.toBe(false);
+      await repository.save(session);
+
+      await expect(repository.exists(sessionId)).resolves.toBe(true);
+      await expect(repository.load(sessionId)).resolves.toEqual(session);
+    });
+
+    it("filters sessions by instance, instance status, and recovery requirement", async () => {
+      const repository = factory.create();
+      const instanceId = createInstanceId(`${safeFactoryName(factory.name)}-instance-sessions`);
+      const active = activateSession(
+        createSessionAggregate({
+          id: createSessionId(`${safeFactoryName(factory.name)}-session-active`),
+          instanceId,
+          startPairing: true,
+        }),
+      );
+      const expired = expireSession(
+        activateSession(
+          createSessionAggregate({
+            id: createSessionId(`${safeFactoryName(factory.name)}-session-expired`),
+            instanceId,
+            startPairing: true,
+          }),
+        ),
+      );
+      const other = createSessionAggregate({
+        id: createSessionId(`${safeFactoryName(factory.name)}-session-other-instance`),
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-other`),
+      });
+
+      await repository.save(active);
+      await repository.save(expired);
+      await repository.save(other);
+
+      const byInstance = await repository.findByInstance(instanceId);
+      expect(byInstance).toHaveLength(2);
+      expect(byInstance).toEqual(expect.arrayContaining([active, expired]));
+      await expect(repository.findByStatusForInstance(instanceId, "active")).resolves.toEqual([
+        active,
+      ]);
+      await expect(repository.findRecoveryRequired()).resolves.toEqual([expired]);
     });
   });
 }

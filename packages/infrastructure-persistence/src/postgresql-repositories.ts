@@ -18,6 +18,7 @@ import {
   createRetryPolicy,
   createRetentionPolicy,
   createSessionId,
+  createSessionStatus,
   createWorkerJobSafeMetadata,
   type DomainEvent,
   type DomainOwnerContext,
@@ -32,7 +33,10 @@ import {
   type MessageId,
   type MessageRepositoryPort,
   type MessageStatus,
+  type Session,
   type SessionId,
+  type SessionRepositoryPort,
+  type SessionStatus,
   type WorkerJob,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
@@ -73,6 +77,7 @@ export type PostgresqlRepositorySetOptions = Readonly<{
 export type PostgresqlRepositorySet = Readonly<{
   instanceRepository: PostgresqlInstanceRepository;
   messageRepository: PostgresqlMessageRepository;
+  sessionRepository: PostgresqlSessionRepository;
   workerJobRepository: PostgresqlWorkerJobRepository;
 }>;
 
@@ -124,6 +129,23 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       )`,
       "CREATE INDEX IF NOT EXISTS omniwa_messages_status_idx ON omniwa_messages (status)",
       "CREATE INDEX IF NOT EXISTS omniwa_messages_recoverable_messaging_idx ON omniwa_messages (status) WHERE status IN ('queued', 'processing', 'failed')",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260704_0004_session_repository",
+    description: "Create PostgreSQL source-state storage for SessionRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_sessions (
+        id text PRIMARY KEY,
+        instance_id text NOT NULL,
+        status text NOT NULL,
+        requires_recovery boolean NOT NULL,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_sessions_instance_id_idx ON omniwa_sessions (instance_id)",
+      "CREATE INDEX IF NOT EXISTS omniwa_sessions_instance_status_idx ON omniwa_sessions (instance_id, status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_sessions_recovery_required_idx ON omniwa_sessions (requires_recovery) WHERE requires_recovery = true",
     ]),
   }),
 ]) satisfies readonly PostgresqlSqlMigration[];
@@ -235,6 +257,9 @@ export function createPostgresqlRepositorySet(
     messageRepository: new PostgresqlMessageRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
+    sessionRepository: new PostgresqlSessionRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
     workerJobRepository: new PostgresqlWorkerJobRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
@@ -309,6 +334,65 @@ export type PostgresqlWorkerJobRepositoryOptions = Readonly<{
 export type PostgresqlMessageRepositoryOptions = Readonly<{
   migrationBarrier?: () => Promise<void>;
 }>;
+
+export type PostgresqlSessionRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlSessionRepository
+  extends PostgresqlAggregateRepository<Session, SessionId>
+  implements SessionRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlSessionRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_sessions",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "instance_id",
+          value: (session: Session) => keyOf(session.instanceId),
+        }),
+        Object.freeze({
+          name: "status",
+          value: (session: Session) => session.status,
+        }),
+        Object.freeze({
+          name: "requires_recovery",
+          value: (session: Session) => session.requiresRecovery,
+        }),
+      ]),
+      decode: decodeSessionAggregate,
+      getId: (session) => keyOf(session.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Session[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_sessions WHERE instance_id = $1 ORDER BY id ASC",
+      [keyOf(instanceId)],
+    );
+  }
+
+  findByStatusForInstance(
+    instanceId: InstanceId,
+    status: SessionStatus,
+  ): Promise<readonly Session[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_sessions WHERE instance_id = $1 AND status = $2 ORDER BY id ASC",
+      [keyOf(instanceId), createSessionStatus(status)],
+    );
+  }
+
+  findRecoveryRequired(): Promise<readonly Session[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_sessions WHERE requires_recovery = true ORDER BY id ASC",
+      [],
+    );
+  }
+}
 
 export class PostgresqlMessageRepository
   extends PostgresqlAggregateRepository<Message, MessageId>
@@ -512,6 +596,28 @@ function decodeInstanceAggregate(value: unknown): Instance {
     ),
     domainEvents: Object.freeze(
       requiredArray(aggregate.domainEvents, "Instance.domainEvents").map(decodeDomainEvent),
+    ),
+  });
+}
+
+function decodeSessionAggregate(value: unknown): Session {
+  const aggregate = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+
+  if (!isRecord(aggregate)) {
+    throw new TypeError("PostgreSQL Session aggregate must be an object.");
+  }
+
+  return Object.freeze({
+    id: createSessionId(requiredString(aggregate.id, "Session.id")),
+    instanceId: createInstanceId(requiredString(aggregate.instanceId, "Session.instanceId")),
+    status: createSessionStatus(requiredString(aggregate.status, "Session.status")),
+    requiresRecovery: requiredBoolean(aggregate.requiresRecovery, "Session.requiresRecovery"),
+    ...optional(
+      "retentionPolicy",
+      optionalRetentionPolicy(aggregate.retentionPolicy, "Session.retentionPolicy"),
+    ),
+    domainEvents: Object.freeze(
+      requiredArray(aggregate.domainEvents, "Session.domainEvents").map(decodeDomainEvent),
     ),
   });
 }

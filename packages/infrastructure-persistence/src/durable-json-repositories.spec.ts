@@ -45,6 +45,7 @@ import { createDurableJsonRepositorySet } from "./durable-json-repositories.js";
 import {
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
+  describeSessionRepositoryContract,
   describeWorkerJobRepositoryContract,
 } from "./repository-contracts.spec-helper.js";
 
@@ -65,6 +66,11 @@ afterEach(() => {
 describeInstanceRepositoryContract({
   name: "durable-json",
   create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).instanceRepository,
+});
+
+describeSessionRepositoryContract({
+  name: "durable-json",
+  create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).sessionRepository,
 });
 
 describeMessageRepositoryContract({

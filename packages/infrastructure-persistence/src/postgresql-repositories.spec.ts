@@ -5,6 +5,7 @@ import {
   createPostgresqlConnectionPool,
   PostgresqlInstanceRepository,
   PostgresqlMessageRepository,
+  PostgresqlSessionRepository,
   PostgresqlWorkerJobRepository,
   postgresqlInstanceRepositoryMigrations,
   runPostgresqlSqlMigrations,
@@ -14,6 +15,7 @@ import {
 } from "./postgresql-repositories.js";
 import { describeInstanceRepositoryContract } from "./repository-contracts.spec-helper.js";
 import { describeMessageRepositoryContract } from "./repository-contracts.spec-helper.js";
+import { describeSessionRepositoryContract } from "./repository-contracts.spec-helper.js";
 import { describeWorkerJobRepositoryContract } from "./repository-contracts.spec-helper.js";
 
 describe("PostgreSQL migration runner", () => {
@@ -73,6 +75,10 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260704_0003_message_repository",
         description: expect.stringContaining("MessageRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260704_0004_session_repository",
+        description: expect.stringContaining("SessionRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -82,6 +88,9 @@ describe("PostgreSQL migration runner", () => {
     );
     expect(postgresqlInstanceRepositoryMigrations[2]?.statements.join("\n")).toContain(
       "omniwa_messages",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[3]?.statements.join("\n")).toContain(
+      "omniwa_sessions",
     );
   });
 });
@@ -101,7 +110,7 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
       await connection.query(
-        "TRUNCATE TABLE omniwa_worker_jobs, omniwa_messages, omniwa_instances",
+        "TRUNCATE TABLE omniwa_worker_jobs, omniwa_messages, omniwa_sessions, omniwa_instances",
       );
     });
 
@@ -117,6 +126,11 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeMessageRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlMessageRepository(connection),
+    });
+
+    describeSessionRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlSessionRepository(connection),
     });
 
     describeWorkerJobRepositoryContract({

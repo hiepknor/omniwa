@@ -71,6 +71,7 @@ import { createInMemoryRepositorySet } from "./in-memory-repositories.js";
 import {
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
+  describeSessionRepositoryContract,
   describeWorkerJobRepositoryContract,
 } from "./repository-contracts.spec-helper.js";
 
@@ -93,6 +94,11 @@ const auditRetention = createRetentionPolicy({
 describeInstanceRepositoryContract({
   name: "in-memory",
   create: () => createInMemoryRepositorySet().instanceRepository,
+});
+
+describeSessionRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().sessionRepository,
 });
 
 describeMessageRepositoryContract({
