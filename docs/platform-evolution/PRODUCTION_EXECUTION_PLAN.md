@@ -54,25 +54,25 @@ This section reconciles the original production blockers with the current implem
 the start of N11. The original blocker definitions remain valid, but the next implementation work
 must use this status overlay instead of restarting already-completed foundation sprints.
 
-| ID    | N11 Status              | Evidence / Remaining Work                                                                                                                                        |
-| ----- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0-01 | Partially closed        | Application dispatcher and real handlers exist for the exposed read/mutation paths. Keep open only for production-path completeness verification.                |
-| P0-02 | Partially closed        | API runtime composition exists for local/dev and Docker local. Production profile hardening and unsafe-fallback refusal still need verification.                 |
-| P0-03 | Partially closed        | Worker runtime and outbound job handlers exist. Production durability still depends on P0-06 queue semantics.                                                    |
-| P0-04 | Partially closed        | Real Baileys provider, provider runtime, and VS02 local-live proof exist. Production ownership/lease and secret posture remain open.                             |
-| P0-05 | Closed for exposed path | PostgreSQL repositories and CI contract tests cover runtime-exposed paths. Full catalog coverage remains follow-up, not the next N11 blocker.                    |
-| P0-06 | Partial                 | Durable WorkerJob-backed queue provider exists behind `QueueProviderPort`; cross-process atomic leasing and final production queue semantics remain open.        |
-| P0-07 | Partial                 | API key auth/lifecycle foundations exist. Production hashed storage, rotation, revocation, least privilege, and audit hardening remain open.                     |
-| P0-08 | Partial                 | Rate limiter foundation exists. Production abuse throttling and guardrail integration need hardening.                                                            |
-| P0-09 | Partial                 | Resource ownership checks exist for current surfaces. Production coverage and regression depth need hardening.                                                   |
-| P0-10 | Partial                 | Env/local secret providers exist. Production secret provider and encrypted auth-state posture remain open.                                                       |
-| P0-11 | Foundation closed       | Durable JSON EventLog/outbox and SSE replay survive restart. Production outbox consumers, selected production EventLog backend, and backlog metrics remain open. |
-| P0-12 | Partial                 | Webhook dispatcher runtime exists. Production durable retry/dead-letter/signing/replay hardening remains open.                                                   |
-| P0-13 | Partial                 | Logging/health/readiness foundations exist. Production exporters, dashboards, alerts, and dependency SLOs remain open.                                           |
-| P0-14 | Open                    | Backup/restore implementation and drills remain open.                                                                                                            |
-| P0-15 | Partial                 | Broad unit/integration/regression gates exist. Production E2E path proof still needs hardening around durable queue/event/provider paths.                        |
-| P0-16 | Partial                 | Security tests exist for current controls. Production auth/rate-limit/replay/ownership coverage remains open.                                                    |
-| P0-17 | Partial                 | Load baseline tests exist. Production budgets and sustained runtime evidence remain open.                                                                        |
+| ID    | N11 Status              | Evidence / Remaining Work                                                                                                                                            |
+| ----- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0-01 | Partially closed        | Application dispatcher and real handlers exist for the exposed read/mutation paths. Keep open only for production-path completeness verification.                    |
+| P0-02 | Partially closed        | API runtime composition exists for local/dev and Docker local. Production profile hardening and unsafe-fallback refusal still need verification.                     |
+| P0-03 | Partially closed        | Worker runtime and outbound job handlers exist. Production durability still depends on P0-06 queue semantics.                                                        |
+| P0-04 | Partially closed        | Real Baileys provider, provider runtime, VS02 local-live proof, and durable local ownership lease exist. Distributed ownership/lease and secret posture remain open. |
+| P0-05 | Closed for exposed path | PostgreSQL repositories and CI contract tests cover runtime-exposed paths. Full catalog coverage remains follow-up, not the next N11 blocker.                        |
+| P0-06 | Partial                 | Durable WorkerJob-backed queue provider exists behind `QueueProviderPort`; cross-process atomic leasing and final production queue semantics remain open.            |
+| P0-07 | Partial                 | API key auth/lifecycle foundations exist. Production hashed storage, rotation, revocation, least privilege, and audit hardening remain open.                         |
+| P0-08 | Partial                 | Rate limiter foundation exists. Production abuse throttling and guardrail integration need hardening.                                                                |
+| P0-09 | Partial                 | Resource ownership checks exist for current surfaces. Production coverage and regression depth need hardening.                                                       |
+| P0-10 | Partial                 | Env/local secret providers exist. Production secret provider and encrypted auth-state posture remain open.                                                           |
+| P0-11 | Foundation closed       | Durable JSON EventLog/outbox and SSE replay survive restart. Production outbox consumers, selected production EventLog backend, and backlog metrics remain open.     |
+| P0-12 | Partial                 | Webhook dispatcher runtime exists. Production durable retry/dead-letter/signing/replay hardening remains open.                                                       |
+| P0-13 | Partial                 | Logging/health/readiness foundations exist. Production exporters, dashboards, alerts, and dependency SLOs remain open.                                               |
+| P0-14 | Open                    | Backup/restore implementation and drills remain open.                                                                                                                |
+| P0-15 | Partial                 | Broad unit/integration/regression gates exist. Production E2E path proof still needs hardening around durable queue/event/provider paths.                            |
+| P0-16 | Partial                 | Security tests exist for current controls. Production auth/rate-limit/replay/ownership coverage remains open.                                                        |
+| P0-17 | Partial                 | Load baseline tests exist. Production budgets and sustained runtime evidence remain open.                                                                            |
 
 N11 should proceed in this order:
 

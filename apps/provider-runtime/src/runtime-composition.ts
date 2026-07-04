@@ -21,6 +21,7 @@ import {
   ProviderRuntimeSupervisor,
   type ProviderRuntimeSupervisorOwnershipGuard,
 } from "./provider-runtime-supervisor.js";
+import { DurableJsonProviderRuntimeSupervisorOwnershipGuard } from "./provider-runtime-ownership-guard.js";
 import {
   createLocalQrOperatorSink,
   readLocalQrOperatorOutputConfig,
@@ -45,14 +46,22 @@ export type ProviderRuntimeReadiness = Readonly<{
   localOnly: boolean;
   productionReady: false;
   authStateEncryption: "not_configured";
-  ownershipMode: "single_instance_in_memory";
+  ownershipMode: ProviderRuntimeOwnershipMode;
 }>;
 
 export type ProviderRuntimeCompositionPaths = Readonly<{
   stateDirectory: string;
   eventLogPath: string;
   authStatePath: string;
+  ownershipLeasePath: string;
 }>;
+
+export const providerRuntimeOwnershipModes = [
+  "single_instance_in_memory",
+  "durable_json_local_lease",
+] as const;
+
+export type ProviderRuntimeOwnershipMode = (typeof providerRuntimeOwnershipModes)[number];
 
 export type ProviderRuntimeCompositionDrainLoop = Readonly<{
   intervalMilliseconds: number;
@@ -107,6 +116,7 @@ export function createProviderRuntimeComposition(
     env,
     paths.stateDirectory,
   );
+  const ownershipMode = readProviderRuntimeOwnershipMode(env);
   const qrCodeOperatorSink = createLocalQrOperatorSink(localQrOutput);
   const inboundRecipientOperatorSink = createLocalInboundRecipientOperatorSink(
     localInboundRecipientOutput,
@@ -132,14 +142,15 @@ export function createProviderRuntimeComposition(
     socketProvider,
     signalIngress,
     ownershipGuard:
-      overrides.ownershipGuard ?? new InMemoryProviderRuntimeSupervisorOwnershipGuard(),
+      overrides.ownershipGuard ??
+      createProviderRuntimeOwnershipGuard(ownershipMode, paths.ownershipLeasePath),
     ...optional("ownerRef", ownerRef),
   });
 
   return Object.freeze({
     profile,
     liveMode,
-    readiness: providerRuntimeReadiness(liveMode),
+    readiness: providerRuntimeReadiness(liveMode, ownershipMode),
     localQrOutput,
     localInboundRecipientOutput,
     paths,
@@ -235,6 +246,7 @@ export function readProviderRuntimeCompositionPaths(
     stateDirectory,
     eventLogPath: readProviderRuntimeEventLogPath(env, stateDirectory),
     authStatePath: readProviderRuntimeAuthStatePath(env, stateDirectory),
+    ownershipLeasePath: readProviderRuntimeOwnershipLeasePath(env, stateDirectory),
   });
 }
 
@@ -275,6 +287,19 @@ export function readProviderRuntimeAuthStatePath(
   );
 }
 
+export function readProviderRuntimeOwnershipLeasePath(
+  env: NodeJS.ProcessEnv = process.env,
+  stateDirectory = readProviderRuntimeStateDirectory(env),
+): string {
+  const value = env.OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_LEASE_PATH?.trim();
+
+  return resolve(
+    value === undefined || value.length === 0
+      ? join(stateDirectory, "provider-runtime", "ownership-leases.json")
+      : value,
+  );
+}
+
 export function readProviderRuntimeDrainIntervalMilliseconds(
   env: NodeJS.ProcessEnv = process.env,
 ): number {
@@ -299,6 +324,39 @@ function readProviderRuntimeOwnerRef(env: NodeJS.ProcessEnv): string | undefined
   return value === undefined || value.length === 0 ? undefined : value;
 }
 
+export function readProviderRuntimeOwnershipMode(
+  env: NodeJS.ProcessEnv = process.env,
+): ProviderRuntimeOwnershipMode {
+  const value = env.OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE?.trim();
+
+  switch (value) {
+    case "in-memory":
+    case "single_instance_in_memory":
+      return "single_instance_in_memory";
+    case "durable":
+    case "durable-json":
+    case "durable_json_local_lease":
+    case undefined:
+    case "":
+      return "durable_json_local_lease";
+    default:
+      throw new Error("Unsupported OmniWA provider runtime ownership mode.");
+  }
+}
+
+function createProviderRuntimeOwnershipGuard(
+  ownershipMode: ProviderRuntimeOwnershipMode,
+  ownershipLeasePath: string,
+): ProviderRuntimeSupervisorOwnershipGuard {
+  if (ownershipMode === "single_instance_in_memory") {
+    return new InMemoryProviderRuntimeSupervisorOwnershipGuard();
+  }
+
+  return new DurableJsonProviderRuntimeSupervisorOwnershipGuard({
+    filePath: ownershipLeasePath,
+  });
+}
+
 function assertProviderRuntimeProfileIsComposable(
   profile: ProviderRuntimeCompositionProfile,
 ): void {
@@ -309,13 +367,16 @@ function assertProviderRuntimeProfileIsComposable(
   }
 }
 
-function providerRuntimeReadiness(liveMode: ProviderRuntimeLiveMode): ProviderRuntimeReadiness {
+function providerRuntimeReadiness(
+  liveMode: ProviderRuntimeLiveMode,
+  ownershipMode: ProviderRuntimeOwnershipMode,
+): ProviderRuntimeReadiness {
   return Object.freeze({
     liveMode,
     localOnly: liveMode === "local_live",
     productionReady: false,
     authStateEncryption: "not_configured",
-    ownershipMode: "single_instance_in_memory",
+    ownershipMode,
   });
 }
 

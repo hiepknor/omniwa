@@ -22,6 +22,8 @@ import {
   readProviderRuntimeDrainIntervalMilliseconds,
   readProviderRuntimeEventLogPath,
   readProviderRuntimeLiveMode,
+  readProviderRuntimeOwnershipLeasePath,
+  readProviderRuntimeOwnershipMode,
   readProviderRuntimeStateDirectory,
 } from "./runtime-composition.js";
 
@@ -57,7 +59,7 @@ describe("provider runtime composition", () => {
       localOnly: false,
       productionReady: false,
       authStateEncryption: "not_configured",
-      ownershipMode: "single_instance_in_memory",
+      ownershipMode: "durable_json_local_lease",
     });
     expect(composition.localQrOutput).toEqual({
       mode: "disabled",
@@ -72,6 +74,7 @@ describe("provider runtime composition", () => {
       stateDirectory,
       eventLogPath: join(stateDirectory, "event-log.json"),
       authStatePath: join(stateDirectory, "provider-runtime", "baileys-auth-state.json"),
+      ownershipLeasePath: join(stateDirectory, "provider-runtime", "ownership-leases.json"),
     });
 
     composition.shutdown();
@@ -93,7 +96,7 @@ describe("provider runtime composition", () => {
       localOnly: true,
       productionReady: false,
       authStateEncryption: "not_configured",
-      ownershipMode: "single_instance_in_memory",
+      ownershipMode: "durable_json_local_lease",
     });
     expect(composition.socketProvider).toBeInstanceOf(RealBaileysSocketProvider);
     expect(composition.authStateStore).toBeInstanceOf(DurableJsonBaileysAuthStateStore);
@@ -200,6 +203,17 @@ describe("provider runtime composition", () => {
     expect(composition.supervisor.snapshot().sessions).toEqual([]);
   });
 
+  it("can explicitly use the in-memory ownership mode for deterministic tests", () => {
+    const composition = createProviderRuntimeComposition({
+      ...envFor(createTemporaryDirectory()),
+      OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "in-memory",
+    });
+
+    expect(composition.readiness.ownershipMode).toBe("single_instance_in_memory");
+
+    composition.shutdown();
+  });
+
   it("replaces the provider-runtime index stub with runtime composition startup", () => {
     const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 
@@ -246,6 +260,7 @@ describe("provider runtime composition", () => {
     const sharedDirectory = createTemporaryDirectory();
     const eventLogPath = join(stateDirectory, "shared-event-log.json");
     const authStatePath = join(stateDirectory, "auth-state.json");
+    const ownershipLeasePath = join(stateDirectory, "ownership-leases.json");
 
     expect(readProviderRuntimeStateDirectory({})).toBe(resolve(".omniwa-local/state"));
     expect(readProviderRuntimeStateDirectory({ OMNIWA_RUNTIME_STATE_DIR: sharedDirectory })).toBe(
@@ -256,17 +271,22 @@ describe("provider runtime composition", () => {
         OMNIWA_PROVIDER_RUNTIME_STATE_DIR: stateDirectory,
         OMNIWA_EVENT_LOG_PATH: eventLogPath,
         OMNIWA_BAILEYS_AUTH_STATE_PATH: authStatePath,
+        OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_LEASE_PATH: ownershipLeasePath,
       }),
     ).toEqual({
       stateDirectory,
       eventLogPath,
       authStatePath,
+      ownershipLeasePath,
     });
     expect(readProviderRuntimeEventLogPath({}, stateDirectory)).toBe(
       join(stateDirectory, "event-log.json"),
     );
     expect(readProviderRuntimeAuthStatePath({}, stateDirectory)).toBe(
       join(stateDirectory, "provider-runtime", "baileys-auth-state.json"),
+    );
+    expect(readProviderRuntimeOwnershipLeasePath({}, stateDirectory)).toBe(
+      join(stateDirectory, "provider-runtime", "ownership-leases.json"),
     );
     expect(readProviderRuntimeDrainIntervalMilliseconds({})).toBe(1_000);
     expect(
@@ -282,6 +302,23 @@ describe("provider runtime composition", () => {
     expect(() =>
       readProviderRuntimeLiveMode({ OMNIWA_LIVE_DEMO_MODE: rawProviderPayload }),
     ).toThrow("Unsupported OmniWA provider runtime live demo mode.");
+  });
+
+  it("normalizes provider runtime ownership mode", () => {
+    expect(readProviderRuntimeOwnershipMode({})).toBe("durable_json_local_lease");
+    expect(
+      readProviderRuntimeOwnershipMode({ OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "durable" }),
+    ).toBe("durable_json_local_lease");
+    expect(
+      readProviderRuntimeOwnershipMode({
+        OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "single_instance_in_memory",
+      }),
+    ).toBe("single_instance_in_memory");
+    expect(() =>
+      readProviderRuntimeOwnershipMode({
+        OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "unsupported",
+      }),
+    ).toThrow("Unsupported OmniWA provider runtime ownership mode.");
   });
 
   it("creates a provider runtime application context", () => {

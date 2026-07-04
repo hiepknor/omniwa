@@ -115,6 +115,10 @@ Rollback:
 | N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Planned |
 | N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Planned |
 
+N11.3 has started with a durable local provider-runtime lease guard. It remains current until
+distributed production ownership/fencing is implemented or explicitly deferred with updated
+production-readiness criteria.
+
 ## Planned Increments
 
 | Order | Increment                        | Goal                                                                  | Primary Client Value                              | Notes                                                                                          |
