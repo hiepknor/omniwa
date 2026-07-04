@@ -140,8 +140,8 @@ Rate-limit snapshots can now be exported as approved low-cardinality API metric 
 key, bucket, instance, or target identifiers. The rate-limit port is now async-compatible and has a
 Redis script-store foundation without introducing a concrete Redis client dependency. API runtime
 composition can select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` only when an approved Redis script
-client is injected; the concrete production Redis client adapter remains a follow-up hardening
-slice.
+client is injected. Production API composition now fails closed unless that Redis-backed limiter is
+configured; the concrete production Redis client adapter remains a follow-up hardening slice.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.
 

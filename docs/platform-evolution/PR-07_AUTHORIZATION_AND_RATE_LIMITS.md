@@ -104,7 +104,10 @@ The rate-limit port is async-compatible, and a shared fixed-window limiter can c
 semantics and hashes the internal bucket key before constructing Redis keys. It does not require a
 concrete Redis client dependency in the API app. API runtime composition can select
 `OMNIWA_API_RATE_LIMIT_BACKEND=redis` only when an approved `RedisRateLimitScriptClient` is injected;
-otherwise it fails closed. A concrete production Redis client adapter remains a follow-up.
+otherwise it fails closed. Production API composition also rejects missing rate-limit configuration,
+the in-memory backend, and Redis backend selection without an injected script client before reaching
+the remaining production-adapter fail-safe. A concrete production Redis client adapter remains a
+follow-up.
 
 API production profile composition also validates PostgreSQL configuration before reaching the
 remaining production-adapter fail-safe. The validation rejects non-PostgreSQL repository profiles,

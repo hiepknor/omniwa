@@ -110,6 +110,13 @@ export function createApiRuntimeComposition(
       apiKeys.length > 0 || hashedApiKeys.length > 0 || apiKeyLifecycleStorePath !== undefined,
     repositoryProfile,
     postgresDatabaseUrl: env.OMNIWA_POSTGRES_DATABASE_URL,
+    rateLimitBackend: readRateLimitBackend(env),
+    rateLimitMaxRequests: readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_MAX_REQUESTS"),
+    rateLimitWindowMilliseconds: readOptionalPositiveIntegerEnv(
+      env,
+      "OMNIWA_API_RATE_LIMIT_WINDOW_MS",
+    ),
+    hasRedisRateLimitScriptClient: adapters.redisRateLimitScriptClient !== undefined,
   });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
@@ -611,6 +618,10 @@ function assertRuntimeProfileIsComposable(
     hasConfiguredApiKey: boolean;
     repositoryProfile: ApiRepositoryProfile;
     postgresDatabaseUrl: string | undefined;
+    rateLimitBackend: "in-memory" | "redis" | undefined;
+    rateLimitMaxRequests: number | undefined;
+    rateLimitWindowMilliseconds: number | undefined;
+    hasRedisRateLimitScriptClient: boolean;
   }>,
 ): void {
   if (profile === "production") {
@@ -621,6 +632,7 @@ function assertRuntimeProfileIsComposable(
     }
 
     assertProductionPostgresqlDatabaseUrl(options.postgresDatabaseUrl);
+    assertProductionRateLimitConfiguration(options);
 
     throw new Error(
       "OmniWA API production profile remains disabled until production queue and observability adapters are implemented.",
@@ -630,6 +642,32 @@ function assertRuntimeProfileIsComposable(
   if (profile !== "test" && !options.hasConfiguredApiKey) {
     throw new Error(
       "OmniWA API runtime requires OMNIWA_API_KEY or OMNIWA_API_KEY_HASH for local and production profiles.",
+    );
+  }
+}
+
+function assertProductionRateLimitConfiguration(options: {
+  rateLimitBackend: "in-memory" | "redis" | undefined;
+  rateLimitMaxRequests: number | undefined;
+  rateLimitWindowMilliseconds: number | undefined;
+  hasRedisRateLimitScriptClient: boolean;
+}): void {
+  if (
+    options.rateLimitMaxRequests === undefined ||
+    options.rateLimitWindowMilliseconds === undefined
+  ) {
+    throw new Error(
+      "OmniWA API production profile requires OMNIWA_API_RATE_LIMIT_MAX_REQUESTS and OMNIWA_API_RATE_LIMIT_WINDOW_MS.",
+    );
+  }
+
+  if (options.rateLimitBackend !== "redis") {
+    throw new Error("OmniWA API production profile requires OMNIWA_API_RATE_LIMIT_BACKEND=redis.");
+  }
+
+  if (!options.hasRedisRateLimitScriptClient) {
+    throw new Error(
+      "OmniWA API production profile requires an injected Redis rate-limit script client.",
     );
   }
 }

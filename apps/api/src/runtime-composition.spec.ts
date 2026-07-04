@@ -707,7 +707,7 @@ describe("API runtime composition", () => {
     ).toThrow(/must not use known development PostgreSQL credentials/u);
   });
 
-  it("still blocks production runtime composition after safe database credential validation", () => {
+  it("requires distributed rate limiting for production runtime composition", () => {
     expect(() =>
       createApiRuntimeComposition({
         OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
@@ -716,6 +716,52 @@ describe("API runtime composition", () => {
         OMNIWA_POSTGRES_DATABASE_URL:
           "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
       }),
+    ).toThrow(/requires OMNIWA_API_RATE_LIMIT_MAX_REQUESTS and OMNIWA_API_RATE_LIMIT_WINDOW_MS/u);
+
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "in-memory",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
+    ).toThrow(/requires OMNIWA_API_RATE_LIMIT_BACKEND=redis/u);
+
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
+    ).toThrow(/requires an injected Redis rate-limit script client/u);
+  });
+
+  it("still blocks production runtime composition after safe database and rate-limit validation", () => {
+    expect(() =>
+      createApiRuntimeComposition(
+        {
+          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+          OMNIWA_API_RUNTIME_PROFILE: "production",
+          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+          OMNIWA_POSTGRES_DATABASE_URL:
+            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+        },
+        {
+          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
+        },
+      ),
     ).toThrow(/production profile remains disabled/u);
   });
 
