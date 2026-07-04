@@ -43,7 +43,7 @@ import {
   type BaileysOutboundMessageResolver,
   type BaileysSocketProvider,
 } from "@omniwa/infrastructure-provider-baileys";
-import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
+import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import { err, ok } from "@omniwa/shared";
 
 import { WorkerRuntimeApp } from "./worker-app.js";
@@ -65,16 +65,21 @@ export const workerProviderModes = [
 
 export type WorkerProviderMode = (typeof workerProviderModes)[number];
 
+export const workerQueueProfiles = ["in-memory", "durable-worker-job"] as const;
+
+export type WorkerQueueProfile = (typeof workerQueueProfiles)[number];
+
 export type WorkerRuntimeComposition = Readonly<{
   profile: WorkerRuntimeProfile;
   repositoryProfile: WorkerRepositoryProfile;
   providerMode: WorkerProviderMode;
+  queueProfile: WorkerQueueProfile;
   repositories: WorkerRuntimeRepositories;
   outboundMessageIntentStore:
     InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore;
   messagingProvider: MessagingProviderPort;
   dispatcher: ApplicationDispatcher;
-  queueProvider: InMemoryQueueProvider;
+  queueProvider: InMemoryQueueProvider | DurableWorkerJobQueueProvider;
   app: WorkerRuntimeApp;
   socketProvider?: BaileysSocketProvider;
   outboundMessageResolver?: BaileysOutboundMessageResolver;
@@ -101,6 +106,7 @@ export function createWorkerRuntimeComposition(
   const profile = readWorkerRuntimeProfile(env);
   const repositoryProfile = readWorkerRepositoryProfile(env);
   const providerMode = readWorkerProviderMode(env);
+  const queueProfile = readWorkerQueueProfile(env);
 
   assertWorkerRuntimeProfileIsComposable(profile);
 
@@ -124,7 +130,8 @@ export function createWorkerRuntimeComposition(
     ...optional("socketProvider", overrides.socketProvider),
     ...optional("outboundMessageResolver", overrides.outboundMessageResolver),
   });
-  const queueProvider = new InMemoryQueueProvider({
+  const queueProvider = createWorkerQueueProvider({
+    queueProfile,
     workerJobRepository: repositories.workerJobRepository,
   });
   const dispatcher = createApplicationDispatcher({
@@ -161,6 +168,7 @@ export function createWorkerRuntimeComposition(
     profile,
     repositoryProfile,
     providerMode,
+    queueProfile,
     repositories,
     outboundMessageIntentStore,
     messagingProvider: providerComposition.messagingProvider,
@@ -229,6 +237,39 @@ export function readWorkerProviderMode(env: NodeJS.ProcessEnv = process.env): Wo
     default:
       throw new Error("Unsupported OmniWA Worker provider mode.");
   }
+}
+
+export function readWorkerQueueProfile(env: NodeJS.ProcessEnv = process.env): WorkerQueueProfile {
+  const value = env.OMNIWA_WORKER_QUEUE_PROFILE?.trim();
+
+  switch (value) {
+    case "durable-worker-job":
+    case "durable":
+      return "durable-worker-job";
+    case "in-memory":
+    case undefined:
+    case "":
+      return "in-memory";
+    default:
+      throw new Error("Unsupported OmniWA Worker queue profile.");
+  }
+}
+
+function createWorkerQueueProvider(
+  input: Readonly<{
+    queueProfile: WorkerQueueProfile;
+    workerJobRepository: WorkerJobRepositoryPort;
+  }>,
+): InMemoryQueueProvider | DurableWorkerJobQueueProvider {
+  if (input.queueProfile === "durable-worker-job") {
+    return new DurableWorkerJobQueueProvider({
+      workerJobRepository: input.workerJobRepository,
+    });
+  }
+
+  return new InMemoryQueueProvider({
+    workerJobRepository: input.workerJobRepository,
+  });
 }
 
 function createWorkerRuntimeRepositories(

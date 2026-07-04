@@ -29,6 +29,7 @@ import {
   PostgresqlSessionRepository,
   PostgresqlWorkerJobRepository,
 } from "@omniwa/infrastructure-persistence";
+import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import {
   BaileysMessagingProviderAdapter,
   FakeBaileysSocket,
@@ -41,6 +42,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createWorkerRuntimeComposition,
   readWorkerProviderMode,
+  readWorkerQueueProfile,
   readWorkerRepositoryProfile,
   readWorkerRuntimeProfile,
 } from "./runtime-composition.js";
@@ -84,7 +86,9 @@ describe("Worker runtime composition", () => {
       profile: "test",
       repositoryProfile: "in-memory",
       providerMode: "same-process-local-demo",
+      queueProfile: "in-memory",
     });
+    expect(composition.queueProvider).toBeInstanceOf(InMemoryQueueProvider);
     expect(composition.messagingProvider).toBeInstanceOf(BaileysMessagingProviderAdapter);
     expect(composition.outboundMessageResolver).toBeInstanceOf(
       OutboundMessageIntentBaileysResolver,
@@ -104,6 +108,20 @@ describe("Worker runtime composition", () => {
     });
 
     expect(composition.repositoryProfile).toBe("durable-json");
+  });
+
+  it("composes durable WorkerJob queue profile when requested", async () => {
+    const composition = createWorkerRuntimeComposition({
+      NODE_ENV: "test",
+      OMNIWA_WORKER_QUEUE_PROFILE: "durable-worker-job",
+    });
+
+    expect(composition.queueProfile).toBe("durable-worker-job");
+    expect(composition.queueProvider).toBeInstanceOf(DurableWorkerJobQueueProvider);
+    await expect(composition.app.recoverVisibleJobs()).resolves.toEqual({
+      recovered: 0,
+      supported: true,
+    });
   });
 
   it("wires BaileysOutboundMessageResolver to the worker outbound intent store", async () => {
@@ -322,6 +340,19 @@ describe("Worker runtime composition", () => {
     ).toBe("multi-process-unsupported");
     expect(() => readWorkerProviderMode({ OMNIWA_WORKER_PROVIDER_MODE: "invalid" })).toThrow(
       /Unsupported OmniWA Worker provider mode/u,
+    );
+  });
+
+  it("normalizes worker queue profile values", () => {
+    expect(readWorkerQueueProfile({})).toBe("in-memory");
+    expect(readWorkerQueueProfile({ OMNIWA_WORKER_QUEUE_PROFILE: "durable" })).toBe(
+      "durable-worker-job",
+    );
+    expect(readWorkerQueueProfile({ OMNIWA_WORKER_QUEUE_PROFILE: "durable-worker-job" })).toBe(
+      "durable-worker-job",
+    );
+    expect(() => readWorkerQueueProfile({ OMNIWA_WORKER_QUEUE_PROFILE: "invalid" })).toThrow(
+      /Unsupported OmniWA Worker queue profile/u,
     );
   });
 });

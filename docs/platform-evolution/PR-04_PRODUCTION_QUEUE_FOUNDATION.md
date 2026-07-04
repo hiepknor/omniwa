@@ -5,8 +5,9 @@
 Implemented as a narrow production-readiness foundation.
 
 This is not the final distributed production queue adapter. It hardens the queue path by adding a
-PostgreSQL-backed `WorkerJobRepositoryPort` source of truth and making queue idempotency recording
-safe for asynchronous repository adapters.
+durable `WorkerJobRepositoryPort`-backed queue provider that no longer depends on process-local
+queue entries for basic reservation, acknowledgement, retry, and dead-letter state. PostgreSQL
+WorkerJob remains the approved durable source for exposed runtime paths.
 
 ## Scope Implemented
 
@@ -16,6 +17,7 @@ safe for asynchronous repository adapters.
 | Queue idempotency persistence     | Complete | Optional `recordIdempotencyKey` can be asynchronous and is awaited by the queue provider. |
 | Repository contract coverage      | Complete | WorkerJob repository contract now runs against in-memory, durable JSON, and PostgreSQL.   |
 | PostgreSQL integration coverage   | Complete | WorkerJob contract runs against the local PostgreSQL stack when test URL is provided.     |
+| Durable queue provider foundation | Complete | `DurableWorkerJobQueueProvider` reserves work directly from `WorkerJobRepositoryPort`.    |
 | Queue provider boundary preserved | Complete | `QueueProviderPort` and Worker runtime contracts are unchanged.                           |
 
 ## Boundary Rules Preserved
@@ -28,18 +30,28 @@ safe for asynchronous repository adapters.
 
 ## Current Runtime Semantics
 
-The existing in-memory queue provider still owns process-local reservation state:
+Two queue providers now exist behind `QueueProviderPort`:
+
+- `InMemoryQueueProvider` for deterministic tests/local behavior.
+- `DurableWorkerJobQueueProvider` for the N11 queue foundation.
+
+`DurableWorkerJobQueueProvider` supports:
 
 - enqueue,
-- reserve,
+- reserve from durable WorkerJob state,
 - acknowledge,
 - release for retry,
 - move to dead letter,
-- recover visible queued/retrying jobs from `WorkerJobRepositoryPort`.
+- restart recovery of interrupted reserved/running jobs,
+- regression coverage through `pnpm regression:check`.
 
-With `PostgresqlWorkerJobRepository`, queued and retrying jobs can be recovered from PostgreSQL
-after runtime restart through the existing queue recovery path. Cross-process leasing remains a
-separate production adapter concern.
+Worker runtime can select it with:
+
+```text
+OMNIWA_WORKER_QUEUE_PROFILE=durable-worker-job
+```
+
+Cross-process atomic leasing remains a separate production hardening concern.
 
 ## Migration Behavior
 
@@ -69,6 +81,7 @@ pnpm exec vitest run \
   packages/infrastructure-persistence/src/postgresql-repositories.spec.ts \
   packages/infrastructure-persistence/src/in-memory-repositories.spec.ts \
   packages/infrastructure-persistence/src/durable-json-repositories.spec.ts \
+  packages/infrastructure-queue/src/durable-worker-job-queue-provider.spec.ts \
   packages/infrastructure-queue/src/in-memory-queue-provider.spec.ts
 ```
 
@@ -81,8 +94,8 @@ OMNIWA_POSTGRES_TEST_DATABASE_URL=postgresql://omniwa:omniwa-local-password@127.
 
 ## Remaining Work
 
-- Add a distributed production queue adapter with cross-process leasing.
-- Add queue metrics for reservation age, retries, dead letters, and depth by work type.
+- Add cross-process atomic leasing for multi-worker production runtime.
+- Add queue metrics for reservation age and oldest pending age by work type.
 - Add operational dead-letter inspection and replay workflows.
 - Keep production runtime profile blocked until distributed queue, provider, production secret
   manager, and observability adapters are complete.

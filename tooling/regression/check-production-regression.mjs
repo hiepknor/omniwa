@@ -16,6 +16,7 @@ export const requiredRegressionTestFiles = Object.freeze([
   "packages/domain/src/services/phase-24-domain-contracts.spec.ts",
   "packages/infrastructure-persistence/src/durable-json-repositories.spec.ts",
   "packages/infrastructure-persistence/src/event-log-store.spec.ts",
+  "packages/infrastructure-queue/src/durable-worker-job-queue-provider.spec.ts",
   "packages/infrastructure-queue/src/in-memory-queue-provider.spec.ts",
   "packages/infrastructure-provider-baileys/src/baileys-messaging-provider.adapter.spec.ts",
   "apps/provider-runtime/src/provider-runtime.spec.ts",

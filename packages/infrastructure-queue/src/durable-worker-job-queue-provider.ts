@@ -1,0 +1,553 @@
+import {
+  createApplicationPortFailure,
+  queueWorkTypes,
+  type ApplicationPortContext,
+  type ApplicationPortFailure,
+  type ApplicationPortResult,
+  type QueueProviderPort,
+  type QueueReservation,
+  type QueueVisibilityReceipt,
+  type QueueWorkRequest,
+  type QueueWorkType,
+} from "@omniwa/application";
+import {
+  completeWorkerJob,
+  createAttemptNumber,
+  createDeadLetterReason,
+  createFailureCategory,
+  createIdempotencyKey,
+  markWorkerJobDead,
+  queueWorkerJob,
+  reserveWorkerJob,
+  retryWorkerJob,
+  startWorkerJob,
+  type FailureCategory,
+  type IdempotencyKey,
+  type JobId,
+  type WorkerJob,
+  type WorkerJobRepositoryPort,
+} from "@omniwa/domain";
+import {
+  createMetricPoint,
+  type MetricKind,
+  type MetricRecorder,
+  type RuntimeRole,
+} from "@omniwa/observability";
+import { err, ok, systemClock, type Clock } from "@omniwa/shared";
+
+type IdempotencyAwareWorkerJobRepository = WorkerJobRepositoryPort &
+  Partial<{
+    recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): Promise<void> | void;
+  }>;
+
+export type DurableWorkerJobQueueProviderOptions = Readonly<{
+  workerJobRepository: WorkerJobRepositoryPort;
+  clock?: Pick<Clock, "epochMilliseconds">;
+  metricRecorder?: MetricRecorder;
+  metricRuntimeRole?: RuntimeRole;
+}>;
+
+export type DurableWorkerJobQueueSnapshot = Readonly<{
+  jobId: JobId;
+  workType: QueueWorkType;
+  ownerRef: string;
+  status: WorkerJob["status"];
+  attempt: number;
+  visible: boolean;
+  queueRef: string;
+  safeInputRef?: string;
+  safeMetadata?: QueueWorkRequest["safeMetadata"];
+  deadLetterReasonCode?: string;
+}>;
+
+export type DurableWorkerJobQueueRecoveryResult = Readonly<{
+  recovered: number;
+}>;
+
+export class DurableWorkerJobQueueProvider implements QueueProviderPort {
+  private readonly workerJobRepository: IdempotencyAwareWorkerJobRepository;
+  private readonly clock: Pick<Clock, "epochMilliseconds">;
+  private readonly metricRecorder: MetricRecorder | undefined;
+  private readonly metricRuntimeRole: RuntimeRole;
+  private readonly retryVisibleAtByJobId = new Map<string, number>();
+
+  constructor(options: DurableWorkerJobQueueProviderOptions) {
+    this.workerJobRepository = options.workerJobRepository;
+    this.clock = options.clock ?? systemClock;
+    this.metricRecorder = options.metricRecorder;
+    this.metricRuntimeRole = options.metricRuntimeRole ?? "worker";
+  }
+
+  enqueue(
+    work: QueueWorkRequest,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    return this.capturePortFailure(async () => {
+      void context;
+
+      const idempotencyKey = createIdempotencyKey(work.idempotencyKey);
+      const existingJob = await this.workerJobRepository.findByIdempotencyKey(idempotencyKey);
+
+      if (existingJob !== undefined) {
+        this.recordQueueMetric("queue.enqueue.total", work.workType, "duplicate");
+        return this.receiptFor(existingJob);
+      }
+
+      const workerJob = queueWorkerJob(
+        work.jobId,
+        work.ownerContext,
+        work.workType,
+        work.retryPolicy,
+        work.safeMetadata,
+      );
+
+      await this.workerJobRepository.save(workerJob);
+      await this.workerJobRepository.recordIdempotencyKey?.(idempotencyKey, work.jobId);
+      this.recordQueueMetric("queue.enqueue.total", work.workType, "accepted");
+      await this.recordDepthMetric(work.workType);
+
+      return this.receiptFor(workerJob);
+    });
+  }
+
+  reserve(
+    workType: QueueWorkType,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueReservation | undefined>> {
+    return this.capturePortFailure(async () => {
+      void context;
+
+      const workerJob = await this.findReservableWorkerJob(workType);
+
+      if (workerJob === undefined) {
+        this.recordQueueMetric("queue.reserve.empty.total", workType, "empty");
+        return undefined;
+      }
+
+      const attempt = nextReservationAttempt(workerJob);
+      const reserved = reserveWorkerJob(
+        workerJob,
+        createAttemptNumber(attempt, workerJob.retryPolicy),
+      );
+
+      await this.workerJobRepository.save(reserved);
+      this.retryVisibleAtByJobId.delete(String(workerJob.id));
+      this.recordQueueMetric("queue.reserve.total", workType, "reserved");
+
+      return reservationFor(reserved, attempt);
+    });
+  }
+
+  acknowledge(
+    reservation: QueueReservation,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    return this.capturePortFailure(async () => {
+      void context;
+
+      const workerJob = await this.loadWorkerJob(reservation.jobId);
+
+      if (workerJob.status === "completed") {
+        return this.receiptFor(workerJob);
+      }
+
+      assertActiveReservation(workerJob, reservation);
+      const completed =
+        workerJob.status === "running"
+          ? completeWorkerJob(workerJob)
+          : completeWorkerJob(startWorkerJob(workerJob));
+
+      await this.workerJobRepository.save(completed);
+      this.recordQueueMetric(
+        "queue.acknowledge.total",
+        toQueueWorkType(completed.workType),
+        "completed",
+      );
+      await this.recordDepthMetric(toQueueWorkType(completed.workType));
+
+      return this.receiptFor(completed);
+    });
+  }
+
+  releaseForRetry(
+    reservation: QueueReservation,
+    delayMilliseconds: number,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    return this.capturePortFailure(async () => {
+      void context;
+      assertNonNegativeInteger(delayMilliseconds, "delayMilliseconds");
+
+      const workerJob = await this.loadWorkerJob(reservation.jobId);
+      assertActiveReservation(workerJob, reservation);
+      const nextAttempt = reservation.attempt + 1;
+
+      if (nextAttempt > workerJob.retryPolicy.maxAttempts) {
+        const dead = markWorkerJobDead(
+          workerJob,
+          createDeadLetterReason({ code: "retry_budget_exhausted", category: "queue" }),
+        );
+
+        await this.workerJobRepository.save(dead);
+        this.retryVisibleAtByJobId.delete(String(dead.id));
+        this.recordQueueMetric(
+          "queue.dead_letter.total",
+          toQueueWorkType(dead.workType),
+          "dead_lettered",
+        );
+        await this.recordDepthMetric(toQueueWorkType(dead.workType));
+
+        return this.receiptFor(dead);
+      }
+
+      const retrying = retryWorkerJob(
+        workerJob,
+        createAttemptNumber(nextAttempt, workerJob.retryPolicy),
+        createFailureCategory("queue"),
+      );
+
+      await this.workerJobRepository.save(retrying);
+      this.retryVisibleAtByJobId.set(String(retrying.id), this.now() + delayMilliseconds);
+      this.recordQueueMetric("queue.retry.total", toQueueWorkType(retrying.workType), "scheduled");
+
+      return this.receiptFor(retrying);
+    });
+  }
+
+  moveToDeadLetter(
+    reservation: QueueReservation,
+    reasonCode: string,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    return this.capturePortFailure(async () => {
+      void context;
+
+      const workerJob = await this.loadWorkerJob(reservation.jobId);
+
+      if (workerJob.status === "dead") {
+        return this.receiptFor(workerJob);
+      }
+
+      assertActiveReservation(workerJob, reservation);
+      const dead = markWorkerJobDead(
+        workerJob,
+        createDeadLetterReason({ code: reasonCode, category: "queue" }),
+      );
+
+      await this.workerJobRepository.save(dead);
+      this.retryVisibleAtByJobId.delete(String(dead.id));
+      this.recordQueueMetric(
+        "queue.dead_letter.total",
+        toQueueWorkType(dead.workType),
+        "dead_lettered",
+      );
+      await this.recordDepthMetric(toQueueWorkType(dead.workType));
+
+      return this.receiptFor(dead);
+    });
+  }
+
+  async recoverVisibleJobs(): Promise<DurableWorkerJobQueueRecoveryResult> {
+    let recovered = 0;
+    const interruptedJobs = [
+      ...(await this.workerJobRepository.findByStatus("reserved")),
+      ...(await this.workerJobRepository.findByStatus("running")),
+    ];
+
+    for (const workerJob of interruptedJobs) {
+      if (!isQueueWorkType(workerJob.workType)) {
+        continue;
+      }
+
+      const nextAttempt = (workerJob.attemptNumber ?? 0) + 1;
+
+      if (nextAttempt > workerJob.retryPolicy.maxAttempts) {
+        const dead = markWorkerJobDead(
+          workerJob,
+          createDeadLetterReason({
+            code: "reservation_recovery_retry_budget_exhausted",
+            category: "queue",
+          }),
+        );
+        await this.workerJobRepository.save(dead);
+      } else {
+        const retrying = retryWorkerJob(
+          workerJob,
+          createAttemptNumber(nextAttempt, workerJob.retryPolicy),
+          createFailureCategory("queue"),
+        );
+        await this.workerJobRepository.save(retrying);
+      }
+
+      recovered += 1;
+      this.recordQueueMetric("queue.recovery.total", workerJob.workType, "recovered");
+    }
+
+    return Object.freeze({ recovered });
+  }
+
+  async snapshot(): Promise<readonly DurableWorkerJobQueueSnapshot[]> {
+    const jobs = [
+      ...(await this.workerJobRepository.findByStatus("queued")),
+      ...(await this.workerJobRepository.findByStatus("reserved")),
+      ...(await this.workerJobRepository.findByStatus("running")),
+      ...(await this.workerJobRepository.findByStatus("retrying")),
+      ...(await this.workerJobRepository.findByStatus("completed")),
+      ...(await this.workerJobRepository.findByStatus("dead")),
+    ];
+
+    return Object.freeze(
+      jobs.filter(isSupportedWorkerJob).map((job) =>
+        Object.freeze({
+          jobId: job.id,
+          workType: toQueueWorkType(job.workType),
+          ownerRef: ownerRefFor(job),
+          status: job.status,
+          attempt: job.attemptNumber ?? 0,
+          visible: this.isWorkerJobVisible(job),
+          queueRef: queueRefFor(job),
+          ...optional("safeInputRef", job.safeMetadata?.outboundIntentRef),
+          ...optional("safeMetadata", job.safeMetadata),
+          ...optional("deadLetterReasonCode", job.deadLetterReason?.code),
+        }),
+      ),
+    );
+  }
+
+  private async findReservableWorkerJob(workType: QueueWorkType): Promise<WorkerJob | undefined> {
+    const candidates = [
+      ...(await this.workerJobRepository.findByStatus("queued")),
+      ...(await this.workerJobRepository.findByStatus("retrying")),
+    ];
+
+    return candidates.find(
+      (candidate) =>
+        isSupportedWorkerJob(candidate) &&
+        candidate.workType === workType &&
+        this.isWorkerJobVisible(candidate),
+    );
+  }
+
+  private async loadWorkerJob(jobId: JobId): Promise<WorkerJob> {
+    const workerJob = await this.workerJobRepository.load(jobId);
+
+    if (workerJob === undefined) {
+      throw new DurableQueueProviderError("worker_job_missing", "WorkerJob is missing.");
+    }
+
+    if (!isSupportedWorkerJob(workerJob)) {
+      throw new DurableQueueProviderError(
+        "unsupported_work_type",
+        "WorkerJob work type is unsupported.",
+      );
+    }
+
+    return workerJob;
+  }
+
+  private receiptFor(workerJob: WorkerJob): QueueVisibilityReceipt {
+    return Object.freeze({
+      jobId: workerJob.id,
+      visible: this.isWorkerJobVisible(workerJob),
+      queueRef: queueRefFor(workerJob),
+    });
+  }
+
+  private isWorkerJobVisible(workerJob: WorkerJob): boolean {
+    switch (workerJob.status) {
+      case "queued":
+        return true;
+      case "retrying":
+        return (this.retryVisibleAtByJobId.get(String(workerJob.id)) ?? 0) <= this.now();
+      case "dead":
+        return true;
+      case "reserved":
+      case "running":
+      case "completed":
+        return false;
+    }
+  }
+
+  private async recordDepthMetric(workType: QueueWorkType): Promise<void> {
+    const activeJobs = [
+      ...(await this.workerJobRepository.findByStatus("queued")),
+      ...(await this.workerJobRepository.findByStatus("reserved")),
+      ...(await this.workerJobRepository.findByStatus("running")),
+      ...(await this.workerJobRepository.findByStatus("retrying")),
+    ].filter((job) => isSupportedWorkerJob(job) && job.workType === workType).length;
+
+    this.recordMetric("queue.depth", activeJobs, "gauge", { workType });
+  }
+
+  private recordQueueMetric(name: string, workType: QueueWorkType, result: string): void {
+    this.recordMetric(name, 1, "counter", {
+      workType,
+      result,
+    });
+  }
+
+  private recordMetric(
+    name: string,
+    value: number,
+    kind: MetricKind,
+    labels: Record<string, string>,
+  ): void {
+    try {
+      this.metricRecorder?.recordMetric(
+        createMetricPoint({
+          name,
+          kind,
+          value,
+          runtimeRole: this.metricRuntimeRole,
+          labels,
+          observedAtEpochMilliseconds: this.now(),
+        }),
+      );
+    } catch {
+      return;
+    }
+  }
+
+  private async capturePortFailure<T>(action: () => Promise<T>): Promise<ApplicationPortResult<T>> {
+    try {
+      return ok(await action());
+    } catch (error) {
+      return err(toApplicationPortFailure(error));
+    }
+  }
+
+  private now(): number {
+    return this.clock.epochMilliseconds();
+  }
+}
+
+class DurableQueueProviderError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly retryable = false,
+    readonly failureCategory: FailureCategory = "queue",
+  ) {
+    super(message);
+  }
+}
+
+function reservationFor(workerJob: WorkerJob, attempt: number): QueueReservation {
+  return Object.freeze({
+    jobId: workerJob.id,
+    reservationRef: reservationRefFor(workerJob, attempt),
+    attempt,
+    ownerContext: workerJob.ownerContext,
+    ownerRef: ownerRefFor(workerJob),
+    workType: toQueueWorkType(workerJob.workType),
+    ...optional("safeInputRef", workerJob.safeMetadata?.outboundIntentRef),
+    ...optional("safeMetadata", workerJob.safeMetadata),
+  });
+}
+
+function nextReservationAttempt(workerJob: WorkerJob): number {
+  return workerJob.status === "retrying" && workerJob.attemptNumber !== undefined
+    ? workerJob.attemptNumber
+    : (workerJob.attemptNumber ?? 0) + 1;
+}
+
+function assertActiveReservation(workerJob: WorkerJob, reservation: QueueReservation): void {
+  if (workerJob.status !== "reserved" && workerJob.status !== "running") {
+    throw new DurableQueueProviderError(
+      "reservation_not_active",
+      "Queue reservation is not active.",
+      false,
+      "worker",
+    );
+  }
+
+  if (workerJob.attemptNumber !== reservation.attempt) {
+    throw new DurableQueueProviderError(
+      "reservation_attempt_mismatch",
+      "Queue reservation attempt does not match visible queue state.",
+      false,
+      "worker",
+    );
+  }
+
+  if (reservation.reservationRef !== reservationRefFor(workerJob, reservation.attempt)) {
+    throw new DurableQueueProviderError("stale_reservation", "Queue reservation is stale.");
+  }
+}
+
+function queueRefFor(workerJob: WorkerJob): string {
+  return `${workerJob.workType}:${workerJob.id}`;
+}
+
+function reservationRefFor(workerJob: WorkerJob, attempt: number): string {
+  return `${workerJob.workType}:${workerJob.id}:attempt:${attempt}`;
+}
+
+function ownerRefFor(workerJob: WorkerJob): string {
+  return workerJob.safeMetadata?.messageId ?? String(workerJob.id);
+}
+
+function isSupportedWorkerJob(workerJob: WorkerJob): boolean {
+  return isQueueWorkType(workerJob.workType);
+}
+
+function isQueueWorkType(value: string): value is QueueWorkType {
+  return queueWorkTypes.includes(value as QueueWorkType);
+}
+
+function toQueueWorkType(value: string): QueueWorkType {
+  if (!isQueueWorkType(value)) {
+    throw new DurableQueueProviderError(
+      "unsupported_work_type",
+      "WorkerJob work type is unsupported.",
+    );
+  }
+
+  return value;
+}
+
+function toApplicationPortFailure(error: unknown): ApplicationPortFailure {
+  if (error instanceof DurableQueueProviderError) {
+    return createApplicationPortFailure({
+      category: error.retryable ? "unavailable" : "conflict",
+      code: error.code,
+      message: error.message,
+      retryable: error.retryable,
+      ownerContext: "operations",
+      failureCategory: error.failureCategory,
+    });
+  }
+
+  if (error instanceof TypeError) {
+    return createApplicationPortFailure({
+      category: "rejected",
+      code: "queue_request_rejected",
+      message: error.message,
+      retryable: false,
+      ownerContext: "operations",
+      failureCategory: "queue",
+    });
+  }
+
+  return createApplicationPortFailure({
+    category: "unknown",
+    code: "durable_queue_provider_unexpected_failure",
+    message: "Durable queue provider failed unexpectedly.",
+    retryable: true,
+    ownerContext: "operations",
+    failureCategory: "unexpected",
+  });
+}
+
+function assertNonNegativeInteger(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new TypeError(`${label} must be a non-negative integer.`);
+  }
+}
+
+function optional<TKey extends string, TValue>(
+  key: TKey,
+  value: TValue | undefined,
+): Partial<Record<TKey, TValue>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
+}
