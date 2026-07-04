@@ -1,0 +1,16 @@
+{
+  "data": {
+    "resourceType": "message",
+    "resourceId": "inst_demo",
+    "operationStatus": "queued",
+    "accepted": true,
+    "retryable": false,
+    "async": true,
+    "resultRef": "msg_demo_send"
+  },
+  "meta": {
+    "requestId": "tui-message-send-fixture",
+    "correlationId": "tui-message-send-correlation",
+    "timestamp": "2026-07-04T00:00:00.000Z"
+  }
+}

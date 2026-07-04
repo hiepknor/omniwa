@@ -123,6 +123,9 @@ Wire these first:
 | Jobs      | `GET /v1/jobs/{id}`                       | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed.                 |
 | Messages  | `GET /v1/instances/{id}/messages`         | `implemented_public` | Instance-scoped message list; raw text, JID, provider payloads, and intent refs are not exposed. |
 | Messages  | `GET /v1/messages/{id}`                   | `implemented_public` | Message status/detail panel with safe status, type, direction, and instance ref.                 |
+| Messages  | `POST /v1/instances/{id}/messages/text`   | `implemented_public` | Controlled text send action; requires `idempotency-key` and returns only operation metadata.     |
+| Messages  | `POST /v1/messages/{id}/retry`            | `implemented_public` | Retry eligible failed text messages as a new safe queued attempt; requires `idempotency-key`.    |
+| Messages  | `POST /v1/messages/{id}/cancel`           | `implemented_public` | Cancel eligible outbound messages before terminal delivery; requires `idempotency-key`.          |
 | Chats     | `GET /v1/instances/{id}/chats`            | `implemented_public` | Preferred instance-scoped chat list for TUI navigation.                                          |
 | Chats     | `GET /v1/chats/{id}`                      | `implemented_public` | Chat detail/status panel with safe unread, label, mute, and pin state.                           |
 | Contacts  | `GET /v1/instances/{id}/contacts`         | `implemented_public` | Preferred instance-scoped contact list. Raw JIDs and phone numbers are not exposed.              |
@@ -139,7 +142,7 @@ Keep these disabled or read-only with a backend-not-ready state:
 
 - Group mutations
 - Chat message timeline by chat id
-- Message send/retry/cancel actions
+- Media message send
 - Logs
 - Audit
 - Settings
@@ -202,6 +205,12 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs/job_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/messages"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/messages/msg_demo"
+curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: send-text-demo" -H "content-type: application/json" \
+  -d '{"to":"contact_ref_demo","text":"Hello from OmniWA"}' "$BASE/v1/instances/inst_demo/messages/text"
+curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: retry-message-demo" \
+  "$BASE/v1/messages/msg_failed/retry"
+curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: cancel-message-demo" \
+  "$BASE/v1/messages/msg_queued/cancel"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/chats"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/chats/chat_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/contacts"
@@ -240,6 +249,9 @@ Required fixture states:
 - Instance collection list
 - Message collection list
 - Message detail/status
+- Message send queued operation
+- Message retry queued operation
+- Message cancel accepted operation
 - Chat collection list
 - Chat detail/status
 - Contact collection list

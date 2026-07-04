@@ -70,7 +70,9 @@ import {
   createMinimalMessageGuardrailService,
   type MinimalMessageGuardrailService,
 } from "./minimal-message-guardrail.js";
+import { createCancelMessageHandler } from "./handlers/cancel-message.handler.js";
 import { createProcessOutboundMessageWorkHandler } from "./handlers/process-outbound-message-work.handler.js";
+import { createRetryMessageSendHandler } from "./handlers/retry-message-send.handler.js";
 import { createSendTextMessageHandler } from "./handlers/send-text-message.handler.js";
 
 export type ApplicationDispatcherRepositories = Readonly<{
@@ -193,6 +195,18 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       handlers.set("SendTextMessage", sendTextHandler);
     }
 
+    const retryMessageSendHandler = this.createRetryMessageSendHandler();
+
+    if (retryMessageSendHandler !== undefined) {
+      handlers.set("RetryMessageSend", retryMessageSendHandler);
+    }
+
+    const cancelMessageHandler = this.createCancelMessageHandler();
+
+    if (cancelMessageHandler !== undefined) {
+      handlers.set("CancelMessage", cancelMessageHandler);
+    }
+
     const processOutboundMessageWorkHandler = this.createProcessOutboundMessageWorkHandler();
 
     if (processOutboundMessageWorkHandler !== undefined) {
@@ -278,6 +292,55 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       queueProvider: this.queueProvider,
       domainEventPublisher: this.domainEventPublisher,
       uuidGenerator: this.uuidGenerator,
+    });
+  }
+
+  private createRetryMessageSendHandler(): CommandHandler | undefined {
+    const sessionRepository = this.repositories.sessionRepository;
+    const messageRepository = this.repositories.messageRepository;
+    const guardrailDecisionRepository = this.repositories.guardrailDecisionRepository;
+
+    if (
+      sessionRepository === undefined ||
+      messageRepository === undefined ||
+      guardrailDecisionRepository === undefined ||
+      this.outboundMessageIntentStore === undefined ||
+      this.queueProvider === undefined ||
+      this.domainEventPublisher === undefined
+    ) {
+      return undefined;
+    }
+
+    return createRetryMessageSendHandler({
+      activeSessionResolver:
+        this.activeSessionResolver ??
+        createActiveSessionResolver({
+          instanceRepository: this.repositories.instanceRepository,
+          sessionRepository,
+        }),
+      messageRepository,
+      outboundMessageIntentStore: this.outboundMessageIntentStore,
+      guardrailService:
+        this.guardrailService ??
+        createMinimalMessageGuardrailService({
+          guardrailDecisionRepository,
+        }),
+      queueProvider: this.queueProvider,
+      domainEventPublisher: this.domainEventPublisher,
+      uuidGenerator: this.uuidGenerator,
+    });
+  }
+
+  private createCancelMessageHandler(): CommandHandler | undefined {
+    const messageRepository = this.repositories.messageRepository;
+
+    if (messageRepository === undefined || this.domainEventPublisher === undefined) {
+      return undefined;
+    }
+
+    return createCancelMessageHandler({
+      messageRepository,
+      domainEventPublisher: this.domainEventPublisher,
     });
   }
 

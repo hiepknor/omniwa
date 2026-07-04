@@ -67,6 +67,58 @@ fn message_client_sends_idempotency_key() {
 }
 
 #[test]
+fn message_client_exposes_retry_and_cancel_mutations() {
+    let api_key = ApiKey::new("test-api-key").expect("valid API key");
+    let config = OmniwaClientConfig::new("http://localhost:3000", api_key).expect("valid config");
+    let transport = FixtureTransport::new()
+        .with_response(
+            "retryMessage",
+            SdkResponse::json(
+                202,
+                r#"{"data":{"resourceType":"message","resourceId":"msg_failed","operationStatus":"queued","accepted":true,"retryable":false,"async":true,"resultRef":"msg_retry"},"meta":{"requestId":"req_retry","correlationId":"corr_retry","timestamp":"2026-07-04T00:00:00.000Z"}}"#,
+            ),
+        )
+        .with_response(
+            "cancelMessage",
+            SdkResponse::json(
+                202,
+                r#"{"data":{"resourceType":"message","resourceId":"msg_queued","operationStatus":"accepted","accepted":true,"retryable":false,"async":true,"resultRef":"msg_queued"},"meta":{"requestId":"req_cancel","correlationId":"corr_cancel","timestamp":"2026-07-04T00:00:00.000Z"}}"#,
+            ),
+        );
+    let client = OmniwaClient::new(config, transport);
+    let retry_options = RequestOptions {
+        idempotency_key: Some(
+            IdempotencyKey::new("idem-retry-demo").expect("valid retry idempotency key"),
+        ),
+        ..RequestOptions::default()
+    };
+    let cancel_options = RequestOptions {
+        idempotency_key: Some(
+            IdempotencyKey::new("idem-cancel-demo").expect("valid cancel idempotency key"),
+        ),
+        ..RequestOptions::default()
+    };
+
+    let retry = client
+        .messages()
+        .retry_json("msg_failed", "{}", retry_options)
+        .expect("retry fixture response")
+        .success_envelope::<PublicOperationData>()
+        .expect("retry operation envelope");
+    let cancel = client
+        .messages()
+        .cancel_json("msg_queued", "{}", cancel_options)
+        .expect("cancel fixture response")
+        .success_envelope::<PublicOperationData>()
+        .expect("cancel operation envelope");
+
+    assert_eq!(retry.data.operation_status, "queued");
+    assert_eq!(retry.data.result_ref.as_deref(), Some("msg_retry"));
+    assert_eq!(cancel.data.operation_status, "accepted");
+    assert_eq!(cancel.data.result_ref.as_deref(), Some("msg_queued"));
+}
+
+#[test]
 fn api_error_maps_to_sdk_error() {
     let client = client_with_fixture(
         "listInstances",

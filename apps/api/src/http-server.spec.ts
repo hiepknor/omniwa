@@ -2,6 +2,7 @@ import {
   createApplicationCommandOutcome,
   createApplicationDispatcher,
   createApplicationQueryOutcome,
+  createApplicationPortFailure,
   createOutboundMessageIntentRef,
   type ApplicationCommandEnvelope,
   type ApplicationCommandOutcome,
@@ -16,12 +17,13 @@ import {
   type StoredTextOutboundMessageIntent,
   type TextOutboundMessageIntentInput,
 } from "@omniwa/application";
+import type { MessageId } from "@omniwa/domain";
 import {
   createInMemoryEventLogStore,
   createInMemoryRepositorySet,
 } from "@omniwa/infrastructure-persistence";
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
-import { ok } from "@omniwa/shared";
+import { err, ok } from "@omniwa/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -2323,6 +2325,30 @@ class CapturingOutboundMessageIntentStore implements OutboundMessageIntentStoreP
   ): Promise<ApplicationPortResult<OutboundMessageIntentBinding>> {
     this.bindings.push(binding);
     return Promise.resolve(ok(binding));
+  }
+
+  findTextIntentByMessage(
+    messageId: MessageId,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    const binding = this.bindings.find((record) => String(record.messageId) === String(messageId));
+
+    return Promise.resolve(
+      binding === undefined
+        ? err(
+            createApplicationPortFailure({
+              category: "rejected",
+              code: "outbound_intent_not_found",
+              message: "Outbound message intent was not found.",
+              retryable: false,
+              ownerContext: "messaging",
+            }),
+          )
+        : ok({
+            outboundIntentRef: binding.outboundIntentRef,
+            kind: "text",
+            createdAtEpochMilliseconds: 1,
+          }),
+    );
   }
 
   verifyTextIntent(

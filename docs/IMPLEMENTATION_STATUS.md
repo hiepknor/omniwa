@@ -15,9 +15,10 @@ Every progress update must be recorded here instead of being scattered across un
 
 ## Current Platform Increment
 
-| Increment                             | Status | Evidence                                                                                                                                                                   | Next                              |
-| ------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| N8 - PostgreSQL Repository Completion | Done   | Local `pnpm test:postgres` passed against `127.0.0.1:55432`; GitHub Actions Quality Gate run `28701511362` passed with real PostgreSQL contract tests before `pnpm check`. | N9 - Controlled Message Mutations |
+| Increment                             | Status | Evidence                                                                                                                                                                                                  | Next                             |
+| ------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| N9 - Controlled Message Mutations     | Done   | Local `pnpm check` passed after enabling controlled text send, retry, and cancel handlers, client-contract fixtures, checker allowlist, TUI integration docs, and Rust SDK retry/cancel fixture coverage. | N10 - Controlled Group Mutations |
+| N8 - PostgreSQL Repository Completion | Done   | Local `pnpm test:postgres` passed against `127.0.0.1:55432`; GitHub Actions Quality Gate run `28701511362` passed with real PostgreSQL contract tests before `pnpm check`.                                | Completed predecessor for N9     |
 
 ## Verification Snapshot
 
@@ -30,7 +31,7 @@ The counts below use two views:
 | Area                                           | Runtime source | Implementation survey |
 | ---------------------------------------------- | -------------- | --------------------- |
 | `packages/domain/src`                          | 71             | 90                    |
-| `packages/application/src`                     | 32             | 43                    |
+| `packages/application/src`                     | 34             | 45                    |
 | `packages/infrastructure-persistence/src`      | 14             | 23                    |
 | `packages/infrastructure-provider-baileys/src` | 5              | 9                     |
 | `packages/infrastructure-queue/src`            | 2              | 3                     |
@@ -60,7 +61,7 @@ done
 | ------------------------------------------------------------------------------------------------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Product / Architecture / Domain / Application / API / Persistence / Infrastructure / Engineering | Frozen                      | Baseline constraints remain active                                                                                           | Freeze documents under `docs/`                                                                                                                                                                   | Do not edit freeze docs for implementation convenience.                                                                                                                             |
 | Domain                                                                                           | Frozen                      | Substantial implementation present                                                                                           | 71 runtime source files; aggregates, value objects, events, policies, repository ports, queue/job concepts.                                                                                      | Further behavior must remain inside approved domain boundaries; production readiness is not implied.                                                                                |
-| Application                                                                                      | Frozen                      | Substantial implementation present                                                                                           | 32 runtime source files; dispatcher, command/query handling, send text workflow, guardrail flow, event publishing, active session and outbound intent resolution.                                | Controlled message mutations beyond the current path still need explicit implementation and tests.                                                                                  |
+| Application                                                                                      | Frozen                      | Substantial implementation present                                                                                           | 34 runtime source files; dispatcher, command/query handling, send/retry/cancel text workflows, guardrail flow, event publishing, active session and outbound intent resolution.                  | Controlled group/admin mutations and production hardening remain incremental work.                                                                                                  |
 | API / Interface                                                                                  | Frozen                      | Public platform API implemented for core read surfaces and selected commands                                                 | `apps/api/src`, `packages/interface-api/src`, OpenAPI checks, client contract checks.                                                                                                            | Broad mutation surface, permission/capability UX, and production-hardening details remain incremental work.                                                                         |
 | Persistence                                                                                      | Frozen                      | Partial production path implemented                                                                                          | Durable JSON adapters plus PostgreSQL repository set for Instance, WorkerJob, Message, Session, WebhookSubscription, WebhookDelivery, Chat, Contact, Group, GuardrailDecision, and HealthStatus. | PostgreSQL does not yet cover all catalog ports; MediaAsset, Label, ProviderProfile, AccessDecision, AuditRecord, ConfigurationSnapshot, and TelemetrySignal remain follow-up work. |
 | Queue / Jobs                                                                                     | Frozen                      | Functional but not production queue engine                                                                                   | `InMemoryQueueProvider` and PostgreSQL-backed `WorkerJobRepositoryPort` source state.                                                                                                            | Queue provider is still in-memory; distributed leasing, production queue engine, and multi-process queue semantics remain blockers.                                                 |
@@ -82,6 +83,8 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - `28701511362` is the first post-normalization GitHub Actions Quality Gate run that passed
   PostgreSQL contract tests and the full repository quality gate after the documentation cleanup
   commits were pushed.
+- N9 controlled message mutations were verified locally with `pnpm check`, covering send/retry/cancel
+  handlers, public client contract fixtures, OpenAPI compatibility, Rust SDK checks, and release gates.
 
 ## Known Gaps
 
@@ -94,8 +97,8 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - Multi-process worker/provider-runtime socket sharing is not productionized.
 - Auth state durable JSON exists for local/live validation, but production encryption and distributed
   ownership remain open hardening items.
-- Controlled message mutations and group/admin mutations need incremental implementation after durable
-  state and visibility remain stable.
+- Controlled group/admin mutations need incremental implementation after durable state and audit
+  evidence remain stable.
 
 ## Update Rule
 

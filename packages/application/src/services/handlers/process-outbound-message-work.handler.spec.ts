@@ -1,6 +1,7 @@
 import {
   acceptMessage,
   activateSession,
+  cancelMessage,
   createFailureCategory,
   createGuardrailDecisionId,
   createInstance,
@@ -238,6 +239,23 @@ describe("process outbound message work handler", () => {
         resultRef: String(messageId),
       }),
     );
+    expect(harness.provider.requests).toHaveLength(0);
+  });
+
+  it("does not call provider when the queued message was cancelled before dispatch", async () => {
+    const cancelledMessage = cancelMessage(queuedMessage());
+    const harness = createHarness({ messages: [cancelledMessage] });
+    const handler = createProcessOutboundMessageWorkHandler(harness.handlerOptions);
+
+    const outcome = await handler(processCommand("cmd-process-cancelled"));
+
+    expect(outcome).toMatchObject({
+      outcome: "failed",
+      accepted: false,
+      retryable: false,
+      reasonCode: "outbound_message_not_dispatchable",
+      resultRef: String(messageId),
+    });
     expect(harness.provider.requests).toHaveLength(0);
   });
 
@@ -491,6 +509,12 @@ class FakeOutboundMessageIntentStore implements OutboundMessageIntentStorePort {
     binding: OutboundMessageIntentBinding,
   ): Promise<ApplicationPortResult<OutboundMessageIntentBinding>> {
     return Promise.resolve(ok(binding));
+  }
+
+  findTextIntentByMessage(): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    return Promise.resolve(
+      this.available ? ok(intentReceipt()) : err(portFailure("outbound_intent_not_found", false)),
+    );
   }
 
   verifyTextIntent(): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {

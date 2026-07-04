@@ -1,0 +1,16 @@
+{
+  "data": {
+    "resourceType": "message",
+    "resourceId": "msg_demo_failed",
+    "operationStatus": "queued",
+    "accepted": true,
+    "retryable": false,
+    "async": true,
+    "resultRef": "msg_demo_retry"
+  },
+  "meta": {
+    "requestId": "tui-message-retry-fixture",
+    "correlationId": "tui-message-retry-correlation",
+    "timestamp": "2026-07-04T00:00:00.000Z"
+  }
+}

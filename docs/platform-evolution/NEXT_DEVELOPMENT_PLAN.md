@@ -72,29 +72,35 @@ The preferred order is:
 
 ## Immediate Next Increment
 
-### Increment N9 - Controlled Message Mutations
+### Increment N10 - Controlled Group Mutations
 
 Goal:
 
-- Expand message actions only where state is durable and visible.
+- Add group admin actions only where group/member state, permission checks, and audit evidence are
+  visible.
 
 Scope:
 
-- Keep public message mutations resource-oriented and avoid exposing internal command/query names.
-- Preserve idempotency for send/retry/cancel flows.
-- Keep message/job/session state visible through existing public read surfaces.
-- Update OpenAPI, client contract fixtures, and Rust SDK operations when public contract changes.
+- Keep public group mutations resource-oriented and avoid exposing internal command/query names.
+- Gate metadata and member actions behind explicit capability/permission checks.
+- Record safe audit evidence for create/update/leave/member-admin operations before promoting them
+  to `implemented_public`.
+- Keep raw group JIDs, member JIDs, invite links, provider payloads, and WhatsApp internals out of
+  public DTOs/logs.
+- Update OpenAPI, client contract fixtures, TUI integration docs, and Rust SDK operations when public
+  contract changes.
 
 Definition of Done:
 
-- Mutation responses do not leak raw JID, text, provider payload, auth state, or forbidden payload.
-- Duplicate idempotency keys do not create duplicate accepted messages or worker jobs.
-- Retry/cancel behavior is visible through message/job read models.
+- Mutation responses do not leak raw group/member/provider payload.
+- Duplicate idempotency keys do not create duplicate group operations or member jobs.
+- Group/member mutations are visible through existing group read models and audit/event surfaces.
+- Route-only group mutations remain disabled until their handler, audit, contract, and tests exist.
 - `pnpm check` and relevant narrow tests pass.
 
 Rollback:
 
-- Revert the specific mutation endpoint or handler commit and leave read APIs intact.
+- Revert the specific group mutation endpoint or handler commit and leave group read APIs intact.
 
 ## Planned Increments
 
@@ -108,8 +114,8 @@ Rollback:
 | N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes         |
 | N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                |
 | N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Done; GitHub Quality Gate `28701511362` passed            |
-| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Current                                                   |
-| N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                |
+| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Done; send/retry/cancel promoted in client contract       |
+| N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Current; add audit evidence before enabling actions       |
 | N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Queue, secrets, observability, ownership, load validation |
 
 ## Read API Design Rules

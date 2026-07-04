@@ -12,6 +12,7 @@ import {
   type UUIDGenerator,
 } from "@omniwa/shared";
 import { createOutboundMessageIntentRef, type ApplicationPortContext } from "@omniwa/application";
+import { createMessageId } from "@omniwa/domain";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -117,6 +118,57 @@ describe("outbound message intent store", () => {
     expect(verified.ok ? verified.value : undefined).toEqual(stored.ok ? stored.value : undefined);
     expect(JSON.stringify(verified)).not.toContain(rawRecipient);
     expect(JSON.stringify(verified)).not.toContain(rawText);
+  });
+
+  it("finds bound text intents by current and prior message ids without exposing payload", async () => {
+    const store = new InMemoryOutboundMessageIntentStore({
+      clock: fixedClock,
+      uuidGenerator: fixedUuidGenerator,
+    });
+    const originalMessageId = createMessageId("msg_original_intent_binding");
+    const retryMessageId = createMessageId("msg_retry_intent_binding");
+    const stored = await store.storeTextIntent(
+      {
+        recipientRef: rawRecipient,
+        text: rawText,
+      },
+      context,
+    );
+
+    expect(stored.ok).toBe(true);
+
+    if (!stored.ok) {
+      throw new Error("Expected text intent store to succeed.");
+    }
+
+    await store.bindMessageIntent(
+      {
+        outboundIntentRef: stored.value.outboundIntentRef,
+        messageId: originalMessageId,
+      },
+      context,
+    );
+    await store.bindMessageIntent(
+      {
+        outboundIntentRef: stored.value.outboundIntentRef,
+        messageId: retryMessageId,
+      },
+      context,
+    );
+
+    const originalLookup = await store.findTextIntentByMessage(originalMessageId, context);
+    const retryLookup = await store.findTextIntentByMessage(retryMessageId, context);
+
+    expect(originalLookup.ok).toBe(true);
+    expect(retryLookup.ok).toBe(true);
+    expect(originalLookup.ok ? originalLookup.value.outboundIntentRef : undefined).toBe(
+      stored.value.outboundIntentRef,
+    );
+    expect(retryLookup.ok ? retryLookup.value.outboundIntentRef : undefined).toBe(
+      stored.value.outboundIntentRef,
+    );
+    expect(JSON.stringify({ originalLookup, retryLookup })).not.toContain(rawRecipient);
+    expect(JSON.stringify({ originalLookup, retryLookup })).not.toContain(rawText);
   });
 
   it("returns safe errors for missing intents", async () => {

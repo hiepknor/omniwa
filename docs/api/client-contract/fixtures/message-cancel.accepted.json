@@ -1,0 +1,16 @@
+{
+  "data": {
+    "resourceType": "message",
+    "resourceId": "msg_demo_queued",
+    "operationStatus": "accepted",
+    "accepted": true,
+    "retryable": false,
+    "async": true,
+    "resultRef": "msg_demo_queued"
+  },
+  "meta": {
+    "requestId": "tui-message-cancel-fixture",
+    "correlationId": "tui-message-cancel-correlation",
+    "timestamp": "2026-07-04T00:00:00.000Z"
+  }
+}

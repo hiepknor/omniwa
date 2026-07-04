@@ -1,14 +1,18 @@
 import {
+  acceptMessage,
   activateSession,
   createGuardrailDecisionAggregate,
   createGuardrailDecisionId,
   createInstance,
   createInstanceId,
   createMessageId,
+  createOutboundMessageIntent,
   createSession,
   createSessionId,
+  failMessage,
   markInstanceConnected,
   markInstanceConnecting,
+  queueMessage,
   startSessionPairing,
   type DomainEvent,
   type GuardrailDecision,
@@ -76,6 +80,8 @@ import type {
   QueueWorkRequest,
 } from "../../ports/queue-provider.js";
 import { createSendTextMessageHandler } from "./send-text-message.handler.js";
+import { createRetryMessageSendHandler } from "./retry-message-send.handler.js";
+import { createCancelMessageHandler } from "./cancel-message.handler.js";
 
 const instanceId = createInstanceId("inst_send_text");
 const sessionId = createSessionId("session_send_text");
@@ -231,23 +237,218 @@ describe("send text message handler", () => {
 
     const outcome = await dispatcher.executeCommand(
       createApplicationCommandEnvelope({
-        name: "CancelMessage",
-        commandRef: "cmd-cancel-message",
+        name: "SendMediaMessage",
+        commandRef: "cmd-send-media-message",
         requestContext,
         actorRef: "api_key:test",
-        targetRef: "msg_1",
-        idempotencyKey: "idem-cancel-message",
+        targetRef: String(instanceId),
+        idempotencyKey: "idem-send-media-message",
+        safeInputRef: "media_ref_1",
       }),
     );
 
     expect(outcome).toEqual({
       kind: "command_outcome",
-      commandRef: "cmd-cancel-message",
+      commandRef: "cmd-send-media-message",
       outcome: "failed",
       accepted: false,
       retryable: false,
       reasonCode: "application_handler_not_implemented",
     });
+  });
+
+  it("retries a failed accepted message as a new queued message without exposing raw payload", async () => {
+    const guardrailDecisionId = createGuardrailDecisionId("guardrail_retry_original");
+    const harness = await createHarness({
+      guardrailDecisions: [
+        createGuardrailDecisionAggregate({
+          id: guardrailDecisionId,
+          evaluatedIntentRef: String(outboundIntentRef),
+          outcome: "allow",
+          reasonCode: "minimal_guardrail_pass",
+        }),
+      ],
+      rawJid: "84999999999@s.whatsapp.net",
+      rawText: "secret retry text",
+    });
+    const original = failedQueuedMessage("msg_retry_original", guardrailDecisionId);
+    await harness.messageRepository.save(original);
+    await harness.intentStore.bindMessageIntent(
+      {
+        outboundIntentRef,
+        messageId: original.id,
+      },
+      applicationContext("bind-original-retry"),
+    );
+    const handler = createRetryMessageSendHandler(harness.handlerOptions);
+
+    const outcome = await handler(
+      retryMessageCommand("cmd-retry-message", "idem-retry-message", original.id),
+    );
+    const serialized = JSON.stringify({
+      outcome,
+      messages: harness.messageRepository.list(),
+      enqueued: harness.queueProvider.enqueued,
+      events: harness.domainEventPublisher.inputs,
+    });
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-retry-message",
+      outcome: "queued",
+      accepted: true,
+      retryable: false,
+      resultRef: "msg:00000000-0000-4000-8000-000000000002",
+    });
+    expect(harness.messageRepository.list()).toHaveLength(2);
+    expect(harness.messageRepository.list()[1]).toMatchObject({
+      id: "msg:00000000-0000-4000-8000-000000000002",
+      status: "queued",
+      type: "text",
+    });
+    expect(harness.queueProvider.enqueued).toHaveLength(1);
+    expect(harness.queueProvider.enqueued[0]).toMatchObject({
+      ownerContext: "messaging",
+      ownerRef: "msg:00000000-0000-4000-8000-000000000002",
+      workType: "outbound_message",
+      idempotencyKey: "retry_message:idem-retry-message",
+      safeInputRef: String(outboundIntentRef),
+      safeMetadata: {
+        jobKind: "outbound_message",
+        instanceId: String(instanceId),
+        messageId: "msg:00000000-0000-4000-8000-000000000002",
+        outboundIntentRef: String(outboundIntentRef),
+      },
+    });
+    expect(harness.domainEventPublisher.eventNames()).toEqual(["MessageAccepted", "MessageQueued"]);
+    expect(serialized).not.toContain("84999999999@s.whatsapp.net");
+    expect(serialized).not.toContain("secret retry text");
+  });
+
+  it("does not enqueue duplicate retry work for the same idempotency key", async () => {
+    const guardrailDecisionId = createGuardrailDecisionId("guardrail_retry_duplicate");
+    const harness = await createHarness({
+      guardrailDecisions: [
+        createGuardrailDecisionAggregate({
+          id: guardrailDecisionId,
+          evaluatedIntentRef: String(outboundIntentRef),
+          outcome: "allow",
+          reasonCode: "minimal_guardrail_pass",
+        }),
+      ],
+    });
+    const original = failedQueuedMessage("msg_retry_duplicate", guardrailDecisionId);
+    await harness.messageRepository.save(original);
+    await harness.intentStore.bindMessageIntent(
+      {
+        outboundIntentRef,
+        messageId: original.id,
+      },
+      applicationContext("bind-original-duplicate"),
+    );
+    const handler = createRetryMessageSendHandler(harness.handlerOptions);
+    const command = retryMessageCommand("cmd-retry-duplicate", "idem-retry-duplicate", original.id);
+
+    const first = await handler(command);
+    const second = await handler(command);
+
+    expect(first.accepted).toBe(true);
+    expect(second).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-retry-duplicate",
+      outcome: "queued",
+      accepted: true,
+      retryable: false,
+      resultRef: "msg:00000000-0000-4000-8000-000000000002",
+    });
+    expect(harness.messageRepository.list()).toHaveLength(2);
+    expect(harness.queueProvider.enqueued).toHaveLength(1);
+  });
+
+  it("rejects retry for messages that were not previously accepted", async () => {
+    const harness = await createHarness();
+    const original = createOutboundMessageIntent({
+      id: createMessageId("msg_retry_not_allowed"),
+      instanceId,
+      type: "text",
+    });
+    await harness.messageRepository.save(original);
+    const handler = createRetryMessageSendHandler(harness.handlerOptions);
+
+    const outcome = await handler(
+      retryMessageCommand("cmd-retry-not-allowed", "idem-retry-not-allowed", original.id),
+    );
+
+    expect(outcome).toMatchObject({
+      outcome: "rejected",
+      accepted: false,
+      retryable: false,
+      reasonCode: "retry_message_not_allowed",
+      resultRef: String(original.id),
+    });
+    expect(harness.queueProvider.enqueued).toHaveLength(0);
+  });
+
+  it("cancels a queued outbound message and publishes only the new cancellation event", async () => {
+    const guardrailDecisionId = createGuardrailDecisionId("guardrail_cancel_queued");
+    const harness = await createHarness();
+    const queued = queuedMessage("msg_cancel_queued", guardrailDecisionId);
+    await harness.messageRepository.save(queued);
+    const handler = createCancelMessageHandler({
+      messageRepository: harness.messageRepository,
+      domainEventPublisher: harness.domainEventPublisher,
+    });
+
+    const outcome = await handler(
+      cancelMessageCommand("cmd-cancel-queued", "idem-cancel-queued", queued.id),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-cancel-queued",
+      outcome: "accepted",
+      accepted: true,
+      retryable: false,
+      resultRef: String(queued.id),
+    });
+    await expect(harness.messageRepository.load(queued.id)).resolves.toMatchObject({
+      status: "cancelled",
+    });
+    expect(harness.domainEventPublisher.eventNames()).toEqual(["MessageCancelled"]);
+    expect(harness.domainEventPublisher.inputs[0]).toMatchObject({
+      baseEventCount: queued.domainEvents.length,
+    });
+  });
+
+  it("rejects cancellation for terminal messages without leaking raw payload", async () => {
+    const guardrailDecisionId = createGuardrailDecisionId("guardrail_cancel_terminal");
+    const harness = await createHarness({ rawJid: "raw-cancel-jid", rawText: "raw cancel text" });
+    const failed = failedQueuedMessage("msg_cancel_terminal", guardrailDecisionId);
+    await harness.messageRepository.save(failed);
+    const handler = createCancelMessageHandler({
+      messageRepository: harness.messageRepository,
+      domainEventPublisher: harness.domainEventPublisher,
+    });
+
+    const outcome = await handler(
+      cancelMessageCommand("cmd-cancel-terminal", "idem-cancel-terminal", failed.id),
+    );
+    const serialized = JSON.stringify({
+      outcome,
+      messages: harness.messageRepository.list(),
+      events: harness.domainEventPublisher.inputs,
+    });
+
+    expect(outcome).toMatchObject({
+      outcome: "rejected",
+      accepted: false,
+      retryable: false,
+      reasonCode: "cancel_message_not_allowed",
+      resultRef: String(failed.id),
+    });
+    expect(harness.domainEventPublisher.inputs).toHaveLength(0);
+    expect(serialized).not.toContain("raw-cancel-jid");
+    expect(serialized).not.toContain("raw cancel text");
   });
 });
 
@@ -262,6 +463,47 @@ function sendTextCommand(commandRef: string, idempotencyKey: string) {
     safeInputRef: String(outboundIntentRef),
     dataClassification: "confidential",
   });
+}
+
+function retryMessageCommand(commandRef: string, idempotencyKey: string, messageId: MessageId) {
+  return createApplicationCommandEnvelope({
+    name: "RetryMessageSend",
+    commandRef,
+    requestContext,
+    actorRef: "api_key:test",
+    targetRef: String(messageId),
+    idempotencyKey,
+    dataClassification: "confidential",
+  });
+}
+
+function cancelMessageCommand(commandRef: string, idempotencyKey: string, messageId: MessageId) {
+  return createApplicationCommandEnvelope({
+    name: "CancelMessage",
+    commandRef,
+    requestContext,
+    actorRef: "api_key:test",
+    targetRef: String(messageId),
+    idempotencyKey,
+    dataClassification: "confidential",
+  });
+}
+
+function queuedMessage(id: string, guardrailDecisionId: GuardrailDecisionId): Message {
+  return queueMessage(
+    acceptMessage(
+      createOutboundMessageIntent({
+        id: createMessageId(id),
+        instanceId,
+        type: "text",
+      }),
+      guardrailDecisionId,
+    ),
+  );
+}
+
+function failedQueuedMessage(id: string, guardrailDecisionId: GuardrailDecisionId): Message {
+  return failMessage(queuedMessage(id, guardrailDecisionId), "provider");
 }
 
 async function createHarness(
@@ -558,7 +800,10 @@ class FakeOutboundMessageIntentStore implements OutboundMessageIntentStorePort {
 
   bindMessageIntent(
     binding: OutboundMessageIntentBinding,
+    context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<OutboundMessageIntentBinding>> {
+    void context;
+
     const existing = this.records.get(String(binding.outboundIntentRef));
 
     if (existing === undefined) {
@@ -574,6 +819,24 @@ class FakeOutboundMessageIntentStore implements OutboundMessageIntentStorePort {
     );
 
     return Promise.resolve(ok(binding));
+  }
+
+  findTextIntentByMessage(
+    messageId: MessageId,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    const stored = [...this.records.values()].find(
+      (record) => String(record.messageId) === String(messageId),
+    );
+
+    return Promise.resolve(
+      stored === undefined
+        ? err(portFailure("outbound_intent_not_found", false))
+        : ok({
+            outboundIntentRef: stored.outboundIntentRef,
+            kind: "text",
+            createdAtEpochMilliseconds: stored.createdAtEpochMilliseconds,
+          }),
+    );
   }
 
   verifyTextIntent(
@@ -676,7 +939,9 @@ class CapturingDomainEventPublisher implements DomainEventPublisher {
 
   eventNames(): readonly DomainEvent["name"][] {
     return Object.freeze(
-      this.inputs.flatMap((input) => input.aggregateEvents.map((event) => event.name)),
+      this.inputs.flatMap((input) =>
+        input.aggregateEvents.slice(input.baseEventCount).map((event) => event.name),
+      ),
     );
   }
 }

@@ -131,7 +131,7 @@
       "status": "implemented_public",
       "recommendedForTui": true,
       "dto": "MessageDto|OperationData",
-      "notes": "Read routes are public for instance-scoped message lists and message status. Send/retry/cancel actions remain disabled until their public contract is promoted."
+      "notes": "Read routes are public for instance-scoped message lists and message status. Text send, retry, and cancel mutations are public and require idempotency-key. Public DTOs do not expose raw text, JID, provider payloads, outbound intent refs, guardrail refs, or domain events."
     },
     "media": {
       "status": "route_exists_not_implemented",
@@ -481,12 +481,37 @@
       "feature": "messages",
       "method": "POST",
       "path": "/v1/instances/{instanceId}/messages/text",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "OperationData",
       "idempotencyRequired": true,
       "requestDto": "TextMessageRequest",
-      "responseEnvelope": "SuccessEnvelope"
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Queues a controlled text send through Application. Response and errors do not expose raw to/text input."
+    },
+    {
+      "feature": "messages",
+      "method": "POST",
+      "path": "/v1/messages/{messageId}/retry",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "OptionalObjectRequest",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Retries an eligible failed text message by creating a new queued message attempt. Raw text, JID, provider payload, and outbound intent refs are not exposed."
+    },
+    {
+      "feature": "messages",
+      "method": "POST",
+      "path": "/v1/messages/{messageId}/cancel",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "OptionalObjectRequest",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Cancels an eligible outbound message before terminal delivery. Public response contains only operation metadata and the safe resultRef."
     },
     {
       "feature": "queue",
@@ -800,6 +825,9 @@
     "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
     "messagesList": "docs/api/client-contract/fixtures/messages.list.json",
     "messageDetail": "docs/api/client-contract/fixtures/message.detail.json",
+    "messageSendQueued": "docs/api/client-contract/fixtures/message-send.queued.json",
+    "messageRetryQueued": "docs/api/client-contract/fixtures/message-retry.queued.json",
+    "messageCancelAccepted": "docs/api/client-contract/fixtures/message-cancel.accepted.json",
     "chatsList": "docs/api/client-contract/fixtures/chats.list.json",
     "chatDetail": "docs/api/client-contract/fixtures/chat.detail.json",
     "contactsList": "docs/api/client-contract/fixtures/contacts.list.json",

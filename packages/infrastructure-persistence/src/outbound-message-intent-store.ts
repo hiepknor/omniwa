@@ -44,6 +44,7 @@ type StoredEncodedTextIntent = Readonly<{
   createdAtEpochMilliseconds: number;
   expiresAtEpochMilliseconds?: number;
   messageId?: string;
+  messageIds?: readonly string[];
 }>;
 
 type OutboundMessageIntentStoreState = Readonly<{
@@ -128,6 +129,7 @@ export class InMemoryOutboundMessageIntentStore implements OutboundMessageIntent
         intents[index] = freezeStoredIntent({
           ...existing,
           messageId: String(binding.messageId),
+          messageIds: addBindingMessageId(existing, binding.messageId),
         });
         this.state = freezeState({ intents: Object.freeze(intents) });
         this.persist();
@@ -146,6 +148,21 @@ export class InMemoryOutboundMessageIntentStore implements OutboundMessageIntent
         void context;
 
         const result = this.findAvailableTextIntent(outboundIntentRef);
+
+        return result.ok ? ok(receiptFor(result.value)) : result;
+      }),
+    );
+  }
+
+  findTextIntentByMessage(
+    messageId: MessageId,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<OutboundMessageIntentReceipt>> {
+    return Promise.resolve(
+      this.capturePortFailure(() => {
+        void context;
+
+        const result = this.findAvailableTextIntentByMessage(messageId);
 
         return result.ok ? ok(receiptFor(result.value)) : result;
       }),
@@ -211,6 +228,23 @@ export class InMemoryOutboundMessageIntentStore implements OutboundMessageIntent
 
     if (isExpired(stored, this.clock.epochMilliseconds())) {
       return err(intentFailure("rejected", "outbound_intent_expired", outboundIntentRef));
+    }
+
+    return ok(stored);
+  }
+
+  private findAvailableTextIntentByMessage(
+    messageId: MessageId,
+  ): ApplicationPortResult<StoredEncodedTextIntent> {
+    const key = String(messageId);
+    const stored = this.state.intents.find((intent) => intentIsBoundToMessage(intent, key));
+
+    if (stored === undefined) {
+      return err(intentFailureForMessage("rejected", "outbound_intent_not_found", messageId));
+    }
+
+    if (isExpired(stored, this.clock.epochMilliseconds())) {
+      return err(intentFailureForMessage("rejected", "outbound_intent_expired", messageId));
     }
 
     return ok(stored);
@@ -290,12 +324,18 @@ function mergeExistingBinding(
   existing: StoredEncodedTextIntent | undefined,
 ): StoredEncodedTextIntent {
   if (existing?.messageId === undefined) {
-    return next;
+    return existing?.messageIds === undefined
+      ? next
+      : freezeStoredIntent({
+          ...next,
+          messageIds: existing.messageIds,
+        });
   }
 
   return freezeStoredIntent({
     ...next,
     messageId: existing.messageId,
+    messageIds: addBindingMessageId(existing, existing.messageId as MessageId),
   });
 }
 
@@ -303,6 +343,7 @@ function freezeStoredIntent(input: StoredEncodedTextIntent): StoredEncodedTextIn
   return Object.freeze({
     ...input,
     payload: Object.freeze(input.payload),
+    ...(input.messageIds === undefined ? {} : { messageIds: Object.freeze([...input.messageIds]) }),
   });
 }
 
@@ -337,6 +378,38 @@ function intentFailure(
           },
         }),
   });
+}
+
+function intentFailureForMessage(
+  category: ApplicationPortFailureCategory,
+  code: string,
+  messageId: MessageId,
+): ApplicationPortFailure {
+  return createApplicationPortFailure({
+    category,
+    code,
+    message: "Outbound message intent store operation failed.",
+    retryable: false,
+    ownerContext: "messaging",
+    safeMetadata: {
+      messageId: String(messageId),
+    },
+  });
+}
+
+function addBindingMessageId(
+  existing: StoredEncodedTextIntent,
+  messageId: MessageId,
+): readonly string[] {
+  return Object.freeze(
+    [...new Set([...(existing.messageIds ?? []), existing.messageId, String(messageId)])].filter(
+      (value): value is string => value !== undefined,
+    ),
+  );
+}
+
+function intentIsBoundToMessage(intent: StoredEncodedTextIntent, messageId: string): boolean {
+  return intent.messageId === messageId || (intent.messageIds ?? []).includes(messageId);
 }
 
 function optional<TKey extends string, TValue>(
