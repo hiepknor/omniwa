@@ -138,7 +138,7 @@ pnpm check
 
 ## Remaining Work
 
-- Add the approved production Redis client adapter/dependency before multi-process production
-  runtime.
+- Review and accept or revise `docs/adr/ADR-0008-redis-rate-limit-client.md` before adding the
+  production Redis client adapter/dependency required for multi-process production runtime.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current
   aggregate state or do not yet have production repository coverage.

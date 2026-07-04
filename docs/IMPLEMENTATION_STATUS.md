@@ -142,6 +142,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   configured. A concrete production Redis client adapter/dependency, production repository coverage
   for label/media ownership where required, and owner modeling for resources without current owner
   fields remain open N11.5 follow-up work.
+- N11.5 concrete Redis client work is blocked on review of
+  `docs/adr/ADR-0008-redis-rate-limit-client.md`. Until that ADR is accepted, implementation must
+  continue using injected `RedisRateLimitScriptClient` fakes/adapters and must not add a Redis client
+  dependency.
 
 ## Update Rule
 

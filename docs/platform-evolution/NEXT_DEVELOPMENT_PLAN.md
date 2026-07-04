@@ -142,7 +142,8 @@ Redis script-store foundation without introducing a concrete Redis client depend
 composition can select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` only when an approved Redis script
 client is injected. Production API composition now fails closed unless that Redis-backed limiter is
 configured and security-audit evidence is routed to domain `AuditRecord` persistence; the concrete
-production Redis client adapter remains a follow-up hardening slice.
+production Redis client adapter remains a follow-up hardening slice and is gated by proposed
+`docs/adr/ADR-0008-redis-rate-limit-client.md`.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.
 
