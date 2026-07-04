@@ -10,6 +10,11 @@ single source of truth.
 
 ## Status
 
+This table describes documentation and design governance status. `Frozen` means the corresponding
+design baseline is approved and must not be changed casually; it does not mean that the area is fully
+implemented or production-ready. For implementation progress, use
+[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+
 | Area                  | Status                      | Primary Document                                                                                   |
 | --------------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
 | Product Definition    | Frozen                      | [FREEZE_PHASE_0.md](FREEZE_PHASE_0.md)                                                             |
