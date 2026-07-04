@@ -123,6 +123,11 @@ OMNIWA_PROVIDER_RUNTIME_STATE_DIR=.omniwa-local/live/provider-runtime
 OMNIWA_EVENT_LOG_PATH=.omniwa-local/live/event-log.json
 OMNIWA_BAILEYS_AUTH_STATE_PATH=.omniwa-local/live/provider-runtime/baileys-auth-state.json
 OMNIWA_PROVIDER_RUNTIME_DRAIN_INTERVAL_MS=1000
+OMNIWA_LIVE_DEMO_MODE=1
+OMNIWA_LIVE_DEMO_INSTANCE_ID=local_live_instance_1
+OMNIWA_LIVE_DEMO_SESSION_ID=local_live_session_1
+OMNIWA_LOCAL_QR_OUTPUT=file
+OMNIWA_LOCAL_QR_OUTPUT_PATH=.omniwa-local/live/provider-runtime/local-qr.secret.json
 
 OMNIWA_WORKER_RUNTIME_PROFILE=local
 OMNIWA_WORKER_PROVIDER_MODE=same-process-local-demo
@@ -138,11 +143,7 @@ OMNIWA_API_KEY=local-dev-secret-change-me
 Potential VS02-only env additions:
 
 ```bash
-OMNIWA_LIVE_DEMO_MODE=1
-OMNIWA_LIVE_DEMO_INSTANCE_ID=...
-OMNIWA_LIVE_DEMO_SESSION_ID=...
 OMNIWA_LIVE_DEMO_TEST_RECIPIENT=...
-OMNIWA_LOCAL_QR_OUTPUT=terminal
 ```
 
 Any env value containing secrets must not be echoed in logs.

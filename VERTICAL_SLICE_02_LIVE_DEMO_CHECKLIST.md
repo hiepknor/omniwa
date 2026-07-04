@@ -68,16 +68,18 @@ export OMNIWA_BAILEYS_AUTH_STATE_PATH=.omniwa-local/live/provider-runtime/bailey
 export OMNIWA_PROVIDER_RUNTIME_DRAIN_INTERVAL_MS=1000
 export OMNIWA_LOCAL_QR_OUTPUT=file
 export OMNIWA_LOCAL_QR_OUTPUT_PATH=.omniwa-local/live/provider-runtime/local-qr.secret.json
+export OMNIWA_LIVE_DEMO_INSTANCE_ID=local_live_instance_1
+export OMNIWA_LIVE_DEMO_SESSION_ID=local_live_session_1
 ```
 
 The QR output file contains raw QR data and is `secret` local-only data. Do not paste it into logs, issues, pull requests, screenshots, or public terminals.
 
 ## 5. Start Runtime
 
-After build:
+After build, or through the root helper script:
 
 ```bash
-node apps/provider-runtime/dist/index.js
+pnpm provider-runtime:local-live
 ```
 
 Expected startup output:
@@ -89,35 +91,39 @@ Expected startup output:
 - `readiness.authStateEncryption: "not_configured"`
 - `readiness.ownershipMode: "single_instance_in_memory"`
 - `localQrOutput.mode: "file"`
+- `localLiveSession.reasonCode: "local_live_session_started"`
 
 Do not proceed if the runtime starts with `profile: "production"` or if startup output includes secrets.
 
-## 6. Known Manual Run Gap
+## 6. Local Session Start Control Path
 
-At this checkpoint, provider-runtime has a composition root and long-lived drain loop, but there is not yet a committed operator command/API that starts a concrete provider session from the CLI.
+The local-live runtime now includes a committed operator-safe control path for VS02.
 
-Manual live demo cannot be marked complete until an operator-safe control path can call:
+When `OMNIWA_LIVE_DEMO_MODE=1` and both `OMNIWA_LIVE_DEMO_INSTANCE_ID` and
+`OMNIWA_LIVE_DEMO_SESSION_ID` are present, `apps/provider-runtime/src/index.ts` calls
+`startProviderRuntimeLocalLiveSession`, which calls:
 
 ```text
 ProviderRuntimeSupervisor.startSession(instanceId, providerId, sessionId)
 ```
 
-for a known local test instance/session.
+for the configured local test instance/session.
 
-Acceptable next implementation options:
+This is still a local-only control path:
 
-- Add a local-only dev command that starts one configured `instanceId/sessionId`.
-- Add a local-only background harness that composes provider runtime and worker in the same process.
-- Add a proper control-plane API later, if it follows Application/Provider boundaries.
+- It is not a production control plane.
+- It does not add distributed ownership or IPC.
+- It must only be used with dedicated local test accounts.
 
-Do not add production IPC, distributed leases, or a hidden business workflow as part of this checklist.
+A proper control-plane API remains a later platform feature and must follow the Application/Provider
+boundaries.
 
 ## 7. QR Evidence
 
-When session start is available:
+With the local-live control path configured:
 
 - [ ] Start provider-runtime in local live mode.
-- [ ] Trigger start session for the test instance/session.
+- [ ] Confirm startup reports `localLiveSession.reasonCode: "local_live_session_started"`.
 - [ ] Confirm `.omniwa-local/live/provider-runtime/local-qr.secret.json` is created.
 - [ ] Confirm the file contains:
   - `localOnly: true`

@@ -21,6 +21,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "start:local-live": "OMNIWA_PROVIDER_RUNTIME_PROFILE=local OMNIWA_LIVE_DEMO_MODE=1 OMNIWA_LOCAL_QR_OUTPUT=file node dist/index.js",
     "test": "vitest run --passWithNoTests"
   }
 }
