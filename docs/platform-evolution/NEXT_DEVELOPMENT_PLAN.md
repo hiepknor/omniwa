@@ -45,9 +45,9 @@ Current local runtime:
 - Public read surfaces must be consumed through REST or the official SDK, not internal handlers.
 - VS02 real WhatsApp local live demo is complete for local operator validation.
 - PostgreSQL repository completion is now the active production-hardening track. Foundation, Message,
-  Session, Chat, Contact, Group, Webhook repositories, and webhook dispatcher PostgreSQL composition
-  are complete; GuardrailDecision/HealthStatus repositories are complete; API/worker hybrid removal
-  is complete; real PostgreSQL CI remains.
+  Session, Chat, Contact, Group, Webhook repositories, GuardrailDecision/HealthStatus repositories,
+  webhook dispatcher PostgreSQL composition, and API/worker hybrid removal are complete. Real
+  PostgreSQL CI is configured and awaits the first remote workflow run after push.
 
 ## Development Strategy
 
@@ -78,7 +78,7 @@ Goal:
 
 Scope:
 
-- Prepare CI to run real PostgreSQL contract tests through `OMNIWA_POSTGRES_TEST_DATABASE_URL`.
+- Run real PostgreSQL contract tests through `OMNIWA_POSTGRES_TEST_DATABASE_URL` in CI.
 - Keep all scoped PostgreSQL adapters wired through `createPostgresqlRepositorySet`.
 
 Definition of Done:
@@ -87,6 +87,7 @@ Definition of Done:
   no longer use in-memory fallback for wired repositories.
 - Webhook dispatcher remains compatible with `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql`.
 - Contract tests cover all completed PostgreSQL adapters, including side-channel methods.
+- CI provisions PostgreSQL and runs `pnpm test:postgres` before the full `pnpm check` gate.
 - No raw JID, text, provider payload, auth state, or forbidden payload is denormalized into PostgreSQL
   columns or exposed through public DTOs/logs.
 - `pnpm check` passes.
@@ -107,8 +108,8 @@ Rollback:
 | N5    | Group Read APIs                  | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                              |
 | N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes         |
 | N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                |
-| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Current; Phase 0-4 complete, Phase 5 remains              |
-| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Requires durable message/session/job state                |
+| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Current; Phase 0-5 configured, first CI run pending       |
+| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Next after PostgreSQL CI passes                           |
 | N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                |
 | N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Queue, secrets, observability, ownership, load validation |
 

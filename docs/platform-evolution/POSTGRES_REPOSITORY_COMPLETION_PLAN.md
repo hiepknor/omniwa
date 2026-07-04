@@ -35,22 +35,22 @@ Current consequences after the completed increments:
   `postgresql` profile.
 
 This plan finishes the remaining adapters, removes the hybrid fallback, and enables the existing
-(currently skipped) real-PostgreSQL contract tests in CI.
+real-PostgreSQL contract tests in CI.
 
 ## Implementation Status Snapshot
 
 Status date: 2026-07-04.
 
-| Area                                      | Status   | Evidence                                                                                                                                        |
-| ----------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared PostgreSQL aggregate base          | Complete | `PostgresqlAggregateRepository` extracted and Instance/WorkerJob refactored.                                                                    |
-| Message adapter                           | Complete | `PostgresqlMessageRepository`, migration, idempotency side-channel, contract tests.                                                             |
-| Session adapter                           | Complete | `PostgresqlSessionRepository`, migration, contract tests.                                                                                       |
-| Webhook adapters                          | Complete | `PostgresqlWebhookSubscriptionRepository`, `PostgresqlWebhookDeliveryRepository`, migrations, signal/idempotency side-channels, contract tests. |
-| Webhook dispatcher PostgreSQL composition | Complete | `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql` now composes with PostgreSQL repositories.                                            |
-| Read projection / guardrail adapters      | Complete | Chat, Contact, Group, GuardrailDecision, and HealthStatus adapters are complete.                                                                |
-| API/worker hybrid fallback removal        | Complete | Runtime composition uses PostgreSQL repositories for all scoped API/worker repositories under the `postgresql` profile.                         |
-| Real PostgreSQL CI service                | Pending  | Env-gated real PostgreSQL tests still require CI provisioning with `OMNIWA_POSTGRES_TEST_DATABASE_URL`.                                         |
+| Area                                      | Status     | Evidence                                                                                                                                        |
+| ----------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared PostgreSQL aggregate base          | Complete   | `PostgresqlAggregateRepository` extracted and Instance/WorkerJob refactored.                                                                    |
+| Message adapter                           | Complete   | `PostgresqlMessageRepository`, migration, idempotency side-channel, contract tests.                                                             |
+| Session adapter                           | Complete   | `PostgresqlSessionRepository`, migration, contract tests.                                                                                       |
+| Webhook adapters                          | Complete   | `PostgresqlWebhookSubscriptionRepository`, `PostgresqlWebhookDeliveryRepository`, migrations, signal/idempotency side-channels, contract tests. |
+| Webhook dispatcher PostgreSQL composition | Complete   | `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql` now composes with PostgreSQL repositories.                                            |
+| Read projection / guardrail adapters      | Complete   | Chat, Contact, Group, GuardrailDecision, and HealthStatus adapters are complete.                                                                |
+| API/worker hybrid fallback removal        | Complete   | Runtime composition uses PostgreSQL repositories for all scoped API/worker repositories under the `postgresql` profile.                         |
+| Real PostgreSQL CI service                | Configured | `.github/workflows/quality-gate.yml` provisions PostgreSQL and sets `OMNIWA_POSTGRES_TEST_DATABASE_URL` before running `pnpm test:postgres`.    |
 
 ## Scope
 
@@ -223,18 +223,20 @@ no behavior change.
 9. Extend `PostgresqlRepositorySet`, `createPostgresqlRepositorySet`, and `postgresqlRepositoryMigrations`
    with the nine new adapters and migrations (ids following the `pgm_<date>_<seq>_<name>` convention).
 
-### Phase 5 — Tests and CI — Partial
+### Phase 5 — Tests and CI — Configured
 
 10. Add real-PostgreSQL contract tests per adapter, following `postgresql-repositories.spec.ts`
     (env-gated on `OMNIWA_POSTGRES_TEST_DATABASE_URL`). Each idempotency/signal side-channel gets an
     explicit round-trip assertion.
 11. Provision a PostgreSQL service and set `OMNIWA_POSTGRES_TEST_DATABASE_URL` in CI so the contract
-    tests actually run. This closes the current gap where the whole suite passes in ~3s because all
-    real-PostgreSQL tests skip.
+    tests actually run. This closes the previous gap where the whole suite could pass while all
+    real-PostgreSQL tests skipped.
 
 Completed adapters now have repository contract coverage across in-memory, durable-json, and
-PostgreSQL implementations. The remaining Phase 5 work is to provision the CI PostgreSQL service so
-env-gated tests run continuously rather than skipping.
+PostgreSQL implementations. The CI quality gate now runs `pnpm test:postgres` before `pnpm check` so
+the PostgreSQL repository contracts must execute against the configured service before the broader
+repository gate can pass. The first remote workflow run after push is the remaining external evidence
+for this configured gate.
 
 ## Completed Work Log
 
@@ -246,7 +248,9 @@ env-gated tests run continuously rather than skipping.
 | `a8b4b1c`      | Phase 2   | Added PostgreSQL WebhookSubscription and WebhookDelivery repositories, migrations, and side-channel contract coverage. |
 | `579b608`      | Phase 2   | Enabled webhook dispatcher PostgreSQL repository composition.                                                          |
 | `9e196e9`      | Phase 3   | Added PostgreSQL Chat, Contact, and Group repositories, migrations, and contract coverage.                             |
-| This increment | Phase 3   | Added PostgreSQL GuardrailDecision and HealthStatus repositories, migrations, and contract coverage.                   |
+| `e233d24`      | Phase 3   | Added PostgreSQL GuardrailDecision and HealthStatus repositories, migrations, and contract coverage.                   |
+| `19a4f71`      | Phase 4   | Removed API/worker PostgreSQL hybrid fallback so runtime composition uses the scoped PostgreSQL repository set.        |
+| This increment | Phase 5   | Added CI PostgreSQL service provisioning and a required `pnpm test:postgres` contract-test gate.                       |
 
 ## Definition of Done
 
@@ -255,8 +259,8 @@ env-gated tests run continuously rather than skipping.
 | All nine adapters implement their full port interface plus required side-channel methods.                                    | Complete                       | All scoped adapters are implemented with contract coverage.                           |
 | The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Complete                       | API and worker `postgresql` composition now use the scoped PostgreSQL repository set. |
 | The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.            |
-| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                            |
-| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped.         |
+| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Configured                     | CI provisions PostgreSQL and runs `pnpm test:postgres`; first remote run is pending.  |
+| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 5 configuration: 108 test files, 610 passed, 1 skipped.      |
 | No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.          |
 
 ## Risks and Watch-Items

@@ -2,8 +2,8 @@
 
 > Modern WhatsApp API platform built on WhiskeySockets/Baileys, designed for reliable automation, clean boundaries, and long-term extensibility.
 
-**Project status:** Platform Evolution / SDK Client Foundation
-**Current phase:** Phase J platform clients complete; Rust SDK hardening in progress
+**Project status:** Platform Evolution / Production Persistence Hardening
+**Current phase:** PostgreSQL repository completion; CI quality gate configured
 **Logo:** Placeholder. A project logo has not been added yet.
 
 ## Table of Contents
@@ -131,7 +131,7 @@ The key rule is simple: product behavior enters through the Application layer. A
 | Groups Domain        | Current | [PHASE_H_GROUPS_DOMAIN.md](docs/platform-evolution/PHASE_H_GROUPS_DOMAIN.md)                 |
 | Navigation Domains   | Current | [PHASE_I_CHATS_CONTACTS_LABELS.md](docs/platform-evolution/PHASE_I_CHATS_CONTACTS_LABELS.md) |
 | Platform Clients     | Current | [PHASE_J_PLATFORM_CLIENTS.md](docs/platform-evolution/PHASE_J_PLATFORM_CLIENTS.md)           |
-| Implementation       | Current | Platform Evolution Phase J complete; Rust SDK hardening in progress                          |
+| Implementation       | Current | Platform Evolution Phase J complete; PostgreSQL repository completion in progress            |
 
 ## Repository Structure
 
@@ -139,6 +139,9 @@ The repository has completed planning and now includes the Phase 8 Sprint 0 impl
 
 ```text
 .
+|-- .github/
+|   `-- workflows/
+|       `-- quality-gate.yml
 |-- .omniwa/
 |-- apps/
 |   |-- api/
@@ -223,7 +226,7 @@ Product
   -> Release
 ```
 
-The project is currently in **Platform Evolution**, after Phase 8 repository bootstrap. REST, OpenAPI, official Rust SDK foundation with real HTTP transport and typed envelopes, projection read routes, SSE realtime foundation, durable JSON persistence adapters, first-class Groups support, Chat/Contact/Label navigation domains, and SDK-only platform client profiles are present. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
+The project is currently in **Platform Evolution**, after Phase 8 repository bootstrap. REST, OpenAPI, official Rust SDK foundation with real HTTP transport and typed envelopes, projection read routes, SSE realtime foundation, durable JSON persistence adapters, first-class Groups support, Chat/Contact/Label navigation domains, SDK-only platform client profiles, and PostgreSQL repository adapters are present. Implementation must follow the frozen engineering plan and must not reopen Product, Architecture, Domain, Application, API, Persistence, or Infrastructure decisions without ADR and affected-phase review.
 
 ## Contributing
 
@@ -235,7 +238,7 @@ A dedicated `CONTRIBUTING.md` has not been added yet. Contribution rules should 
 
 ## Roadmap
 
-The design and engineering planning phases are complete and frozen through Phase 7. Platform evolution has completed REST/OpenAPI/SDK foundation work, Phase E query projections, Phase F realtime event stream foundation, Phase G durable persistence adapter work, Phase H Groups Domain Addendum, Phase I Chats / Contacts / Labels, and Phase J Platform Clients foundation. The Rust SDK now has real HTTP transport, typed envelopes, and Git dependency readiness. The next platform increment should be defined from the remaining resource-specific DTO, provider runtime, async transport, and client runtime gaps.
+The design and engineering planning phases are complete and frozen through Phase 7. Platform evolution has completed REST/OpenAPI/SDK foundation work, Phase E query projections, Phase F realtime event stream foundation, Phase G durable persistence adapter work, Phase H Groups Domain Addendum, Phase I Chats / Contacts / Labels, and Phase J Platform Clients foundation. The Rust SDK now has real HTTP transport, typed envelopes, and Git dependency readiness. The active hardening track is PostgreSQL repository completion, including CI-backed real PostgreSQL contract tests. The next platform increment should be defined from the remaining controlled mutation, provider runtime, async transport, and production hardening gaps.
 
 For the broader product progression, see [ROADMAP.md](docs/ROADMAP.md). Detailed implementation tasks should be derived from [IMPLEMENTATION_FREEZE.md](docs/engineering/IMPLEMENTATION_FREEZE.md), [SPRINT_PLAN.md](docs/engineering/SPRINT_PLAN.md), and the AI Runtime Kit, not invented independently.
 
