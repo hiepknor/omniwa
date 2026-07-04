@@ -75,6 +75,14 @@ class GroupMutationHandler {
       });
     }
 
+    if (envelope.actorRef === undefined) {
+      return commandOutcome(envelope, "failed", {
+        accepted: false,
+        retryable: false,
+        reasonCode: "group_mutation_actor_required",
+      });
+    }
+
     const group = await this.groupRepository.load(input.groupId);
 
     if (group === undefined || group.status === "deleted") {
@@ -117,7 +125,7 @@ class GroupMutationHandler {
     const baseEventCount = group.domainEvents.length;
     const mutationResult = applyGroupMutation(group, intentResult.value, {
       id: input.actionId,
-      actorRef: envelope.actorRef ?? "api_key:unknown",
+      actorRef: envelope.actorRef,
     });
 
     if (!mutationResult.ok) {

@@ -122,6 +122,39 @@ describe("group mutation handler", () => {
     expect(publisher.inputs).toHaveLength(1);
   });
 
+  it("rejects group mutations without an actorRef instead of writing an unknown audit actor", async () => {
+    const groupRepository = new FakeGroupRepository([activeGroup()]);
+    const publisher = new FakeDomainEventPublisher();
+    const handler = createGroupMutationHandler({
+      commandName: "UpdateGroupMetadata",
+      groupRepository,
+      groupMutationIntentStore: new FakeGroupMutationIntentStore({
+        groupMutationIntentRef: intentRef,
+        kind: "metadata",
+        subject: "New subject",
+        createdAtEpochMilliseconds: 1,
+      }),
+      domainEventPublisher: publisher,
+    });
+
+    const outcome = await handler(
+      command("UpdateGroupMetadata", "cmd-missing-actor", "idem-missing-actor", {
+        includeActorRef: false,
+      }),
+    );
+    const saved = await groupRepository.load(groupId);
+
+    expect(outcome).toMatchObject({
+      outcome: "failed",
+      accepted: false,
+      retryable: false,
+      reasonCode: "group_mutation_actor_required",
+    });
+    expect(saved?.actions).toHaveLength(0);
+    expect(publisher.inputs).toHaveLength(0);
+    expect(JSON.stringify(saved)).not.toContain("api_key:unknown");
+  });
+
   it("adds a group member without leaking the raw member JID through outcome or events", async () => {
     const rawMemberJid = "12025550123@s.whatsapp.net";
     const groupRepository = new FakeGroupRepository([activeGroup()]);
@@ -248,12 +281,17 @@ describe("group mutation handler", () => {
   });
 });
 
-function command(name: GroupMutationCommandName, commandRef: string, idempotencyKey: string) {
+function command(
+  name: GroupMutationCommandName,
+  commandRef: string,
+  idempotencyKey: string,
+  options: Readonly<{ includeActorRef?: boolean; actorRef?: string }> = {},
+) {
   return createApplicationCommandEnvelope({
     name,
     commandRef,
     requestContext,
-    actorRef: "api_key:test",
+    ...(options.includeActorRef === false ? {} : { actorRef: options.actorRef ?? "api_key:test" }),
     targetRef: String(groupId),
     safeInputRef: String(intentRef),
     idempotencyKey,
