@@ -16,6 +16,7 @@ import {
 import { hashApiKey } from "./api-key-auth.js";
 import { handleApiHttpRequest } from "./http-server.js";
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
+import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
 
 const runtimeRateLimitCredential: ApiCredential = {
   kind: "api_key",
@@ -436,6 +437,44 @@ describe("API runtime composition", () => {
         OMNIWA_API_RATE_LIMIT_ADMIN_MAX_REQUESTS: "NaN",
       }),
     ).toThrow(/OMNIWA_API_RATE_LIMIT_ADMIN_MAX_REQUESTS must be a positive integer/u);
+  });
+
+  it("wires an env-configured in-memory security audit sink for denied decisions", async () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_SECURITY_AUDIT_IN_MEMORY: "true",
+    });
+    const securityAuditSink = composition.options.securityAuditSink;
+
+    expect(securityAuditSink).toBeInstanceOf(InMemoryApiSecurityAuditSink);
+
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "invalid-runtime-secret",
+          "x-request-id": "runtime-audit-denied",
+          "x-correlation-id": "runtime-audit-correlation",
+        },
+      },
+      composition.options,
+    );
+    const events = (securityAuditSink as InMemoryApiSecurityAuditSink).snapshot();
+
+    expect(response.statusCode).toBe(401);
+    expect(events).toEqual([
+      expect.objectContaining({
+        eventType: "authentication_denied",
+        requestId: "runtime-audit-denied",
+        correlationId: "runtime-audit-correlation",
+        path: "/v1/instances",
+        code: "missing_or_invalid_api_key",
+        statusCode: 401,
+      }),
+    ]);
+    expect(JSON.stringify(events)).not.toContain("invalid-runtime-secret");
   });
 
   it("fails fast for production profile until production adapters are implemented", () => {

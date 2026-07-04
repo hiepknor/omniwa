@@ -33,6 +33,7 @@ import {
   InMemoryFixedWindowRateLimiter,
   type ApiRateLimitEndpointClass,
 } from "./api-rate-limiter.js";
+import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
 import {
   readApiKeysFromEnv,
   readHashedApiKeysFromEnv,
@@ -99,6 +100,7 @@ export function createApiRuntimeComposition(
   );
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
   const rateLimiter = createRuntimeRateLimiter(env);
+  const securityAuditSink = createRuntimeSecurityAuditSink(env);
   const queueProvider = new InMemoryQueueProvider({
     workerJobRepository: repositories.workerJobRepository,
   });
@@ -136,6 +138,7 @@ export function createApiRuntimeComposition(
       groupMutationIntentStore,
       ...optional("eventSource", eventSource),
       ...optional("rateLimiter", rateLimiter),
+      ...optional("securityAuditSink", securityAuditSink),
       ...optional(
         "apiKeyLifecycleService",
         apiKeyLifecycleStore === undefined
@@ -232,6 +235,14 @@ function createRuntimeRateLimiter(
     windowMilliseconds,
     endpointClassLimits,
   });
+}
+
+function createRuntimeSecurityAuditSink(
+  env: NodeJS.ProcessEnv,
+): InMemoryApiSecurityAuditSink | undefined {
+  return readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_IN_MEMORY)
+    ? new InMemoryApiSecurityAuditSink()
+    : undefined;
 }
 
 function readEndpointClassRateLimitEnv(

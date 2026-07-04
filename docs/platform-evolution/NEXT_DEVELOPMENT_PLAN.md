@@ -126,9 +126,11 @@ for that secret-name path; and provider runtime can encrypt durable Baileys auth
 routes for safe list, provision, revoke, and rotate flows when `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`
 is configured. N11.5 is now current; its first slice wires opt-in API rate limits from
 `OMNIWA_API_RATE_LIMIT_MAX_REQUESTS` and `OMNIWA_API_RATE_LIMIT_WINDOW_MS`, plus optional
-endpoint-class limits. Remaining N11.5 work should focus on persistent ownership resolution,
-denied-decision evidence, distributed rate limiting, and metrics export. Production external
-secret-provider selection and final production-profile validation remain later hardening work.
+endpoint-class limits. It also wires opt-in in-memory denied-decision evidence through
+`OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true`. Remaining N11.5 work should focus on persistent
+ownership resolution, persistent audit evidence, distributed rate limiting, and metrics export.
+Production external secret-provider selection and final production-profile validation remain later
+hardening work.
 
 ## Planned Increments
 
