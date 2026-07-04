@@ -89,4 +89,4 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 
 ## Update Rule
 
-Mọi thay đổi tiến độ cập nhật ở đây, không rải rác.
+Record every progress change here instead of scattering status across other documents.
