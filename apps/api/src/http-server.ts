@@ -361,7 +361,7 @@ export async function handleApiHttpRequest(
     return createErrorHttpResponse(ownership.failure, metaBase);
   }
 
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimit(
     credential,
     request.method,
     request.url,
@@ -490,7 +490,7 @@ export async function handleApiEventStreamRequest(
     );
   }
 
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimit(
     credential,
     request.method,
     request.url,
@@ -1484,7 +1484,7 @@ async function handleApiKeyLifecycleRoute(input: {
     );
   }
 
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimit(
     input.context.credential,
     input.request.method,
     input.request.url,
@@ -2329,24 +2329,26 @@ function resourceTypeForQuery(name: string): string {
   return "resource";
 }
 
-function checkRateLimit(
+async function checkRateLimit(
   credential: ApiCredential,
   method: string,
   url: string,
   instanceRef: string | undefined,
   targetRef: string | undefined,
   rateLimiter: ApiRateLimiter | undefined,
-): Readonly<{
-  failure?: HttpFailure;
-  endpointClass?: ApiRateLimitEndpointClass;
-  bucketKey?: string;
-}> {
+): Promise<
+  Readonly<{
+    failure?: HttpFailure;
+    endpointClass?: ApiRateLimitEndpointClass;
+    bucketKey?: string;
+  }>
+> {
   if (rateLimiter === undefined) {
     return Object.freeze({});
   }
 
   const endpointClass = classifyRateLimitEndpoint(method, url);
-  const decision = rateLimiter.check({
+  const decision = await rateLimiter.check({
     credential,
     method,
     url,

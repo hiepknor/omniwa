@@ -373,14 +373,15 @@ describe("API runtime composition", () => {
         remaining: 0,
       },
     });
-    expect(
-      createApiRateLimitMetricPoints(
-        composition.options.rateLimiter?.snapshot?.() ?? {
-          windowMilliseconds: 0,
-          buckets: [],
-        },
-      ),
-    ).toContainEqual(
+    const rateLimitSnapshot =
+      composition.options.rateLimiter?.snapshot === undefined
+        ? {
+            windowMilliseconds: 0,
+            buckets: [],
+          }
+        : await composition.options.rateLimiter.snapshot();
+
+    expect(createApiRateLimitMetricPoints(rateLimitSnapshot)).toContainEqual(
       expect.objectContaining({
         name: "api.rate_limit.bucket.count",
         value: 1,

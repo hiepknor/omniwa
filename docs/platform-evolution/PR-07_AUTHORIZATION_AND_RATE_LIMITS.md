@@ -10,19 +10,20 @@ hooks that production adapters can persist later.
 
 ## Scope Implemented
 
-| Area                          | Status   | Notes                                                                                  |
-| ----------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| Resource ownership types      | Complete | Ownership checks now classify instance, message, group, webhook, delivery, job, event. |
-| Resource ownership resolver   | Complete | In-memory resource-to-instance resolver exists for runtime/test composition.           |
-| Repository ownership resolver | Partial  | Runtime can resolve session/message/chat/contact/group/job owners from repositories.   |
-| Admin bypass decision         | Complete | `admin:*` bypass is explicit in the ownership decision and can be audited.             |
-| Instance-scoped rate limiting | Complete | Rate-limit buckets prefer resolved `instanceRef` over non-instance resource ids.       |
-| Endpoint-class guardrails     | Complete | In-memory limiter supports per-endpoint-class limits such as lower message send caps.  |
-| Runtime rate-limit wiring     | Complete | API runtime can opt in through env-configured fixed-window limits.                     |
-| Rate-limit observability      | Complete | Limiter exposes safe snapshots and exports low-cardinality API metric points.          |
-| Security audit hook           | Complete | HTTP boundary records auth, authorization, rate-limit denial, and admin bypass events. |
-| Runtime audit wiring          | Complete | API runtime can opt in to in-memory, durable JSON, or domain AuditRecord evidence.     |
-| Regression coverage           | Complete | Tests cover resource ownership, rate exhaustion, audit events, and admin bypass.       |
+| Area                           | Status   | Notes                                                                                  |
+| ------------------------------ | -------- | -------------------------------------------------------------------------------------- |
+| Resource ownership types       | Complete | Ownership checks now classify instance, message, group, webhook, delivery, job, event. |
+| Resource ownership resolver    | Complete | In-memory resource-to-instance resolver exists for runtime/test composition.           |
+| Repository ownership resolver  | Partial  | Runtime can resolve session/message/chat/contact/group/job owners from repositories.   |
+| Admin bypass decision          | Complete | `admin:*` bypass is explicit in the ownership decision and can be audited.             |
+| Instance-scoped rate limiting  | Complete | Rate-limit buckets prefer resolved `instanceRef` over non-instance resource ids.       |
+| Endpoint-class guardrails      | Complete | In-memory limiter supports per-endpoint-class limits such as lower message send caps.  |
+| Runtime rate-limit wiring      | Complete | API runtime can opt in through env-configured fixed-window limits.                     |
+| Distributed limiter foundation | Partial  | Async rate-limit port, shared counter store, and Redis script-store foundation exist.  |
+| Rate-limit observability       | Complete | Limiter exposes safe snapshots and exports low-cardinality API metric points.          |
+| Security audit hook            | Complete | HTTP boundary records auth, authorization, rate-limit denial, and admin bypass events. |
+| Runtime audit wiring           | Complete | API runtime can opt in to in-memory, durable JSON, or domain AuditRecord evidence.     |
+| Regression coverage            | Complete | Tests cover resource ownership, rate exhaustion, audit events, and admin bypass.       |
 
 ## Boundary Rules Preserved
 
@@ -96,6 +97,12 @@ Rate-limit snapshots can be converted into approved API metric points:
 The exporter aggregates by endpoint class and scope kind only. It does not export API key ids, bucket
 keys, instance refs, target refs, or raw request data.
 
+The rate-limit port is async-compatible, and a shared fixed-window limiter can consume any approved
+`ApiRateLimitCounterStore`. The Redis store uses a Lua script boundary for atomic check-and-increment
+semantics and hashes the internal bucket key before constructing Redis keys. It does not require a
+concrete Redis client dependency in the API app; production runtime binding to an approved Redis
+client remains a follow-up.
+
 API production profile composition also validates PostgreSQL configuration before reaching the
 remaining production-adapter fail-safe. The validation rejects non-PostgreSQL repository profiles,
 local database hosts, missing username/password credentials, and known development database
@@ -123,6 +130,7 @@ pnpm check
 
 - Replace the in-memory ownership resolver with a persistent resolver backed by production read
   models or repositories.
-- Wire production-grade distributed rate limiting before multi-process production runtime.
+- Wire the Redis rate-limit store to an approved production Redis client before multi-process
+  production runtime.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current
   aggregate state.

@@ -129,8 +129,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   now be converted into approved low-cardinality API metric points without exporting API key ids,
   bucket keys, instance refs, or target refs. API production runtime composition now validates that
   PostgreSQL configuration does not use local hosts or known development credentials before it
-  reaches the remaining production-adapter fail-safe. Distributed rate limiting and full ownership
-  coverage for resources without current owner fields remain open N11.5 follow-up work.
+  reaches the remaining production-adapter fail-safe. The rate-limit boundary is now
+  async-compatible and includes a shared counter-store limiter plus a Redis script store that hashes
+  cache keys instead of writing key ids or instance refs into Redis keys. Runtime Redis client binding
+  and full ownership coverage for resources without current owner fields remain open N11.5 follow-up
+  work.
 
 ## Update Rule
 

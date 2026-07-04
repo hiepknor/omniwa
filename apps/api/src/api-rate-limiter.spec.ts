@@ -1,7 +1,14 @@
 import type { ApiCredential } from "@omniwa/interface-api";
 import { describe, expect, it } from "vitest";
 
-import { InMemoryFixedWindowRateLimiter, classifyRateLimitEndpoint } from "./api-rate-limiter.js";
+import {
+  InMemoryFixedWindowRateLimiter,
+  InMemoryRateLimitCounterStore,
+  RedisRateLimitCounterStore,
+  SharedFixedWindowRateLimiter,
+  classifyRateLimitEndpoint,
+  type RedisRateLimitScriptClient,
+} from "./api-rate-limiter.js";
 
 const credential: ApiCredential = {
   kind: "api_key",
@@ -169,6 +176,88 @@ describe("API rate limiter", () => {
     ).toMatchObject({ allowed: true });
   });
 
+  it("supports shared counter stores for multi-process rate limit semantics", async () => {
+    const clock = new ManualClock(1000);
+    const store = new InMemoryRateLimitCounterStore();
+    const firstRuntimeLimiter = new SharedFixedWindowRateLimiter({
+      maxRequests: 2,
+      windowMilliseconds: 1000,
+      store,
+      clock,
+    });
+    const secondRuntimeLimiter = new SharedFixedWindowRateLimiter({
+      maxRequests: 2,
+      windowMilliseconds: 1000,
+      store,
+      clock,
+    });
+    const request = {
+      credential,
+      method: "GET",
+      url: "/v1/instances/inst_shared",
+      endpointClass: "read" as const,
+      targetRef: "inst_shared",
+    };
+
+    await expect(firstRuntimeLimiter.check(request)).resolves.toMatchObject({
+      allowed: true,
+      remaining: 1,
+    });
+    await expect(secondRuntimeLimiter.check(request)).resolves.toMatchObject({
+      allowed: true,
+      remaining: 0,
+    });
+    await expect(firstRuntimeLimiter.check(request)).resolves.toMatchObject({
+      allowed: false,
+      retryAfterMilliseconds: 1000,
+    });
+    await expect(firstRuntimeLimiter.snapshot()).resolves.toMatchObject({
+      buckets: [
+        {
+          keyId: "rate-key",
+          scopeRef: "inst_shared",
+          count: 2,
+          limit: 2,
+          remaining: 0,
+        },
+      ],
+    });
+  });
+
+  it("uses hashed Redis keys without raw credential or resource identifiers", async () => {
+    const clock = new ManualClock(1000);
+    const redisClient = new FakeRedisRateLimitScriptClient();
+    const limiter = new SharedFixedWindowRateLimiter({
+      maxRequests: 1,
+      windowMilliseconds: 1000,
+      store: new RedisRateLimitCounterStore({
+        client: redisClient,
+        keyPrefix: "omniwa:test-rate-limit",
+      }),
+      clock,
+    });
+    const rawKeyId = "rate-key-sensitive";
+    const rawInstanceRef = "inst_sensitive";
+    const request = {
+      credential: {
+        ...credential,
+        keyId: rawKeyId,
+      },
+      method: "GET",
+      url: `/v1/instances/${rawInstanceRef}`,
+      endpointClass: "read" as const,
+      instanceRef: rawInstanceRef,
+    };
+
+    await expect(limiter.check(request)).resolves.toMatchObject({ allowed: true });
+    await expect(limiter.check(request)).resolves.toMatchObject({ allowed: false });
+
+    expect(redisClient.calls).toHaveLength(2);
+    expect(redisClient.calls[0]?.keys[0]).toMatch(/^omniwa:test-rate-limit:[a-f0-9]{64}$/u);
+    expect(JSON.stringify(redisClient.calls)).not.toContain(rawKeyId);
+    expect(JSON.stringify(redisClient.calls)).not.toContain(rawInstanceRef);
+  });
+
   it("classifies endpoint classes from public API surface shape", () => {
     expect(classifyRateLimitEndpoint("GET", "/v1/events/stream")).toBe("event_stream");
     expect(classifyRateLimitEndpoint("POST", "/v1/instances/inst_1/messages/text")).toBe(
@@ -190,4 +279,62 @@ class ManualClock {
   advance(milliseconds: number): void {
     this.currentEpochMilliseconds += milliseconds;
   }
+}
+
+class FakeRedisRateLimitScriptClient implements RedisRateLimitScriptClient {
+  readonly calls: {
+    keys: readonly string[];
+    arguments: readonly string[];
+  }[] = [];
+
+  private readonly buckets = new Map<
+    string,
+    {
+      windowStartEpochMilliseconds: number;
+      count: number;
+    }
+  >();
+
+  eval(
+    _script: string,
+    input: Readonly<{
+      keys: readonly string[];
+      arguments: readonly string[];
+    }>,
+  ): Promise<unknown> {
+    this.calls.push({
+      keys: Object.freeze([...input.keys]),
+      arguments: Object.freeze([...input.arguments]),
+    });
+    const key = required(input.keys[0], "redis key");
+    const windowStartEpochMilliseconds = Number(required(input.arguments[0], "window start"));
+    const resetAtEpochMilliseconds = Number(required(input.arguments[1], "reset at"));
+    const limit = Number(required(input.arguments[3], "limit"));
+    const current = this.buckets.get(key);
+    const bucket =
+      current !== undefined && current.windowStartEpochMilliseconds === windowStartEpochMilliseconds
+        ? current
+        : {
+            windowStartEpochMilliseconds,
+            count: 0,
+          };
+
+    this.buckets.set(key, bucket);
+
+    if (bucket.count >= limit) {
+      return Promise.resolve([0, bucket.count, resetAtEpochMilliseconds]);
+    }
+
+    bucket.count += 1;
+
+    return Promise.resolve([1, bucket.count, resetAtEpochMilliseconds]);
+  }
+}
+
+function required(value: string | undefined, label: string): string {
+  if (value === undefined) {
+    throw new TypeError(`${label} is required.`);
+  }
+
+  return value;
 }
