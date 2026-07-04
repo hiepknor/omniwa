@@ -1166,7 +1166,11 @@ function conversationKindFromJid(remoteJid: string): "private" | "group" | "unkn
     return "group";
   }
 
-  if (remoteJid.endsWith("@s.whatsapp.net") || remoteJid.endsWith("@c.us")) {
+  if (
+    remoteJid.endsWith("@s.whatsapp.net") ||
+    remoteJid.endsWith("@c.us") ||
+    remoteJid.endsWith("@lid")
+  ) {
     return "private";
   }
 

@@ -693,6 +693,41 @@ describe("RealBaileysSocketProvider", () => {
     expect(JSON.stringify(inboundSignal)).not.toContain("raw group image caption");
   });
 
+  it("normalizes LID inbound metadata as private conversation without exposing the LID", async () => {
+    const harness = createRealProviderHarness();
+    const rawLid = "36232981651679:16@lid";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.upsert",
+      inboundUpsert({
+        key: {
+          id: "BAILEYS_LID_MESSAGE_ID",
+          remoteJid: rawLid,
+          fromMe: false,
+        },
+        messageTimestamp: 1_804_000_001,
+        message: {
+          conversation: "raw LID inbound text",
+        },
+      }),
+    );
+    await flushAsyncSignals();
+
+    const inboundSignal = harness.provider
+      .drainSignals({ sessionId })
+      .find((signal) => signal.kind === "inbound_message");
+
+    expect(inboundSignal?.safeMetadata).toMatchObject({
+      contentKind: "text",
+      conversationKind: "private",
+      conversationRef: expect.stringMatching(/^conversation_[a-f0-9]{16}$/u),
+    });
+    expect(JSON.stringify(inboundSignal)).not.toContain(rawLid);
+    expect(JSON.stringify(inboundSignal)).not.toContain("raw LID inbound text");
+    expect(JSON.stringify(inboundSignal)).not.toContain("BAILEYS_LID_MESSAGE_ID");
+  });
+
   it("fails safe for unsupported or malformed inbound provider messages", async () => {
     const harness = createRealProviderHarness();
     const rawJid = "12025550123@s.whatsapp.net";
