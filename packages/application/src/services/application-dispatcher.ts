@@ -78,6 +78,7 @@ import {
 } from "./handlers/group-mutation.handler.js";
 import { createProcessOutboundMessageWorkHandler } from "./handlers/process-outbound-message-work.handler.js";
 import { createRetryMessageSendHandler } from "./handlers/retry-message-send.handler.js";
+import { createRetryWebhookDeliveryHandler } from "./handlers/retry-webhook-delivery.handler.js";
 import { createSendTextMessageHandler } from "./handlers/send-text-message.handler.js";
 
 const groupMutationCommands: readonly GroupMutationCommandName[] = Object.freeze([
@@ -238,6 +239,12 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       }
     }
 
+    const retryWebhookDeliveryHandler = this.createRetryWebhookDeliveryHandler();
+
+    if (retryWebhookDeliveryHandler !== undefined) {
+      handlers.set("RetryWebhookDelivery", retryWebhookDeliveryHandler);
+    }
+
     return handlers;
   }
 
@@ -366,6 +373,19 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return createCancelMessageHandler({
       messageRepository,
       domainEventPublisher: this.domainEventPublisher,
+    });
+  }
+
+  private createRetryWebhookDeliveryHandler(): CommandHandler | undefined {
+    const webhookDeliveryRepository = this.repositories.webhookDeliveryRepository;
+
+    if (webhookDeliveryRepository === undefined || this.queueProvider === undefined) {
+      return undefined;
+    }
+
+    return createRetryWebhookDeliveryHandler({
+      webhookDeliveryRepository,
+      queueProvider: this.queueProvider,
     });
   }
 

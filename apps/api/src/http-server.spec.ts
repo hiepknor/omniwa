@@ -28,6 +28,7 @@ import {
   createInMemoryEventLogStore,
   createInMemoryRepositorySet,
 } from "@omniwa/infrastructure-persistence";
+import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
 import { err, ok } from "@omniwa/shared";
 import { describe, expect, it } from "vitest";
@@ -1411,11 +1412,15 @@ describe("API HTTP transport", () => {
 
   it("materializes webhook deliveries through the public API boundary without exposing retry policy internals", async () => {
     const repositories = createInMemoryRepositorySet();
+    const queueProvider = new InMemoryQueueProvider({
+      workerJobRepository: repositories.workerJobRepository,
+    });
     const dispatcher = createApplicationDispatcher({
       repositories: {
         instanceRepository: repositories.instanceRepository,
         webhookDeliveryRepository: repositories.webhookDeliveryRepository,
       },
+      queueProvider,
     });
 
     await repositories.webhookDeliveryRepository.save({
@@ -1465,6 +1470,24 @@ describe("API HTTP transport", () => {
         requestRefGenerator: () => "http-get-webhook-delivery",
       },
     );
+    const retryResponse = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: `/v1/webhook-deliveries/${encodeURIComponent("webhook-delivery:demo")}/retry`,
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-retry-webhook-delivery",
+          "x-correlation-id": "corr-retry-webhook-delivery",
+          "idempotency-key": "retry-webhook-delivery-demo",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-retry-webhook-delivery",
+      },
+    );
 
     expect(listResponse.statusCode).toBe(200);
     expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([
@@ -1486,10 +1509,22 @@ describe("API HTTP transport", () => {
       eventType: "message.accepted.v1",
       readStatus: "result",
     });
+    expect(retryResponse.statusCode).toBe(202);
+    expect("data" in retryResponse.body ? retryResponse.body.data : undefined).toMatchObject({
+      resourceType: "webhookDelivery",
+      resourceId: "webhook-delivery:demo",
+      operationStatus: "queued",
+      accepted: true,
+      async: true,
+      resultRef: "webhook-delivery:demo",
+    });
     expect(JSON.stringify(listResponse.body)).not.toContain("retryPolicy");
     expect(JSON.stringify(listResponse.body)).not.toContain("domainEvents");
     expect(JSON.stringify(detailResponse.body)).not.toContain("retryPolicy");
     expect(JSON.stringify(detailResponse.body)).not.toContain("domainEvents");
+    expect(JSON.stringify(retryResponse.body)).not.toContain("retryPolicy");
+    expect(JSON.stringify(retryResponse.body)).not.toContain("domainEvents");
+    expect(JSON.stringify(retryResponse.body)).not.toContain("targetUrl");
   });
 
   it("materializes groups through the public API boundary without exposing provider identifiers", async () => {

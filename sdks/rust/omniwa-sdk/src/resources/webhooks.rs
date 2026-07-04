@@ -1,7 +1,8 @@
-use crate::client::{OmniwaClient, RequestOptions};
+use crate::client::{OmniwaClient, RequestBody, RequestOptions};
 use crate::error::SdkError;
 use crate::generated::operations::{
     GET_WEBHOOK, GET_WEBHOOK_DELIVERY_HISTORY, LIST_WEBHOOKS, LIST_WEBHOOK_DELIVERIES,
+    RETRY_WEBHOOK_DELIVERY,
 };
 use crate::transport::{SdkResponse, Transport};
 
@@ -49,6 +50,21 @@ where
             &[],
             None,
             RequestOptions::default(),
+        )
+    }
+
+    pub fn retry_delivery_json(
+        &self,
+        delivery_id: &str,
+        body: impl Into<String>,
+        options: RequestOptions,
+    ) -> Result<SdkResponse, SdkError> {
+        self.client.execute(
+            RETRY_WEBHOOK_DELIVERY,
+            &[("deliveryId", delivery_id)],
+            &[],
+            Some(RequestBody::Json(body.into())),
+            options,
         )
     }
 }

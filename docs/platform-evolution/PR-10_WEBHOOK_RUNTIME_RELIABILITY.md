@@ -22,6 +22,8 @@ Implemented capabilities:
 - Local webhook dispatcher runtime composition can opt in to that gateway with
   `OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch`; enabling it requires
   `OMNIWA_WEBHOOK_SIGNING_SECRET_NAME` so outbound deliveries are signed.
+- `POST /v1/webhook-deliveries/{deliveryId}/retry` queues a controlled retry for
+  eligible pending/retrying deliveries through the Application queue boundary.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
@@ -77,7 +79,8 @@ is still tracked separately in the production execution plan.
 ## Remaining Work
 
 - Replace in-memory queue recovery with the future production queue adapter.
-- Add operational API/read model for webhook dead-letter management.
+- Add operational API/read model for webhook dead-letter redrive and management
+  beyond the current retryable delivery states.
 - Enable the production dispatcher profile once production queue, secret, HTTP
   gateway, and observability adapters are composed together.
 - Add circuit-breaker behavior if production receiver failure rates require it.

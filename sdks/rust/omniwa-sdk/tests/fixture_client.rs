@@ -119,6 +119,40 @@ fn message_client_exposes_retry_and_cancel_mutations() {
 }
 
 #[test]
+fn webhooks_client_exposes_delivery_retry_mutation() {
+    let api_key = ApiKey::new("test-api-key").expect("valid API key");
+    let config = OmniwaClientConfig::new("http://localhost:3000", api_key).expect("valid config");
+    let transport = FixtureTransport::new().with_response(
+        "retryWebhookDelivery",
+        SdkResponse::json(
+            202,
+            r#"{"data":{"resourceType":"webhookDelivery","resourceId":"webhook_delivery_demo","operationStatus":"queued","accepted":true,"retryable":false,"async":true,"resultRef":"webhook_delivery_demo"},"meta":{"requestId":"req_webhook_retry","correlationId":"corr_webhook_retry","timestamp":"2026-07-05T00:00:00.000Z"}}"#,
+        ),
+    );
+    let client = OmniwaClient::new(config, transport);
+    let options = RequestOptions {
+        idempotency_key: Some(
+            IdempotencyKey::new("idem-webhook-retry-demo")
+                .expect("valid webhook retry idempotency key"),
+        ),
+        ..RequestOptions::default()
+    };
+
+    let retry = client
+        .webhooks()
+        .retry_delivery_json("webhook_delivery_demo", "{}", options)
+        .expect("webhook delivery retry fixture response")
+        .success_envelope::<PublicOperationData>()
+        .expect("webhook delivery retry operation envelope");
+
+    assert_eq!(retry.data.operation_status, "queued");
+    assert_eq!(
+        retry.data.result_ref.as_deref(),
+        Some("webhook_delivery_demo")
+    );
+}
+
+#[test]
 fn api_error_maps_to_sdk_error() {
     let client = client_with_fixture(
         "listInstances",

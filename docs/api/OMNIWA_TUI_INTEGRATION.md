@@ -111,44 +111,45 @@ Wire standard TUI screens from these surfaces first. Admin/operator-only rows ar
 contract completeness and should remain disabled by default unless the client is explicitly running in
 an admin profile.
 
-| Area      | Endpoint                                     | Status               | TUI use                                                                                          |
-| --------- | -------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
-| Health    | `GET /v1/health`                             | `implemented_public` | Backend connectivity and top-level status.                                                       |
-| Instances | `GET /v1/instances`                          | `implemented_public` | Instance list screen with empty/loading/error support.                                           |
-| Instances | `GET /v1/instances/{id}`                     | `implemented_public` | Instance detail/status panel after selecting a list item.                                        |
-| Instances | `POST /v1/instances`                         | `implemented_public` | Optional create-instance action; requires `idempotency-key`.                                     |
-| Sessions  | `GET /v1/instances/{id}/sessions`            | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable.                   |
-| Events    | `GET /v1/events`                             | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs.                   |
-| Realtime  | `GET /v1/events/stream`                      | `implemented_public` | SSE connection status and heartbeat support.                                                     |
-| Queue     | `GET /v1/queue`                              | `implemented_public` | Queue summary screen; queue engine internals and job payloads are not exposed.                   |
-| Jobs      | `GET /v1/jobs`                               | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope.                         |
-| Jobs      | `GET /v1/jobs/{id}`                          | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed.                 |
-| Messages  | `GET /v1/instances/{id}/messages`            | `implemented_public` | Instance-scoped message list; raw text, JID, provider payloads, and intent refs are not exposed. |
-| Messages  | `GET /v1/messages/{id}`                      | `implemented_public` | Message status/detail panel with safe status, type, direction, and instance ref.                 |
-| Messages  | `POST /v1/instances/{id}/messages/text`      | `implemented_public` | Controlled text send action; requires `idempotency-key` and returns only operation metadata.     |
-| Messages  | `POST /v1/messages/{id}/retry`               | `implemented_public` | Retry eligible failed text messages as a new safe queued attempt; requires `idempotency-key`.    |
-| Messages  | `POST /v1/messages/{id}/cancel`              | `implemented_public` | Cancel eligible outbound messages before terminal delivery; requires `idempotency-key`.          |
-| Chats     | `GET /v1/instances/{id}/chats`               | `implemented_public` | Preferred instance-scoped chat list for TUI navigation.                                          |
-| Chats     | `GET /v1/chats/{id}`                         | `implemented_public` | Chat detail/status panel with safe unread, label, mute, and pin state.                           |
-| Contacts  | `GET /v1/instances/{id}/contacts`            | `implemented_public` | Preferred instance-scoped contact list. Raw JIDs and phone numbers are not exposed.              |
-| Contacts  | `GET /v1/contacts/{id}`                      | `implemented_public` | Contact detail/status panel with safe identity, instance ref, status, and display name.          |
-| Groups    | `GET /v1/instances/{id}/groups`              | `implemented_public` | Preferred instance-scoped group list. Raw group/member JIDs and invite links are not exposed.    |
-| Groups    | `GET /v1/groups/{id}`                        | `implemented_public` | Group detail/status panel with safe metadata, member counts, and local state.                    |
-| Groups    | `GET /v1/groups/{id}/members`                | `implemented_public` | Group members list using safe `memberRef` values only.                                           |
-| Groups    | `PATCH /v1/groups/{id}`                      | `implemented_public` | Update safe group metadata; requires `groups:write` and `idempotency-key`.                       |
-| Groups    | `PATCH /v1/groups/{id}/local-state`          | `implemented_public` | Update local mute/archive/pin state; requires `groups:write` and `idempotency-key`.              |
-| Groups    | `POST /v1/groups/{id}/members`               | `implemented_public` | Records a local add-member intent; returns `accepted`, not provider-backed completion.           |
-| Groups    | `DELETE /v1/groups/{id}/members/{ref}`       | `implemented_public` | Records a local remove-member intent by safe `memberRef`; returns `accepted`.                    |
-| Groups    | `POST /v1/groups/{id}/members/{ref}/promote` | `implemented_public` | Records a local promote-member intent by safe `memberRef`; returns `accepted`.                   |
-| Groups    | `POST /v1/groups/{id}/members/{ref}/demote`  | `implemented_public` | Records a local demote-member intent by safe `memberRef`; returns `accepted`.                    |
-| Webhooks  | `GET /v1/webhooks`                           | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.                           |
-| Webhooks  | `GET /v1/webhooks/{id}`                      | `implemented_public` | Webhook subscription detail/status panel.                                                        |
-| Webhooks  | `GET /v1/webhook-deliveries`                 | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                           |
-| Webhooks  | `GET /v1/webhook-deliveries/{id}/history`    | `implemented_public` | Webhook delivery detail/history panel.                                                           |
-| API Keys  | `GET /v1/api-keys`                           | `implemented_public` | Admin/operator-only lifecycle list. Requires `admin:*`; never displays plaintext keys or hashes. |
-| API Keys  | `POST /v1/api-keys`                          | `implemented_public` | Admin/operator-only provision action. Request key is write-only and is not returned.             |
-| API Keys  | `POST /v1/api-keys/{id}/revoke`              | `implemented_public` | Admin/operator-only revoke action by safe key id.                                                |
-| API Keys  | `POST /v1/api-keys/{id}/rotate`              | `implemented_public` | Admin/operator-only rotate action. Replacement key is write-only and is not returned.            |
+| Area      | Endpoint                                     | Status               | TUI use                                                                                                     |
+| --------- | -------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Health    | `GET /v1/health`                             | `implemented_public` | Backend connectivity and top-level status.                                                                  |
+| Instances | `GET /v1/instances`                          | `implemented_public` | Instance list screen with empty/loading/error support.                                                      |
+| Instances | `GET /v1/instances/{id}`                     | `implemented_public` | Instance detail/status panel after selecting a list item.                                                   |
+| Instances | `POST /v1/instances`                         | `implemented_public` | Optional create-instance action; requires `idempotency-key`.                                                |
+| Sessions  | `GET /v1/instances/{id}/sessions`            | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable.                              |
+| Events    | `GET /v1/events`                             | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs.                              |
+| Realtime  | `GET /v1/events/stream`                      | `implemented_public` | SSE connection status and heartbeat support.                                                                |
+| Queue     | `GET /v1/queue`                              | `implemented_public` | Queue summary screen; queue engine internals and job payloads are not exposed.                              |
+| Jobs      | `GET /v1/jobs`                               | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope.                                    |
+| Jobs      | `GET /v1/jobs/{id}`                          | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed.                            |
+| Messages  | `GET /v1/instances/{id}/messages`            | `implemented_public` | Instance-scoped message list; raw text, JID, provider payloads, and intent refs are not exposed.            |
+| Messages  | `GET /v1/messages/{id}`                      | `implemented_public` | Message status/detail panel with safe status, type, direction, and instance ref.                            |
+| Messages  | `POST /v1/instances/{id}/messages/text`      | `implemented_public` | Controlled text send action; requires `idempotency-key` and returns only operation metadata.                |
+| Messages  | `POST /v1/messages/{id}/retry`               | `implemented_public` | Retry eligible failed text messages as a new safe queued attempt; requires `idempotency-key`.               |
+| Messages  | `POST /v1/messages/{id}/cancel`              | `implemented_public` | Cancel eligible outbound messages before terminal delivery; requires `idempotency-key`.                     |
+| Chats     | `GET /v1/instances/{id}/chats`               | `implemented_public` | Preferred instance-scoped chat list for TUI navigation.                                                     |
+| Chats     | `GET /v1/chats/{id}`                         | `implemented_public` | Chat detail/status panel with safe unread, label, mute, and pin state.                                      |
+| Contacts  | `GET /v1/instances/{id}/contacts`            | `implemented_public` | Preferred instance-scoped contact list. Raw JIDs and phone numbers are not exposed.                         |
+| Contacts  | `GET /v1/contacts/{id}`                      | `implemented_public` | Contact detail/status panel with safe identity, instance ref, status, and display name.                     |
+| Groups    | `GET /v1/instances/{id}/groups`              | `implemented_public` | Preferred instance-scoped group list. Raw group/member JIDs and invite links are not exposed.               |
+| Groups    | `GET /v1/groups/{id}`                        | `implemented_public` | Group detail/status panel with safe metadata, member counts, and local state.                               |
+| Groups    | `GET /v1/groups/{id}/members`                | `implemented_public` | Group members list using safe `memberRef` values only.                                                      |
+| Groups    | `PATCH /v1/groups/{id}`                      | `implemented_public` | Update safe group metadata; requires `groups:write` and `idempotency-key`.                                  |
+| Groups    | `PATCH /v1/groups/{id}/local-state`          | `implemented_public` | Update local mute/archive/pin state; requires `groups:write` and `idempotency-key`.                         |
+| Groups    | `POST /v1/groups/{id}/members`               | `implemented_public` | Records a local add-member intent; returns `accepted`, not provider-backed completion.                      |
+| Groups    | `DELETE /v1/groups/{id}/members/{ref}`       | `implemented_public` | Records a local remove-member intent by safe `memberRef`; returns `accepted`.                               |
+| Groups    | `POST /v1/groups/{id}/members/{ref}/promote` | `implemented_public` | Records a local promote-member intent by safe `memberRef`; returns `accepted`.                              |
+| Groups    | `POST /v1/groups/{id}/members/{ref}/demote`  | `implemented_public` | Records a local demote-member intent by safe `memberRef`; returns `accepted`.                               |
+| Webhooks  | `GET /v1/webhooks`                           | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.                                      |
+| Webhooks  | `GET /v1/webhooks/{id}`                      | `implemented_public` | Webhook subscription detail/status panel.                                                                   |
+| Webhooks  | `GET /v1/webhook-deliveries`                 | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                                      |
+| Webhooks  | `GET /v1/webhook-deliveries/{id}/history`    | `implemented_public` | Webhook delivery detail/history panel.                                                                      |
+| Webhooks  | `POST /v1/webhook-deliveries/{id}/retry`     | `implemented_public` | Controlled retry for eligible pending/retrying deliveries; requires `webhooks:retry` and `idempotency-key`. |
+| API Keys  | `GET /v1/api-keys`                           | `implemented_public` | Admin/operator-only lifecycle list. Requires `admin:*`; never displays plaintext keys or hashes.            |
+| API Keys  | `POST /v1/api-keys`                          | `implemented_public` | Admin/operator-only provision action. Request key is write-only and is not returned.                        |
+| API Keys  | `POST /v1/api-keys/{id}/revoke`              | `implemented_public` | Admin/operator-only revoke action by safe key id.                                                           |
+| API Keys  | `POST /v1/api-keys/{id}/rotate`              | `implemented_public` | Admin/operator-only rotate action. Replacement key is write-only and is not returned.                       |
 
 Keep these disabled or read-only with a backend-not-ready state:
 
@@ -246,6 +247,8 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks/webhook_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries/webhook_delivery_demo/history"
+curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: retry-webhook-delivery-demo" \
+  "$BASE/v1/webhook-deliveries/webhook_delivery_demo/retry"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"

@@ -24,6 +24,7 @@ Affected contract:
 - `docs/api/client-contract/fixtures/group-member.promoted.json`
 - `docs/api/client-contract/fixtures/group-member.demoted.json`
 - `docs/api/client-contract/fixtures/group-member.removed.json`
+- `docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json`
 
 Client impact:
 
@@ -35,6 +36,8 @@ Client impact:
   `GET /v1/api-keys`, `POST /v1/api-keys`,
   `POST /v1/api-keys/{keyId}/revoke`, and
   `POST /v1/api-keys/{keyId}/rotate`.
+- Promotes `POST /v1/webhook-deliveries/{deliveryId}/retry` to
+  `implemented_public` for eligible pending/retrying webhook deliveries.
 - Group member mutations return `operationStatus: "accepted"` because they record
   controlled local intents and audit evidence; they do not imply provider-backed
   WhatsApp completion. Group metadata and local-state mutations remain
@@ -42,6 +45,9 @@ Client impact:
 - API key lifecycle routes require `admin:*` and return only safe key ids,
   credential kind, scopes, status, timestamps, and reason codes. Plaintext keys
   and `sha256:` hashes are not returned in public DTOs or fixtures.
+- Webhook delivery retry requires `webhooks:retry` and `idempotency-key`, returns
+  `operationStatus: "queued"`, and does not expose target URL, payload,
+  retry-policy internals, or domain events.
 - Requires clients to use safe `memberRef` values from the group member list for
   remove/promote/demote actions.
 - Keeps raw JID, text, provider payload, outbound intent refs, guardrail refs,
@@ -51,9 +57,10 @@ Client impact:
 SDK impact:
 
 - Rust SDK already exposes generated `sendInstanceTextMessage`, `retryMessage`,
-  `cancelMessage`, group mutation operations, and generated API-key lifecycle
-  operation ids; fixture coverage now validates retry/cancel, group action, and
-  API-key lifecycle contract envelopes.
+  `cancelMessage`, group mutation operations, `retryWebhookDelivery`, and
+  generated API-key lifecycle operation ids; fixture coverage now validates
+  retry/cancel, group action, webhook delivery retry, and API-key lifecycle
+  contract envelopes.
 
 Migration note:
 
@@ -61,6 +68,8 @@ Migration note:
   pass `idempotency-key` for every send, retry, and cancel request.
 - Clients should gate group mutations through the capability manifest and pass
   `idempotency-key` for every metadata/local-state/member action request.
+- Clients should gate webhook delivery retry through the capability manifest and
+  pass `idempotency-key` for every retry request.
 - Clients should keep API-key lifecycle UI disabled unless running in an explicit
   admin/operator mode with an `admin:*` credential.
 

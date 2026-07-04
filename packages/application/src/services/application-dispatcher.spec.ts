@@ -9,6 +9,7 @@ import {
   createGroupId,
   createGroupMember,
   createJobId,
+  createAttemptNumber,
   createInstanceId,
   createHealthStatus,
   createHealthStatusId,
@@ -26,6 +27,8 @@ import {
   createWebhookUrl,
   queueWorkerJob,
   scheduleWebhookDelivery,
+  startWebhookDelivery,
+  succeedWebhookDelivery,
   type DomainOwnerContext,
   type Chat,
   type ChatId,
@@ -84,12 +87,19 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { createApplicationCommandEnvelope } from "../commands/command-model.js";
-import type { ApplicationPortResult } from "../ports/application-port.js";
+import type { ApplicationPortContext, ApplicationPortResult } from "../ports/application-port.js";
 import type {
   EventLogReplayPort,
   EventLogReplayResult,
   PlatformEventRecord,
 } from "../ports/event-log.js";
+import type {
+  QueueProviderPort,
+  QueueReservation,
+  QueueVisibilityReceipt,
+  QueueWorkRequest,
+  QueueWorkType,
+} from "../ports/queue-provider.js";
 import { createApplicationQueryEnvelope } from "../queries/query-model.js";
 import { createApplicationDispatcher } from "./application-dispatcher.js";
 
@@ -1369,6 +1379,131 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("retryPolicy");
   });
 
+  it("executes RetryWebhookDelivery through the queue boundary", async () => {
+    const delivery = scheduleWebhookDelivery(
+      createWebhookDeliveryId("webhook-delivery:retry"),
+      createWebhookId("webhook:retry"),
+      "message.delivered.v1",
+      retryPolicy,
+    );
+    const queueProvider = new FakeQueueProvider();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: new FakeWebhookDeliveryRepository([delivery]),
+      },
+      queueProvider,
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "RetryWebhookDelivery",
+        commandRef: "cmd-retry-webhook-delivery",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "webhook-delivery:retry",
+        idempotencyKey: "idem-retry-webhook-delivery",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-retry-webhook-delivery",
+      outcome: "queued",
+      accepted: true,
+      retryable: false,
+      resultRef: "webhook-delivery:retry",
+    });
+    expect(queueProvider.enqueued).toHaveLength(1);
+    expect(queueProvider.enqueued[0]).toMatchObject({
+      jobId: "webhook-delivery:retry",
+      ownerContext: "webhook_delivery",
+      ownerRef: "webhook-delivery:retry",
+      workType: "webhook_delivery",
+      idempotencyKey: "retry_webhook_delivery:idem-retry-webhook-delivery",
+    });
+    expect(JSON.stringify(outcome)).not.toContain("targetUrl");
+    expect(JSON.stringify(outcome)).not.toContain("retryPolicy");
+  });
+
+  it("keeps RetryWebhookDelivery idempotent through the queue boundary", async () => {
+    const delivery = scheduleWebhookDelivery(
+      createWebhookDeliveryId("webhook-delivery:retry-idem"),
+      createWebhookId("webhook:retry-idem"),
+      "message.failed.v1",
+      retryPolicy,
+    );
+    const queueProvider = new FakeQueueProvider();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: new FakeWebhookDeliveryRepository([delivery]),
+      },
+      queueProvider,
+      clock: fixedClock,
+    });
+    const envelope = createApplicationCommandEnvelope({
+      name: "RetryWebhookDelivery",
+      commandRef: "cmd-retry-webhook-idem",
+      requestContext,
+      actorRef: "api_key:test",
+      targetRef: "webhook-delivery:retry-idem",
+      idempotencyKey: "idem-retry-webhook-idem",
+    });
+
+    const first = await dispatcher.executeCommand(envelope);
+    const second = await dispatcher.executeCommand(envelope);
+
+    expect(first.outcome).toBe("queued");
+    expect(second.outcome).toBe("queued");
+    expect(queueProvider.enqueued).toHaveLength(1);
+  });
+
+  it("rejects RetryWebhookDelivery for terminal deliveries", async () => {
+    const delivering = startWebhookDelivery(
+      scheduleWebhookDelivery(
+        createWebhookDeliveryId("webhook-delivery:terminal"),
+        createWebhookId("webhook:terminal"),
+        "message.read.v1",
+        retryPolicy,
+      ),
+      createAttemptNumber(1, retryPolicy),
+    );
+    const delivered = succeedWebhookDelivery(delivering);
+    const queueProvider = new FakeQueueProvider();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: new FakeWebhookDeliveryRepository([delivered]),
+      },
+      queueProvider,
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "RetryWebhookDelivery",
+        commandRef: "cmd-retry-webhook-terminal",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "webhook-delivery:terminal",
+        idempotencyKey: "idem-retry-webhook-terminal",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-retry-webhook-terminal",
+      outcome: "rejected",
+      accepted: false,
+      retryable: false,
+      resultRef: "webhook-delivery:terminal",
+      reasonCode: "webhook_delivery_retry_not_allowed",
+    });
+    expect(queueProvider.enqueued).toHaveLength(0);
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
@@ -1790,6 +1925,80 @@ class FakeWorkerJobRepository implements WorkerJobRepositoryPort {
 
   private list(): readonly WorkerJob[] {
     return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeQueueProvider implements QueueProviderPort {
+  readonly enqueued: QueueWorkRequest[] = [];
+  private readonly receiptByIdempotencyKey = new Map<string, QueueVisibilityReceipt>();
+
+  enqueue(
+    work: QueueWorkRequest,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    void context;
+
+    const existing = this.receiptByIdempotencyKey.get(work.idempotencyKey);
+
+    if (existing !== undefined) {
+      return Promise.resolve(ok(existing));
+    }
+
+    const receipt = Object.freeze({
+      jobId: work.jobId,
+      visible: true,
+      queueRef: `queue:${work.jobId}`,
+    });
+
+    this.enqueued.push(work);
+    this.receiptByIdempotencyKey.set(work.idempotencyKey, receipt);
+
+    return Promise.resolve(ok(receipt));
+  }
+
+  reserve(
+    workType: QueueWorkType,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueReservation | undefined>> {
+    void workType;
+    void context;
+    return Promise.resolve(ok(undefined));
+  }
+
+  acknowledge(
+    reservation: QueueReservation,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    void context;
+    return Promise.resolve(ok(this.receiptFor(reservation.jobId)));
+  }
+
+  releaseForRetry(
+    reservation: QueueReservation,
+    delayMilliseconds: number,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    void delayMilliseconds;
+    void context;
+    return Promise.resolve(ok(this.receiptFor(reservation.jobId)));
+  }
+
+  moveToDeadLetter(
+    reservation: QueueReservation,
+    reasonCode: string,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<QueueVisibilityReceipt>> {
+    void reasonCode;
+    void context;
+    return Promise.resolve(ok(this.receiptFor(reservation.jobId)));
+  }
+
+  private receiptFor(jobId: QueueVisibilityReceipt["jobId"]): QueueVisibilityReceipt {
+    return Object.freeze({
+      jobId,
+      visible: true,
+      queueRef: `queue:${jobId}`,
+    });
   }
 }
 

@@ -159,6 +159,7 @@ function implementedPublicEndpoints() {
     implementedEndpoint("GET", "/v1/webhooks/{webhookId}"),
     implementedEndpoint("GET", "/v1/webhook-deliveries"),
     implementedEndpoint("GET", "/v1/webhook-deliveries/{deliveryId}/history"),
+    implementedEndpoint("POST", "/v1/webhook-deliveries/{deliveryId}/retry"),
     implementedEndpoint("GET", "/v1/api-keys"),
     implementedEndpoint("POST", "/v1/api-keys"),
     implementedEndpoint("POST", "/v1/api-keys/{keyId}/revoke"),
@@ -189,6 +190,8 @@ function requiredFixtureMap() {
     jobsList: "docs/api/client-contract/fixtures/jobs.list.json",
     webhooksList: "docs/api/client-contract/fixtures/webhooks.list.json",
     webhookDeliveriesList: "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
+    webhookDeliveryRetryQueued:
+      "docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json",
     apiKeysList: "docs/api/client-contract/fixtures/api-keys.list.json",
     apiKeyProvisioned: "docs/api/client-contract/fixtures/api-key.provisioned.json",
     apiKeyRevoked: "docs/api/client-contract/fixtures/api-key.revoked.json",
