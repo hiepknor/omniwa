@@ -179,6 +179,9 @@ importers:
       '@omniwa/infrastructure-queue':
         specifier: workspace:*
         version: link:../../packages/infrastructure-queue
+      '@omniwa/infrastructure-secrets':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-secrets
       '@omniwa/infrastructure-webhook':
         specifier: workspace:*
         version: link:../../packages/infrastructure-webhook

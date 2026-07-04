@@ -152,9 +152,11 @@ Production external secret-provider selection and final production-profile valid
 hardening work.
 N11.6 is current. The dispatcher runtime already has durable restart recovery, retry/dead-letter,
 HMAC/timestamp signing, replay verification, metrics, and audit evidence. The current slice adds a
-real `FetchWebhookHttpGateway` foundation with safe timeout/network failure mapping; production
-runtime wiring still remains disabled until the remaining production queue, secret, HTTP gateway, and
-observability adapters can be composed together safely.
+real `FetchWebhookHttpGateway` foundation with safe timeout/network failure mapping and opt-in local
+dispatcher runtime wiring through `OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch` plus
+`OMNIWA_WEBHOOK_SIGNING_SECRET_NAME`; production runtime wiring still remains disabled until the
+remaining production queue, secret, HTTP gateway, and observability adapters can be composed together
+safely.
 
 ## Planned Increments
 

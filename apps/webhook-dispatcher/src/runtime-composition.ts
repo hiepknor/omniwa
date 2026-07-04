@@ -15,6 +15,13 @@ import {
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
+import { EnvSecretProvider } from "@omniwa/infrastructure-secrets";
+import {
+  FetchWebhookHttpGateway,
+  HttpWebhookTransportAdapter,
+  WebhookHmacSignatureProvider,
+  type WebhookFetch,
+} from "@omniwa/infrastructure-webhook";
 
 import {
   RepositoryWebhookDeliveryEnvelopeResolver,
@@ -42,6 +49,10 @@ export type WebhookDispatcherRuntimeComposition = Readonly<{
   app: WebhookDispatcherApp;
 }>;
 
+export type WebhookDispatcherRuntimeCompositionAdapterOptions = Readonly<{
+  webhookFetch?: WebhookFetch;
+}>;
+
 export type WebhookDispatcherQueueRecoveryCapable = Readonly<{
   recoverVisibleJobs?: () => Promise<Readonly<{ recovered: number }>>;
 }>;
@@ -54,9 +65,11 @@ type WebhookDispatcherRepositories = Readonly<{
 
 export function createWebhookDispatcherRuntimeComposition(
   env: NodeJS.ProcessEnv = process.env,
+  adapters: WebhookDispatcherRuntimeCompositionAdapterOptions = {},
 ): WebhookDispatcherRuntimeComposition {
   const profile = readWebhookDispatcherRuntimeProfile(env);
   const repositoryProfile = readWebhookDispatcherRepositoryProfile(env);
+  const signingSecretName = readOptionalStringEnv(env, "OMNIWA_WEBHOOK_SIGNING_SECRET_NAME");
 
   assertWebhookDispatcherRuntimeProfileIsComposable(profile);
 
@@ -69,8 +82,12 @@ export function createWebhookDispatcherRuntimeComposition(
     envelopeResolver: new RepositoryWebhookDeliveryEnvelopeResolver({
       webhookDeliveryRepository: repositories.webhookDeliveryRepository,
       webhookSubscriptionRepository: repositories.webhookSubscriptionRepository,
+      ...optional(
+        "signingSecretRefForDelivery",
+        signingSecretName === undefined ? undefined : () => signingSecretName,
+      ),
     }),
-    transport: new DisabledWebhookTransport(),
+    transport: createWebhookDispatcherTransport(env, adapters, signingSecretName),
     retryDelayMilliseconds: readNonNegativeIntegerEnv(
       env.OMNIWA_WEBHOOK_DISPATCHER_RETRY_DELAY_MS,
       1_000,
@@ -84,6 +101,53 @@ export function createWebhookDispatcherRuntimeComposition(
     queueProvider,
     app: new WebhookDispatcherApp({ runtime }),
   });
+}
+
+function createWebhookDispatcherTransport(
+  env: NodeJS.ProcessEnv,
+  adapters: WebhookDispatcherRuntimeCompositionAdapterOptions,
+  signingSecretName: string | undefined,
+): WebhookTransportPort {
+  const gateway = readWebhookDispatcherHttpGateway(env);
+
+  if (gateway === "disabled") {
+    return new DisabledWebhookTransport();
+  }
+
+  if (signingSecretName === undefined) {
+    throw new Error(
+      "OMNIWA_WEBHOOK_SIGNING_SECRET_NAME is required when OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch.",
+    );
+  }
+
+  return new HttpWebhookTransportAdapter({
+    gateway: new FetchWebhookHttpGateway({
+      ...optional("fetch", adapters.webhookFetch),
+    }),
+    signatureProvider: new WebhookHmacSignatureProvider({
+      secretProvider: new EnvSecretProvider({ env }),
+    }),
+    timeoutMilliseconds: readPositiveIntegerEnv(
+      env.OMNIWA_WEBHOOK_DISPATCHER_HTTP_TIMEOUT_MS,
+      10_000,
+      "OMNIWA_WEBHOOK_DISPATCHER_HTTP_TIMEOUT_MS",
+    ),
+  });
+}
+
+function readWebhookDispatcherHttpGateway(env: NodeJS.ProcessEnv): "disabled" | "fetch" {
+  const value = env.OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY?.trim();
+
+  switch (value) {
+    case "fetch":
+      return "fetch";
+    case "disabled":
+    case undefined:
+    case "":
+      return "disabled";
+    default:
+      throw new Error(`Unsupported OmniWA Webhook Dispatcher HTTP gateway: ${value}`);
+  }
 }
 
 export function readWebhookDispatcherRuntimeProfile(
@@ -199,10 +263,43 @@ function readNonNegativeIntegerEnv(
   return parsed;
 }
 
+function readPositiveIntegerEnv(
+  value: string | undefined,
+  fallback: number,
+  label: string,
+): number {
+  const normalized = value?.trim();
+
+  if (normalized === undefined || normalized.length === 0) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} must be a positive integer.`);
+  }
+
+  return parsed;
+}
+
+function readOptionalStringEnv(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  const value = env[name]?.trim();
+
+  return value === undefined || value.length === 0 ? undefined : value;
+}
+
 function readBooleanEnv(value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase();
 
   return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+function optional<TKey extends string, TValue>(
+  key: TKey,
+  value: TValue | undefined,
+): Partial<Record<TKey, TValue>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
 }
 
 class DisabledWebhookTransport implements WebhookTransportPort {

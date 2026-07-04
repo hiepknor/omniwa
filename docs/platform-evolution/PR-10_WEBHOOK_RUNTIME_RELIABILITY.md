@@ -19,6 +19,9 @@ Implemented capabilities:
 - `FetchWebhookHttpGateway` can send the already-sanitized outbound webhook
   body over HTTP with safe timeout, network failure, and receiver header
   handling.
+- Local webhook dispatcher runtime composition can opt in to that gateway with
+  `OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch`; enabling it requires
+  `OMNIWA_WEBHOOK_SIGNING_SECRET_NAME` so outbound deliveries are signed.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
@@ -75,8 +78,8 @@ is still tracked separately in the production execution plan.
 
 - Replace in-memory queue recovery with the future production queue adapter.
 - Add operational API/read model for webhook dead-letter management.
-- Wire `FetchWebhookHttpGateway` into the production dispatcher runtime once
-  production queue, secret, and observability adapters are composed together.
+- Enable the production dispatcher profile once production queue, secret, HTTP
+  gateway, and observability adapters are composed together.
 - Add circuit-breaker behavior if production receiver failure rates require it.
 - Add full end-to-end tests once the production Application dispatcher,
   persistence adapter, and queue adapter are wired together.

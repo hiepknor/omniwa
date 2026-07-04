@@ -14,6 +14,7 @@
     "@omniwa/errors": "workspace:*",
     "@omniwa/infrastructure-persistence": "workspace:*",
     "@omniwa/infrastructure-queue": "workspace:*",
+    "@omniwa/infrastructure-secrets": "workspace:*",
     "@omniwa/infrastructure-webhook": "workspace:*",
     "@omniwa/observability": "workspace:*",
     "@omniwa/shared": "workspace:*"
