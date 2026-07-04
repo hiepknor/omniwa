@@ -355,6 +355,15 @@ describe("ProviderRuntimeSupervisor", () => {
     });
   });
 
+  it("starts a referenced drain loop so provider-runtime stays alive", () => {
+    const { supervisor } = createSupervisorHarness();
+
+    const loop = supervisor.startDrainLoop(context, 50);
+
+    expect(loop.keepsProcessAlive).toBe(true);
+    loop.stop();
+  });
+
   it("does not leak raw provider payloads through supervisor state, events, or errors", async () => {
     const { supervisor, socketProvider, eventLog } = createSupervisorHarness();
 

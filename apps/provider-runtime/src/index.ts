@@ -59,6 +59,7 @@ async function runProviderRuntime(): Promise<void> {
           eventLogPath: composition.paths.eventLogPath,
           authStatePath: composition.paths.authStatePath,
           drainIntervalMilliseconds: loop.intervalMilliseconds,
+          keepsProcessAlive: loop.keepsProcessAlive,
           localLiveSession,
         },
         null,

@@ -51,6 +51,7 @@ export type ProviderRuntimeCompositionPaths = Readonly<{
 
 export type ProviderRuntimeCompositionDrainLoop = Readonly<{
   intervalMilliseconds: number;
+  keepsProcessAlive: boolean;
   stop(): void;
   shutdown(): void;
 }>;
@@ -140,6 +141,7 @@ export function createProviderRuntimeComposition(
 
       return Object.freeze({
         intervalMilliseconds,
+        keepsProcessAlive: loop.keepsProcessAlive,
         stop: loop.stop,
         shutdown(): void {
           loop.stop();

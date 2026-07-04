@@ -187,6 +187,7 @@ describe("provider runtime composition", () => {
     const loop = composition.startDrainLoop(context, 5);
 
     expect(loop.intervalMilliseconds).toBe(5);
+    expect(loop.keepsProcessAlive).toBe(true);
     loop.shutdown();
     expect(composition.supervisor.snapshot().sessions).toEqual([]);
   });
@@ -199,6 +200,7 @@ describe("provider runtime composition", () => {
     expect(source).toContain("liveMode: composition.liveMode");
     expect(source).toContain("readiness: composition.readiness");
     expect(source).toContain("localQrOutput: composition.localQrOutput");
+    expect(source).toContain("keepsProcessAlive: loop.keepsProcessAlive");
     expect(source).toContain("startProviderRuntimeLocalLiveSession");
     expect(source).toContain("localLiveSession");
     expect(source).not.toContain("requires MessagingProviderPort and SecretProvider");

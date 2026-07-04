@@ -328,20 +328,21 @@ export class ProviderRuntimeSupervisor {
   startDrainLoop(
     context: ApplicationPortContext,
     intervalMs = 1_000,
-  ): Readonly<{ stop: () => void }> {
+  ): Readonly<{ stop: () => void; keepsProcessAlive: true }> {
     if (this.loopTimer !== undefined) {
       return Object.freeze({
         stop: () => this.stopDrainLoop(),
+        keepsProcessAlive: true,
       });
     }
 
     this.loopTimer = setInterval(() => {
       void this.tick(context);
     }, intervalMs);
-    this.loopTimer.unref?.();
 
     return Object.freeze({
       stop: () => this.stopDrainLoop(),
+      keepsProcessAlive: true,
     });
   }
 
