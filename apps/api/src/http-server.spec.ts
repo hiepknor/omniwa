@@ -2134,6 +2134,10 @@ describe("API HTTP transport", () => {
     });
 
     expect(response.statusCode).toBe(202);
+    expect("data" in response.body ? response.body.data : undefined).toMatchObject({
+      operationStatus: "accepted",
+      accepted: true,
+    });
     expect(groupMutationIntentStore.intents).toEqual([
       expect.objectContaining({
         kind: "add_member",
@@ -2326,7 +2330,7 @@ class CapturingDispatcher implements ApplicationInterfaceDispatcher {
 
     return createApplicationCommandOutcome({
       commandRef: envelope.commandRef,
-      outcome: envelope.name === "SendTextMessage" ? "queued" : "completed",
+      outcome: outcomeForCapturedCommand(envelope.name),
       accepted: true,
       retryable: false,
       resultRef: `${envelope.commandRef}:result`,
@@ -2351,6 +2355,22 @@ class CapturingDispatcher implements ApplicationInterfaceDispatcher {
       ...payload,
     }) as ApplicationQueryOutcome;
   }
+}
+
+function outcomeForCapturedCommand(name: string): ApplicationCommandOutcome["outcome"] {
+  if (name === "SendTextMessage") {
+    return "queued";
+  }
+
+  if (
+    ["AddGroupMember", "RemoveGroupMember", "PromoteGroupMember", "DemoteGroupMember"].includes(
+      name,
+    )
+  ) {
+    return "accepted";
+  }
+
+  return "completed";
 }
 
 class CapturingOutboundMessageIntentStore implements OutboundMessageIntentStorePort {

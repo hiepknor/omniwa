@@ -2,7 +2,7 @@
   "data": {
     "resourceType": "group",
     "resourceId": "group_demo",
-    "operationStatus": "completed",
+    "operationStatus": "accepted",
     "accepted": true,
     "retryable": false,
     "async": false,

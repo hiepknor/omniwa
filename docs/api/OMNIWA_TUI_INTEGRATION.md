@@ -135,10 +135,10 @@ Wire these first:
 | Groups    | `GET /v1/groups/{id}/members`                | `implemented_public` | Group members list using safe `memberRef` values only.                                           |
 | Groups    | `PATCH /v1/groups/{id}`                      | `implemented_public` | Update safe group metadata; requires `groups:write` and `idempotency-key`.                       |
 | Groups    | `PATCH /v1/groups/{id}/local-state`          | `implemented_public` | Update local mute/archive/pin state; requires `groups:write` and `idempotency-key`.              |
-| Groups    | `POST /v1/groups/{id}/members`               | `implemented_public` | Add a member behind safe intent storage; requires `groups:admin` and `idempotency-key`.          |
-| Groups    | `DELETE /v1/groups/{id}/members/{ref}`       | `implemented_public` | Remove a member by safe `memberRef`; requires `groups:admin` and `idempotency-key`.              |
-| Groups    | `POST /v1/groups/{id}/members/{ref}/promote` | `implemented_public` | Promote a member by safe `memberRef`; requires `groups:admin` and `idempotency-key`.             |
-| Groups    | `POST /v1/groups/{id}/members/{ref}/demote`  | `implemented_public` | Demote a member by safe `memberRef`; requires `groups:admin` and `idempotency-key`.              |
+| Groups    | `POST /v1/groups/{id}/members`               | `implemented_public` | Records a local add-member intent; returns `accepted`, not provider-backed completion.           |
+| Groups    | `DELETE /v1/groups/{id}/members/{ref}`       | `implemented_public` | Records a local remove-member intent by safe `memberRef`; returns `accepted`.                    |
+| Groups    | `POST /v1/groups/{id}/members/{ref}/promote` | `implemented_public` | Records a local promote-member intent by safe `memberRef`; returns `accepted`.                   |
+| Groups    | `POST /v1/groups/{id}/members/{ref}/demote`  | `implemented_public` | Records a local demote-member intent by safe `memberRef`; returns `accepted`.                    |
 | Webhooks  | `GET /v1/webhooks`                           | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.                           |
 | Webhooks  | `GET /v1/webhooks/{id}`                      | `implemented_public` | Webhook subscription detail/status panel.                                                        |
 | Webhooks  | `GET /v1/webhook-deliveries`                 | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                           |
@@ -146,7 +146,7 @@ Wire these first:
 
 Keep these disabled or read-only with a backend-not-ready state:
 
-- Group message send, invite-link refresh, and provider-backed group sync mutations
+- Group message send, invite-link refresh, and provider-backed group member sync/execution
 - Chat message timeline by chat id
 - Media message send
 - Logs
@@ -240,6 +240,11 @@ curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"
 ```
+
+Group member mutations return `operationStatus: "accepted"` because the backend records the
+controlled local action and audit evidence. Provider-backed WhatsApp synchronization for these
+member actions is still outside the current scope. Group metadata and local-state mutations return
+`completed` because they complete against OmniWA-owned local state.
 
 Negative-state checks:
 

@@ -86,7 +86,7 @@ class GroupMutationHandler {
     }
 
     if (hasAction(group, input.actionId)) {
-      return commandOutcome(envelope, "completed", {
+      return commandOutcome(envelope, successfulOutcomeForGroupMutation(this.commandName), {
         accepted: true,
         retryable: false,
         resultRef: group.id,
@@ -145,7 +145,7 @@ class GroupMutationHandler {
       });
     }
 
-    return commandOutcome(envelope, "completed", {
+    return commandOutcome(envelope, successfulOutcomeForGroupMutation(this.commandName), {
       accepted: true,
       retryable: false,
       resultRef: mutationResult.group.id,
@@ -337,6 +337,21 @@ function intentMatchesCommand(
     (commandName === "PromoteGroupMember" && intent.kind === "promote_member") ||
     (commandName === "DemoteGroupMember" && intent.kind === "demote_member")
   );
+}
+
+function successfulOutcomeForGroupMutation(
+  commandName: GroupMutationCommandName,
+): ApplicationCommandOutcome["outcome"] {
+  return isMemberMutationCommand(commandName) ? "accepted" : "completed";
+}
+
+function isMemberMutationCommand(commandName: GroupMutationCommandName): boolean {
+  return [
+    "AddGroupMember",
+    "RemoveGroupMember",
+    "PromoteGroupMember",
+    "DemoteGroupMember",
+  ].includes(commandName);
 }
 
 function hasAction(group: Group, actionId: ReturnType<typeof createGroupActionId>): boolean {

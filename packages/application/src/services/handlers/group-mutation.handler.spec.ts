@@ -139,15 +139,26 @@ describe("group mutation handler", () => {
     });
 
     const outcome = await handler(command("AddGroupMember", "cmd-add-member", "idem-add-member"));
+    const replay = await handler(command("AddGroupMember", "cmd-add-member", "idem-add-member"));
     const saved = await groupRepository.load(groupId);
     const serializedPublicSurface = JSON.stringify({ outcome, published: publisher.inputs });
 
-    expect(outcome.accepted).toBe(true);
+    expect(outcome).toMatchObject({
+      outcome: "accepted",
+      accepted: true,
+      retryable: false,
+    });
+    expect(replay).toMatchObject({
+      outcome: "accepted",
+      accepted: true,
+      retryable: false,
+    });
     expect(saved?.members).toHaveLength(1);
     expect(saved?.actions[0]).toMatchObject({
       kind: "add_member",
       auditRequired: true,
     });
+    expect(publisher.inputs).toHaveLength(1);
     expect(serializedPublicSurface).not.toContain(rawMemberJid);
     expect(serializedPublicSurface).not.toContain("12025550123");
   });
@@ -189,13 +200,16 @@ describe("group mutation handler", () => {
       domainEventPublisher: publisher,
     });
 
-    await promote(command("PromoteGroupMember", "cmd-promote", "idem-promote"));
+    const promoted = await promote(command("PromoteGroupMember", "cmd-promote", "idem-promote"));
+    expect(promoted.outcome).toBe("accepted");
     expect((await groupRepository.load(groupId))?.members[0]?.role).toBe("admin");
 
-    await demote(command("DemoteGroupMember", "cmd-demote", "idem-demote"));
+    const demoted = await demote(command("DemoteGroupMember", "cmd-demote", "idem-demote"));
+    expect(demoted.outcome).toBe("accepted");
     expect((await groupRepository.load(groupId))?.members[0]?.role).toBe("member");
 
-    await remove(command("RemoveGroupMember", "cmd-remove", "idem-remove"));
+    const removed = await remove(command("RemoveGroupMember", "cmd-remove", "idem-remove"));
+    expect(removed.outcome).toBe("accepted");
     const saved = await groupRepository.load(groupId);
 
     expect(saved?.members).toHaveLength(0);

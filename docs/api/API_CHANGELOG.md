@@ -26,6 +26,10 @@ Client impact:
   `implemented_public` for clients that follow the capability manifest.
 - Promotes controlled group metadata, local-state, add-member, remove-member,
   promote-member, and demote-member mutations to `implemented_public`.
+- Group member mutations return `operationStatus: "accepted"` because they record
+  controlled local intents and audit evidence; they do not imply provider-backed
+  WhatsApp completion. Group metadata and local-state mutations remain
+  `operationStatus: "completed"`.
 - Requires clients to use safe `memberRef` values from the group member list for
   remove/promote/demote actions.
 - Keeps raw JID, text, provider payload, outbound intent refs, guardrail refs,

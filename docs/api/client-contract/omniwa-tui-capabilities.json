@@ -468,7 +468,7 @@
       "idempotencyRequired": true,
       "requestDto": "GroupMemberRequest",
       "responseEnvelope": "SuccessEnvelope",
-      "notes": "Requires groups:admin. Raw member JID is accepted only as request input and is stored behind a safe intent ref; it is not returned in public DTOs."
+      "notes": "Requires groups:admin. Raw member JID is accepted only as request input and is stored behind a safe intent ref; it is not returned in public DTOs. Returns operationStatus=accepted for a local controlled intent, not provider-backed completion."
     },
     {
       "feature": "groups",
@@ -480,7 +480,7 @@
       "idempotencyRequired": true,
       "requestDto": "Object",
       "responseEnvelope": "SuccessEnvelope",
-      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members even though the path parameter remains named memberJid for compatibility."
+      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members even though the path parameter remains named memberJid for compatibility. Returns operationStatus=accepted for a local controlled intent, not provider-backed completion."
     },
     {
       "feature": "groups",
@@ -492,7 +492,7 @@
       "idempotencyRequired": true,
       "requestDto": "Object",
       "responseEnvelope": "SuccessEnvelope",
-      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members."
+      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members. Returns operationStatus=accepted for a local controlled intent, not provider-backed completion."
     },
     {
       "feature": "groups",
@@ -504,7 +504,7 @@
       "idempotencyRequired": true,
       "requestDto": "Object",
       "responseEnvelope": "SuccessEnvelope",
-      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members."
+      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members. Returns operationStatus=accepted for a local controlled intent, not provider-backed completion."
     },
     {
       "feature": "messages",
