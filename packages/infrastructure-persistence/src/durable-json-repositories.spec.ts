@@ -46,6 +46,8 @@ import {
   describeChatRepositoryContract,
   describeContactRepositoryContract,
   describeGroupRepositoryContract,
+  describeGuardrailDecisionRepositoryContract,
+  describeHealthStatusRepositoryContract,
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
@@ -96,6 +98,17 @@ describeContactRepositoryContract({
 describeGroupRepositoryContract({
   name: "durable-json",
   create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).groupRepository,
+});
+
+describeGuardrailDecisionRepositoryContract({
+  name: "durable-json",
+  create: () =>
+    createDurableJsonRepositorySet(createTemporaryDirectory()).guardrailDecisionRepository,
+});
+
+describeHealthStatusRepositoryContract({
+  name: "durable-json",
+  create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).healthStatusRepository,
 });
 
 describeWebhookSubscriptionRepositoryContract({

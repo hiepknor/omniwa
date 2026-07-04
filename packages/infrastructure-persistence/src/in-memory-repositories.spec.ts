@@ -72,6 +72,8 @@ import {
   describeChatRepositoryContract,
   describeContactRepositoryContract,
   describeGroupRepositoryContract,
+  describeGuardrailDecisionRepositoryContract,
+  describeHealthStatusRepositoryContract,
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
@@ -124,6 +126,16 @@ describeContactRepositoryContract({
 describeGroupRepositoryContract({
   name: "in-memory",
   create: () => createInMemoryRepositorySet().groupRepository,
+});
+
+describeGuardrailDecisionRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().guardrailDecisionRepository,
+});
+
+describeHealthStatusRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().healthStatusRepository,
 });
 
 describeWebhookSubscriptionRepositoryContract({

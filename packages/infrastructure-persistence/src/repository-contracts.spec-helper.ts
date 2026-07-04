@@ -11,6 +11,9 @@ import {
   createContactId,
   createGroup,
   createGroupId,
+  createGuardrailDecisionAggregate,
+  createHealthStatusAggregate,
+  createHealthStatusId,
   createIdempotencyKey,
   createJobId,
   createGuardrailDecisionId,
@@ -42,6 +45,8 @@ import {
   type ChatRepositoryPort,
   type ContactRepositoryPort,
   type GroupRepositoryPort,
+  type GuardrailDecisionRepositoryPort,
+  type HealthStatusRepositoryPort,
   type JobId,
   type MessageId,
   type MessageRepositoryPort,
@@ -505,6 +510,84 @@ export function describeGroupRepositoryContract(factory: GroupRepositoryContract
       await expect(repository.findByStatus("active")).resolves.toEqual([group]);
       await expect(repository.findByStatus("discovered")).resolves.toEqual([other]);
       await expect(repository.findByJid(group.jid)).resolves.toEqual(group);
+    });
+  });
+}
+
+export type GuardrailDecisionRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): GuardrailDecisionRepositoryPort;
+}>;
+
+export function describeGuardrailDecisionRepositoryContract(
+  factory: GuardrailDecisionRepositoryContractFactory,
+): void {
+  describe(`${factory.name} GuardrailDecisionRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and resolves decisions by evaluated intent", async () => {
+      const repository = factory.create();
+      const evaluatedIntentRef = `${safeFactoryName(factory.name)}-message-intent`;
+      const decision = createGuardrailDecisionAggregate({
+        id: createGuardrailDecisionId(`${safeFactoryName(factory.name)}-guardrail-load`),
+        evaluatedIntentRef,
+        outcome: "allow",
+        reasonCode: "repository_contract_pass",
+      });
+
+      await expect(repository.exists(decision.id)).resolves.toBe(false);
+      await repository.save(decision);
+
+      await expect(repository.exists(decision.id)).resolves.toBe(true);
+      await expect(repository.load(decision.id)).resolves.toEqual(decision);
+      await expect(repository.findByEvaluatedIntent(evaluatedIntentRef)).resolves.toEqual(decision);
+      await expect(repository.findByEvaluatedIntent("missing-intent")).resolves.toBeUndefined();
+    });
+  });
+}
+
+export type HealthStatusRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): HealthStatusRepositoryPort;
+}>;
+
+export function describeHealthStatusRepositoryContract(
+  factory: HealthStatusRepositoryContractFactory,
+): void {
+  describe(`${factory.name} HealthStatusRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and filters health status by subject and category", async () => {
+      const repository = factory.create();
+      const subjectRef = `${safeFactoryName(factory.name)}-provider-runtime`;
+      const degraded = createHealthStatusAggregate({
+        id: createHealthStatusId(`${safeFactoryName(factory.name)}-health-degraded`),
+        subjectRef,
+        category: "degraded",
+        causeCategory: "provider",
+      });
+      const healthy = createHealthStatusAggregate({
+        id: createHealthStatusId(`${safeFactoryName(factory.name)}-health-healthy`),
+        subjectRef: `${safeFactoryName(factory.name)}-api-runtime`,
+        category: "healthy",
+      });
+
+      await expect(repository.exists(degraded.id)).resolves.toBe(false);
+      await repository.save(degraded);
+      await repository.save(healthy);
+
+      await expect(repository.exists(degraded.id)).resolves.toBe(true);
+      await expect(repository.load(degraded.id)).resolves.toEqual(degraded);
+      await expect(repository.findBySubject(subjectRef)).resolves.toEqual(degraded);
+      await expect(repository.findBySubject("missing-health-subject")).resolves.toBeUndefined();
+      await expect(repository.findByCategory("degraded")).resolves.toEqual([degraded]);
+      await expect(repository.findByCategory("healthy")).resolves.toEqual([healthy]);
     });
   });
 }

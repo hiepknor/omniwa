@@ -6,6 +6,8 @@ import {
   PostgresqlChatRepository,
   PostgresqlContactRepository,
   PostgresqlGroupRepository,
+  PostgresqlGuardrailDecisionRepository,
+  PostgresqlHealthStatusRepository,
   PostgresqlInstanceRepository,
   PostgresqlMessageRepository,
   PostgresqlSessionRepository,
@@ -22,6 +24,8 @@ import {
   describeChatRepositoryContract,
   describeContactRepositoryContract,
   describeGroupRepositoryContract,
+  describeGuardrailDecisionRepositoryContract,
+  describeHealthStatusRepositoryContract,
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
@@ -111,6 +115,14 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260704_0009_group_repository",
         description: expect.stringContaining("GroupRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260704_0010_guardrail_decision_repository",
+        description: expect.stringContaining("GuardrailDecisionRepositoryPort"),
+      }),
+      expect.objectContaining({
+        id: "pgm_20260704_0011_health_status_repository",
+        description: expect.stringContaining("HealthStatusRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -139,6 +151,12 @@ describe("PostgreSQL migration runner", () => {
     expect(postgresqlInstanceRepositoryMigrations[8]?.statements.join("\n")).toContain(
       "omniwa_groups",
     );
+    expect(postgresqlInstanceRepositoryMigrations[9]?.statements.join("\n")).toContain(
+      "omniwa_guardrail_decisions",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[10]?.statements.join("\n")).toContain(
+      "omniwa_health_statuses",
+    );
   });
 });
 
@@ -157,7 +175,7 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
       await connection.query(
-        "TRUNCATE TABLE omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
+        "TRUNCATE TABLE omniwa_health_statuses, omniwa_guardrail_decisions, omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
       );
     });
 
@@ -193,6 +211,16 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeGroupRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlGroupRepository(connection),
+    });
+
+    describeGuardrailDecisionRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlGuardrailDecisionRepository(connection),
+    });
+
+    describeHealthStatusRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlHealthStatusRepository(connection),
     });
 
     describeWebhookSubscriptionRepositoryContract({

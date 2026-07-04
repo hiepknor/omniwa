@@ -31,10 +31,8 @@ Original consequences:
 Current consequences after the completed increments:
 
 - The webhook dispatcher can compose with PostgreSQL repositories.
-- Message, Session, WebhookSubscription, and WebhookDelivery adapters exist and have contract
-  coverage, but API/worker runtime composition has not yet switched all available adapters into the
-  `postgresql` profile.
-- Chat, Contact, Group, GuardrailDecision, and HealthStatus PostgreSQL adapters are still missing.
+- All nine scoped PostgreSQL adapters now exist and have contract coverage, but API/worker runtime
+  composition has not yet switched all available adapters into the `postgresql` profile.
 
 This plan finishes the remaining adapters, removes the hybrid fallback, and enables the existing
 (currently skipped) real-PostgreSQL contract tests in CI.
@@ -50,8 +48,8 @@ Status date: 2026-07-04.
 | Session adapter                           | Complete | `PostgresqlSessionRepository`, migration, contract tests.                                                                                       |
 | Webhook adapters                          | Complete | `PostgresqlWebhookSubscriptionRepository`, `PostgresqlWebhookDeliveryRepository`, migrations, signal/idempotency side-channels, contract tests. |
 | Webhook dispatcher PostgreSQL composition | Complete | `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql` now composes with PostgreSQL repositories.                                            |
-| Read projection / guardrail adapters      | Partial  | Chat, Contact, and Group adapters are complete; GuardrailDecision and HealthStatus adapters remain.                                             |
-| API/worker hybrid fallback removal        | Pending  | Runtime composition still needs to replace in-memory fallbacks with PostgreSQL adapters after remaining adapters land.                          |
+| Read projection / guardrail adapters      | Complete | Chat, Contact, Group, GuardrailDecision, and HealthStatus adapters are complete.                                                                |
+| API/worker hybrid fallback removal        | Pending  | Runtime composition still needs to replace in-memory fallbacks with PostgreSQL adapters.                                                        |
 | Real PostgreSQL CI service                | Pending  | Env-gated real PostgreSQL tests still require CI provisioning with `OMNIWA_POSTGRES_TEST_DATABASE_URL`.                                         |
 
 ## Scope
@@ -67,8 +65,8 @@ In scope — 9 repository adapters (the ports wired into the API/worker reposito
 | `GroupRepositoryPort`               | Group               | `application_coordinated` | group            | Complete |
 | `WebhookSubscriptionRepositoryPort` | WebhookSubscription | `strong_owner`            | webhook_delivery | Complete |
 | `WebhookDeliveryRepositoryPort`     | WebhookDelivery     | `application_coordinated` | webhook_delivery | Complete |
-| `GuardrailDecisionRepositoryPort`   | GuardrailDecision   | `strong_owner`            | guardrails       | Pending  |
-| `HealthStatusRepositoryPort`        | HealthStatus        | `eventual_projection`     | health           | Pending  |
+| `GuardrailDecisionRepositoryPort`   | GuardrailDecision   | `strong_owner`            | guardrails       | Complete |
+| `HealthStatusRepositoryPort`        | HealthStatus        | `eventual_projection`     | health           | Complete |
 
 Consistency models are taken verbatim from `repositoryAdapterPlans` in `repository-adapter-plan.ts`.
 
@@ -174,6 +172,11 @@ Strategy B for the `eventual_projection` aggregates (`Chat`, `Contact`, `Group`,
 dominates, Strategy B for all nine is acceptable because durable-json already relies on it. **This is
 the one decision to confirm before implementation begins.**
 
+Implementation note: the completed adapters use Strategy A for the send/session/webhook delivery
+source-state paths that already had reconstructors, and Strategy B for the completed
+Chat/Contact/Group/GuardrailDecision/HealthStatus adapters to preserve durable-json parity. A future
+hardening pass can replace Strategy B with reconstructors without changing repository ports.
+
 ## Structural Prerequisite: Extract a Shared Base
 
 Unlike the durable-json adapters, which share `DurableJsonAggregateRepository`, the PostgreSQL
@@ -208,12 +211,11 @@ no behavior change.
 6. Remove the `postgresql not supported` throw in `apps/webhook-dispatcher/src/runtime-composition.ts`
    and wire the PostgreSQL repository set.
 
-### Phase 3 — Read Projections — Partial
+### Phase 3 — Read Projections — Complete
 
 7. `Chat`, `Contact`, `Group`, `HealthStatus`, `GuardrailDecision` adapters + migrations.
-   `Chat`, `Contact`, and `Group` are complete. `HealthStatus` and `GuardrailDecision` remain.
 
-### Phase 4 — Wiring and Hybrid Removal — Pending
+### Phase 4 — Wiring and Hybrid Removal — Next
 
 8. In `apps/api/src/runtime-composition.ts` and `apps/worker/src/runtime-composition.ts`, replace the
    `localProjectionRepositories.*` (in-memory) assignments with the new PostgreSQL adapters. Delete the
@@ -231,29 +233,31 @@ no behavior change.
     real-PostgreSQL tests skip.
 
 Completed adapters now have repository contract coverage across in-memory, durable-json, and
-PostgreSQL implementations. The remaining Phase 5 work is to extend those tests to Phase 3 adapters
-and provision the CI PostgreSQL service so env-gated tests run continuously rather than skipping.
+PostgreSQL implementations. The remaining Phase 5 work is to provision the CI PostgreSQL service so
+env-gated tests run continuously rather than skipping.
 
 ## Completed Work Log
 
-| Commit    | Increment | Result                                                                                                                 |
-| --------- | --------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `3730a5a` | Phase 0   | Extracted shared PostgreSQL aggregate repository base.                                                                 |
-| `8fc1b29` | Phase 1   | Added PostgreSQL Message repository, migration, and idempotency contract coverage.                                     |
-| `d6b9d94` | Phase 1   | Added PostgreSQL Session repository, migration, and contract coverage.                                                 |
-| `a8b4b1c` | Phase 2   | Added PostgreSQL WebhookSubscription and WebhookDelivery repositories, migrations, and side-channel contract coverage. |
-| `579b608` | Phase 2   | Enabled webhook dispatcher PostgreSQL repository composition.                                                          |
+| Commit         | Increment | Result                                                                                                                 |
+| -------------- | --------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `3730a5a`      | Phase 0   | Extracted shared PostgreSQL aggregate repository base.                                                                 |
+| `8fc1b29`      | Phase 1   | Added PostgreSQL Message repository, migration, and idempotency contract coverage.                                     |
+| `d6b9d94`      | Phase 1   | Added PostgreSQL Session repository, migration, and contract coverage.                                                 |
+| `a8b4b1c`      | Phase 2   | Added PostgreSQL WebhookSubscription and WebhookDelivery repositories, migrations, and side-channel contract coverage. |
+| `579b608`      | Phase 2   | Enabled webhook dispatcher PostgreSQL repository composition.                                                          |
+| `9e196e9`      | Phase 3   | Added PostgreSQL Chat, Contact, and Group repositories, migrations, and contract coverage.                             |
+| This increment | Phase 3   | Added PostgreSQL GuardrailDecision and HealthStatus repositories, migrations, and contract coverage.                   |
 
 ## Definition of Done
 
-| DoD item                                                                                                                     | Status                         | Notes                                                                                                                                     |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| All nine adapters implement their full port interface plus required side-channel methods.                                    | Partial                        | Message, Session, Chat, Contact, Group, WebhookSubscription, and WebhookDelivery are complete; GuardrailDecision and HealthStatus remain. |
-| The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Pending                        | Requires Phase 3 adapters and Phase 4 wiring.                                                                                             |
-| The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.                                                                |
-| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                                                                                |
-| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped.                                                             |
-| No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.                                                              |
+| DoD item                                                                                                                     | Status                         | Notes                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
+| All nine adapters implement their full port interface plus required side-channel methods.                                    | Complete                       | All scoped adapters are implemented with contract coverage.                   |
+| The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Pending                        | Requires Phase 4 wiring.                                                      |
+| The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.    |
+| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                    |
+| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped. |
+| No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.  |
 
 ## Risks and Watch-Items
 

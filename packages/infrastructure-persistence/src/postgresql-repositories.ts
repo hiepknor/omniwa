@@ -17,6 +17,7 @@ import {
   createMessageType,
   createMediaId,
   createGroupStatus,
+  createHealthCategory,
   createGuardrailDecisionId,
   createRetryPolicy,
   createRetentionPolicy,
@@ -42,6 +43,13 @@ import {
   type GroupId,
   type GroupRepositoryPort,
   type GroupStatus,
+  type GuardrailDecision,
+  type GuardrailDecisionId,
+  type GuardrailDecisionRepositoryPort,
+  type HealthCategory,
+  type HealthStatus,
+  type HealthStatusId,
+  type HealthStatusRepositoryPort,
   type IdempotencyKey,
   type Instance,
   type InstanceId,
@@ -108,6 +116,8 @@ export type PostgresqlRepositorySet = Readonly<{
   chatRepository: PostgresqlChatRepository;
   contactRepository: PostgresqlContactRepository;
   groupRepository: PostgresqlGroupRepository;
+  guardrailDecisionRepository: PostgresqlGuardrailDecisionRepository;
+  healthStatusRepository: PostgresqlHealthStatusRepository;
   instanceRepository: PostgresqlInstanceRepository;
   messageRepository: PostgresqlMessageRepository;
   sessionRepository: PostgresqlSessionRepository;
@@ -267,6 +277,36 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_groups_jid_idx ON omniwa_groups (jid)",
     ]),
   }),
+  Object.freeze({
+    id: "pgm_20260704_0010_guardrail_decision_repository",
+    description: "Create PostgreSQL source-state storage for GuardrailDecisionRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_guardrail_decisions (
+        id text PRIMARY KEY,
+        evaluated_intent_ref text NOT NULL,
+        status text NOT NULL,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_guardrail_decisions_evaluated_intent_ref_idx ON omniwa_guardrail_decisions (evaluated_intent_ref)",
+      "CREATE INDEX IF NOT EXISTS omniwa_guardrail_decisions_status_idx ON omniwa_guardrail_decisions (status)",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260704_0011_health_status_repository",
+    description: "Create PostgreSQL projection storage for HealthStatusRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_health_statuses (
+        id text PRIMARY KEY,
+        subject_ref text NOT NULL,
+        category text NOT NULL,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_health_statuses_subject_ref_idx ON omniwa_health_statuses (subject_ref)",
+      "CREATE INDEX IF NOT EXISTS omniwa_health_statuses_category_idx ON omniwa_health_statuses (category)",
+    ]),
+  }),
 ]) satisfies readonly PostgresqlSqlMigration[];
 
 export const postgresqlInstanceRepositoryMigrations = postgresqlRepositoryMigrations;
@@ -379,6 +419,12 @@ export function createPostgresqlRepositorySet(
     groupRepository: new PostgresqlGroupRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
+    guardrailDecisionRepository: new PostgresqlGuardrailDecisionRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    healthStatusRepository: new PostgresqlHealthStatusRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
     instanceRepository: new PostgresqlInstanceRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
@@ -485,10 +531,7 @@ export class PostgresqlChatRepository
   extends PostgresqlAggregateRepository<Chat, ChatId>
   implements ChatRepositoryPort
 {
-  constructor(
-    connection: PostgresqlQueryExecutor,
-    options: PostgresqlChatRepositoryOptions = {},
-  ) {
+  constructor(connection: PostgresqlQueryExecutor, options: PostgresqlChatRepositoryOptions = {}) {
     super(connection, {
       tableName: "omniwa_chats",
       columns: Object.freeze([
@@ -612,10 +655,7 @@ export class PostgresqlGroupRepository
   extends PostgresqlAggregateRepository<Group, GroupId>
   implements GroupRepositoryPort
 {
-  constructor(
-    connection: PostgresqlQueryExecutor,
-    options: PostgresqlGroupRepositoryOptions = {},
-  ) {
+  constructor(connection: PostgresqlQueryExecutor, options: PostgresqlGroupRepositoryOptions = {}) {
     super(connection, {
       tableName: "omniwa_groups",
       columns: Object.freeze([
@@ -659,6 +699,93 @@ export class PostgresqlGroupRepository
     );
 
     return matches[0];
+  }
+}
+
+export type PostgresqlGuardrailDecisionRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlGuardrailDecisionRepository
+  extends PostgresqlAggregateRepository<GuardrailDecision, GuardrailDecisionId>
+  implements GuardrailDecisionRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlGuardrailDecisionRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_guardrail_decisions",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "evaluated_intent_ref",
+          value: (decision: GuardrailDecision) => decision.evaluatedIntentRef,
+        }),
+        Object.freeze({
+          name: "status",
+          value: (decision: GuardrailDecision) => decision.status,
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<GuardrailDecision>(value, "GuardrailDecision"),
+      getId: (decision) => keyOf(decision.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  async findByEvaluatedIntent(evaluatedIntentRef: string): Promise<GuardrailDecision | undefined> {
+    const matches = await this.findManyBySql(
+      "SELECT aggregate FROM omniwa_guardrail_decisions WHERE evaluated_intent_ref = $1 ORDER BY id ASC LIMIT 1",
+      [evaluatedIntentRef],
+    );
+
+    return matches[0];
+  }
+}
+
+export type PostgresqlHealthStatusRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlHealthStatusRepository
+  extends PostgresqlAggregateRepository<HealthStatus, HealthStatusId>
+  implements HealthStatusRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlHealthStatusRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_health_statuses",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "subject_ref",
+          value: (health: HealthStatus) => health.subjectRef,
+        }),
+        Object.freeze({
+          name: "category",
+          value: (health: HealthStatus) => health.category,
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<HealthStatus>(value, "HealthStatus"),
+      getId: (health) => keyOf(health.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  async findBySubject(subjectRef: string): Promise<HealthStatus | undefined> {
+    const matches = await this.findManyBySql(
+      "SELECT aggregate FROM omniwa_health_statuses WHERE subject_ref = $1 ORDER BY id ASC LIMIT 1",
+      [subjectRef],
+    );
+
+    return matches[0];
+  }
+
+  findByCategory(category: HealthCategory): Promise<readonly HealthStatus[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_health_statuses WHERE category = $1 ORDER BY id ASC",
+      [createHealthCategory(category)],
+    );
   }
 }
 
