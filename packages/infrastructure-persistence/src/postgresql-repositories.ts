@@ -19,6 +19,11 @@ import {
   createRetentionPolicy,
   createSessionId,
   createSessionStatus,
+  createWebhookDeliveryId,
+  createWebhookDeliveryStatus,
+  createWebhookId,
+  createWebhookSubscriptionStatus,
+  createWebhookUrl,
   createWorkerJobSafeMetadata,
   type DomainEvent,
   type DomainOwnerContext,
@@ -37,6 +42,14 @@ import {
   type SessionId,
   type SessionRepositoryPort,
   type SessionStatus,
+  type WebhookDelivery,
+  type WebhookDeliveryId,
+  type WebhookDeliveryRepositoryPort,
+  type WebhookDeliveryStatus,
+  type WebhookId,
+  type WebhookSubscription,
+  type WebhookSubscriptionRepositoryPort,
+  type WebhookSubscriptionStatus,
   type WorkerJob,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
@@ -78,6 +91,8 @@ export type PostgresqlRepositorySet = Readonly<{
   instanceRepository: PostgresqlInstanceRepository;
   messageRepository: PostgresqlMessageRepository;
   sessionRepository: PostgresqlSessionRepository;
+  webhookDeliveryRepository: PostgresqlWebhookDeliveryRepository;
+  webhookSubscriptionRepository: PostgresqlWebhookSubscriptionRepository;
   workerJobRepository: PostgresqlWorkerJobRepository;
 }>;
 
@@ -146,6 +161,37 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_sessions_instance_id_idx ON omniwa_sessions (instance_id)",
       "CREATE INDEX IF NOT EXISTS omniwa_sessions_instance_status_idx ON omniwa_sessions (instance_id, status)",
       "CREATE INDEX IF NOT EXISTS omniwa_sessions_recovery_required_idx ON omniwa_sessions (requires_recovery) WHERE requires_recovery = true",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260704_0005_webhook_subscription_repository",
+    description: "Create PostgreSQL source-state storage for WebhookSubscriptionRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_webhook_subscriptions (
+        id text PRIMARY KEY,
+        status text NOT NULL,
+        signal_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_webhook_subscriptions_status_idx ON omniwa_webhook_subscriptions (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_webhook_subscriptions_signal_refs_idx ON omniwa_webhook_subscriptions USING gin (signal_refs)",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260704_0006_webhook_delivery_repository",
+    description: "Create PostgreSQL source-state storage for WebhookDeliveryRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_webhook_deliveries (
+        id text PRIMARY KEY,
+        status text NOT NULL,
+        source_signal_ref text NOT NULL,
+        idempotency_key text NULL UNIQUE,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_webhook_deliveries_status_idx ON omniwa_webhook_deliveries (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_webhook_deliveries_source_signal_ref_idx ON omniwa_webhook_deliveries (source_signal_ref)",
     ]),
   }),
 ]) satisfies readonly PostgresqlSqlMigration[];
@@ -260,6 +306,12 @@ export function createPostgresqlRepositorySet(
     sessionRepository: new PostgresqlSessionRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
+    webhookDeliveryRepository: new PostgresqlWebhookDeliveryRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    webhookSubscriptionRepository: new PostgresqlWebhookSubscriptionRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
     workerJobRepository: new PostgresqlWorkerJobRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
@@ -338,6 +390,142 @@ export type PostgresqlMessageRepositoryOptions = Readonly<{
 export type PostgresqlSessionRepositoryOptions = Readonly<{
   migrationBarrier?: () => Promise<void>;
 }>;
+
+export type PostgresqlWebhookSubscriptionRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlWebhookSubscriptionRepository
+  extends PostgresqlAggregateRepository<WebhookSubscription, WebhookId>
+  implements WebhookSubscriptionRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlWebhookSubscriptionRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_webhook_subscriptions",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "status",
+          value: (subscription: WebhookSubscription) => subscription.status,
+        }),
+        Object.freeze({
+          name: "signal_refs",
+          value: (subscription: WebhookSubscription) =>
+            findWebhookSubscriptionSignalRefsByWebhookId(connection, subscription.id),
+          updateExpression:
+            "COALESCE(omniwa_webhook_subscriptions.signal_refs, EXCLUDED.signal_refs)",
+        }),
+      ]),
+      decode: decodeWebhookSubscriptionAggregate,
+      getId: (subscription) => keyOf(subscription.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByStatus(status: WebhookSubscriptionStatus): Promise<readonly WebhookSubscription[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_webhook_subscriptions WHERE status = $1 ORDER BY id ASC",
+      [createWebhookSubscriptionStatus(status)],
+    );
+  }
+
+  findActiveForSignal(sourceSignalRef: string): Promise<readonly WebhookSubscription[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_webhook_subscriptions WHERE status = $1 AND signal_refs @> $2::jsonb ORDER BY id ASC",
+      ["active", JSON.stringify([sourceSignalRef])],
+    );
+  }
+
+  async recordSignalSelection(
+    webhookId: WebhookId,
+    sourceSignalRefs: readonly string[],
+  ): Promise<void> {
+    await this.ensureReady();
+
+    await this.connection.query(
+      "UPDATE omniwa_webhook_subscriptions SET signal_refs = $1::jsonb, updated_at = now() WHERE id = $2",
+      [JSON.stringify([...sourceSignalRefs]), keyOf(webhookId)],
+    );
+  }
+}
+
+export type PostgresqlWebhookDeliveryRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlWebhookDeliveryRepository
+  extends PostgresqlAggregateRepository<WebhookDelivery, WebhookDeliveryId>
+  implements WebhookDeliveryRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlWebhookDeliveryRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_webhook_deliveries",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "status",
+          value: (delivery: WebhookDelivery) => delivery.status,
+        }),
+        Object.freeze({
+          name: "source_signal_ref",
+          value: (delivery: WebhookDelivery) => delivery.sourceSignalRef,
+        }),
+        Object.freeze({
+          name: "idempotency_key",
+          value: (delivery: WebhookDelivery) =>
+            findWebhookDeliveryIdempotencyKeyByDeliveryId(connection, delivery.id),
+          updateExpression:
+            "COALESCE(omniwa_webhook_deliveries.idempotency_key, EXCLUDED.idempotency_key)",
+        }),
+      ]),
+      decode: decodeWebhookDeliveryAggregate,
+      getId: (delivery) => keyOf(delivery.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByStatus(status: WebhookDeliveryStatus): Promise<readonly WebhookDelivery[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_webhook_deliveries WHERE status = $1 ORDER BY id ASC",
+      [createWebhookDeliveryStatus(status)],
+    );
+  }
+
+  findBySourceSignal(sourceSignalRef: string): Promise<readonly WebhookDelivery[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_webhook_deliveries WHERE source_signal_ref = $1 ORDER BY id ASC",
+      [sourceSignalRef],
+    );
+  }
+
+  async findByIdempotencyKey(idempotencyKey: IdempotencyKey): Promise<WebhookDelivery | undefined> {
+    await this.ensureReady();
+
+    const result = await this.connection.query<WebhookDeliveryRow>(
+      "SELECT aggregate FROM omniwa_webhook_deliveries WHERE idempotency_key = $1",
+      [keyOf(createIdempotencyKey(keyOf(idempotencyKey)))],
+    );
+    const row = result.rows[0];
+
+    return row === undefined ? undefined : decodeWebhookDeliveryAggregate(row.aggregate);
+  }
+
+  async recordIdempotencyKey(
+    idempotencyKey: IdempotencyKey,
+    deliveryId: WebhookDeliveryId,
+  ): Promise<void> {
+    await this.ensureReady();
+
+    await this.connection.query(
+      "UPDATE omniwa_webhook_deliveries SET idempotency_key = $1, updated_at = now() WHERE id = $2",
+      [keyOf(createIdempotencyKey(keyOf(idempotencyKey))), keyOf(deliveryId)],
+    );
+  }
+}
 
 export class PostgresqlSessionRepository
   extends PostgresqlAggregateRepository<Session, SessionId>
@@ -542,6 +730,10 @@ type MessageRow = QueryResultRow & {
   aggregate: unknown;
 };
 
+type WebhookDeliveryRow = QueryResultRow & {
+  aggregate: unknown;
+};
+
 async function findMessageIdempotencyKeyByMessageId(
   connection: PostgresqlQueryExecutor,
   messageId: MessageId,
@@ -549,6 +741,31 @@ async function findMessageIdempotencyKeyByMessageId(
   const result = await connection.query<{ idempotency_key: string | null }>(
     "SELECT idempotency_key FROM omniwa_messages WHERE id = $1",
     [keyOf(messageId)],
+  );
+
+  return result.rows[0]?.idempotency_key ?? null;
+}
+
+async function findWebhookSubscriptionSignalRefsByWebhookId(
+  connection: PostgresqlQueryExecutor,
+  webhookId: WebhookId,
+): Promise<string> {
+  const result = await connection.query<{ signal_refs: unknown }>(
+    "SELECT signal_refs FROM omniwa_webhook_subscriptions WHERE id = $1",
+    [keyOf(webhookId)],
+  );
+  const signalRefs = result.rows[0]?.signal_refs;
+
+  return JSON.stringify(normalizeSignalRefs(signalRefs));
+}
+
+async function findWebhookDeliveryIdempotencyKeyByDeliveryId(
+  connection: PostgresqlQueryExecutor,
+  deliveryId: WebhookDeliveryId,
+): Promise<string | null> {
+  const result = await connection.query<{ idempotency_key: string | null }>(
+    "SELECT idempotency_key FROM omniwa_webhook_deliveries WHERE id = $1",
+    [keyOf(deliveryId)],
   );
 
   return result.rows[0]?.idempotency_key ?? null;
@@ -654,6 +871,68 @@ function decodeMessageAggregate(value: unknown): Message {
     ),
     domainEvents: Object.freeze(
       requiredArray(aggregate.domainEvents, "Message.domainEvents").map(decodeDomainEvent),
+    ),
+  });
+}
+
+function decodeWebhookSubscriptionAggregate(value: unknown): WebhookSubscription {
+  const aggregate = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+
+  if (!isRecord(aggregate)) {
+    throw new TypeError("PostgreSQL WebhookSubscription aggregate must be an object.");
+  }
+
+  return Object.freeze({
+    id: createWebhookId(requiredString(aggregate.id, "WebhookSubscription.id")),
+    targetUrl: createWebhookUrl(
+      requiredString(aggregate.targetUrl, "WebhookSubscription.targetUrl"),
+    ),
+    status: createWebhookSubscriptionStatus(
+      requiredString(aggregate.status, "WebhookSubscription.status"),
+    ),
+    domainEvents: Object.freeze(
+      requiredArray(aggregate.domainEvents, "WebhookSubscription.domainEvents").map(
+        decodeDomainEvent,
+      ),
+    ),
+  });
+}
+
+function decodeWebhookDeliveryAggregate(value: unknown): WebhookDelivery {
+  const aggregate = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+
+  if (!isRecord(aggregate)) {
+    throw new TypeError("PostgreSQL WebhookDelivery aggregate must be an object.");
+  }
+
+  const retryPolicy = decodeRetryPolicy(aggregate.retryPolicy, "WebhookDelivery.retryPolicy");
+
+  return Object.freeze({
+    id: createWebhookDeliveryId(requiredString(aggregate.id, "WebhookDelivery.id")),
+    webhookId: createWebhookId(requiredString(aggregate.webhookId, "WebhookDelivery.webhookId")),
+    sourceSignalRef: requiredString(aggregate.sourceSignalRef, "WebhookDelivery.sourceSignalRef"),
+    status: createWebhookDeliveryStatus(requiredString(aggregate.status, "WebhookDelivery.status")),
+    retryPolicy,
+    ...optional(
+      "attemptNumber",
+      optionalNumber(aggregate.attemptNumber, "WebhookDelivery.attemptNumber", (value) =>
+        createAttemptNumber(value, retryPolicy),
+      ),
+    ),
+    ...optional(
+      "failureCategory",
+      optionalString(
+        aggregate.failureCategory,
+        "WebhookDelivery.failureCategory",
+        createFailureCategory,
+      ),
+    ),
+    ...optional(
+      "deadLetterReason",
+      optionalDeadLetterReason(aggregate.deadLetterReason, "WebhookDelivery.deadLetterReason"),
+    ),
+    domainEvents: Object.freeze(
+      requiredArray(aggregate.domainEvents, "WebhookDelivery.domainEvents").map(decodeDomainEvent),
     ),
   });
 }
@@ -867,6 +1146,14 @@ function identity(value: string): string {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeSignalRefs(value: unknown): readonly string[] {
+  const parsed = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+
+  return Array.isArray(parsed)
+    ? Object.freeze(parsed.filter((entry): entry is string => typeof entry === "string"))
+    : Object.freeze([]);
 }
 
 function optional<TKey extends string, TValue>(

@@ -12,8 +12,15 @@ import {
   createOutboundMessageAggregate,
   createSessionAggregate,
   activateSession,
+  activateWebhookSubscription,
   expireSession,
+  createWebhookDeliveryAggregate,
+  createWebhookDeliveryId,
+  createWebhookId,
+  createWebhookSubscriptionAggregate,
+  createWebhookUrl,
   queueMessage,
+  validateWebhookSubscription,
   markInstanceConnected,
   markInstanceConnecting,
   markMessageProcessing,
@@ -25,6 +32,10 @@ import {
   type MessageId,
   type MessageRepositoryPort,
   type SessionRepositoryPort,
+  type WebhookDeliveryId,
+  type WebhookDeliveryRepositoryPort,
+  type WebhookId,
+  type WebhookSubscriptionRepositoryPort,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -344,6 +355,138 @@ export function describeSessionRepositoryContract(factory: SessionRepositoryCont
         active,
       ]);
       await expect(repository.findRecoveryRequired()).resolves.toEqual([expired]);
+    });
+  });
+}
+
+export type WebhookSubscriptionRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): WebhookSubscriptionRepositoryPort &
+    Partial<{
+      recordSignalSelection(
+        webhookId: WebhookId,
+        sourceSignalRefs: readonly string[],
+      ): Promise<void> | void;
+    }>;
+}>;
+
+export function describeWebhookSubscriptionRepositoryContract(
+  factory: WebhookSubscriptionRepositoryContractFactory,
+): void {
+  describe(`${factory.name} WebhookSubscriptionRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and filters subscriptions by status", async () => {
+      const repository = factory.create();
+      const webhookId = createWebhookId(`${safeFactoryName(factory.name)}-webhook-load`);
+      const subscription = createWebhookSubscriptionAggregate({
+        id: webhookId,
+        targetUrl: createWebhookUrl("https://example.test/omniwa-webhook"),
+      });
+
+      await expect(repository.exists(webhookId)).resolves.toBe(false);
+      await repository.save(subscription);
+
+      await expect(repository.exists(webhookId)).resolves.toBe(true);
+      await expect(repository.load(webhookId)).resolves.toEqual(subscription);
+      await expect(repository.findByStatus("proposed")).resolves.toEqual([subscription]);
+    });
+
+    it("resolves active subscriptions by signal selection when the adapter supports the optional index", async () => {
+      const repository = factory.create();
+      const recordSignalSelection = repository.recordSignalSelection;
+
+      if (recordSignalSelection === undefined) {
+        return;
+      }
+
+      const webhookId = createWebhookId(`${safeFactoryName(factory.name)}-webhook-signal`);
+      const subscription = activateWebhookSubscription(
+        validateWebhookSubscription(
+          createWebhookSubscriptionAggregate({
+            id: webhookId,
+            targetUrl: createWebhookUrl("https://example.test/omniwa-signal"),
+          }),
+        ),
+      );
+
+      await repository.save(subscription);
+      await recordSignalSelection.call(repository, webhookId, ["signal_alpha", "signal_beta"]);
+
+      await expect(repository.findActiveForSignal("signal_alpha")).resolves.toEqual([subscription]);
+      await expect(repository.findActiveForSignal("signal_unknown")).resolves.toEqual([]);
+    });
+  });
+}
+
+export type WebhookDeliveryRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): WebhookDeliveryRepositoryPort &
+    Partial<{
+      recordIdempotencyKey(
+        idempotencyKey: IdempotencyKey,
+        deliveryId: WebhookDeliveryId,
+      ): Promise<void> | void;
+    }>;
+}>;
+
+export function describeWebhookDeliveryRepositoryContract(
+  factory: WebhookDeliveryRepositoryContractFactory,
+): void {
+  describe(`${factory.name} WebhookDeliveryRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and filters deliveries by status and source signal", async () => {
+      const repository = factory.create();
+      const deliveryId = createWebhookDeliveryId(`${safeFactoryName(factory.name)}-delivery-load`);
+      const delivery = createWebhookDeliveryAggregate({
+        id: deliveryId,
+        webhookId: createWebhookId(`${safeFactoryName(factory.name)}-webhook-delivery`),
+        sourceSignalRef: "signal_delivery_alpha",
+        retryPolicy: standardRetryPolicy(),
+      });
+
+      await expect(repository.exists(deliveryId)).resolves.toBe(false);
+      await repository.save(delivery);
+
+      await expect(repository.exists(deliveryId)).resolves.toBe(true);
+      await expect(repository.load(deliveryId)).resolves.toEqual(delivery);
+      await expect(repository.findByStatus("pending")).resolves.toEqual([delivery]);
+      await expect(repository.findBySourceSignal("signal_delivery_alpha")).resolves.toEqual([
+        delivery,
+      ]);
+      await expect(repository.findBySourceSignal("signal_delivery_unknown")).resolves.toEqual([]);
+    });
+
+    it("resolves idempotency keys when the adapter supports the optional index", async () => {
+      const repository = factory.create();
+      const recordIdempotencyKey = repository.recordIdempotencyKey;
+
+      if (recordIdempotencyKey === undefined) {
+        return;
+      }
+
+      const deliveryId = createWebhookDeliveryId(
+        `${safeFactoryName(factory.name)}-delivery-idempotency`,
+      );
+      const idempotencyKey = createIdempotencyKey(`${safeFactoryName(factory.name)}-idem-delivery`);
+      const delivery = createWebhookDeliveryAggregate({
+        id: deliveryId,
+        webhookId: createWebhookId(`${safeFactoryName(factory.name)}-webhook-idempotency`),
+        sourceSignalRef: "signal_delivery_idempotency",
+        retryPolicy: standardRetryPolicy(),
+      });
+
+      await repository.save(delivery);
+      await recordIdempotencyKey.call(repository, idempotencyKey, deliveryId);
+
+      await expect(repository.findByIdempotencyKey(idempotencyKey)).resolves.toEqual(delivery);
     });
   });
 }

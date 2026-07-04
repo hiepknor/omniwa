@@ -46,6 +46,8 @@ import {
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
+  describeWebhookDeliveryRepositoryContract,
+  describeWebhookSubscriptionRepositoryContract,
   describeWorkerJobRepositoryContract,
 } from "./repository-contracts.spec-helper.js";
 
@@ -76,6 +78,18 @@ describeSessionRepositoryContract({
 describeMessageRepositoryContract({
   name: "durable-json",
   create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).messageRepository,
+});
+
+describeWebhookSubscriptionRepositoryContract({
+  name: "durable-json",
+  create: () =>
+    createDurableJsonRepositorySet(createTemporaryDirectory()).webhookSubscriptionRepository,
+});
+
+describeWebhookDeliveryRepositoryContract({
+  name: "durable-json",
+  create: () =>
+    createDurableJsonRepositorySet(createTemporaryDirectory()).webhookDeliveryRepository,
 });
 
 describeWorkerJobRepositoryContract({

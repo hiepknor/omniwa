@@ -72,6 +72,8 @@ import {
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
+  describeWebhookDeliveryRepositoryContract,
+  describeWebhookSubscriptionRepositoryContract,
   describeWorkerJobRepositoryContract,
 } from "./repository-contracts.spec-helper.js";
 
@@ -104,6 +106,16 @@ describeSessionRepositoryContract({
 describeMessageRepositoryContract({
   name: "in-memory",
   create: () => createInMemoryRepositorySet().messageRepository,
+});
+
+describeWebhookSubscriptionRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().webhookSubscriptionRepository,
+});
+
+describeWebhookDeliveryRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().webhookDeliveryRepository,
 });
 
 describeWorkerJobRepositoryContract({

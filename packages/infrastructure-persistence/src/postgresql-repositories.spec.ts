@@ -6,6 +6,8 @@ import {
   PostgresqlInstanceRepository,
   PostgresqlMessageRepository,
   PostgresqlSessionRepository,
+  PostgresqlWebhookDeliveryRepository,
+  PostgresqlWebhookSubscriptionRepository,
   PostgresqlWorkerJobRepository,
   postgresqlInstanceRepositoryMigrations,
   runPostgresqlSqlMigrations,
@@ -16,6 +18,8 @@ import {
 import { describeInstanceRepositoryContract } from "./repository-contracts.spec-helper.js";
 import { describeMessageRepositoryContract } from "./repository-contracts.spec-helper.js";
 import { describeSessionRepositoryContract } from "./repository-contracts.spec-helper.js";
+import { describeWebhookDeliveryRepositoryContract } from "./repository-contracts.spec-helper.js";
+import { describeWebhookSubscriptionRepositoryContract } from "./repository-contracts.spec-helper.js";
 import { describeWorkerJobRepositoryContract } from "./repository-contracts.spec-helper.js";
 
 describe("PostgreSQL migration runner", () => {
@@ -79,6 +83,14 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260704_0004_session_repository",
         description: expect.stringContaining("SessionRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260704_0005_webhook_subscription_repository",
+        description: expect.stringContaining("WebhookSubscriptionRepositoryPort"),
+      }),
+      expect.objectContaining({
+        id: "pgm_20260704_0006_webhook_delivery_repository",
+        description: expect.stringContaining("WebhookDeliveryRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -91,6 +103,12 @@ describe("PostgreSQL migration runner", () => {
     );
     expect(postgresqlInstanceRepositoryMigrations[3]?.statements.join("\n")).toContain(
       "omniwa_sessions",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[4]?.statements.join("\n")).toContain(
+      "omniwa_webhook_subscriptions",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[5]?.statements.join("\n")).toContain(
+      "omniwa_webhook_deliveries",
     );
   });
 });
@@ -110,7 +128,7 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
       await connection.query(
-        "TRUNCATE TABLE omniwa_worker_jobs, omniwa_messages, omniwa_sessions, omniwa_instances",
+        "TRUNCATE TABLE omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
       );
     });
 
@@ -131,6 +149,16 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeSessionRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlSessionRepository(connection),
+    });
+
+    describeWebhookSubscriptionRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlWebhookSubscriptionRepository(connection),
+    });
+
+    describeWebhookDeliveryRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlWebhookDeliveryRepository(connection),
     });
 
     describeWorkerJobRepositoryContract({
