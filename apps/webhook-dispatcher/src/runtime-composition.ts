@@ -11,6 +11,8 @@ import type {
 import {
   createDurableJsonRepositorySet,
   createInMemoryRepositorySet,
+  createPostgresqlConnectionPool,
+  createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 
@@ -24,7 +26,11 @@ export const webhookDispatcherRuntimeProfiles = ["local", "test", "production"] 
 
 export type WebhookDispatcherRuntimeProfile = (typeof webhookDispatcherRuntimeProfiles)[number];
 
-export const webhookDispatcherRepositoryProfiles = ["in-memory", "durable-json"] as const;
+export const webhookDispatcherRepositoryProfiles = [
+  "in-memory",
+  "durable-json",
+  "postgresql",
+] as const;
 
 export type WebhookDispatcherRepositoryProfile =
   (typeof webhookDispatcherRepositoryProfiles)[number];
@@ -106,16 +112,14 @@ export function readWebhookDispatcherRepositoryProfile(
   const value = env.OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE?.trim();
 
   switch (value) {
+    case "postgresql":
+      return "postgresql";
     case "durable-json":
       return "durable-json";
     case "in-memory":
     case undefined:
     case "":
       return "in-memory";
-    case "postgresql":
-      throw new Error(
-        "OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql is not supported until PostgreSQL webhook repositories are implemented.",
-      );
     default:
       throw new Error(`Unsupported OmniWA Webhook Dispatcher repository profile: ${value}`);
   }
@@ -127,6 +131,29 @@ function createWebhookDispatcherRepositories(
 ): WebhookDispatcherRepositories {
   if (repositoryProfile === "in-memory") {
     return createInMemoryRepositorySet();
+  }
+
+  if (repositoryProfile === "postgresql") {
+    const databaseUrl = env.OMNIWA_POSTGRES_DATABASE_URL?.trim();
+
+    if (databaseUrl === undefined || databaseUrl.length === 0) {
+      throw new Error(
+        "OMNIWA_POSTGRES_DATABASE_URL is required when OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql.",
+      );
+    }
+
+    const postgresqlRepositories = createPostgresqlRepositorySet(
+      createPostgresqlConnectionPool(databaseUrl),
+      {
+        autoMigrate: readBooleanEnv(env.OMNIWA_POSTGRES_AUTO_MIGRATE),
+      },
+    );
+
+    return Object.freeze({
+      workerJobRepository: postgresqlRepositories.workerJobRepository,
+      webhookDeliveryRepository: postgresqlRepositories.webhookDeliveryRepository,
+      webhookSubscriptionRepository: postgresqlRepositories.webhookSubscriptionRepository,
+    });
   }
 
   const stateDirectory =
@@ -170,6 +197,12 @@ function readNonNegativeIntegerEnv(
   }
 
   return parsed;
+}
+
+function readBooleanEnv(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
 class DisabledWebhookTransport implements WebhookTransportPort {

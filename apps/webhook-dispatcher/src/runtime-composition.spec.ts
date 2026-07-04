@@ -69,12 +69,32 @@ describe("Webhook Dispatcher runtime composition", () => {
     ).toThrow(/production queue, webhook HTTP gateway, secret, and observability adapters/u);
   });
 
-  it("rejects PostgreSQL profile until webhook repositories exist", () => {
-    expect(() =>
+  it("supports PostgreSQL repository profile once webhook repositories are implemented", () => {
+    expect(
       readWebhookDispatcherRepositoryProfile({
         OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
       }),
-    ).toThrow(/PostgreSQL webhook repositories/u);
+    ).toBe("postgresql");
+  });
+
+  it("requires a PostgreSQL database URL for PostgreSQL composition", () => {
+    expect(() =>
+      createWebhookDispatcherRuntimeComposition({
+        OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "local",
+        OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
+      }),
+    ).toThrow(/OMNIWA_POSTGRES_DATABASE_URL/u);
+  });
+
+  it("composes PostgreSQL repository profile when a database URL is provided", () => {
+    const composition = createWebhookDispatcherRuntimeComposition({
+      OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "local",
+      OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
+      OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+      OMNIWA_POSTGRES_AUTO_MIGRATE: "true",
+    });
+
+    expect(composition.repositoryProfile).toBe("postgresql");
   });
 
   it("requires a repository state directory for durable JSON composition", () => {
@@ -99,6 +119,11 @@ describe("Webhook Dispatcher runtime composition", () => {
         OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "durable-json",
       }),
     ).toBe("durable-json");
+    expect(
+      readWebhookDispatcherRepositoryProfile({
+        OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
+      }),
+    ).toBe("postgresql");
   });
 });
 
