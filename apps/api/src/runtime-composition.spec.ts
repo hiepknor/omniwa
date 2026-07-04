@@ -163,6 +163,19 @@ describe("API runtime composition", () => {
     ).toThrow(/OMNIWA_POSTGRES_DATABASE_URL/);
   });
 
+  it("composes PostgreSQL repository profile when a database URL is provided", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+      OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+      OMNIWA_POSTGRES_AUTO_MIGRATE: "true",
+    });
+
+    expect(composition.repositoryProfile).toBe("postgresql");
+    expect(composition.options.dispatcher).toBeDefined();
+  });
+
   it("normalizes runtime profile names", () => {
     expect(readRuntimeProfile({ NODE_ENV: "test" })).toBe("test");
     expect(readRuntimeProfile({ NODE_ENV: "development" })).toBe("local");

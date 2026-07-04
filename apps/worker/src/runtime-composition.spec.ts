@@ -22,6 +22,14 @@ import {
   startSessionPairing,
 } from "@omniwa/domain";
 import {
+  PostgresqlGuardrailDecisionRepository,
+  PostgresqlHealthStatusRepository,
+  PostgresqlInstanceRepository,
+  PostgresqlMessageRepository,
+  PostgresqlSessionRepository,
+  PostgresqlWorkerJobRepository,
+} from "@omniwa/infrastructure-persistence";
+import {
   BaileysMessagingProviderAdapter,
   FakeBaileysSocket,
   FakeBaileysSocketProvider,
@@ -257,6 +265,31 @@ describe("Worker runtime composition", () => {
         OMNIWA_WORKER_REPOSITORY_PROFILE: "postgresql",
       }),
     ).toThrow(/OMNIWA_POSTGRES_DATABASE_URL/u);
+  });
+
+  it("wires PostgreSQL repositories without in-memory fallback for the worker repository profile", () => {
+    const composition = createWorkerRuntimeComposition({
+      OMNIWA_WORKER_RUNTIME_PROFILE: "local",
+      OMNIWA_WORKER_REPOSITORY_PROFILE: "postgresql",
+      OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+      OMNIWA_POSTGRES_AUTO_MIGRATE: "true",
+    });
+
+    expect(composition.repositoryProfile).toBe("postgresql");
+    expect(composition.repositories.instanceRepository).toBeInstanceOf(
+      PostgresqlInstanceRepository,
+    );
+    expect(composition.repositories.workerJobRepository).toBeInstanceOf(
+      PostgresqlWorkerJobRepository,
+    );
+    expect(composition.repositories.sessionRepository).toBeInstanceOf(PostgresqlSessionRepository);
+    expect(composition.repositories.messageRepository).toBeInstanceOf(PostgresqlMessageRepository);
+    expect(composition.repositories.guardrailDecisionRepository).toBeInstanceOf(
+      PostgresqlGuardrailDecisionRepository,
+    );
+    expect(composition.repositories.healthStatusRepository).toBeInstanceOf(
+      PostgresqlHealthStatusRepository,
+    );
   });
 
   it("keeps production runtime blocked until remaining production adapters are complete", () => {

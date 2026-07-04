@@ -185,7 +185,6 @@ function createRuntimeRepositories(
       );
     }
 
-    const localProjectionRepositories = createInMemoryRepositorySet();
     const postgresqlRepositories = createPostgresqlRepositorySet(
       createPostgresqlConnectionPool(databaseUrl),
       {
@@ -195,16 +194,16 @@ function createRuntimeRepositories(
 
     return Object.freeze({
       instanceRepository: postgresqlRepositories.instanceRepository,
-      healthStatusRepository: localProjectionRepositories.healthStatusRepository,
-      sessionRepository: localProjectionRepositories.sessionRepository,
-      messageRepository: localProjectionRepositories.messageRepository,
-      chatRepository: localProjectionRepositories.chatRepository,
-      contactRepository: localProjectionRepositories.contactRepository,
-      groupRepository: localProjectionRepositories.groupRepository,
-      guardrailDecisionRepository: localProjectionRepositories.guardrailDecisionRepository,
+      healthStatusRepository: postgresqlRepositories.healthStatusRepository,
+      sessionRepository: postgresqlRepositories.sessionRepository,
+      messageRepository: postgresqlRepositories.messageRepository,
+      chatRepository: postgresqlRepositories.chatRepository,
+      contactRepository: postgresqlRepositories.contactRepository,
+      groupRepository: postgresqlRepositories.groupRepository,
+      guardrailDecisionRepository: postgresqlRepositories.guardrailDecisionRepository,
       workerJobRepository: postgresqlRepositories.workerJobRepository,
-      webhookSubscriptionRepository: localProjectionRepositories.webhookSubscriptionRepository,
-      webhookDeliveryRepository: localProjectionRepositories.webhookDeliveryRepository,
+      webhookSubscriptionRepository: postgresqlRepositories.webhookSubscriptionRepository,
+      webhookDeliveryRepository: postgresqlRepositories.webhookDeliveryRepository,
     });
   }
 

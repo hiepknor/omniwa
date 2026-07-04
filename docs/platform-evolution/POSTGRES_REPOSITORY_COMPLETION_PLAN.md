@@ -11,10 +11,9 @@ the correctness and data-durability gaps that exist today.
 ## Problem Statement
 
 `InstanceRepositoryPort` and `WorkerJobRepositoryPort` were the first PostgreSQL adapters. The
-repository completion work has now added the shared PostgreSQL aggregate base plus Message, Session,
-WebhookSubscription, and WebhookDelivery adapters. The API and worker composition still run a
-**hybrid** repository set under the `postgresql` profile until the remaining projection/guardrail
-adapters are implemented and runtime wiring is switched over.
+repository completion work has now added the shared PostgreSQL aggregate base plus the nine scoped
+runtime repositories, and API/worker/webhook-dispatcher composition uses those PostgreSQL adapters
+under the `postgresql` profile.
 
 Reference: `apps/api/src/runtime-composition.ts` (`createRuntimeRepositories`, `postgresql` branch)
 assigns `localProjectionRepositories = createInMemoryRepositorySet()` to `healthStatus`, `session`,
@@ -31,8 +30,9 @@ Original consequences:
 Current consequences after the completed increments:
 
 - The webhook dispatcher can compose with PostgreSQL repositories.
-- All nine scoped PostgreSQL adapters now exist and have contract coverage, but API/worker runtime
-  composition has not yet switched all available adapters into the `postgresql` profile.
+- All nine scoped PostgreSQL adapters now exist and have contract coverage.
+- API, worker, and webhook-dispatcher runtime composition now use PostgreSQL repositories under their
+  `postgresql` profile.
 
 This plan finishes the remaining adapters, removes the hybrid fallback, and enables the existing
 (currently skipped) real-PostgreSQL contract tests in CI.
@@ -49,7 +49,7 @@ Status date: 2026-07-04.
 | Webhook adapters                          | Complete | `PostgresqlWebhookSubscriptionRepository`, `PostgresqlWebhookDeliveryRepository`, migrations, signal/idempotency side-channels, contract tests. |
 | Webhook dispatcher PostgreSQL composition | Complete | `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql` now composes with PostgreSQL repositories.                                            |
 | Read projection / guardrail adapters      | Complete | Chat, Contact, Group, GuardrailDecision, and HealthStatus adapters are complete.                                                                |
-| API/worker hybrid fallback removal        | Pending  | Runtime composition still needs to replace in-memory fallbacks with PostgreSQL adapters.                                                        |
+| API/worker hybrid fallback removal        | Complete | Runtime composition uses PostgreSQL repositories for all scoped API/worker repositories under the `postgresql` profile.                         |
 | Real PostgreSQL CI service                | Pending  | Env-gated real PostgreSQL tests still require CI provisioning with `OMNIWA_POSTGRES_TEST_DATABASE_URL`.                                         |
 
 ## Scope
@@ -215,7 +215,7 @@ no behavior change.
 
 7. `Chat`, `Contact`, `Group`, `HealthStatus`, `GuardrailDecision` adapters + migrations.
 
-### Phase 4 — Wiring and Hybrid Removal — Next
+### Phase 4 — Wiring and Hybrid Removal — Complete
 
 8. In `apps/api/src/runtime-composition.ts` and `apps/worker/src/runtime-composition.ts`, replace the
    `localProjectionRepositories.*` (in-memory) assignments with the new PostgreSQL adapters. Delete the
@@ -250,14 +250,14 @@ env-gated tests run continuously rather than skipping.
 
 ## Definition of Done
 
-| DoD item                                                                                                                     | Status                         | Notes                                                                         |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
-| All nine adapters implement their full port interface plus required side-channel methods.                                    | Complete                       | All scoped adapters are implemented with contract coverage.                   |
-| The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Pending                        | Requires Phase 4 wiring.                                                      |
-| The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.    |
-| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                    |
-| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped. |
-| No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.  |
+| DoD item                                                                                                                     | Status                         | Notes                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------- |
+| All nine adapters implement their full port interface plus required side-channel methods.                                    | Complete                       | All scoped adapters are implemented with contract coverage.                           |
+| The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Complete                       | API and worker `postgresql` composition now use the scoped PostgreSQL repository set. |
+| The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.            |
+| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                            |
+| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped.         |
+| No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.          |
 
 ## Risks and Watch-Items
 

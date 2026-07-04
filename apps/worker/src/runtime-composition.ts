@@ -248,7 +248,6 @@ function createWorkerRuntimeRepositories(
       );
     }
 
-    const localProjectionRepositories = createInMemoryRepositorySet();
     const postgresqlRepositories = createPostgresqlRepositorySet(
       createPostgresqlConnectionPool(databaseUrl),
       {
@@ -259,10 +258,10 @@ function createWorkerRuntimeRepositories(
     return Object.freeze({
       instanceRepository: postgresqlRepositories.instanceRepository,
       workerJobRepository: postgresqlRepositories.workerJobRepository,
-      sessionRepository: localProjectionRepositories.sessionRepository,
-      messageRepository: localProjectionRepositories.messageRepository,
-      guardrailDecisionRepository: localProjectionRepositories.guardrailDecisionRepository,
-      healthStatusRepository: localProjectionRepositories.healthStatusRepository,
+      sessionRepository: postgresqlRepositories.sessionRepository,
+      messageRepository: postgresqlRepositories.messageRepository,
+      guardrailDecisionRepository: postgresqlRepositories.guardrailDecisionRepository,
+      healthStatusRepository: postgresqlRepositories.healthStatusRepository,
     });
   }
 
