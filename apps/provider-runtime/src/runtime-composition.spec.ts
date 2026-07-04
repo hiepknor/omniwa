@@ -18,6 +18,7 @@ import {
   createProviderRuntimeComposition,
   createProviderRuntimeCompositionContext,
   readProviderRuntimeAuthStatePath,
+  readProviderRuntimeAuthStateEncryptionKey,
   readProviderRuntimeCompositionPaths,
   readProviderRuntimeDrainIntervalMilliseconds,
   readProviderRuntimeEventLogPath,
@@ -29,6 +30,7 @@ import {
 
 const temporaryDirectories: string[] = [];
 const rawAuthPayload = "raw-auth-state-secret-token";
+const rawAuthStateEncryptionKey = "raw-auth-state-encryption-key";
 const rawQrPayload = "raw-qr-provider-payload";
 const rawProviderPayload = "raw-provider-payload";
 const sessionId = createSessionId("provider-runtime-composition-session");
@@ -189,6 +191,67 @@ describe("provider runtime composition", () => {
     restartedComposition.shutdown();
   });
 
+  it("can encrypt durable AuthStateStore payloads from runtime env", async () => {
+    const stateDirectory = createTemporaryDirectory();
+    const firstComposition = createProviderRuntimeComposition({
+      ...envFor(stateDirectory),
+      OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY: rawAuthStateEncryptionKey,
+    });
+    const saved = await firstComposition.authStateStore.save(sessionId, {
+      creds: rawAuthPayload,
+    });
+
+    expect(saved.ok).toBe(true);
+    expect(firstComposition.readiness).toEqual({
+      liveMode: "disabled",
+      localOnly: false,
+      productionReady: false,
+      authStateEncryption: "configured",
+      ownershipMode: "durable_json_local_lease",
+    });
+
+    const rawFile = readFileSync(firstComposition.paths.authStatePath, "utf8");
+    expect(rawFile).toContain('"encoding": "aes-256-gcm-json"');
+    expect(rawFile).not.toContain(rawAuthPayload);
+    expect(rawFile).not.toContain(rawAuthStateEncryptionKey);
+    expect(JSON.stringify(firstComposition.readiness)).not.toContain(rawAuthStateEncryptionKey);
+    expect(JSON.stringify(firstComposition.authStateStore)).not.toContain(
+      rawAuthStateEncryptionKey,
+    );
+
+    const restartedComposition = createProviderRuntimeComposition({
+      ...envFor(stateDirectory),
+      OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY: rawAuthStateEncryptionKey,
+    });
+    const loaded = await restartedComposition.authStateStore.load(sessionId);
+
+    expect(loaded.ok ? loaded.value?.state : undefined).toEqual({
+      creds: rawAuthPayload,
+    });
+
+    firstComposition.shutdown();
+    restartedComposition.shutdown();
+  });
+
+  it("requires the configured auth-state encryption key for encrypted runtime state", async () => {
+    const stateDirectory = createTemporaryDirectory();
+    const composition = createProviderRuntimeComposition({
+      ...envFor(stateDirectory),
+      OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY: rawAuthStateEncryptionKey,
+    });
+    const saved = await composition.authStateStore.save(sessionId, {
+      creds: rawAuthPayload,
+    });
+
+    expect(saved.ok).toBe(true);
+    composition.shutdown();
+
+    expect(() => createProviderRuntimeComposition(envFor(stateDirectory))).toThrow(
+      /encryption key is required/u,
+    );
+    expect(readFileSync(composition.paths.authStatePath, "utf8")).not.toContain(rawAuthPayload);
+  });
+
   it("starts and shuts down the drain loop with fake dependencies", () => {
     const composition = createProviderRuntimeComposition(envFor(createTemporaryDirectory()), {
       eventLog: createInMemoryEventLogStore(),
@@ -315,6 +378,12 @@ describe("provider runtime composition", () => {
     expect(readProviderRuntimeAuthStatePath({}, stateDirectory)).toBe(
       join(stateDirectory, "provider-runtime", "baileys-auth-state.json"),
     );
+    expect(readProviderRuntimeAuthStateEncryptionKey({})).toBeUndefined();
+    expect(
+      readProviderRuntimeAuthStateEncryptionKey({
+        OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY: ` ${rawAuthStateEncryptionKey} `,
+      }),
+    ).toBe(rawAuthStateEncryptionKey);
     expect(readProviderRuntimeOwnershipLeasePath({}, stateDirectory)).toBe(
       join(stateDirectory, "provider-runtime", "ownership-leases.json"),
     );

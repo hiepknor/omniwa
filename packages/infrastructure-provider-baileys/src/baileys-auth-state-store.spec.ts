@@ -140,6 +140,50 @@ describe("Baileys AuthStateStore", () => {
     expect(loaded.ok ? loaded.value?.revision : undefined).toBe(1);
   });
 
+  it("encrypts durable-json auth state when an encryption key is configured", async () => {
+    const filePath = join(mkdtempSync(join(tmpdir(), "omniwa-baileys-auth-")), "auth-state.json");
+    const encryptionKey = "auth-state-encryption-key";
+    const store = new DurableJsonBaileysAuthStateStore(filePath, {
+      clock: fixedClock(6_100),
+      encryptionKey,
+    });
+
+    const saved = await store.save(sessionId, authState);
+    expect(saved.ok).toBe(true);
+
+    const rawFile = readFileSync(filePath, "utf8");
+    expect(rawFile).toContain('"encoding": "aes-256-gcm-json"');
+    expect(rawFile).not.toContain(rawSecret);
+    expect(rawFile).not.toContain("private-app-state-key");
+    expect(rawFile).not.toContain(
+      Buffer.from(JSON.stringify(authState), "utf8").toString("base64"),
+    );
+
+    const reloaded = new DurableJsonBaileysAuthStateStore(filePath, {
+      clock: fixedClock(6_200),
+      encryptionKey,
+    });
+    const loaded = await reloaded.load(sessionId);
+
+    expect(loaded.ok).toBe(true);
+    expect(loaded.ok ? loaded.value?.state : undefined).toEqual(authState);
+  });
+
+  it("requires the encryption key to reload encrypted durable-json auth state", async () => {
+    const filePath = join(mkdtempSync(join(tmpdir(), "omniwa-baileys-auth-")), "auth-state.json");
+    const store = new DurableJsonBaileysAuthStateStore(filePath, {
+      clock: fixedClock(6_300),
+      encryptionKey: "auth-state-encryption-key",
+    });
+
+    await store.save(sessionId, authState);
+
+    expect(
+      () => new DurableJsonBaileysAuthStateStore(filePath, { clock: fixedClock(6_400) }),
+    ).toThrow(/encryption key is required/u);
+    expect(readFileSync(filePath, "utf8")).not.toContain(rawSecret);
+  });
+
   it("returns safe durable-json integrity errors without raw auth payloads", async () => {
     const filePath = join(mkdtempSync(join(tmpdir(), "omniwa-baileys-auth-")), "auth-state.json");
     const store = new DurableJsonBaileysAuthStateStore(filePath, { clock: fixedClock(8_000) });

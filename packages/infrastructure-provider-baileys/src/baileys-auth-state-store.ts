@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -61,6 +61,11 @@ export type BaileysAuthStateStoreOptions = Readonly<{
   clock?: Pick<Clock, "epochMilliseconds">;
 }>;
 
+export type DurableJsonBaileysAuthStateStoreOptions = BaileysAuthStateStoreOptions &
+  Readonly<{
+    encryptionKey?: string;
+  }>;
+
 type StoredBaileysAuthStateRecord = Readonly<{
   sessionId: string;
   state: BaileysAuthStateSnapshot;
@@ -70,10 +75,17 @@ type StoredBaileysAuthStateRecord = Readonly<{
   dataClassification: BaileysAuthStateDataClassification;
 }>;
 
-type EncodedBaileysAuthStatePayload = Readonly<{
-  encoding: "base64-json";
-  value: string;
-}>;
+type EncodedBaileysAuthStatePayload =
+  | Readonly<{
+      encoding: "base64-json";
+      value: string;
+    }>
+  | Readonly<{
+      encoding: "aes-256-gcm-json";
+      value: string;
+      iv: string;
+      tag: string;
+    }>;
 
 type DurableBaileysAuthStateRecord = Omit<StoredBaileysAuthStateRecord, "state"> &
   Readonly<{
@@ -198,23 +210,37 @@ export class InMemoryBaileysAuthStateStore implements BaileysAuthStateStore {
 
 export class DurableJsonBaileysAuthStateStore extends InMemoryBaileysAuthStateStore {
   private readonly filePath: string;
+  private readonly encryptionKey: string | undefined;
 
-  constructor(filePath: string, options: BaileysAuthStateStoreOptions = {}) {
+  constructor(filePath: string, options: DurableJsonBaileysAuthStateStoreOptions = {}) {
     super(options);
     this.filePath = filePath;
+    this.encryptionKey = options.encryptionKey;
     mkdirSync(dirname(filePath), { recursive: true });
-    this.records = recordsFromDurableState(readDurableState(filePath));
+    this.records = recordsFromDurableState(readDurableState(filePath), this.encryptionKey);
   }
 
   protected override persist(): void {
     const envelope: DurableBaileysAuthStateStoreEnvelope = {
       version: 1,
-      state: durableStateFromRecords([...this.records.values()]),
+      state: durableStateFromRecords([...this.records.values()], this.encryptionKey),
     };
     const temporaryPath = `${this.filePath}.tmp`;
 
     writeFileSync(temporaryPath, `${JSON.stringify(envelope, null, 2)}\n`, "utf8");
     renameSync(temporaryPath, this.filePath);
+  }
+
+  toJSON(): Readonly<{
+    kind: "durable_json_baileys_auth_state_store";
+    dataClassification: BaileysAuthStateDataClassification;
+    encrypted: boolean;
+  }> {
+    return Object.freeze({
+      kind: "durable_json_baileys_auth_state_store",
+      dataClassification: "secret",
+      encrypted: this.encryptionKey !== undefined && this.encryptionKey.length > 0,
+    });
   }
 }
 
@@ -246,6 +272,7 @@ function emptyDurableState(): DurableBaileysAuthStateStoreState {
 
 function recordsFromDurableState(
   state: DurableBaileysAuthStateStoreState,
+  encryptionKey: string | undefined,
 ): Map<string, StoredBaileysAuthStateRecord> {
   const output = new Map<string, StoredBaileysAuthStateRecord>();
 
@@ -254,7 +281,7 @@ function recordsFromDurableState(
       record.sessionId,
       freezeStoredRecord({
         sessionId: record.sessionId,
-        state: decodePayload(record.payload),
+        state: decodePayload(record.payload, encryptionKey),
         revision: record.revision,
         updatedAtEpochMilliseconds: record.updatedAtEpochMilliseconds,
         checksum: record.checksum,
@@ -268,6 +295,7 @@ function recordsFromDurableState(
 
 function durableStateFromRecords(
   records: readonly StoredBaileysAuthStateRecord[],
+  encryptionKey: string | undefined,
 ): DurableBaileysAuthStateStoreState {
   return Object.freeze({
     records: Object.freeze(
@@ -278,27 +306,73 @@ function durableStateFromRecords(
           updatedAtEpochMilliseconds: record.updatedAtEpochMilliseconds,
           checksum: record.checksum,
           dataClassification: record.dataClassification,
-          payload: encodePayload(record.state),
+          payload: encodePayload(record.state, encryptionKey),
         }),
       ),
     ),
   });
 }
 
-function encodePayload(state: BaileysAuthStateSnapshot): EncodedBaileysAuthStatePayload {
+function encodePayload(
+  state: BaileysAuthStateSnapshot,
+  encryptionKey: string | undefined,
+): EncodedBaileysAuthStatePayload {
+  const plaintext = stableStringify(state);
+
+  if (encryptionKey === undefined || encryptionKey.length === 0) {
+    return Object.freeze({
+      encoding: "base64-json",
+      value: Buffer.from(plaintext, "utf8").toString("base64"),
+    });
+  }
+
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKeyBytes(encryptionKey), iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+
   return Object.freeze({
-    encoding: "base64-json",
-    value: Buffer.from(stableStringify(state), "utf8").toString("base64"),
+    encoding: "aes-256-gcm-json",
+    value: encrypted.toString("base64"),
+    iv: iv.toString("base64"),
+    tag: cipher.getAuthTag().toString("base64"),
   });
 }
 
-function decodePayload(payload: EncodedBaileysAuthStatePayload): BaileysAuthStateSnapshot {
-  if (payload.encoding !== "base64-json") {
+function decodePayload(
+  payload: EncodedBaileysAuthStatePayload,
+  encryptionKey: string | undefined,
+): BaileysAuthStateSnapshot {
+  if (payload.encoding === "base64-json") {
+    const decoded = JSON.parse(Buffer.from(payload.value, "base64").toString("utf8")) as unknown;
+    return normalizeAuthStateSnapshot(decoded);
+  }
+
+  if (payload.encoding !== "aes-256-gcm-json") {
     throw new TypeError("Unsupported Baileys auth state payload encoding.");
   }
 
-  const decoded = JSON.parse(Buffer.from(payload.value, "base64").toString("utf8")) as unknown;
+  if (encryptionKey === undefined || encryptionKey.length === 0) {
+    throw new TypeError("Baileys auth state encryption key is required.");
+  }
+
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    encryptionKeyBytes(encryptionKey),
+    Buffer.from(payload.iv, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(payload.tag, "base64"));
+  const decoded = JSON.parse(
+    Buffer.concat([
+      decipher.update(Buffer.from(payload.value, "base64")),
+      decipher.final(),
+    ]).toString("utf8"),
+  ) as unknown;
+
   return normalizeAuthStateSnapshot(decoded);
+}
+
+function encryptionKeyBytes(encryptionKey: string): Buffer {
+  return createHash("sha256").update(encryptionKey, "utf8").digest();
 }
 
 function verifyStoredRecord(

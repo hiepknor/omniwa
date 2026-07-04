@@ -119,8 +119,9 @@ N11.3 is done with durable local and PostgreSQL provider-runtime lease guards, a
 during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`. N11.4 is
 now current. Its first slices allow API runtime composition from `OMNIWA_API_KEY_HASH`,
 `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`, and `SecretProvider` via `OMNIWA_API_KEY_SECRET_NAME` without
-retaining plaintext API key configuration; production secret-provider selection, auth-state
-encryption, and admin lifecycle operations remain next.
+retaining plaintext API key configuration, and provider runtime can encrypt durable Baileys
+auth-state JSON with `OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY`. Production secret-provider
+selection, admin lifecycle operations, and production-profile validation remain next.
 
 ## Planned Increments
 

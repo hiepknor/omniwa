@@ -51,9 +51,11 @@ export type ProviderRuntimeReadiness = Readonly<{
   liveMode: ProviderRuntimeLiveMode;
   localOnly: boolean;
   productionReady: false;
-  authStateEncryption: "not_configured";
+  authStateEncryption: ProviderRuntimeAuthStateEncryptionStatus;
   ownershipMode: ProviderRuntimeOwnershipMode;
 }>;
+
+export type ProviderRuntimeAuthStateEncryptionStatus = "not_configured" | "configured";
 
 export type ProviderRuntimeCompositionPaths = Readonly<{
   stateDirectory: string;
@@ -124,13 +126,19 @@ export function createProviderRuntimeComposition(
     paths.stateDirectory,
   );
   const ownershipMode = readProviderRuntimeOwnershipMode(env);
+  const authStateEncryptionKey = readProviderRuntimeAuthStateEncryptionKey(env);
+  const authStateEncryption = providerRuntimeAuthStateEncryptionStatus(authStateEncryptionKey);
   const qrCodeOperatorSink = createLocalQrOperatorSink(localQrOutput);
   const inboundRecipientOperatorSink = createLocalInboundRecipientOperatorSink(
     localInboundRecipientOutput,
   );
   const eventLog = overrides.eventLog ?? createDurableJsonEventLogStore(paths.eventLogPath);
   const authStateStore =
-    overrides.authStateStore ?? new DurableJsonBaileysAuthStateStore(paths.authStatePath);
+    overrides.authStateStore ??
+    new DurableJsonBaileysAuthStateStore(
+      paths.authStatePath,
+      authStateEncryptionKey === undefined ? {} : { encryptionKey: authStateEncryptionKey },
+    );
   const socketProvider =
     overrides.socketProvider ??
     new RealBaileysSocketProvider({
@@ -157,7 +165,7 @@ export function createProviderRuntimeComposition(
   return Object.freeze({
     profile,
     liveMode,
-    readiness: providerRuntimeReadiness(liveMode, ownershipMode),
+    readiness: providerRuntimeReadiness(liveMode, ownershipMode, authStateEncryption),
     localQrOutput,
     localInboundRecipientOutput,
     paths,
@@ -356,6 +364,14 @@ export function readProviderRuntimeOwnershipMode(
   }
 }
 
+export function readProviderRuntimeAuthStateEncryptionKey(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const value = env.OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY?.trim();
+
+  return value === undefined || value.length === 0 ? undefined : value;
+}
+
 function createProviderRuntimeOwnershipGuard(
   ownershipMode: ProviderRuntimeOwnershipMode,
   ownershipLeasePath: string,
@@ -403,14 +419,21 @@ function assertProviderRuntimeProfileIsComposable(
 function providerRuntimeReadiness(
   liveMode: ProviderRuntimeLiveMode,
   ownershipMode: ProviderRuntimeOwnershipMode,
+  authStateEncryption: ProviderRuntimeAuthStateEncryptionStatus,
 ): ProviderRuntimeReadiness {
   return Object.freeze({
     liveMode,
     localOnly: liveMode === "local_live",
     productionReady: false,
-    authStateEncryption: "not_configured",
+    authStateEncryption,
     ownershipMode,
   });
+}
+
+function providerRuntimeAuthStateEncryptionStatus(
+  encryptionKey: string | undefined,
+): ProviderRuntimeAuthStateEncryptionStatus {
+  return encryptionKey === undefined ? "not_configured" : "configured";
 }
 
 function optional<TKey extends string, TValue>(
