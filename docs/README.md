@@ -5,20 +5,24 @@ persistence, infrastructure, engineering, and platform-evolution decisions.
 
 Use this portal to find the right document before changing code or implementation plans.
 
+For current implementation progress, use [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) as the
+single source of truth.
+
 ## Status
 
-| Area                 | Status                      | Primary Document                                                                                   |
-| -------------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
-| Product Definition   | Frozen                      | [FREEZE_PHASE_0.md](FREEZE_PHASE_0.md)                                                             |
-| Architecture         | Frozen                      | [architecture/ARCHITECTURE_FREEZE.md](architecture/ARCHITECTURE_FREEZE.md)                         |
-| Domain               | Frozen                      | [domain/DOMAIN_FREEZE.md](domain/DOMAIN_FREEZE.md)                                                 |
-| Application          | Frozen                      | [application/APPLICATION_FREEZE.md](application/APPLICATION_FREEZE.md)                             |
-| API                  | Frozen                      | [api/API_FREEZE.md](api/API_FREEZE.md)                                                             |
-| Persistence          | Frozen                      | [persistence/PERSISTENCE_FREEZE.md](persistence/PERSISTENCE_FREEZE.md)                             |
-| Infrastructure       | Frozen                      | [infrastructure/INFRASTRUCTURE_FREEZE.md](infrastructure/INFRASTRUCTURE_FREEZE.md)                 |
-| Engineering Planning | Frozen                      | [engineering/IMPLEMENTATION_FREEZE.md](engineering/IMPLEMENTATION_FREEZE.md)                       |
-| Platform Evolution   | Active Implementation Track | [platform-evolution/NEXT_DEVELOPMENT_PLAN.md](platform-evolution/NEXT_DEVELOPMENT_PLAN.md)         |
-| Production Readiness | Not Ready Until Gates Pass  | [platform-evolution/PRODUCTION_EXECUTION_PLAN.md](platform-evolution/PRODUCTION_EXECUTION_PLAN.md) |
+| Area                  | Status                      | Primary Document                                                                                   |
+| --------------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| Product Definition    | Frozen                      | [FREEZE_PHASE_0.md](FREEZE_PHASE_0.md)                                                             |
+| Architecture          | Frozen                      | [architecture/ARCHITECTURE_FREEZE.md](architecture/ARCHITECTURE_FREEZE.md)                         |
+| Domain                | Frozen                      | [domain/DOMAIN_FREEZE.md](domain/DOMAIN_FREEZE.md)                                                 |
+| Application           | Frozen                      | [application/APPLICATION_FREEZE.md](application/APPLICATION_FREEZE.md)                             |
+| API                   | Frozen                      | [api/API_FREEZE.md](api/API_FREEZE.md)                                                             |
+| Persistence           | Frozen                      | [persistence/PERSISTENCE_FREEZE.md](persistence/PERSISTENCE_FREEZE.md)                             |
+| Infrastructure        | Frozen                      | [infrastructure/INFRASTRUCTURE_FREEZE.md](infrastructure/INFRASTRUCTURE_FREEZE.md)                 |
+| Engineering Planning  | Frozen                      | [engineering/IMPLEMENTATION_FREEZE.md](engineering/IMPLEMENTATION_FREEZE.md)                       |
+| Implementation Status | Active                      | [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)                                               |
+| Platform Evolution    | Active Implementation Track | [platform-evolution/NEXT_DEVELOPMENT_PLAN.md](platform-evolution/NEXT_DEVELOPMENT_PLAN.md)         |
+| Production Readiness  | Not Ready Until Gates Pass  | [platform-evolution/PRODUCTION_EXECUTION_PLAN.md](platform-evolution/PRODUCTION_EXECUTION_PLAN.md) |
 
 ## Directory Map
 

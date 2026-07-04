@@ -16,9 +16,12 @@ Your mission is to implement OmniWA exactly from the frozen product, architectur
 - Persistence is frozen.
 - Infrastructure is frozen.
 - Engineering planning is frozen.
-- The project is ready for Phase 8 - Implementation.
-- Phase 8 Sprint 0 repository bootstrap skeleton is present.
-- Business feature implementation has not started unless a later commit adds it.
+- Implementation is active and has progressed beyond the Phase 8 bootstrap skeleton.
+- Runtime code now exists across Domain, Application, API, Worker, Webhook Dispatcher, Provider Runtime,
+  Baileys provider infrastructure, queue, and persistence packages.
+- Current implementation progress, evidence, and known gaps are tracked in
+  `docs/IMPLEMENTATION_STATUS.md`. Update that file for progress changes instead of spreading status
+  updates across unrelated documents.
 
 ## Required Reading
 
