@@ -88,7 +88,7 @@
       "eventsStream",
       "queue"
     ],
-    "disabledUntilBackendHandlersExist": ["groups", "audit", "settings", "metrics"]
+    "disabledUntilBackendHandlersExist": ["audit", "settings", "metrics"]
   },
   "resources": {
     "health": {
@@ -140,10 +140,10 @@
       "notes": "Register and status routes exist, but Application handlers are unavailable."
     },
     "groups": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "GroupSummaryDto|GroupDetailDto|GroupMemberDto|OperationData",
-      "notes": "Instance-scoped list and group detail/member/action routes exist, but Application handlers are unavailable. Top-level /v1/groups is missing."
+      "notes": "Instance-scoped list, group detail, and group member read routes are public. Top-level /v1/groups remains missing. Group mutations remain route_exists_not_implemented until action safety and audit are promoted."
     },
     "queue": {
       "status": "implemented_public",
@@ -406,30 +406,33 @@
       "feature": "groups",
       "method": "GET",
       "path": "/v1/instances/{instanceId}/groups",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "GroupSummaryDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "status"],
-      "responseEnvelope": "CollectionEnvelope"
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Preferred TUI route for instance-scoped group navigation. Raw group JIDs, member JIDs, invite links, and provider payloads are not exposed."
     },
     {
       "feature": "groups",
       "method": "GET",
       "path": "/v1/groups/{groupId}",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "GroupDetailDto",
-      "responseEnvelope": "SuccessEnvelope"
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns safe group metadata and local state without invite links, actions, raw JIDs, or provider payloads."
     },
     {
       "feature": "groups",
       "method": "GET",
       "path": "/v1/groups/{groupId}/members",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "GroupMemberDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "role", "status"],
-      "responseEnvelope": "CollectionEnvelope"
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Returns safe member refs only. Raw member JIDs and phone numbers are not exposed."
     },
     {
       "feature": "groups",
@@ -688,8 +691,27 @@
       "deliveredAt",
       "readAt"
     ],
+    "GroupSummaryDto": [
+      "resourceType",
+      "id",
+      "instanceId",
+      "status",
+      "subject",
+      "description",
+      "memberCount",
+      "adminCount",
+      "muted",
+      "archived",
+      "pinned",
+      "updatedAt"
+    ],
     "GroupDetailDto": [
       "resourceType",
+      "readStatus",
+      "consistency",
+      "freshness",
+      "resultRef",
+      "resourceId",
       "id",
       "instanceId",
       "status",
@@ -782,6 +804,9 @@
     "chatDetail": "docs/api/client-contract/fixtures/chat.detail.json",
     "contactsList": "docs/api/client-contract/fixtures/contacts.list.json",
     "contactDetail": "docs/api/client-contract/fixtures/contact.detail.json",
+    "groupsList": "docs/api/client-contract/fixtures/groups.list.json",
+    "groupDetail": "docs/api/client-contract/fixtures/group.detail.json",
+    "groupMembersList": "docs/api/client-contract/fixtures/group-members.list.json",
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
     "queueSummary": "docs/api/client-contract/fixtures/queue.summary.json",
     "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",
@@ -790,7 +815,6 @@
     "webhookDetail": "docs/api/client-contract/fixtures/webhook.detail.json",
     "webhookDeliveriesList": "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
     "webhookDeliveryHistory": "docs/api/client-contract/fixtures/webhook-delivery.history.json",
-    "groupUnavailable": "docs/api/client-contract/fixtures/group.unavailable.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
   }
 }

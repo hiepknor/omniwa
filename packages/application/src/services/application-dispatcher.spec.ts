@@ -5,6 +5,9 @@ import {
   createContact,
   createContactDisplayName,
   createContactId,
+  createGroup,
+  createGroupId,
+  createGroupMember,
   createJobId,
   createInstanceId,
   createHealthStatus,
@@ -32,6 +35,10 @@ import {
   type ContactId,
   type ContactRepositoryPort,
   type ContactStatus,
+  type Group,
+  type GroupId,
+  type GroupRepositoryPort,
+  type GroupStatus,
   type HealthCategory,
   type HealthStatus,
   type HealthStatusId,
@@ -731,6 +738,229 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
     expect(JSON.stringify(outcome)).not.toContain("12025550126");
     expect(JSON.stringify(outcome)).not.toContain("phoneNumber");
+    expect(JSON.stringify(outcome)).not.toContain("jid");
+  });
+
+  it("executes ListInstanceGroups through the Group repository without leaking group JIDs", async () => {
+    const group = createGroup({
+      id: createGroupId("group:one"),
+      instanceId: createInstanceId("inst:one"),
+      jid: createJid("12345@g.us"),
+      metadata: {
+        subject: "Demo Group",
+        description: "A group for demos",
+      },
+      members: [
+        createGroupMember({
+          jid: createJid("12025550123@s.whatsapp.net"),
+          role: "admin",
+        }),
+        createGroupMember({
+          jid: createJid("12025550124@s.whatsapp.net"),
+          role: "member",
+        }),
+      ],
+    });
+    const otherGroup = createGroup({
+      id: createGroupId("group:other"),
+      instanceId: createInstanceId("inst:other"),
+      jid: createJid("67890@g.us"),
+      metadata: {
+        subject: "Other Group",
+      },
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        groupRepository: new FakeGroupRepository([group, otherGroup]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListInstanceGroups",
+        queryRef: "qry-list-instance-groups",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst:one",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-instance-groups",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "groups:inst:one:list:1",
+      items: [
+        {
+          id: "group:one",
+          instanceId: "inst:one",
+          status: "discovered",
+          subject: "Demo Group",
+          description: "A group for demos",
+          memberCount: 2,
+          adminCount: 1,
+          muted: false,
+          archived: false,
+          pinned: false,
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@g.us");
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(outcome)).not.toContain("12025550123");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes GetGroupStatus through the Group repository without exposing invite links or actions", async () => {
+    const group = {
+      ...createGroup({
+        id: createGroupId("group:detail"),
+        instanceId: createInstanceId("inst:detail"),
+        jid: createJid("98765@g.us"),
+        metadata: {
+          subject: "Detail Group",
+          description: "Visible description",
+        },
+        members: [
+          createGroupMember({
+            jid: createJid("12025550125@s.whatsapp.net"),
+            role: "owner",
+          }),
+        ],
+      }),
+      inviteLink: {
+        id: "invite:secret",
+        urlRef: "https://chat.whatsapp.com/secret",
+        active: true,
+      },
+    } as Group;
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        groupRepository: new FakeGroupRepository([group]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetGroupStatus",
+        queryRef: "qry-get-group-status",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "group:detail",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-group-status",
+      outcome: "result",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "group:group:detail:discovered",
+      resource: {
+        id: "group:detail",
+        instanceId: "inst:detail",
+        status: "discovered",
+        subject: "Detail Group",
+        description: "Visible description",
+        memberCount: 1,
+        adminCount: 1,
+        muted: false,
+        archived: false,
+        pinned: false,
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@g.us");
+    expect(JSON.stringify(outcome)).not.toContain("chat.whatsapp.com");
+    expect(JSON.stringify(outcome)).not.toContain("inviteLink");
+    expect(JSON.stringify(outcome)).not.toContain("actions");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes ListGroupMembers through the Group repository with safe member refs", async () => {
+    const group = createGroup({
+      id: createGroupId("group:members"),
+      instanceId: createInstanceId("inst:members"),
+      jid: createJid("22222@g.us"),
+      metadata: {
+        subject: "Members Group",
+      },
+      members: [
+        createGroupMember({
+          jid: createJid("12025550126@s.whatsapp.net"),
+          role: "admin",
+          joinedAtEpochMilliseconds: 1_782_864_000_000,
+        }),
+        createGroupMember({
+          jid: createJid("12025550127@s.whatsapp.net"),
+          role: "member",
+        }),
+      ],
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        groupRepository: new FakeGroupRepository([group]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListGroupMembers",
+        queryRef: "qry-list-group-members",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "group:members",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-group-members",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "group-members:group:members:list:2",
+      items: [
+        {
+          id: "group:members:member:1",
+          groupId: "group:members",
+          memberRef: "group:members:member:1",
+          role: "admin",
+          status: "active",
+          joinedAt: "2026-07-01T00:00:00.000Z",
+        },
+        {
+          id: "group:members:member:2",
+          groupId: "group:members",
+          memberRef: "group:members:member:2",
+          role: "member",
+          status: "active",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@g.us");
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(outcome)).not.toContain("12025550126");
     expect(JSON.stringify(outcome)).not.toContain("jid");
   });
 
@@ -1468,6 +1698,45 @@ class FakeContactRepository implements ContactRepositoryPort {
   }
 
   private list(): readonly Contact[] {
+    return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeGroupRepository implements GroupRepositoryPort {
+  private readonly records = new Map<string, Group>();
+
+  constructor(initialRecords: readonly Group[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: GroupId): Promise<Group | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: Group): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: GroupId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Group[]> {
+    return Promise.resolve(this.list().filter((group) => group.instanceId === instanceId));
+  }
+
+  findByStatus(status: GroupStatus): Promise<readonly Group[]> {
+    return Promise.resolve(this.list().filter((group) => group.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Group | undefined> {
+    return Promise.resolve(this.list().find((group) => group.jid === jid));
+  }
+
+  private list(): readonly Group[] {
     return Object.freeze([...this.records.values()]);
   }
 }

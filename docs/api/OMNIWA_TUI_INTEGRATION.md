@@ -127,6 +127,9 @@ Wire these first:
 | Chats     | `GET /v1/chats/{id}`                      | `implemented_public` | Chat detail/status panel with safe unread, label, mute, and pin state.                           |
 | Contacts  | `GET /v1/instances/{id}/contacts`         | `implemented_public` | Preferred instance-scoped contact list. Raw JIDs and phone numbers are not exposed.              |
 | Contacts  | `GET /v1/contacts/{id}`                   | `implemented_public` | Contact detail/status panel with safe identity, instance ref, status, and display name.          |
+| Groups    | `GET /v1/instances/{id}/groups`           | `implemented_public` | Preferred instance-scoped group list. Raw group/member JIDs and invite links are not exposed.    |
+| Groups    | `GET /v1/groups/{id}`                     | `implemented_public` | Group detail/status panel with safe metadata, member counts, and local state.                    |
+| Groups    | `GET /v1/groups/{id}/members`             | `implemented_public` | Group members list using safe `memberRef` values only.                                           |
 | Webhooks  | `GET /v1/webhooks`                        | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.                           |
 | Webhooks  | `GET /v1/webhooks/{id}`                   | `implemented_public` | Webhook subscription detail/status panel.                                                        |
 | Webhooks  | `GET /v1/webhook-deliveries`              | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                           |
@@ -134,8 +137,7 @@ Wire these first:
 
 Keep these disabled or read-only with a backend-not-ready state:
 
-- Groups
-- Group members
+- Group mutations
 - Chat message timeline by chat id
 - Message send/retry/cancel actions
 - Logs
@@ -204,6 +206,9 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/chats"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/chats/chat_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/contacts"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/contacts/contact_demo"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/groups"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/groups/group_demo"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/groups/group_demo/members"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks/webhook_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries"
@@ -221,7 +226,6 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/sessions"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/chats"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/contacts"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/groups"
-curl -sS -H "x-api-key: $KEY" "$BASE/v1/groups/group_1"
 ```
 
 ## Fixtures
@@ -240,7 +244,9 @@ Required fixture states:
 - Chat detail/status
 - Contact collection list
 - Contact detail/status
-- Group route exists but handler unavailable
+- Group collection list
+- Group detail/status
+- Group members list
 - SSE heartbeat
 
 `omniwa-tui` should copy or consume these fixtures in its own test suite pinned to a backend

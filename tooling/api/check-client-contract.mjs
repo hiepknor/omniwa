@@ -24,6 +24,9 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "GET /v1/chats/{chatId}",
   "GET /v1/instances/{instanceId}/contacts",
   "GET /v1/contacts/{contactId}",
+  "GET /v1/instances/{instanceId}/groups",
+  "GET /v1/groups/{groupId}",
+  "GET /v1/groups/{groupId}/members",
   "GET /v1/webhooks",
   "GET /v1/webhooks/{webhookId}",
   "GET /v1/webhook-deliveries",
@@ -328,8 +331,10 @@ async function checkRequiredFixtureFiles(projectRoot, contract, findings) {
     "chatDetail",
     "contactsList",
     "contactDetail",
+    "groupsList",
+    "groupDetail",
+    "groupMembersList",
     "queueSummary",
-    "groupUnavailable",
     "sseHeartbeat",
   ];
 

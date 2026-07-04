@@ -1456,7 +1456,7 @@ const allowedSortFieldsByQueryName: Readonly<Record<string, readonly string[]>> 
   ListLabels: ["id", "status", "updatedAt", "name"],
   ListInstanceLabels: ["id", "status", "updatedAt", "name"],
   ListInstanceGroups: ["id", "status", "updatedAt", "subject"],
-  ListGroupMembers: ["jid", "role", "joinedAt"],
+  ListGroupMembers: ["memberRef", "role", "joinedAt"],
   ListEvents: ["timestamp", "type", "source"],
   ListWorkerJobs: ["id", "status", "workType", "createdAt", "updatedAt"],
   ListWebhookSubscriptions: ["id", "status", "updatedAt"],

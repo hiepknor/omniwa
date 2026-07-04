@@ -36,7 +36,7 @@ describe("client contract check", () => {
       await createClientContractFixture(root, {
         endpoints: [
           ...implementedPublicEndpoints(),
-          implementedEndpoint("GET", "/v1/groups/{groupId}"),
+          implementedEndpoint("GET", "/v1/audit-records"),
         ],
         fixtures: requiredFixtureMap(),
       });
@@ -48,7 +48,7 @@ describe("client contract check", () => {
         expect.arrayContaining([
           expect.objectContaining({
             code: "client_contract_implemented_endpoint_not_allowed",
-            target: "GET /v1/groups/{groupId}",
+            target: "GET /v1/audit-records",
           }),
         ]),
       );
@@ -143,6 +143,9 @@ function implementedPublicEndpoints() {
     implementedEndpoint("GET", "/v1/chats/{chatId}"),
     implementedEndpoint("GET", "/v1/instances/{instanceId}/contacts"),
     implementedEndpoint("GET", "/v1/contacts/{contactId}"),
+    implementedEndpoint("GET", "/v1/instances/{instanceId}/groups"),
+    implementedEndpoint("GET", "/v1/groups/{groupId}"),
+    implementedEndpoint("GET", "/v1/groups/{groupId}/members"),
     implementedEndpoint("GET", "/v1/webhooks"),
     implementedEndpoint("GET", "/v1/webhooks/{webhookId}"),
     implementedEndpoint("GET", "/v1/webhook-deliveries"),
@@ -162,12 +165,14 @@ function requiredFixtureMap() {
     chatDetail: "docs/api/client-contract/fixtures/chat.detail.json",
     contactsList: "docs/api/client-contract/fixtures/contacts.list.json",
     contactDetail: "docs/api/client-contract/fixtures/contact.detail.json",
+    groupsList: "docs/api/client-contract/fixtures/groups.list.json",
+    groupDetail: "docs/api/client-contract/fixtures/group.detail.json",
+    groupMembersList: "docs/api/client-contract/fixtures/group-members.list.json",
     eventsList: "docs/api/client-contract/fixtures/events.list.json",
     queueSummary: "docs/api/client-contract/fixtures/queue.summary.json",
     jobsList: "docs/api/client-contract/fixtures/jobs.list.json",
     webhooksList: "docs/api/client-contract/fixtures/webhooks.list.json",
     webhookDeliveriesList: "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
-    groupUnavailable: "docs/api/client-contract/fixtures/group.unavailable.json",
     sseHeartbeat: "docs/api/client-contract/fixtures/events-stream.heartbeat.sse",
   };
 }

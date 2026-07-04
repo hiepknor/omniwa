@@ -22,19 +22,20 @@ The platform foundation is active and usable for selected public read paths.
 
 Implemented public surfaces currently include:
 
-| Capability         | Public Surface                                                                  | Status      |
-| ------------------ | ------------------------------------------------------------------------------- | ----------- |
-| Health             | `GET /v1/health`                                                                | Implemented |
-| Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`     | Implemented |
-| Sessions           | `GET /v1/instances/{instanceId}/sessions`                                       | Implemented |
-| Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`       | Implemented |
-| Chats              | `GET /v1/instances/{instanceId}/chats`, `GET /v1/chats/{chatId}`                | Implemented |
-| Contacts           | `GET /v1/instances/{instanceId}/contacts`, `GET /v1/contacts/{contactId}`       | Implemented |
-| Events             | `GET /v1/events`, `GET /v1/events/stream`                                       | Implemented |
-| Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                          | Implemented |
-| Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                              | Implemented |
-| Webhook Deliveries | `GET /v1/webhook-deliveries`, `GET /v1/webhook-deliveries/{deliveryId}/history` | Implemented |
-| Queue              | `GET /v1/queue`                                                                 | Implemented |
+| Capability         | Public Surface                                                                                          | Status      |
+| ------------------ | ------------------------------------------------------------------------------------------------------- | ----------- |
+| Health             | `GET /v1/health`                                                                                        | Implemented |
+| Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`                             | Implemented |
+| Sessions           | `GET /v1/instances/{instanceId}/sessions`                                                               | Implemented |
+| Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`                               | Implemented |
+| Chats              | `GET /v1/instances/{instanceId}/chats`, `GET /v1/chats/{chatId}`                                        | Implemented |
+| Contacts           | `GET /v1/instances/{instanceId}/contacts`, `GET /v1/contacts/{contactId}`                               | Implemented |
+| Groups             | `GET /v1/instances/{instanceId}/groups`, `GET /v1/groups/{groupId}`, `GET /v1/groups/{groupId}/members` | Implemented |
+| Events             | `GET /v1/events`, `GET /v1/events/stream`                                                               | Implemented |
+| Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                                                  | Implemented |
+| Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                                                      | Implemented |
+| Webhook Deliveries | `GET /v1/webhook-deliveries`, `GET /v1/webhook-deliveries/{deliveryId}/history`                         | Implemented |
+| Queue              | `GET /v1/queue`                                                                                         | Implemented |
 
 Current local runtime:
 
@@ -64,31 +65,31 @@ The preferred order is:
 
 ## Immediate Next Increment
 
-### Increment N5 - Group Read APIs
+### Increment N7 - VS02 Real WhatsApp Local Demo
 
 Goal:
 
-- Implement safe group read APIs for TUI group navigation, detail, and member screens.
+- Prove the local live WhatsApp path after the platform-client read surfaces are usable.
 
 Scope:
 
-- Application handlers for group list, group detail, and group member queries.
-- Prefer instance-scoped group list queries before global navigation.
-- API materialization for safe group and group member DTOs.
-- Public DTO must not expose raw member JIDs, phone numbers, invite secrets, participant identifiers, or provider payloads.
-- Client contract status and fixture.
-- TUI integration doc update.
+- Start provider-runtime locally with the real Baileys provider.
+- Produce a real QR signal through EventLog/SSE.
+- Scan QR and persist durable-json auth state.
+- Restart without requiring a new QR when auth state remains valid.
+- Send a real text message through the local path.
+- Verify inbound, status, and connection events reach EventLog/SSE safely.
 
 Definition of Done:
 
-- API returns safe success or collection envelopes for group read endpoints.
-- Empty state is explicit.
-- No raw provider payload, raw member JID, raw phone number, invite secret, or domain event internals leak.
+- Real local demo checklist passes.
+- No raw QR, JID, text, auth state, or provider payload leaks through public DTOs or logs.
+- Production-only gaps remain explicitly documented.
 - `pnpm check` passes.
 
 Rollback:
 
-- Disable the route or return the previous safe unavailable response.
+- Stop the local live runtime path and fall back to the existing fake/local-only demo mode.
 
 ## Planned Increments
 
@@ -98,8 +99,8 @@ Rollback:
 | N2    | Message Read APIs             | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed |
 | N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed      |
 | N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                           |
-| N5    | Group Read APIs               | Implement group list/detail/member reads                              | Groups screens become usable                      | No admin mutations yet                                    |
-| N6    | SDK/Client Contract Sync      | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Usually done inside each increment                        |
+| N5    | Group Read APIs               | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                              |
+| N6    | SDK/Client Contract Sync      | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes         |
 | N7    | VS02 Real WhatsApp Local Demo | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Local live demo only, not production                      |
 | N8    | Controlled Message Mutations  | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Requires idempotency and event visibility                 |
 | N9    | Controlled Group Mutations    | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                |

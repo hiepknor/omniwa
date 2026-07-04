@@ -7,7 +7,11 @@ import {
   type ContactRepositoryPort,
   contactStatuses,
   createContactId,
+  type Group,
+  type GroupMember,
+  type GroupRepositoryPort,
   createInstance,
+  createGroupId,
   createInstanceId,
   createMessageId,
   createWebhookDeliveryId,
@@ -76,6 +80,7 @@ export type ApplicationDispatcherRepositories = Readonly<{
   messageRepository?: MessageRepositoryPort;
   chatRepository?: ChatRepositoryPort;
   contactRepository?: ContactRepositoryPort;
+  groupRepository?: GroupRepositoryPort;
   guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
   workerJobRepository?: WorkerJobRepositoryPort;
   webhookSubscriptionRepository?: WebhookSubscriptionRepositoryPort;
@@ -211,6 +216,9 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["ListContacts", (envelope) => this.listContacts(envelope)],
       ["ListInstanceContacts", (envelope) => this.listInstanceContacts(envelope)],
       ["GetContactStatus", (envelope) => this.getContactStatus(envelope)],
+      ["ListInstanceGroups", (envelope) => this.listInstanceGroups(envelope)],
+      ["GetGroupStatus", (envelope) => this.getGroupStatus(envelope)],
+      ["ListGroupMembers", (envelope) => this.listGroupMembers(envelope)],
       ["ListEvents", (envelope) => this.listEvents(envelope)],
       ["ListWorkerJobs", (envelope) => this.listWorkerJobs(envelope)],
       ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
@@ -575,6 +583,95 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return queryOutcome(envelope, this.clock, "result", {
       resultRef: `contact:${contact.id}:${contact.status}`,
       resource: contactQueryItem(contact),
+    });
+  }
+
+  private async listInstanceGroups(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.groupRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "group_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "instance_target_required",
+      });
+    }
+
+    const groups = (await repository.findByInstance(createInstanceId(envelope.targetRef))).filter(
+      (group) => group.status !== "deleted",
+    );
+
+    return queryOutcome(envelope, this.clock, groups.length === 0 ? "empty" : "result", {
+      resultRef: `groups:${envelope.targetRef}:list:${groups.length}`,
+      items: groups.map(groupQueryItem),
+    });
+  }
+
+  private async getGroupStatus(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.groupRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "group_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "group_target_required",
+      });
+    }
+
+    const group = await repository.load(createGroupId(envelope.targetRef));
+
+    if (group === undefined || group.status === "deleted") {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `group:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `group:${group.id}:${group.status}`,
+      resource: groupQueryItem(group),
+    });
+  }
+
+  private async listGroupMembers(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.groupRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "group_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "group_target_required",
+      });
+    }
+
+    const group = await repository.load(createGroupId(envelope.targetRef));
+
+    if (group === undefined || group.status === "deleted") {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `group-members:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, group.members.length === 0 ? "empty" : "result", {
+      resultRef: `group-members:${group.id}:list:${group.members.length}`,
+      items: group.members.map((member, index) => groupMemberQueryItem(group, member, index)),
     });
   }
 
@@ -946,6 +1043,61 @@ function contactQueryItem(contact: Contact): Readonly<{
     ...optional(
       "displayName",
       contact.displayName === undefined ? undefined : String(contact.displayName),
+    ),
+  });
+}
+
+function groupQueryItem(group: Group): Readonly<{
+  id: string;
+  instanceId: string;
+  status: Group["status"];
+  subject: string;
+  description?: string;
+  memberCount: number;
+  adminCount: number;
+  muted: boolean;
+  archived: boolean;
+  pinned: boolean;
+}> {
+  return Object.freeze({
+    id: String(group.id),
+    instanceId: String(group.instanceId),
+    status: group.status,
+    subject: group.metadata.subject,
+    ...optional("description", group.metadata.description),
+    memberCount: group.members.length,
+    adminCount: group.members.filter((member) => ["admin", "owner"].includes(member.role)).length,
+    muted: group.muted,
+    archived: group.archived,
+    pinned: group.pinned,
+  });
+}
+
+function groupMemberQueryItem(
+  group: Group,
+  member: GroupMember,
+  index: number,
+): Readonly<{
+  id: string;
+  groupId: string;
+  memberRef: string;
+  role: GroupMember["role"];
+  status: "active";
+  joinedAt?: string;
+}> {
+  const memberRef = `${String(group.id)}:member:${index + 1}`;
+
+  return Object.freeze({
+    id: memberRef,
+    groupId: String(group.id),
+    memberRef,
+    role: member.role,
+    status: "active",
+    ...optional(
+      "joinedAt",
+      member.joinedAtEpochMilliseconds === undefined
+        ? undefined
+        : new Date(member.joinedAtEpochMilliseconds).toISOString(),
     ),
   });
 }

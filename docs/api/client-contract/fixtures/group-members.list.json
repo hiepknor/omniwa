@@ -1,0 +1,42 @@
+{
+  "data": [
+    {
+      "resourceType": "groupMember",
+      "id": "group_demo:member:1",
+      "groupId": "group_demo",
+      "memberRef": "group_demo:member:1",
+      "role": "admin",
+      "status": "active",
+      "joinedAt": "2026-07-01T00:00:00.000Z"
+    },
+    {
+      "resourceType": "groupMember",
+      "id": "group_demo:member:2",
+      "groupId": "group_demo",
+      "memberRef": "group_demo:member:2",
+      "role": "member",
+      "status": "active"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-group-members-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "groupMember",
+      "readStatus": "result",
+      "consistency": "eventual_projection",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "group-members:group_demo:list:2"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}

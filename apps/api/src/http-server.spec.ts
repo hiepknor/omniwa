@@ -1441,6 +1441,179 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(detailResponse.body)).not.toContain("domainEvents");
   });
 
+  it("materializes groups through the public API boundary without exposing provider identifiers", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        groupRepository: repositories.groupRepository,
+      },
+    });
+
+    await repositories.groupRepository.save({
+      id: "group_demo",
+      instanceId: "inst_allowed",
+      jid: "12345@g.us",
+      status: "active",
+      metadata: {
+        subject: "Demo Group",
+        description: "Demo group description",
+      },
+      members: [
+        {
+          jid: "12025550123@s.whatsapp.net",
+          role: "admin",
+          joinedAtEpochMilliseconds: 1_782_864_000_000,
+        },
+        {
+          jid: "12025550124@s.whatsapp.net",
+          role: "member",
+        },
+      ],
+      actions: [
+        {
+          id: "group_action_secret",
+          kind: "add_member",
+          actorRef: "operator_secret",
+          auditRequired: true,
+          targetJid: "12025550124@s.whatsapp.net",
+        },
+      ],
+      inviteLink: {
+        id: "invite_secret",
+        urlRef: "https://chat.whatsapp.com/secret",
+        active: true,
+      },
+      muted: true,
+      archived: false,
+      pinned: true,
+      domainEvents: [
+        {
+          eventId: "domain_event_secret",
+        },
+      ],
+    } as unknown as Parameters<typeof repositories.groupRepository.save>[0]);
+
+    const instanceListResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances/inst_allowed/groups",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-instance-groups",
+          "x-correlation-id": "corr-list-instance-groups",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-instance-groups",
+      },
+    );
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/groups/group_demo",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-get-group",
+          "x-correlation-id": "corr-get-group",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-group",
+      },
+    );
+    const membersResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/groups/group_demo/members",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-group-members",
+          "x-correlation-id": "corr-list-group-members",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-group-members",
+      },
+    );
+
+    expect(instanceListResponse.statusCode).toBe(200);
+    expect(
+      "data" in instanceListResponse.body ? instanceListResponse.body.data : undefined,
+    ).toEqual([
+      {
+        resourceType: "group",
+        id: "group_demo",
+        instanceId: "inst_allowed",
+        status: "active",
+        subject: "Demo Group",
+        description: "Demo group description",
+        memberCount: 2,
+        adminCount: 1,
+        muted: true,
+        archived: false,
+        pinned: true,
+      },
+    ]);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "group",
+      resourceId: "group_demo",
+      id: "group_demo",
+      instanceId: "inst_allowed",
+      status: "active",
+      subject: "Demo Group",
+      description: "Demo group description",
+      memberCount: 2,
+      adminCount: 1,
+      muted: true,
+      archived: false,
+      pinned: true,
+      readStatus: "result",
+    });
+    expect(membersResponse.statusCode).toBe(200);
+    expect("data" in membersResponse.body ? membersResponse.body.data : undefined).toEqual([
+      {
+        resourceType: "groupMember",
+        id: "group_demo:member:1",
+        groupId: "group_demo",
+        memberRef: "group_demo:member:1",
+        role: "admin",
+        status: "active",
+        joinedAt: "2026-07-01T00:00:00.000Z",
+      },
+      {
+        resourceType: "groupMember",
+        id: "group_demo:member:2",
+        groupId: "group_demo",
+        memberRef: "group_demo:member:2",
+        role: "member",
+        status: "active",
+      },
+    ]);
+    const serialized = JSON.stringify([
+      instanceListResponse.body,
+      detailResponse.body,
+      membersResponse.body,
+    ]);
+    expect(serialized).not.toContain("@g.us");
+    expect(serialized).not.toContain("@s.whatsapp.net");
+    expect(serialized).not.toContain("12025550123");
+    expect(serialized).not.toContain("chat.whatsapp.com");
+    expect(serialized).not.toContain("inviteLink");
+    expect(serialized).not.toContain("actions");
+    expect(serialized).not.toContain("domainEvents");
+  });
+
   it("does not expose raw group member JIDs or phone numbers in public DTOs", async () => {
     const dispatcher = new CapturingDispatcher({
       ListGroupMembers: {

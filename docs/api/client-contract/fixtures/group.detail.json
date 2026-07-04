@@ -1,0 +1,28 @@
+{
+  "data": {
+    "resourceType": "group",
+    "readStatus": "result",
+    "consistency": "strong_owner",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209791
+    },
+    "resultRef": "group:group_demo:active",
+    "resourceId": "group_demo",
+    "id": "group_demo",
+    "instanceId": "inst_demo",
+    "status": "active",
+    "subject": "Demo Group",
+    "description": "Demo group description",
+    "memberCount": 2,
+    "adminCount": 1,
+    "muted": false,
+    "archived": false,
+    "pinned": true
+  },
+  "meta": {
+    "requestId": "tui-group-detail-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z"
+  }
+}
