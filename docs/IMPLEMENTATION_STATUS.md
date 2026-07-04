@@ -131,9 +131,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   PostgreSQL configuration does not use local hosts or known development credentials before it
   reaches the remaining production-adapter fail-safe. The rate-limit boundary is now
   async-compatible and includes a shared counter-store limiter plus a Redis script store that hashes
-  cache keys instead of writing key ids or instance refs into Redis keys. Runtime Redis client binding
-  and full ownership coverage for resources without current owner fields remain open N11.5 follow-up
-  work.
+  cache keys instead of writing key ids or instance refs into Redis keys. API runtime composition can
+  select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` when an approved Redis script client is injected, and
+  fails closed if that backend is requested without a client. A concrete production Redis client
+  adapter/dependency and full ownership coverage for resources without current owner fields remain
+  open N11.5 follow-up work.
 
 ## Update Rule
 

@@ -22,6 +22,7 @@ import {
   InMemoryApiSecurityAuditSink,
 } from "./api-security-audit.js";
 import { createApiRateLimitMetricPoints } from "./api-rate-limit-metrics.js";
+import type { RedisRateLimitScriptClient } from "./api-rate-limiter.js";
 import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 
 const runtimeRateLimitCredential: ApiCredential = {
@@ -393,6 +394,81 @@ describe("API runtime composition", () => {
     );
   });
 
+  it("wires an injected Redis-backed API rate limiter into the HTTP runtime", async () => {
+    const redisClient = new FakeRedisRateLimitScriptClient();
+    const composition = createApiRuntimeComposition(
+      {
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_KEY_ID: "runtime-redis-key",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_KEY_PREFIX: "omniwa:test-runtime-rate",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      },
+      {
+        redisRateLimitScriptClient: redisClient,
+      },
+    );
+
+    const first = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances/inst_runtime_redis",
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-redis-rate-1",
+          "x-correlation-id": "runtime-redis-rate-correlation",
+        },
+      },
+      composition.options,
+    );
+    const second = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances/inst_runtime_redis",
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-redis-rate-2",
+          "x-correlation-id": "runtime-redis-rate-correlation",
+        },
+      },
+      composition.options,
+    );
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(429);
+    expect(redisClient.calls).toHaveLength(2);
+    expect(redisClient.calls[0]?.keys[0]).toMatch(/^omniwa:test-runtime-rate:[a-f0-9]{64}$/u);
+    expect(JSON.stringify(redisClient.calls)).not.toContain("local-secret");
+    expect(JSON.stringify(redisClient.calls)).not.toContain("runtime-redis-key");
+    expect(JSON.stringify(redisClient.calls)).not.toContain("inst_runtime_redis");
+  });
+
+  it("fails fast when Redis rate limit backend is selected without an injected client", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
+    ).toThrow(/requires an injected Redis rate-limit script client/u);
+  });
+
+  it("rejects unsupported rate limit backend values safely", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "unsupported",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
+    ).toThrow(/OMNIWA_API_RATE_LIMIT_BACKEND must be in-memory or redis/u);
+  });
+
   it("wires endpoint-class rate limits for message sends", () => {
     const composition = createApiRuntimeComposition({
       OMNIWA_API_KEY: "local-secret",
@@ -702,10 +778,68 @@ describe("API runtime composition", () => {
   });
 });
 
+class FakeRedisRateLimitScriptClient implements RedisRateLimitScriptClient {
+  readonly calls: {
+    keys: readonly string[];
+    arguments: readonly string[];
+  }[] = [];
+
+  private readonly buckets = new Map<
+    string,
+    {
+      windowStartEpochMilliseconds: number;
+      count: number;
+    }
+  >();
+
+  eval(
+    _script: string,
+    input: Readonly<{
+      keys: readonly string[];
+      arguments: readonly string[];
+    }>,
+  ): Promise<unknown> {
+    this.calls.push({
+      keys: Object.freeze([...input.keys]),
+      arguments: Object.freeze([...input.arguments]),
+    });
+    const key = requiredString(input.keys[0], "redis key");
+    const windowStartEpochMilliseconds = Number(requiredString(input.arguments[0], "window start"));
+    const resetAtEpochMilliseconds = Number(requiredString(input.arguments[1], "reset at"));
+    const limit = Number(requiredString(input.arguments[3], "limit"));
+    const current = this.buckets.get(key);
+    const bucket =
+      current !== undefined && current.windowStartEpochMilliseconds === windowStartEpochMilliseconds
+        ? current
+        : {
+            windowStartEpochMilliseconds,
+            count: 0,
+          };
+
+    this.buckets.set(key, bucket);
+
+    if (bucket.count >= limit) {
+      return Promise.resolve([0, bucket.count, resetAtEpochMilliseconds]);
+    }
+
+    bucket.count += 1;
+
+    return Promise.resolve([1, bucket.count, resetAtEpochMilliseconds]);
+  }
+}
+
 class FakeSecretProvider implements SecretProvider {
   constructor(private readonly values: Readonly<Record<string, string>>) {}
 
   readSecret(descriptor: SecretDescriptor): ReturnType<SecretProvider["readSecret"]> {
     return Promise.resolve(ok(SecretValue.fromString(this.values[String(descriptor.name)] ?? "")));
   }
+}
+
+function requiredString(value: string | undefined, label: string): string {
+  if (value === undefined) {
+    throw new TypeError(`${label} is required.`);
+  }
+
+  return value;
 }

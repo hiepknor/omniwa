@@ -33,7 +33,11 @@ import {
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import {
   InMemoryFixedWindowRateLimiter,
+  RedisRateLimitCounterStore,
+  SharedFixedWindowRateLimiter,
+  type ApiRateLimiter,
   type ApiRateLimitEndpointClass,
+  type RedisRateLimitScriptClient,
 } from "./api-rate-limiter.js";
 import {
   DomainAuditRecordApiSecurityAuditSink,
@@ -64,8 +68,13 @@ export type ApiRuntimeComposition = Readonly<{
   options: ApiHttpServerOptions;
 }>;
 
+export type ApiRuntimeCompositionAdapterOptions = Readonly<{
+  redisRateLimitScriptClient?: RedisRateLimitScriptClient;
+}>;
+
 export type ApiRuntimeSecretCompositionOptions = Readonly<{
   secretProvider: SecretProvider;
+  adapters?: ApiRuntimeCompositionAdapterOptions;
 }>;
 
 type ApiRuntimeRepositorySet = ApplicationDispatcherRepositories &
@@ -76,6 +85,7 @@ type ApiRuntimeRepositorySet = ApplicationDispatcherRepositories &
 
 export function createApiRuntimeComposition(
   env: NodeJS.ProcessEnv = process.env,
+  adapters: ApiRuntimeCompositionAdapterOptions = {},
 ): ApiRuntimeComposition {
   const profile = readRuntimeProfile(env);
   const repositoryProfile = readRepositoryProfile(env);
@@ -110,7 +120,7 @@ export function createApiRuntimeComposition(
     repositoryProfile,
   );
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
-  const rateLimiter = createRuntimeRateLimiter(env);
+  const rateLimiter = createRuntimeRateLimiter(env, adapters);
   const securityAuditSink = createRuntimeSecurityAuditSink(env, repositories);
   const resourceOwnershipResolver = createRuntimeResourceOwnershipResolver(env, repositories);
   const queueProvider = new InMemoryQueueProvider({
@@ -170,7 +180,7 @@ export async function createApiRuntimeCompositionFromSecrets(
   const descriptor = readApiKeySecretDescriptor(env);
 
   if (descriptor === undefined) {
-    return createApiRuntimeComposition(env);
+    return createApiRuntimeComposition(env, options.adapters);
   }
 
   assertNoApiKeySourceMixingWithSecret(env);
@@ -181,10 +191,13 @@ export async function createApiRuntimeCompositionFromSecrets(
     throw new Error(`OmniWA API key secret is unavailable: ${secret.error.code}`);
   }
 
-  return createApiRuntimeComposition({
-    ...env,
-    OMNIWA_API_KEY_HASH: hashApiKey(secret.value.revealForUse()),
-  });
+  return createApiRuntimeComposition(
+    {
+      ...env,
+      OMNIWA_API_KEY_HASH: hashApiKey(secret.value.revealForUse()),
+    },
+    options.adapters,
+  );
 }
 
 function createRuntimeApiKeyVerifier(
@@ -227,13 +240,20 @@ function createRuntimeApiKeyVerifier(
 
 function createRuntimeRateLimiter(
   env: NodeJS.ProcessEnv,
-): InMemoryFixedWindowRateLimiter | undefined {
+  adapters: ApiRuntimeCompositionAdapterOptions,
+): ApiRateLimiter | undefined {
   const maxRequests = readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_MAX_REQUESTS");
   const windowMilliseconds = readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_WINDOW_MS");
   const endpointClassLimits = readEndpointClassRateLimitEnv(env);
+  const backend = readRateLimitBackend(env);
   const hasEndpointClassLimits = Object.keys(endpointClassLimits).length > 0;
 
-  if (maxRequests === undefined && windowMilliseconds === undefined && !hasEndpointClassLimits) {
+  if (
+    maxRequests === undefined &&
+    windowMilliseconds === undefined &&
+    !hasEndpointClassLimits &&
+    backend === undefined
+  ) {
     return undefined;
   }
 
@@ -243,11 +263,52 @@ function createRuntimeRateLimiter(
     );
   }
 
+  const backendOrDefault = backend ?? "in-memory";
+
+  if (backendOrDefault === "redis") {
+    if (adapters.redisRateLimitScriptClient === undefined) {
+      throw new Error(
+        "OMNIWA_API_RATE_LIMIT_BACKEND=redis requires an injected Redis rate-limit script client.",
+      );
+    }
+
+    return new SharedFixedWindowRateLimiter({
+      maxRequests,
+      windowMilliseconds,
+      endpointClassLimits,
+      store: new RedisRateLimitCounterStore({
+        client: adapters.redisRateLimitScriptClient,
+        ...optional("keyPrefix", readRateLimitRedisKeyPrefix(env)),
+      }),
+    });
+  }
+
   return new InMemoryFixedWindowRateLimiter({
     maxRequests,
     windowMilliseconds,
     endpointClassLimits,
   });
+}
+
+function readRateLimitBackend(env: NodeJS.ProcessEnv): "in-memory" | "redis" | undefined {
+  const value = env.OMNIWA_API_RATE_LIMIT_BACKEND?.trim();
+
+  switch (value) {
+    case undefined:
+    case "":
+      return undefined;
+    case "in-memory":
+    case "redis":
+      return value;
+    default:
+      throw new Error("OMNIWA_API_RATE_LIMIT_BACKEND must be in-memory or redis.");
+  }
+}
+
+function readRateLimitRedisKeyPrefix(env: NodeJS.ProcessEnv): string | undefined {
+  const value = env.OMNIWA_API_RATE_LIMIT_REDIS_KEY_PREFIX?.trim();
+
+  return value === undefined || value.length === 0 ? undefined : value;
 }
 
 function createRuntimeSecurityAuditSink(
