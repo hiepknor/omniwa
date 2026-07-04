@@ -11,6 +11,7 @@ import {
   readRuntimeProfile,
 } from "./runtime-composition.js";
 import { hashApiKey } from "./api-key-auth.js";
+import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -89,7 +90,65 @@ describe("API runtime composition", () => {
         OMNIWA_API_KEY: "plaintext-secret",
         OMNIWA_API_KEY_HASH: hashApiKey("hashed-secret"),
       }),
-    ).toThrow(/either OMNIWA_API_KEY or OMNIWA_API_KEY_HASH/u);
+    ).toThrow(/Configure exactly one API key source/u);
+  });
+
+  it("composes local runtime from durable API key lifecycle records", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-key-runtime-"));
+    temporaryDirectories.push(directory);
+    const storePath = join(directory, "api-keys.json");
+    const rawApiKey = "durable-runtime-secret";
+    const service = new ApiKeyLifecycleService({
+      store: new DurableJsonApiKeyLifecycleStore(storePath),
+      now: () => new Date("2026-07-04T00:00:00.000Z"),
+    });
+
+    await service.provision({
+      key: rawApiKey,
+      credential: {
+        kind: "api_key",
+        keyId: "durable-runtime-key",
+        scopes: ["instances:read"],
+      },
+    });
+
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_KEY_LIFECYCLE_STORE_PATH: storePath,
+    });
+
+    expect(composition.options.apiKeys).toBeUndefined();
+    expect(composition.options.apiKeyVerifier?.verify(rawApiKey)).toEqual({
+      kind: "api_key",
+      keyId: "durable-runtime-key",
+      scopes: ["instances:read"],
+    });
+    expect(JSON.stringify(composition.options)).not.toContain(rawApiKey);
+  });
+
+  it("rejects mixing API key lifecycle store with env key sources", () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-key-runtime-mixed-"));
+    temporaryDirectories.push(directory);
+
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_KEY_HASH: hashApiKey("hashed-secret"),
+        OMNIWA_API_KEY_LIFECYCLE_STORE_PATH: join(directory, "api-keys.json"),
+      }),
+    ).toThrow(/Configure exactly one API key source/u);
+  });
+
+  it("rejects API key lifecycle stores without active keys", () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-key-runtime-empty-"));
+    temporaryDirectories.push(directory);
+
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_KEY_LIFECYCLE_STORE_PATH: join(directory, "api-keys.json"),
+      }),
+    ).toThrow(/must contain an active API key/u);
   });
 
   it("composes a durable JSON repository profile for restartable local state", async () => {

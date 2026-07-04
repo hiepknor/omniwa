@@ -45,9 +45,17 @@ Local/dev profiles may continue to use:
 OMNIWA_API_KEY
 ```
 
-That path is kept for development ergonomics. Production runtime remains blocked until the final
-target secret-management adapter, operational provisioning workflow, and production auth store are
-wired into runtime composition.
+That path is kept for development ergonomics. Hardened local/runtime profiles can instead use:
+
+```text
+OMNIWA_API_KEY_HASH
+OMNIWA_API_KEY_LIFECYCLE_STORE_PATH
+```
+
+The lifecycle store path lets runtime composition build an `ApiKeyVerifier` from durable hashed
+records without retaining plaintext API key configuration. Production runtime remains blocked until
+the final target secret-management adapter, operational provisioning workflow, and production auth
+store posture are approved for the production profile.
 
 ## Verification
 
@@ -68,7 +76,6 @@ pnpm check
 
 ## Remaining Work
 
-- Wire the lifecycle store into production API runtime composition.
 - Add public/admin management surface for API key lifecycle when the administration API is ready.
 - Add PostgreSQL-backed API key lifecycle storage if durable JSON is insufficient for the target
   deployment.

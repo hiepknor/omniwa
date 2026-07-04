@@ -117,9 +117,9 @@ Rollback:
 
 N11.3 is done with durable local and PostgreSQL provider-runtime lease guards, active lease renewal
 during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`. N11.4 is
-now current. Its first slice allows API runtime composition from `OMNIWA_API_KEY_HASH` without
-retaining plaintext API key configuration; durable lifecycle wiring and production secret posture
-remain next.
+now current. Its first slices allow API runtime composition from `OMNIWA_API_KEY_HASH` and
+`OMNIWA_API_KEY_LIFECYCLE_STORE_PATH` without retaining plaintext API key configuration; production
+secret posture and admin lifecycle operations remain next.
 
 ## Planned Increments
 

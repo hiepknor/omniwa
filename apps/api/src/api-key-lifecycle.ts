@@ -132,6 +132,10 @@ export class DurableJsonApiKeyLifecycleStore implements ApiKeyLifecycleStore {
     return Promise.resolve(readStateRecords(this.store));
   }
 
+  listApiKeyRecordsSync(): readonly ApiKeyLifecycleRecord[] {
+    return readStateRecords(this.store);
+  }
+
   loadApiKeyRecord(keyId: string): Promise<ApiKeyLifecycleRecord | undefined> {
     return Promise.resolve(
       readStateRecords(this.store).find((record) => record.credential.keyId === keyId),

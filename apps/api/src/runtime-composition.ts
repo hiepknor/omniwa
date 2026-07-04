@@ -26,6 +26,7 @@ import {
   type ApiKeyVerifier,
   type HashedApiKeyConfig,
 } from "./api-key-auth.js";
+import { DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import {
   readApiKeysFromEnv,
   readHashedApiKeysFromEnv,
@@ -60,9 +61,17 @@ export function createApiRuntimeComposition(
   const repositoryProfile = readRepositoryProfile(env);
   const apiKeys = readApiKeysFromEnv(env);
   const hashedApiKeys = readHashedApiKeysFromEnv(env);
-  const apiKeyVerifier = createRuntimeApiKeyVerifier(apiKeys, hashedApiKeys);
+  const apiKeyLifecycleStorePath = readApiKeyLifecycleStorePath(env);
+  const apiKeyVerifier = createRuntimeApiKeyVerifier(
+    apiKeys,
+    hashedApiKeys,
+    apiKeyLifecycleStorePath,
+  );
 
-  assertRuntimeProfileIsComposable(profile, apiKeys.length > 0 || hashedApiKeys.length > 0);
+  assertRuntimeProfileIsComposable(
+    profile,
+    apiKeys.length > 0 || hashedApiKeys.length > 0 || apiKeyLifecycleStorePath !== undefined,
+  );
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
   const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
@@ -123,9 +132,30 @@ export function createApiRuntimeComposition(
 function createRuntimeApiKeyVerifier(
   apiKeys: readonly ApiKeyConfig[],
   hashedApiKeys: readonly HashedApiKeyConfig[],
+  apiKeyLifecycleStorePath: string | undefined,
 ): ApiKeyVerifier | undefined {
-  if (apiKeys.length > 0 && hashedApiKeys.length > 0) {
-    throw new Error("Configure either OMNIWA_API_KEY or OMNIWA_API_KEY_HASH, not both.");
+  const configuredSources = [
+    apiKeys.length > 0 ? "OMNIWA_API_KEY" : undefined,
+    hashedApiKeys.length > 0 ? "OMNIWA_API_KEY_HASH" : undefined,
+    apiKeyLifecycleStorePath !== undefined ? "OMNIWA_API_KEY_LIFECYCLE_STORE_PATH" : undefined,
+  ].filter((source): source is string => source !== undefined);
+
+  if (configuredSources.length > 1) {
+    throw new Error(
+      "Configure exactly one API key source: OMNIWA_API_KEY, OMNIWA_API_KEY_HASH, or OMNIWA_API_KEY_LIFECYCLE_STORE_PATH.",
+    );
+  }
+
+  if (apiKeyLifecycleStorePath !== undefined) {
+    const records = new DurableJsonApiKeyLifecycleStore(
+      apiKeyLifecycleStorePath,
+    ).listApiKeyRecordsSync();
+
+    if (!records.some((record) => record.status === "active")) {
+      throw new Error("OMNIWA_API_KEY_LIFECYCLE_STORE_PATH must contain an active API key.");
+    }
+
+    return createHashedApiKeyVerifier(records);
   }
 
   if (hashedApiKeys.length > 0) {
@@ -137,6 +167,12 @@ function createRuntimeApiKeyVerifier(
   }
 
   return undefined;
+}
+
+function readApiKeyLifecycleStorePath(env: NodeJS.ProcessEnv): string | undefined {
+  const value = env.OMNIWA_API_KEY_LIFECYCLE_STORE_PATH?.trim();
+
+  return value === undefined || value.length === 0 ? undefined : value;
 }
 
 function createRuntimeGroupMutationIntentStore(
