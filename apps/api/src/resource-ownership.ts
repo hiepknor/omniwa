@@ -127,6 +127,19 @@ export async function authorizeApiResourceOwnership(input: {
     inferApiResourceOwnershipResourceType(input.operationRef, input.targetRef);
 
   if (input.targetRef === undefined) {
+    if (
+      input.credential.allowedInstanceRefs !== undefined &&
+      !input.credential.scopes.includes("admin:*") &&
+      requiresExplicitTargetForInstanceScopedCredential(resourceType)
+    ) {
+      return Object.freeze({
+        allowed: false,
+        code: "resource_ownership_unresolved",
+        message: "API resource ownership could not be resolved.",
+        resourceType,
+      });
+    }
+
     return Object.freeze({ allowed: true, resourceType });
   }
 
@@ -243,6 +256,24 @@ function decisionForInstanceRef(
 function isInstanceRef(value: string): boolean {
   return value.startsWith("inst_");
 }
+
+function requiresExplicitTargetForInstanceScopedCredential(
+  resourceType: ApiResourceOwnershipResourceType,
+): boolean {
+  return instanceScopedCredentialTargetlessResourceTypes.has(resourceType);
+}
+
+const instanceScopedCredentialTargetlessResourceTypes = new Set<ApiResourceOwnershipResourceType>([
+  "webhook",
+  "delivery",
+  "job",
+  "event",
+  "audit_record",
+  "api_key",
+  "settings",
+  "provider",
+  "metrics",
+]);
 
 function createOwnershipRecordKey(
   resourceType: ApiResourceOwnershipResourceType,

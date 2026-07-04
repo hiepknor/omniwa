@@ -187,6 +187,83 @@ describe("API resource ownership", () => {
     });
   });
 
+  it("fails closed for targetless global resources when a credential is instance-scoped", async () => {
+    for (const operationRef of [
+      "ListWebhookSubscriptions",
+      "ListWebhookDeliveries",
+      "ListEvents",
+      "ListWorkerJobs",
+      "GetQueueMetricsSnapshot",
+      "GetConfigurationSnapshot",
+      "ListAuditRecords",
+      "ListApiKeys",
+      "GetProviderStatus",
+    ]) {
+      await expect(
+        authorizeApiResourceOwnership({
+          credential,
+          operationRef,
+        }),
+      ).resolves.toMatchObject({
+        allowed: false,
+        code: "resource_ownership_unresolved",
+      });
+    }
+  });
+
+  it("keeps targetless health and instance discovery available to instance-scoped credentials", async () => {
+    await expect(
+      authorizeApiResourceOwnership({
+        credential,
+        operationRef: "GetHealthStatus",
+      }),
+    ).resolves.toMatchObject({
+      allowed: true,
+      resourceType: "health",
+    });
+
+    await expect(
+      authorizeApiResourceOwnership({
+        credential,
+        operationRef: "ListInstances",
+      }),
+    ).resolves.toMatchObject({
+      allowed: true,
+      resourceType: "instance",
+    });
+  });
+
+  it("allows targetless global resources for unrestricted or admin credentials", async () => {
+    await expect(
+      authorizeApiResourceOwnership({
+        credential: {
+          kind: credential.kind,
+          keyId: credential.keyId,
+          scopes: credential.scopes,
+        },
+        operationRef: "ListWebhookSubscriptions",
+      }),
+    ).resolves.toMatchObject({
+      allowed: true,
+      resourceType: "webhook",
+    });
+
+    await expect(
+      authorizeApiResourceOwnership({
+        credential: {
+          kind: "admin_key",
+          keyId: "admin-key",
+          scopes: ["admin:*"],
+          allowedInstanceRefs: ["inst_other"],
+        },
+        operationRef: "ListWebhookSubscriptions",
+      }),
+    ).resolves.toMatchObject({
+      allowed: true,
+      resourceType: "webhook",
+    });
+  });
+
   it("allows admin scope through an explicit bypass decision", async () => {
     await expect(
       authorizeApiResourceOwnership({

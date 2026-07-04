@@ -328,6 +328,48 @@ describe("API HTTP transport", () => {
     ]);
   });
 
+  it("fails closed for targetless global resources when the API key is instance-scoped", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
+
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/webhooks",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-targetless-owner",
+          "x-correlation-id": "corr-targetless-owner",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        securityAuditSink,
+        now: fixedNow,
+        requestRefGenerator: () => "http-targetless-owner",
+      },
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect("error" in response.body ? response.body.error : undefined).toMatchObject({
+      code: "resource_ownership_unresolved",
+      details: {
+        category: "authorization",
+      },
+    });
+    expect(dispatcher.queryEnvelopes).toHaveLength(0);
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "authorization_denied",
+        requestId: "req-targetless-owner",
+        correlationId: "corr-targetless-owner",
+        resourceType: "webhook",
+        code: "resource_ownership_unresolved",
+      }),
+    ]);
+  });
+
   it("audits explicit admin bypass for owned-resource checks", async () => {
     const dispatcher = new CapturingDispatcher();
     const securityAuditSink = new InMemoryApiSecurityAuditSink();
@@ -389,7 +431,7 @@ describe("API HTTP transport", () => {
 
     await request(dispatcher, "GET", "/v1/metrics", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/dashboard", { apiKey: "monitoring-secret" });
-    await request(dispatcher, "GET", "/v1/events");
+    await request(dispatcher, "GET", "/v1/events", { apiKey: "admin-secret" });
     await request(dispatcher, "GET", "/v1/metrics/queue", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/messages", { apiKey: "monitoring-secret" });
     await request(dispatcher, "GET", "/v1/metrics/webhooks", { apiKey: "monitoring-secret" });
@@ -1104,7 +1146,7 @@ describe("API HTTP transport", () => {
         method: "GET",
         url: "/v1/events",
         headers: {
-          "x-api-key": "test-secret",
+          "x-api-key": "admin-secret",
           "x-request-id": "req-list-events",
           "x-correlation-id": "corr-list-events",
         },
@@ -1315,7 +1357,7 @@ describe("API HTTP transport", () => {
         method: "GET",
         url: "/v1/webhooks",
         headers: {
-          "x-api-key": "test-secret",
+          "x-api-key": "admin-secret",
           "x-request-id": "req-list-webhooks",
           "x-correlation-id": "corr-list-webhooks",
         },
@@ -1394,7 +1436,7 @@ describe("API HTTP transport", () => {
         method: "GET",
         url: "/v1/webhook-deliveries",
         headers: {
-          "x-api-key": "test-secret",
+          "x-api-key": "admin-secret",
           "x-request-id": "req-list-webhook-deliveries",
           "x-correlation-id": "corr-list-webhook-deliveries",
         },
@@ -1966,7 +2008,7 @@ describe("API HTTP transport", () => {
       headers: { "idempotency-key": "register-media-1" },
     });
     await request(dispatcher, "GET", "/v1/media/media_1");
-    await request(dispatcher, "GET", "/v1/webhooks");
+    await request(dispatcher, "GET", "/v1/webhooks", { apiKey: "admin-secret" });
     await request(dispatcher, "GET", "/v1/webhooks/wh_1");
     await request(dispatcher, "PATCH", "/v1/webhooks/wh_1", {
       body: { url: "https://example.test/webhook" },
@@ -1978,7 +2020,7 @@ describe("API HTTP transport", () => {
     await request(dispatcher, "POST", "/v1/webhook-deliveries/whd_1/retry", {
       headers: { "idempotency-key": "retry-webhook-delivery-1" },
     });
-    await request(dispatcher, "GET", "/v1/webhook-deliveries");
+    await request(dispatcher, "GET", "/v1/webhook-deliveries", { apiKey: "admin-secret" });
     await request(dispatcher, "GET", "/v1/webhook-deliveries/whd_1/history");
 
     expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([

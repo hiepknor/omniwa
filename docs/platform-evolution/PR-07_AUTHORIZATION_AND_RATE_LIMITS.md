@@ -10,20 +10,21 @@ hooks that production adapters can persist later.
 
 ## Scope Implemented
 
-| Area                           | Status   | Notes                                                                                         |
-| ------------------------------ | -------- | --------------------------------------------------------------------------------------------- |
-| Resource ownership types       | Complete | Ownership checks classify the public resource catalog.                                        |
-| Resource ownership resolver    | Complete | In-memory resource-to-instance resolver exists for runtime/test composition.                  |
-| Repository ownership resolver  | Partial  | Runtime can resolve session/message/attached-media/chat/contact/label/group/job owners.       |
-| Admin bypass decision          | Complete | `admin:*` bypass is explicit in the ownership decision and can be audited.                    |
-| Instance-scoped rate limiting  | Complete | Rate-limit buckets prefer resolved `instanceRef` over non-instance resource ids.              |
-| Endpoint-class guardrails      | Complete | In-memory limiter supports per-endpoint-class limits such as lower message send caps.         |
-| Runtime rate-limit wiring      | Complete | API runtime can opt in through env-configured fixed-window limits.                            |
-| Distributed limiter foundation | Partial  | Async rate-limit port, shared counter store, Redis script-store, and runtime injection exist. |
-| Rate-limit observability       | Complete | Limiter exposes safe snapshots and exports low-cardinality API metric points.                 |
-| Security audit hook            | Complete | HTTP boundary records auth, authorization, rate-limit denial, and admin bypass events.        |
-| Runtime audit wiring           | Complete | API runtime can opt in to in-memory, durable JSON, or domain AuditRecord evidence.            |
-| Regression coverage            | Complete | Tests cover resource ownership, rate exhaustion, audit events, and admin bypass.              |
+| Area                           | Status   | Notes                                                                                              |
+| ------------------------------ | -------- | -------------------------------------------------------------------------------------------------- |
+| Resource ownership types       | Complete | Ownership checks classify the public resource catalog.                                             |
+| Resource ownership resolver    | Complete | In-memory resource-to-instance resolver exists for runtime/test composition.                       |
+| Repository ownership resolver  | Partial  | Runtime can resolve session/message/attached-media/chat/contact/label/group/job owners.            |
+| Targetless global fail-closed  | Complete | Instance-scoped credentials cannot read global resources whose owner cannot be resolved.           |
+| Admin bypass decision          | Complete | `admin:*` bypass is explicit in the ownership decision and can be audited.                         |
+| Instance-scoped rate limiting  | Complete | Rate-limit buckets prefer resolved `instanceRef` over non-instance resource ids.                   |
+| Endpoint-class guardrails      | Complete | In-memory limiter supports per-endpoint-class limits such as lower message send caps.              |
+| Runtime rate-limit wiring      | Complete | API runtime can opt in through env-configured fixed-window limits.                                 |
+| Distributed limiter foundation | Complete | Async port, shared counter store, Redis script-store, runtime injection, and client adapter exist. |
+| Rate-limit observability       | Complete | Limiter exposes safe snapshots and exports low-cardinality API metric points.                      |
+| Security audit hook            | Complete | HTTP boundary records auth, authorization, rate-limit denial, and admin bypass events.             |
+| Runtime audit wiring           | Complete | API runtime can opt in to in-memory, durable JSON, or domain AuditRecord evidence.                 |
+| Regression coverage            | Complete | Tests cover resource ownership, rate exhaustion, audit events, and admin bypass.                   |
 
 ## Boundary Rules Preserved
 
@@ -91,6 +92,10 @@ attached media, chat, contact, label, group, and worker jobs with safe `instance
 Resources without current instance-owner fields, unattached media, or repository coverage in the
 selected runtime profile fail closed when this resolver is enabled and remain follow-up work for
 full production coverage.
+Targetless global resources such as webhooks, webhook deliveries, events, worker job lists, metrics,
+audit records, API keys, settings, and provider status also fail closed for instance-scoped
+credentials because no target owner can be resolved at the HTTP boundary yet. Health and instance
+discovery remain available when the credential has the required scope.
 
 Rate-limit snapshots can be converted into approved API metric points:
 
@@ -139,5 +144,6 @@ pnpm check
 
 ## Remaining Work
 
-- Complete ownership coverage for resources that do not yet carry an explicit owner in current
-  aggregate state or do not yet have production repository coverage.
+- Decide whether currently global resources such as webhooks, events, metrics, and jobs need future
+  instance-scoped owner fields or filtered read models; until then, instance-scoped credentials fail
+  closed for targetless global access.

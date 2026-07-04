@@ -134,9 +134,11 @@ and opt-in repository-backed ownership resolution through
 `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for resources that already carry explicit or safely
 derivable instance ownership, including attached media through its owning message and labels through
 their aggregate `instanceId`. PostgreSQL repository coverage now includes Label and MediaAsset for
-those ownership paths. Remaining N11.5 work should focus on owner modeling for resources without
-current owner fields, distributed rate limiting, and production profile validation beyond the
-database credential checks already present.
+those ownership paths. Targetless global resources without current instance owner fields now fail
+closed for instance-scoped credentials instead of being treated as globally readable. Remaining
+N11.5 work should focus on future owner modeling for currently global resources that later need
+instance-scoped access and production profile validation beyond the database, Redis rate-limit, and
+AuditRecord security-audit checks already present.
 Rate-limit snapshots can now be exported as approved low-cardinality API metric points without raw
 key, bucket, instance, or target identifiers. The rate-limit port is now async-compatible and has a
 Redis script-store foundation plus the concrete `redis` npm client adapter contained at the approved
