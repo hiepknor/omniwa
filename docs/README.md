@@ -55,6 +55,7 @@ Use this portal to find the right document before changing code or implementatio
 12. [platform-evolution/ARCHITECTURE_FREEZE.md](platform-evolution/ARCHITECTURE_FREEZE.md)
 13. [platform-evolution/NEXT_DEVELOPMENT_PLAN.md](platform-evolution/NEXT_DEVELOPMENT_PLAN.md)
 14. [platform-evolution/PRODUCTION_EXECUTION_PLAN.md](platform-evolution/PRODUCTION_EXECUTION_PLAN.md)
+15. [platform-evolution/POSTGRES_REPOSITORY_COMPLETION_PLAN.md](platform-evolution/POSTGRES_REPOSITORY_COMPLETION_PLAN.md)
 
 ## Change Policy
 
