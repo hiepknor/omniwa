@@ -9,11 +9,14 @@ import {
   createIdempotencyKey,
   createJobId,
   createJobStatus,
+  createChatStatus,
+  createContactStatus,
   createMessageDirection,
   createMessageId,
   createMessageStatus,
   createMessageType,
   createMediaId,
+  createGroupStatus,
   createGuardrailDecisionId,
   createRetryPolicy,
   createRetentionPolicy,
@@ -25,8 +28,20 @@ import {
   createWebhookSubscriptionStatus,
   createWebhookUrl,
   createWorkerJobSafeMetadata,
+  type Chat,
+  type ChatId,
+  type ChatRepositoryPort,
+  type ChatStatus,
+  type Contact,
+  type ContactId,
+  type ContactRepositoryPort,
+  type ContactStatus,
   type DomainEvent,
   type DomainOwnerContext,
+  type Group,
+  type GroupId,
+  type GroupRepositoryPort,
+  type GroupStatus,
   type IdempotencyKey,
   type Instance,
   type InstanceId,
@@ -34,10 +49,12 @@ import {
   type InstanceStatus,
   type JobId,
   type JobStatus,
+  type LabelId,
   type Message,
   type MessageId,
   type MessageRepositoryPort,
   type MessageStatus,
+  type Jid,
   type Session,
   type SessionId,
   type SessionRepositoryPort,
@@ -88,6 +105,9 @@ export type PostgresqlRepositorySetOptions = Readonly<{
 }>;
 
 export type PostgresqlRepositorySet = Readonly<{
+  chatRepository: PostgresqlChatRepository;
+  contactRepository: PostgresqlContactRepository;
+  groupRepository: PostgresqlGroupRepository;
   instanceRepository: PostgresqlInstanceRepository;
   messageRepository: PostgresqlMessageRepository;
   sessionRepository: PostgresqlSessionRepository;
@@ -194,6 +214,59 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_webhook_deliveries_source_signal_ref_idx ON omniwa_webhook_deliveries (source_signal_ref)",
     ]),
   }),
+  Object.freeze({
+    id: "pgm_20260704_0007_chat_repository",
+    description: "Create PostgreSQL projection storage for ChatRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_chats (
+        id text PRIMARY KEY,
+        instance_id text NOT NULL,
+        status text NOT NULL,
+        jid text NOT NULL,
+        label_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_chats_instance_id_idx ON omniwa_chats (instance_id)",
+      "CREATE INDEX IF NOT EXISTS omniwa_chats_status_idx ON omniwa_chats (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_chats_jid_idx ON omniwa_chats (jid)",
+      "CREATE INDEX IF NOT EXISTS omniwa_chats_label_ids_idx ON omniwa_chats USING gin (label_ids)",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260704_0008_contact_repository",
+    description: "Create PostgreSQL projection storage for ContactRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_contacts (
+        id text PRIMARY KEY,
+        instance_id text NOT NULL,
+        status text NOT NULL,
+        jid text NOT NULL,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_contacts_instance_id_idx ON omniwa_contacts (instance_id)",
+      "CREATE INDEX IF NOT EXISTS omniwa_contacts_status_idx ON omniwa_contacts (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_contacts_jid_idx ON omniwa_contacts (jid)",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260704_0009_group_repository",
+    description: "Create PostgreSQL projection storage for GroupRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_groups (
+        id text PRIMARY KEY,
+        instance_id text NOT NULL,
+        status text NOT NULL,
+        jid text NOT NULL,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_groups_instance_id_idx ON omniwa_groups (instance_id)",
+      "CREATE INDEX IF NOT EXISTS omniwa_groups_status_idx ON omniwa_groups (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_groups_jid_idx ON omniwa_groups (jid)",
+    ]),
+  }),
 ]) satisfies readonly PostgresqlSqlMigration[];
 
 export const postgresqlInstanceRepositoryMigrations = postgresqlRepositoryMigrations;
@@ -297,6 +370,15 @@ export function createPostgresqlRepositorySet(
     : undefined;
 
   return Object.freeze({
+    chatRepository: new PostgresqlChatRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    contactRepository: new PostgresqlContactRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    groupRepository: new PostgresqlGroupRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
     instanceRepository: new PostgresqlInstanceRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
@@ -394,6 +476,191 @@ export type PostgresqlSessionRepositoryOptions = Readonly<{
 export type PostgresqlWebhookSubscriptionRepositoryOptions = Readonly<{
   migrationBarrier?: () => Promise<void>;
 }>;
+
+export type PostgresqlChatRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlChatRepository
+  extends PostgresqlAggregateRepository<Chat, ChatId>
+  implements ChatRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlChatRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_chats",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "instance_id",
+          value: (chat: Chat) => keyOf(chat.instanceId),
+        }),
+        Object.freeze({
+          name: "status",
+          value: (chat: Chat) => chat.status,
+        }),
+        Object.freeze({
+          name: "jid",
+          value: (chat: Chat) => keyOf(chat.jid),
+        }),
+        Object.freeze({
+          name: "label_ids",
+          value: (chat: Chat) => JSON.stringify(chat.labelIds.map(keyOf)),
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<Chat>(value, "Chat"),
+      getId: (chat) => keyOf(chat.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Chat[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_chats WHERE instance_id = $1 ORDER BY id ASC",
+      [keyOf(instanceId)],
+    );
+  }
+
+  findByStatus(status: ChatStatus): Promise<readonly Chat[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_chats WHERE status = $1 ORDER BY id ASC",
+      [createChatStatus(status)],
+    );
+  }
+
+  async findByJid(jid: Jid): Promise<Chat | undefined> {
+    const matches = await this.findManyBySql(
+      "SELECT aggregate FROM omniwa_chats WHERE jid = $1 ORDER BY id ASC LIMIT 1",
+      [keyOf(jid)],
+    );
+
+    return matches[0];
+  }
+
+  findByLabel(labelId: LabelId): Promise<readonly Chat[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_chats WHERE label_ids @> $1::jsonb ORDER BY id ASC",
+      [JSON.stringify([keyOf(labelId)])],
+    );
+  }
+}
+
+export type PostgresqlContactRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlContactRepository
+  extends PostgresqlAggregateRepository<Contact, ContactId>
+  implements ContactRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlContactRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_contacts",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "instance_id",
+          value: (contact: Contact) => keyOf(contact.instanceId),
+        }),
+        Object.freeze({
+          name: "status",
+          value: (contact: Contact) => contact.status,
+        }),
+        Object.freeze({
+          name: "jid",
+          value: (contact: Contact) => keyOf(contact.jid),
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<Contact>(value, "Contact"),
+      getId: (contact) => keyOf(contact.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Contact[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_contacts WHERE instance_id = $1 ORDER BY id ASC",
+      [keyOf(instanceId)],
+    );
+  }
+
+  findByStatus(status: ContactStatus): Promise<readonly Contact[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_contacts WHERE status = $1 ORDER BY id ASC",
+      [createContactStatus(status)],
+    );
+  }
+
+  async findByJid(jid: Jid): Promise<Contact | undefined> {
+    const matches = await this.findManyBySql(
+      "SELECT aggregate FROM omniwa_contacts WHERE jid = $1 ORDER BY id ASC LIMIT 1",
+      [keyOf(jid)],
+    );
+
+    return matches[0];
+  }
+}
+
+export type PostgresqlGroupRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlGroupRepository
+  extends PostgresqlAggregateRepository<Group, GroupId>
+  implements GroupRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlGroupRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_groups",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "instance_id",
+          value: (group: Group) => keyOf(group.instanceId),
+        }),
+        Object.freeze({
+          name: "status",
+          value: (group: Group) => group.status,
+        }),
+        Object.freeze({
+          name: "jid",
+          value: (group: Group) => keyOf(group.jid),
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<Group>(value, "Group"),
+      getId: (group) => keyOf(group.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Group[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_groups WHERE instance_id = $1 ORDER BY id ASC",
+      [keyOf(instanceId)],
+    );
+  }
+
+  findByStatus(status: GroupStatus): Promise<readonly Group[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_groups WHERE status = $1 ORDER BY id ASC",
+      [createGroupStatus(status)],
+    );
+  }
+
+  async findByJid(jid: Jid): Promise<Group | undefined> {
+    const matches = await this.findManyBySql(
+      "SELECT aggregate FROM omniwa_groups WHERE jid = $1 ORDER BY id ASC LIMIT 1",
+      [keyOf(jid)],
+    );
+
+    return matches[0];
+  }
+}
 
 export class PostgresqlWebhookSubscriptionRepository
   extends PostgresqlAggregateRepository<WebhookSubscription, WebhookId>
@@ -980,6 +1247,16 @@ function decodeWorkerJobAggregate(value: unknown): WorkerJob {
       requiredArray(aggregate.domainEvents, "WorkerJob.domainEvents").map(decodeDomainEvent),
     ),
   });
+}
+
+function decodeProjectionAggregate<TAggregate>(value: unknown, label: string): TAggregate {
+  const aggregate = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+
+  if (!isRecord(aggregate)) {
+    throw new TypeError(`PostgreSQL ${label} aggregate must be an object.`);
+  }
+
+  return Object.freeze(aggregate) as TAggregate;
 }
 
 function optionalRetentionPolicy(

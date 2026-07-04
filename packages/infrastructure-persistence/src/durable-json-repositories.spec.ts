@@ -43,6 +43,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createDurableJsonReadProjectionStore } from "./durable-json-read-projection-store.js";
 import { createDurableJsonRepositorySet } from "./durable-json-repositories.js";
 import {
+  describeChatRepositoryContract,
+  describeContactRepositoryContract,
+  describeGroupRepositoryContract,
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
@@ -78,6 +81,21 @@ describeSessionRepositoryContract({
 describeMessageRepositoryContract({
   name: "durable-json",
   create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).messageRepository,
+});
+
+describeChatRepositoryContract({
+  name: "durable-json",
+  create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).chatRepository,
+});
+
+describeContactRepositoryContract({
+  name: "durable-json",
+  create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).contactRepository,
+});
+
+describeGroupRepositoryContract({
+  name: "durable-json",
+  create: () => createDurableJsonRepositorySet(createTemporaryDirectory()).groupRepository,
 });
 
 describeWebhookSubscriptionRepositoryContract({

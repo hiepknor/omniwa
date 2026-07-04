@@ -3,6 +3,9 @@ import type { FieldDef, QueryResult, QueryResultRow } from "pg";
 
 import {
   createPostgresqlConnectionPool,
+  PostgresqlChatRepository,
+  PostgresqlContactRepository,
+  PostgresqlGroupRepository,
   PostgresqlInstanceRepository,
   PostgresqlMessageRepository,
   PostgresqlSessionRepository,
@@ -15,12 +18,17 @@ import {
   type PostgresqlSqlMigration,
   type PostgresqlTransactionClient,
 } from "./postgresql-repositories.js";
-import { describeInstanceRepositoryContract } from "./repository-contracts.spec-helper.js";
-import { describeMessageRepositoryContract } from "./repository-contracts.spec-helper.js";
-import { describeSessionRepositoryContract } from "./repository-contracts.spec-helper.js";
-import { describeWebhookDeliveryRepositoryContract } from "./repository-contracts.spec-helper.js";
-import { describeWebhookSubscriptionRepositoryContract } from "./repository-contracts.spec-helper.js";
-import { describeWorkerJobRepositoryContract } from "./repository-contracts.spec-helper.js";
+import {
+  describeChatRepositoryContract,
+  describeContactRepositoryContract,
+  describeGroupRepositoryContract,
+  describeInstanceRepositoryContract,
+  describeMessageRepositoryContract,
+  describeSessionRepositoryContract,
+  describeWebhookDeliveryRepositoryContract,
+  describeWebhookSubscriptionRepositoryContract,
+  describeWorkerJobRepositoryContract,
+} from "./repository-contracts.spec-helper.js";
 
 describe("PostgreSQL migration runner", () => {
   it("applies migration statements inside an explicit transaction and records the migration", async () => {
@@ -91,6 +99,18 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260704_0006_webhook_delivery_repository",
         description: expect.stringContaining("WebhookDeliveryRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260704_0007_chat_repository",
+        description: expect.stringContaining("ChatRepositoryPort"),
+      }),
+      expect.objectContaining({
+        id: "pgm_20260704_0008_contact_repository",
+        description: expect.stringContaining("ContactRepositoryPort"),
+      }),
+      expect.objectContaining({
+        id: "pgm_20260704_0009_group_repository",
+        description: expect.stringContaining("GroupRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -110,6 +130,15 @@ describe("PostgreSQL migration runner", () => {
     expect(postgresqlInstanceRepositoryMigrations[5]?.statements.join("\n")).toContain(
       "omniwa_webhook_deliveries",
     );
+    expect(postgresqlInstanceRepositoryMigrations[6]?.statements.join("\n")).toContain(
+      "omniwa_chats",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[7]?.statements.join("\n")).toContain(
+      "omniwa_contacts",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[8]?.statements.join("\n")).toContain(
+      "omniwa_groups",
+    );
   });
 });
 
@@ -128,7 +157,7 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
       await connection.query(
-        "TRUNCATE TABLE omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
+        "TRUNCATE TABLE omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
       );
     });
 
@@ -149,6 +178,21 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeSessionRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlSessionRepository(connection),
+    });
+
+    describeChatRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlChatRepository(connection),
+    });
+
+    describeContactRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlContactRepository(connection),
+    });
+
+    describeGroupRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlGroupRepository(connection),
     });
 
     describeWebhookSubscriptionRepositoryContract({

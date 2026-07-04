@@ -69,6 +69,9 @@ import { describe, expect, it } from "vitest";
 
 import { createInMemoryRepositorySet } from "./in-memory-repositories.js";
 import {
+  describeChatRepositoryContract,
+  describeContactRepositoryContract,
+  describeGroupRepositoryContract,
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
@@ -106,6 +109,21 @@ describeSessionRepositoryContract({
 describeMessageRepositoryContract({
   name: "in-memory",
   create: () => createInMemoryRepositorySet().messageRepository,
+});
+
+describeChatRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().chatRepository,
+});
+
+describeContactRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().contactRepository,
+});
+
+describeGroupRepositoryContract({
+  name: "in-memory",
+  create: () => createInMemoryRepositorySet().groupRepository,
 });
 
 describeWebhookSubscriptionRepositoryContract({

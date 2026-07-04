@@ -1,10 +1,21 @@
 import {
+  activateContact,
+  activateGroup,
   createInstance,
   createInstanceId,
   createAttemptNumber,
+  createChat,
+  createChatId,
+  createContact,
+  createContactDisplayName,
+  createContactId,
+  createGroup,
+  createGroupId,
   createIdempotencyKey,
   createJobId,
   createGuardrailDecisionId,
+  createJid,
+  createLabelId,
   createRetryPolicy,
   createSessionId,
   createMessageId,
@@ -28,6 +39,9 @@ import {
   reserveWorkerJob,
   type InstanceRepositoryPort,
   type IdempotencyKey,
+  type ChatRepositoryPort,
+  type ContactRepositoryPort,
+  type GroupRepositoryPort,
   type JobId,
   type MessageId,
   type MessageRepositoryPort,
@@ -355,6 +369,142 @@ export function describeSessionRepositoryContract(factory: SessionRepositoryCont
         active,
       ]);
       await expect(repository.findRecoveryRequired()).resolves.toEqual([expired]);
+    });
+  });
+}
+
+export type ChatRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): ChatRepositoryPort;
+}>;
+
+export function describeChatRepositoryContract(factory: ChatRepositoryContractFactory): void {
+  describe(`${factory.name} ChatRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and filters chats by instance, status, JID, and label", async () => {
+      const repository = factory.create();
+      const instanceId = createInstanceId(`${safeFactoryName(factory.name)}-instance-chat`);
+      const labelId = createLabelId(`${safeFactoryName(factory.name)}-label-chat`);
+      const chat = createChat({
+        id: createChatId(`${safeFactoryName(factory.name)}-chat-load`),
+        instanceId,
+        jid: createJid("12025550123@s.whatsapp.net"),
+        labelIds: [labelId],
+      });
+      const other = createChat({
+        id: createChatId(`${safeFactoryName(factory.name)}-chat-other`),
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-chat-other`),
+        jid: createJid("12025550124@s.whatsapp.net"),
+      });
+
+      await expect(repository.exists(chat.id)).resolves.toBe(false);
+      await repository.save(chat);
+      await repository.save(other);
+
+      await expect(repository.exists(chat.id)).resolves.toBe(true);
+      await expect(repository.load(chat.id)).resolves.toEqual(chat);
+      await expect(repository.findByInstance(instanceId)).resolves.toEqual([chat]);
+      await expect(repository.findByStatus("open")).resolves.toEqual([chat, other]);
+      await expect(repository.findByJid(chat.jid)).resolves.toEqual(chat);
+      await expect(repository.findByLabel(labelId)).resolves.toEqual([chat]);
+      await expect(
+        repository.findByLabel(createLabelId(`${safeFactoryName(factory.name)}-label-missing`)),
+      ).resolves.toEqual([]);
+    });
+  });
+}
+
+export type ContactRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): ContactRepositoryPort;
+}>;
+
+export function describeContactRepositoryContract(factory: ContactRepositoryContractFactory): void {
+  describe(`${factory.name} ContactRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and filters contacts by instance, status, and JID", async () => {
+      const repository = factory.create();
+      const instanceId = createInstanceId(`${safeFactoryName(factory.name)}-instance-contact`);
+      const contact = activateContact(
+        createContact({
+          id: createContactId(`${safeFactoryName(factory.name)}-contact-load`),
+          instanceId,
+          jid: createJid("12025550125@s.whatsapp.net"),
+          displayName: createContactDisplayName("Repository Contract Contact"),
+        }),
+      );
+      const other = createContact({
+        id: createContactId(`${safeFactoryName(factory.name)}-contact-other`),
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-contact-other`),
+        jid: createJid("12025550126@s.whatsapp.net"),
+      });
+
+      await expect(repository.exists(contact.id)).resolves.toBe(false);
+      await repository.save(contact);
+      await repository.save(other);
+
+      await expect(repository.exists(contact.id)).resolves.toBe(true);
+      await expect(repository.load(contact.id)).resolves.toEqual(contact);
+      await expect(repository.findByInstance(instanceId)).resolves.toEqual([contact]);
+      await expect(repository.findByStatus("active")).resolves.toEqual([contact]);
+      await expect(repository.findByStatus("discovered")).resolves.toEqual([other]);
+      await expect(repository.findByJid(contact.jid)).resolves.toEqual(contact);
+    });
+  });
+}
+
+export type GroupRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): GroupRepositoryPort;
+}>;
+
+export function describeGroupRepositoryContract(factory: GroupRepositoryContractFactory): void {
+  describe(`${factory.name} GroupRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and filters groups by instance, status, and JID", async () => {
+      const repository = factory.create();
+      const instanceId = createInstanceId(`${safeFactoryName(factory.name)}-instance-group`);
+      const group = activateGroup(
+        createGroup({
+          id: createGroupId(`${safeFactoryName(factory.name)}-group-load`),
+          instanceId,
+          jid: createJid("12025550127@g.us"),
+          metadata: {
+            subject: "Repository Contract Group",
+          },
+        }),
+      );
+      const other = createGroup({
+        id: createGroupId(`${safeFactoryName(factory.name)}-group-other`),
+        instanceId: createInstanceId(`${safeFactoryName(factory.name)}-instance-group-other`),
+        jid: createJid("12025550128@g.us"),
+        metadata: {
+          subject: "Repository Contract Other Group",
+        },
+      });
+
+      await expect(repository.exists(group.id)).resolves.toBe(false);
+      await repository.save(group);
+      await repository.save(other);
+
+      await expect(repository.exists(group.id)).resolves.toBe(true);
+      await expect(repository.load(group.id)).resolves.toEqual(group);
+      await expect(repository.findByInstance(instanceId)).resolves.toEqual([group]);
+      await expect(repository.findByStatus("active")).resolves.toEqual([group]);
+      await expect(repository.findByStatus("discovered")).resolves.toEqual([other]);
+      await expect(repository.findByJid(group.jid)).resolves.toEqual(group);
     });
   });
 }

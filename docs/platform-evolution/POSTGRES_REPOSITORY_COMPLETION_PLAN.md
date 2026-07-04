@@ -50,7 +50,7 @@ Status date: 2026-07-04.
 | Session adapter                           | Complete | `PostgresqlSessionRepository`, migration, contract tests.                                                                                       |
 | Webhook adapters                          | Complete | `PostgresqlWebhookSubscriptionRepository`, `PostgresqlWebhookDeliveryRepository`, migrations, signal/idempotency side-channels, contract tests. |
 | Webhook dispatcher PostgreSQL composition | Complete | `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql` now composes with PostgreSQL repositories.                                            |
-| Read projection / guardrail adapters      | Pending  | Chat, Contact, Group, GuardrailDecision, and HealthStatus adapters remain.                                                                      |
+| Read projection / guardrail adapters      | Partial  | Chat, Contact, and Group adapters are complete; GuardrailDecision and HealthStatus adapters remain.                                             |
 | API/worker hybrid fallback removal        | Pending  | Runtime composition still needs to replace in-memory fallbacks with PostgreSQL adapters after remaining adapters land.                          |
 | Real PostgreSQL CI service                | Pending  | Env-gated real PostgreSQL tests still require CI provisioning with `OMNIWA_POSTGRES_TEST_DATABASE_URL`.                                         |
 
@@ -62,9 +62,9 @@ In scope — 9 repository adapters (the ports wired into the API/worker reposito
 | ----------------------------------- | ------------------- | ------------------------- | ---------------- | -------- |
 | `SessionRepositoryPort`             | Session             | `application_coordinated` | session          | Complete |
 | `MessageRepositoryPort`             | Message             | `strong_owner`            | messaging        | Complete |
-| `ChatRepositoryPort`                | Chat                | `eventual_projection`     | chat             | Pending  |
-| `ContactRepositoryPort`             | Contact             | `eventual_projection`     | contact          | Pending  |
-| `GroupRepositoryPort`               | Group               | `application_coordinated` | group            | Pending  |
+| `ChatRepositoryPort`                | Chat                | `eventual_projection`     | chat             | Complete |
+| `ContactRepositoryPort`             | Contact             | `eventual_projection`     | contact          | Complete |
+| `GroupRepositoryPort`               | Group               | `application_coordinated` | group            | Complete |
 | `WebhookSubscriptionRepositoryPort` | WebhookSubscription | `strong_owner`            | webhook_delivery | Complete |
 | `WebhookDeliveryRepositoryPort`     | WebhookDelivery     | `application_coordinated` | webhook_delivery | Complete |
 | `GuardrailDecisionRepositoryPort`   | GuardrailDecision   | `strong_owner`            | guardrails       | Pending  |
@@ -208,9 +208,10 @@ no behavior change.
 6. Remove the `postgresql not supported` throw in `apps/webhook-dispatcher/src/runtime-composition.ts`
    and wire the PostgreSQL repository set.
 
-### Phase 3 — Read Projections — Next
+### Phase 3 — Read Projections — Partial
 
 7. `Chat`, `Contact`, `Group`, `HealthStatus`, `GuardrailDecision` adapters + migrations.
+   `Chat`, `Contact`, and `Group` are complete. `HealthStatus` and `GuardrailDecision` remain.
 
 ### Phase 4 — Wiring and Hybrid Removal — Pending
 
@@ -245,14 +246,14 @@ and provision the CI PostgreSQL service so env-gated tests run continuously rath
 
 ## Definition of Done
 
-| DoD item                                                                                                                     | Status                         | Notes                                                                                          |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| All nine adapters implement their full port interface plus required side-channel methods.                                    | Partial                        | Message, Session, WebhookSubscription, and WebhookDelivery are complete; five adapters remain. |
-| The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Pending                        | Requires Phase 3 adapters and Phase 4 wiring.                                                  |
-| The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.                     |
-| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                                     |
-| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped.                  |
-| No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.                   |
+| DoD item                                                                                                                     | Status                         | Notes                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| All nine adapters implement their full port interface plus required side-channel methods.                                    | Partial                        | Message, Session, Chat, Contact, Group, WebhookSubscription, and WebhookDelivery are complete; GuardrailDecision and HealthStatus remain. |
+| The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Pending                        | Requires Phase 3 adapters and Phase 4 wiring.                                                                                             |
+| The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.                                                                |
+| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                                                                                |
+| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped.                                                             |
+| No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.                                                              |
 
 ## Risks and Watch-Items
 
