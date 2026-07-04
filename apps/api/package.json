@@ -21,6 +21,7 @@
     "@omniwa/infrastructure-secrets": "workspace:*",
     "@omniwa/interface-api": "workspace:*",
     "@omniwa/observability": "workspace:*",
-    "@omniwa/shared": "workspace:*"
+    "@omniwa/shared": "workspace:*",
+    "redis": "^6.1.0"
   }
 }

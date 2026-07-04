@@ -103,13 +103,14 @@ keys, instance refs, target refs, or raw request data.
 
 The rate-limit port is async-compatible, and a shared fixed-window limiter can consume any approved
 `ApiRateLimitCounterStore`. The Redis store uses a Lua script boundary for atomic check-and-increment
-semantics and hashes the internal bucket key before constructing Redis keys. It does not require a
-concrete Redis client dependency in the API app. API runtime composition can select
-`OMNIWA_API_RATE_LIMIT_BACKEND=redis` only when an approved `RedisRateLimitScriptClient` is injected;
-otherwise it fails closed. Production API composition also rejects missing rate-limit configuration,
-the in-memory backend, and Redis backend selection without an injected script client before reaching
-the remaining production-adapter fail-safe. A concrete production Redis client adapter remains a
-follow-up.
+semantics and hashes the internal bucket key before constructing Redis keys. The concrete `redis`
+npm client adapter is contained at the API runtime boundary approved by
+`docs/adr/ADR-0008-redis-rate-limit-client.md`. API runtime composition can select
+`OMNIWA_API_RATE_LIMIT_BACKEND=redis` from `OMNIWA_API_RATE_LIMIT_REDIS_URL` or an injected approved
+`RedisRateLimitScriptClient`; otherwise it fails closed. Production API composition also rejects
+missing rate-limit configuration, the in-memory backend, Redis backend selection without a configured
+client, and missing AuditRecord-backed security-audit evidence before reaching the remaining
+production-adapter fail-safe.
 
 API production profile composition also validates PostgreSQL configuration before reaching the
 remaining production-adapter fail-safe. The validation rejects non-PostgreSQL repository profiles,
@@ -138,7 +139,5 @@ pnpm check
 
 ## Remaining Work
 
-- Implement the production Redis client adapter/dependency approved by
-  `docs/adr/ADR-0008-redis-rate-limit-client.md`.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current
   aggregate state or do not yet have production repository coverage.

@@ -138,12 +138,12 @@ without current owner fields, distributed rate limiting, and production profile 
 the database credential checks already present.
 Rate-limit snapshots can now be exported as approved low-cardinality API metric points without raw
 key, bucket, instance, or target identifiers. The rate-limit port is now async-compatible and has a
-Redis script-store foundation without introducing a concrete Redis client dependency. API runtime
-composition can select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` only when an approved Redis script
-client is injected. Production API composition now fails closed unless that Redis-backed limiter is
-configured and security-audit evidence is routed to domain `AuditRecord` persistence; the concrete
-production Redis client adapter remains the next hardening slice and is governed by accepted
-`docs/adr/ADR-0008-redis-rate-limit-client.md`.
+Redis script-store foundation plus the concrete `redis` npm client adapter contained at the approved
+API runtime boundary. API runtime composition can select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` from
+`OMNIWA_API_RATE_LIMIT_REDIS_URL` or an injected approved Redis script client. Production API
+composition now fails closed unless that Redis-backed limiter is configured and security-audit
+evidence is routed to domain `AuditRecord` persistence. The Redis adapter remains governed by
+accepted `docs/adr/ADR-0008-redis-rate-limit-client.md`.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.
 

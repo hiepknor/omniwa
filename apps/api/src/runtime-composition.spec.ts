@@ -445,7 +445,22 @@ describe("API runtime composition", () => {
     expect(JSON.stringify(redisClient.calls)).not.toContain("inst_runtime_redis");
   });
 
-  it("fails fast when Redis rate limit backend is selected without an injected client", () => {
+  it("composes local runtime from Redis rate limit URL without an injected client", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+      OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://:runtime-secret@redis.example:6379/0",
+      OMNIWA_API_RATE_LIMIT_REDIS_CONNECT_TIMEOUT_MS: "1000",
+      OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
+      OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+    });
+
+    expect(composition.options.rateLimiter).toBeDefined();
+    expect(JSON.stringify(composition.options.rateLimiter)).not.toContain("runtime-secret");
+  });
+
+  it("fails fast when Redis rate limit backend is selected without URL or injected client", () => {
     expect(() =>
       createApiRuntimeComposition({
         OMNIWA_API_KEY: "local-secret",
@@ -454,7 +469,34 @@ describe("API runtime composition", () => {
         OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
         OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
       }),
-    ).toThrow(/requires an injected Redis rate-limit script client/u);
+    ).toThrow(/requires OMNIWA_API_RATE_LIMIT_REDIS_URL or an injected/u);
+  });
+
+  it("rejects invalid Redis rate limit URL configuration safely", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "postgresql://redis-secret@redis.example/db",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
+    ).toThrow(/OMNIWA_API_RATE_LIMIT_REDIS_URL must use redis or rediss protocol/u);
+
+    try {
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://:redis secret",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      });
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).not.toContain("redis secret");
+    }
   });
 
   it("rejects unsupported rate limit backend values safely", () => {
@@ -742,7 +784,7 @@ describe("API runtime composition", () => {
         OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
         OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
       }),
-    ).toThrow(/requires an injected Redis rate-limit script client/u);
+    ).toThrow(/requires OMNIWA_API_RATE_LIMIT_REDIS_URL or an injected/u);
   });
 
   it("requires AuditRecord-backed security audit evidence for production runtime composition", () => {
@@ -758,11 +800,9 @@ describe("API runtime composition", () => {
           OMNIWA_POSTGRES_DATABASE_URL:
             "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
           OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
           OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
           OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
-        },
-        {
-          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
         },
       ),
     ).toThrow(/requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true/u);
@@ -776,13 +816,11 @@ describe("API runtime composition", () => {
           OMNIWA_POSTGRES_DATABASE_URL:
             "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
           OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
           OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
           OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
           OMNIWA_API_SECURITY_AUDIT_IN_MEMORY: "true",
         },
-        {
-          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
-        },
       ),
     ).toThrow(/requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true/u);
 
@@ -795,12 +833,10 @@ describe("API runtime composition", () => {
           OMNIWA_POSTGRES_DATABASE_URL:
             "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
           OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
           OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
           OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
           OMNIWA_API_SECURITY_AUDIT_LOG_PATH: join(directory, "audit-log.json"),
-        },
-        {
-          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
         },
       ),
     ).toThrow(/requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true/u);
@@ -816,12 +852,10 @@ describe("API runtime composition", () => {
           OMNIWA_POSTGRES_DATABASE_URL:
             "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
           OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
           OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
           OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
           OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
-        },
-        {
-          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
         },
       ),
     ).toThrow(/production profile remains disabled/u);

@@ -50,6 +50,7 @@ import {
   InMemoryApiSecurityAuditSink,
   type ApiSecurityAuditSink,
 } from "./api-security-audit.js";
+import { createNodeRedisRateLimitScriptClient } from "./redis-rate-limit-client.js";
 import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 import {
   readApiKeysFromEnv,
@@ -106,19 +107,25 @@ export function createApiRuntimeComposition(
       ? undefined
       : new DurableJsonApiKeyLifecycleStore(apiKeyLifecycleStorePath);
   const apiKeyVerifier = createRuntimeApiKeyVerifier(apiKeys, hashedApiKeys, apiKeyLifecycleStore);
+  const rateLimitBackend = readRateLimitBackend(env);
+  const redisRateLimitScriptClient = createRuntimeRedisRateLimitScriptClient(
+    env,
+    adapters,
+    rateLimitBackend,
+  );
 
   assertRuntimeProfileIsComposable(profile, {
     hasConfiguredApiKey:
       apiKeys.length > 0 || hashedApiKeys.length > 0 || apiKeyLifecycleStorePath !== undefined,
     repositoryProfile,
     postgresDatabaseUrl: env.OMNIWA_POSTGRES_DATABASE_URL,
-    rateLimitBackend: readRateLimitBackend(env),
+    rateLimitBackend,
     rateLimitMaxRequests: readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_MAX_REQUESTS"),
     rateLimitWindowMilliseconds: readOptionalPositiveIntegerEnv(
       env,
       "OMNIWA_API_RATE_LIMIT_WINDOW_MS",
     ),
-    hasRedisRateLimitScriptClient: adapters.redisRateLimitScriptClient !== undefined,
+    hasRedisRateLimitScriptClient: redisRateLimitScriptClient !== undefined,
     securityAuditSinkKind: readSecurityAuditSinkKind(env),
   });
 
@@ -137,7 +144,10 @@ export function createApiRuntimeComposition(
     repositoryProfile,
   );
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
-  const rateLimiter = createRuntimeRateLimiter(env, adapters);
+  const rateLimiter = createRuntimeRateLimiter(env, {
+    ...adapters,
+    ...optional("redisRateLimitScriptClient", redisRateLimitScriptClient),
+  });
   const securityAuditSink = createRuntimeSecurityAuditSink(env, repositories);
   const resourceOwnershipResolver = createRuntimeResourceOwnershipResolver(env, repositories);
   const queueProvider = new InMemoryQueueProvider({
@@ -285,7 +295,7 @@ function createRuntimeRateLimiter(
   if (backendOrDefault === "redis") {
     if (adapters.redisRateLimitScriptClient === undefined) {
       throw new Error(
-        "OMNIWA_API_RATE_LIMIT_BACKEND=redis requires an injected Redis rate-limit script client.",
+        "OMNIWA_API_RATE_LIMIT_BACKEND=redis requires OMNIWA_API_RATE_LIMIT_REDIS_URL or an injected Redis rate-limit script client.",
       );
     }
 
@@ -304,6 +314,37 @@ function createRuntimeRateLimiter(
     maxRequests,
     windowMilliseconds,
     endpointClassLimits,
+  });
+}
+
+function createRuntimeRedisRateLimitScriptClient(
+  env: NodeJS.ProcessEnv,
+  adapters: ApiRuntimeCompositionAdapterOptions,
+  backend: "in-memory" | "redis" | undefined,
+): RedisRateLimitScriptClient | undefined {
+  if (backend !== "redis") {
+    return adapters.redisRateLimitScriptClient;
+  }
+
+  if (adapters.redisRateLimitScriptClient !== undefined) {
+    return adapters.redisRateLimitScriptClient;
+  }
+
+  const redisUrl = env.OMNIWA_API_RATE_LIMIT_REDIS_URL?.trim();
+
+  if (redisUrl === undefined || redisUrl.length === 0) {
+    throw new Error(
+      "OMNIWA_API_RATE_LIMIT_BACKEND=redis requires OMNIWA_API_RATE_LIMIT_REDIS_URL or an injected Redis rate-limit script client.",
+    );
+  }
+
+  return createNodeRedisRateLimitScriptClient({
+    url: redisUrl,
+    ...optional(
+      "connectTimeoutMilliseconds",
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_REDIS_CONNECT_TIMEOUT_MS"),
+    ),
+    ...optional("clientName", readOptionalStringEnv(env, "OMNIWA_API_RATE_LIMIT_REDIS_CLIENT_NAME")),
   });
 }
 
@@ -623,6 +664,12 @@ function readOptionalPositiveIntegerEnv(env: NodeJS.ProcessEnv, name: string): n
   return parsed;
 }
 
+function readOptionalStringEnv(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  const value = env[name]?.trim();
+
+  return value === undefined || value.length === 0 ? undefined : value;
+}
+
 function assertRuntimeProfileIsComposable(
   profile: ApiRuntimeProfile,
   options: Readonly<{
@@ -688,7 +735,7 @@ function assertProductionRateLimitConfiguration(options: {
 
   if (!options.hasRedisRateLimitScriptClient) {
     throw new Error(
-      "OmniWA API production profile requires an injected Redis rate-limit script client.",
+      "OmniWA API production profile requires a configured Redis rate-limit script client.",
     );
   }
 }

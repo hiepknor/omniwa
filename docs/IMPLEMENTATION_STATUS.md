@@ -131,20 +131,19 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   API metric points without exporting API key ids, bucket keys, instance refs, or target refs. API
   production runtime composition now validates that PostgreSQL configuration does not use local
   hosts or known development credentials and rejects production profiles that do not configure
-  `OMNIWA_API_RATE_LIMIT_BACKEND=redis` with an injected Redis script client and
+  `OMNIWA_API_RATE_LIMIT_BACKEND=redis` with either `OMNIWA_API_RATE_LIMIT_REDIS_URL` or an injected
+  Redis script client and
   `OMNIWA_API_SECURITY_AUDIT_RECORDS=true` before it reaches the remaining production-adapter
   fail-safe. The rate-limit boundary is now
   async-compatible and includes a shared counter-store limiter plus a Redis script store that hashes
   cache keys instead of writing key ids or instance refs into Redis keys. API runtime composition can
-  select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` when an approved Redis script client is injected, and
-  fails closed if that backend is requested without a client. Production API composition also fails
-  closed unless that Redis-backed limiter and AuditRecord-backed security-audit evidence are
-  configured. A concrete production Redis client adapter/dependency, production repository coverage
-  for label/media ownership where required, and owner modeling for resources without current owner
-  fields remain open N11.5 follow-up work.
-- N11.5 concrete Redis client work is now governed by accepted
-  `docs/adr/ADR-0008-redis-rate-limit-client.md`. The next implementation slice may add the
-  approved Redis client dependency only at the approved adapter boundary.
+  select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` from explicit Redis URL configuration or an injected
+  approved Redis script client, and fails closed if that backend is requested without either source.
+  The concrete `redis` npm dependency is contained in the API runtime adapter boundary approved by
+  accepted `docs/adr/ADR-0008-redis-rate-limit-client.md`. Production API composition also fails
+  closed unless the Redis-backed limiter and AuditRecord-backed security-audit evidence are
+  configured. Production repository coverage for label/media ownership where required and owner
+  modeling for resources without current owner fields remain open N11.5 follow-up work.
 
 ## Update Rule
 
