@@ -2,11 +2,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
+import { SecretValue, type SecretDescriptor, type SecretProvider } from "@omniwa/config";
+import { createCorrelationId, createRequestContext, createRequestId, ok } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createApiRuntimeComposition,
+  createApiRuntimeCompositionFromSecrets,
   readRepositoryProfile,
   readRuntimeProfile,
 } from "./runtime-composition.js";
@@ -81,6 +83,48 @@ describe("API runtime composition", () => {
       allowedInstanceRefs: ["inst_allowed"],
     });
     expect(JSON.stringify(composition.options)).not.toContain(rawApiKey);
+  });
+
+  it("composes local runtime from SecretProvider without retaining plaintext API key config", async () => {
+    const rawApiKey = "secret-provider-runtime-key";
+    const composition = await createApiRuntimeCompositionFromSecrets(
+      {
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_KEY_SECRET_NAME: "OMNIWA_API_KEY",
+        OMNIWA_API_KEY_ID: "secret-provider-env-key",
+        OMNIWA_API_KEY_SCOPES: "instances:read",
+      },
+      {
+        secretProvider: new FakeSecretProvider({
+          OMNIWA_API_KEY: rawApiKey,
+        }),
+      },
+    );
+
+    expect(composition.options.apiKeys).toBeUndefined();
+    expect(composition.options.apiKeyVerifier?.verify(rawApiKey)).toEqual({
+      kind: "api_key",
+      keyId: "secret-provider-env-key",
+      scopes: ["instances:read"],
+    });
+    expect(JSON.stringify(composition.options)).not.toContain(rawApiKey);
+  });
+
+  it("rejects mixing SecretProvider API key source with env key sources", async () => {
+    await expect(
+      createApiRuntimeCompositionFromSecrets(
+        {
+          OMNIWA_API_RUNTIME_PROFILE: "local",
+          OMNIWA_API_KEY_SECRET_NAME: "OMNIWA_API_KEY",
+          OMNIWA_API_KEY_HASH: hashApiKey("hashed-secret"),
+        },
+        {
+          secretProvider: new FakeSecretProvider({
+            OMNIWA_API_KEY: "secret-provider-runtime-key",
+          }),
+        },
+      ),
+    ).rejects.toThrow(/without OMNIWA_API_KEY/u);
   });
 
   it("rejects mixed plaintext and hashed API key runtime configuration", () => {
@@ -283,3 +327,11 @@ describe("API runtime composition", () => {
     );
   });
 });
+
+class FakeSecretProvider implements SecretProvider {
+  constructor(private readonly values: Readonly<Record<string, string>>) {}
+
+  readSecret(descriptor: SecretDescriptor): ReturnType<SecretProvider["readSecret"]> {
+    return Promise.resolve(ok(SecretValue.fromString(this.values[String(descriptor.name)] ?? "")));
+  }
+}

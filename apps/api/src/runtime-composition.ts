@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import type { WorkerJobRepositoryPort } from "@omniwa/domain";
+import { createSecretName, createSecretPurpose, type SecretProvider } from "@omniwa/config";
 import {
   createApplicationDispatcher,
   createDomainEventPublisher,
@@ -23,6 +24,7 @@ import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import {
   createApiKeyVerifierFromPlaintext,
   createHashedApiKeyVerifier,
+  hashApiKey,
   type ApiKeyVerifier,
   type HashedApiKeyConfig,
 } from "./api-key-auth.js";
@@ -47,6 +49,10 @@ export type ApiRuntimeComposition = Readonly<{
   profile: ApiRuntimeProfile;
   repositoryProfile: ApiRepositoryProfile;
   options: ApiHttpServerOptions;
+}>;
+
+export type ApiRuntimeSecretCompositionOptions = Readonly<{
+  secretProvider: SecretProvider;
 }>;
 
 type ApiRuntimeRepositorySet = ApplicationDispatcherRepositories &
@@ -129,6 +135,30 @@ export function createApiRuntimeComposition(
   });
 }
 
+export async function createApiRuntimeCompositionFromSecrets(
+  env: NodeJS.ProcessEnv = process.env,
+  options: ApiRuntimeSecretCompositionOptions,
+): Promise<ApiRuntimeComposition> {
+  const descriptor = readApiKeySecretDescriptor(env);
+
+  if (descriptor === undefined) {
+    return createApiRuntimeComposition(env);
+  }
+
+  assertNoApiKeySourceMixingWithSecret(env);
+
+  const secret = await options.secretProvider.readSecret(descriptor);
+
+  if (!secret.ok) {
+    throw new Error(`OmniWA API key secret is unavailable: ${secret.error.code}`);
+  }
+
+  return createApiRuntimeComposition({
+    ...env,
+    OMNIWA_API_KEY_HASH: hashApiKey(secret.value.revealForUse()),
+  });
+}
+
 function createRuntimeApiKeyVerifier(
   apiKeys: readonly ApiKeyConfig[],
   hashedApiKeys: readonly HashedApiKeyConfig[],
@@ -173,6 +203,35 @@ function readApiKeyLifecycleStorePath(env: NodeJS.ProcessEnv): string | undefine
   const value = env.OMNIWA_API_KEY_LIFECYCLE_STORE_PATH?.trim();
 
   return value === undefined || value.length === 0 ? undefined : value;
+}
+
+function readApiKeySecretDescriptor(env: NodeJS.ProcessEnv) {
+  const name = env.OMNIWA_API_KEY_SECRET_NAME?.trim();
+
+  if (name === undefined || name.length === 0) {
+    return undefined;
+  }
+
+  return Object.freeze({
+    name: createSecretName(name),
+    purpose: createSecretPurpose(env.OMNIWA_API_KEY_SECRET_PURPOSE?.trim() || "api-authentication"),
+  });
+}
+
+function assertNoApiKeySourceMixingWithSecret(env: NodeJS.ProcessEnv): void {
+  const configuredSources = [
+    env.OMNIWA_API_KEY?.trim() ? "OMNIWA_API_KEY" : undefined,
+    env.OMNIWA_API_KEY_HASH?.trim() ? "OMNIWA_API_KEY_HASH" : undefined,
+    env.OMNIWA_API_KEY_LIFECYCLE_STORE_PATH?.trim()
+      ? "OMNIWA_API_KEY_LIFECYCLE_STORE_PATH"
+      : undefined,
+  ].filter((source): source is string => source !== undefined);
+
+  if (configuredSources.length > 0) {
+    throw new Error(
+      "Configure OMNIWA_API_KEY_SECRET_NAME without OMNIWA_API_KEY, OMNIWA_API_KEY_HASH, or OMNIWA_API_KEY_LIFECYCLE_STORE_PATH.",
+    );
+  }
 }
 
 function createRuntimeGroupMutationIntentStore(

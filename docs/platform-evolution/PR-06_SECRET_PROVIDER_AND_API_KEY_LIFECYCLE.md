@@ -50,12 +50,15 @@ That path is kept for development ergonomics. Hardened local/runtime profiles ca
 ```text
 OMNIWA_API_KEY_HASH
 OMNIWA_API_KEY_LIFECYCLE_STORE_PATH
+OMNIWA_API_KEY_SECRET_NAME
 ```
 
 The lifecycle store path lets runtime composition build an `ApiKeyVerifier` from durable hashed
-records without retaining plaintext API key configuration. Production runtime remains blocked until
-the final target secret-management adapter, operational provisioning workflow, and production auth
-store posture are approved for the production profile.
+records without retaining plaintext API key configuration. The secret-name path lets an async runtime
+composition read key material through `SecretProvider`, hash it immediately, and pass only the hash
+into the normal verifier path. Production runtime remains blocked until the final target
+secret-management adapter, operational provisioning workflow, and production auth store posture are
+approved for the production profile.
 
 ## Verification
 

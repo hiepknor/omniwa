@@ -15,12 +15,12 @@ Every progress update must be recorded here instead of being scattered across un
 
 ## Current Platform Increment
 
-| Increment                             | Status | Evidence                                                                                                                                                                                                                                                                                           | Next                                 |
-| ------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| N11 - Production Hardening            | Active | N11 starts after N8/N9/N10 are complete. N11.0 reconciled the backlog, N11.1 added durable WorkerJob queue foundation, N11.2 confirmed durable EventLog replay, N11.3 added provider runtime ownership hardening, and N11.4 has started hashed and lifecycle-backed API-key runtime configuration. | N11.4 - Secret and API-key Hardening |
-| N10 - Controlled Group Mutations      | Done   | Local `pnpm check` passed after enabling metadata/local-state/add/remove/promote/demote group mutations with safe intent storage, group capability checks, audit action evidence, client-contract fixtures, and Rust SDK fixture coverage.                                                         | N11 - Production Hardening           |
-| N9 - Controlled Message Mutations     | Done   | Local `pnpm check` passed after enabling controlled text send, retry, and cancel handlers, client-contract fixtures, checker allowlist, TUI integration docs, and Rust SDK retry/cancel fixture coverage.                                                                                          | Completed predecessor for N10        |
-| N8 - PostgreSQL Repository Completion | Done   | Local `pnpm test:postgres` passed against `127.0.0.1:55432`; GitHub Actions Quality Gate run `28701511362` passed with real PostgreSQL contract tests before `pnpm check`.                                                                                                                         | Completed predecessor for N9         |
+| Increment                             | Status | Evidence                                                                                                                                                                                                                                                                                                                   | Next                                 |
+| ------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| N11 - Production Hardening            | Active | N11 starts after N8/N9/N10 are complete. N11.0 reconciled the backlog, N11.1 added durable WorkerJob queue foundation, N11.2 confirmed durable EventLog replay, N11.3 added provider runtime ownership hardening, and N11.4 has started hashed, lifecycle-backed, and SecretProvider-backed API-key runtime configuration. | N11.4 - Secret and API-key Hardening |
+| N10 - Controlled Group Mutations      | Done   | Local `pnpm check` passed after enabling metadata/local-state/add/remove/promote/demote group mutations with safe intent storage, group capability checks, audit action evidence, client-contract fixtures, and Rust SDK fixture coverage.                                                                                 | N11 - Production Hardening           |
+| N9 - Controlled Message Mutations     | Done   | Local `pnpm check` passed after enabling controlled text send, retry, and cancel handlers, client-contract fixtures, checker allowlist, TUI integration docs, and Rust SDK retry/cancel fixture coverage.                                                                                                                  | Completed predecessor for N10        |
+| N8 - PostgreSQL Repository Completion | Done   | Local `pnpm test:postgres` passed against `127.0.0.1:55432`; GitHub Actions Quality Gate run `28701511362` passed with real PostgreSQL contract tests before `pnpm check`.                                                                                                                                                 | Completed predecessor for N9         |
 
 ## Verification Snapshot
 
@@ -107,10 +107,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - Controlled message retry is intentionally text-only in the current N9 scope; media retry remains a
   follow-up capability.
 - Multi-process worker/provider-runtime socket sharing is not productionized.
-- N11.4 has started by allowing API runtime composition from `OMNIWA_API_KEY_HASH` and
-  `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH` without keeping plaintext API key configuration. Production
-  secret provider selection, admin lifecycle operations, and auth-state encryption remain open
-  hardening items.
+- N11.4 has started by allowing API runtime composition from `OMNIWA_API_KEY_HASH`,
+  `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`, and `SecretProvider` via `OMNIWA_API_KEY_SECRET_NAME`
+  without keeping plaintext API key configuration. Production secret provider selection, admin
+  lifecycle operations, and auth-state encryption remain open hardening items.
 - Auth state durable JSON exists for local/live validation, but production encryption remains an open
   hardening item.
 - N11 production hardening is active. The current implementation step remains secret and API-key
