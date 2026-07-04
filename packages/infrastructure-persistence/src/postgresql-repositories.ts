@@ -11,6 +11,8 @@ import {
   createJobStatus,
   createChatStatus,
   createContactStatus,
+  createLabelStatus,
+  createMediaAssetStatus,
   createMessageDirection,
   createMessageId,
   createMessageStatus,
@@ -60,7 +62,14 @@ import {
   type InstanceStatus,
   type JobId,
   type JobStatus,
+  type Label,
   type LabelId,
+  type LabelRepositoryPort,
+  type LabelStatus,
+  type MediaAsset,
+  type MediaAssetRepositoryPort,
+  type MediaAssetStatus,
+  type MediaId,
   type Message,
   type MessageId,
   type MessageRepositoryPort,
@@ -122,6 +131,8 @@ export type PostgresqlRepositorySet = Readonly<{
   guardrailDecisionRepository: PostgresqlGuardrailDecisionRepository;
   healthStatusRepository: PostgresqlHealthStatusRepository;
   instanceRepository: PostgresqlInstanceRepository;
+  labelRepository: PostgresqlLabelRepository;
+  mediaAssetRepository: PostgresqlMediaAssetRepository;
   messageRepository: PostgresqlMessageRepository;
   sessionRepository: PostgresqlSessionRepository;
   webhookDeliveryRepository: PostgresqlWebhookDeliveryRepository;
@@ -328,6 +339,38 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_audit_records_source_signal_ref_idx ON omniwa_audit_records (source_signal_ref)",
     ]),
   }),
+  Object.freeze({
+    id: "pgm_20260705_0013_label_repository",
+    description: "Create PostgreSQL projection storage for LabelRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_labels (
+        id text PRIMARY KEY,
+        instance_id text NOT NULL,
+        status text NOT NULL,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_labels_instance_id_idx ON omniwa_labels (instance_id)",
+      "CREATE INDEX IF NOT EXISTS omniwa_labels_status_idx ON omniwa_labels (status)",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260705_0014_media_asset_repository",
+    description: "Create PostgreSQL source-state storage for MediaAssetRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_media_assets (
+        id text PRIMARY KEY,
+        status text NOT NULL,
+        message_id text NULL,
+        cleanup_required boolean NOT NULL DEFAULT false,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_media_assets_status_idx ON omniwa_media_assets (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_media_assets_message_id_idx ON omniwa_media_assets (message_id)",
+      "CREATE INDEX IF NOT EXISTS omniwa_media_assets_cleanup_required_idx ON omniwa_media_assets (cleanup_required) WHERE cleanup_required = true AND status <> 'cleaned'",
+    ]),
+  }),
 ]) satisfies readonly PostgresqlSqlMigration[];
 
 export const postgresqlInstanceRepositoryMigrations = postgresqlRepositoryMigrations;
@@ -447,6 +490,12 @@ export function createPostgresqlRepositorySet(
       ...optional("migrationBarrier", migrationBarrier),
     }),
     instanceRepository: new PostgresqlInstanceRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    labelRepository: new PostgresqlLabelRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    mediaAssetRepository: new PostgresqlMediaAssetRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
     messageRepository: new PostgresqlMessageRepository(connection, {
@@ -668,6 +717,114 @@ export class PostgresqlContactRepository
     );
 
     return matches[0];
+  }
+}
+
+export type PostgresqlLabelRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlLabelRepository
+  extends PostgresqlAggregateRepository<Label, LabelId>
+  implements LabelRepositoryPort
+{
+  constructor(connection: PostgresqlQueryExecutor, options: PostgresqlLabelRepositoryOptions = {}) {
+    super(connection, {
+      tableName: "omniwa_labels",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "instance_id",
+          value: (label: Label) => keyOf(label.instanceId),
+        }),
+        Object.freeze({
+          name: "status",
+          value: (label: Label) => label.status,
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<Label>(value, "Label"),
+      getId: (label) => keyOf(label.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Label[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_labels WHERE instance_id = $1 ORDER BY id ASC",
+      [keyOf(instanceId)],
+    );
+  }
+
+  findByStatus(status: LabelStatus): Promise<readonly Label[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_labels WHERE status = $1 ORDER BY id ASC",
+      [createLabelStatus(status)],
+    );
+  }
+}
+
+export type PostgresqlMediaAssetRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlMediaAssetRepository
+  extends PostgresqlAggregateRepository<MediaAsset, MediaId>
+  implements MediaAssetRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlMediaAssetRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_media_assets",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "status",
+          value: (media: MediaAsset) => media.status,
+        }),
+        Object.freeze({
+          name: "message_id",
+          value: (media: MediaAsset) => optionalNullable(media.messageId),
+        }),
+        Object.freeze({
+          name: "cleanup_required",
+          value: (media: MediaAsset) =>
+            findMediaAssetCleanupRequiredByMediaId(connection, media.id),
+          updateExpression: "omniwa_media_assets.cleanup_required OR EXCLUDED.cleanup_required",
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<MediaAsset>(value, "MediaAsset"),
+      getId: (media) => keyOf(media.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findByStatus(status: MediaAssetStatus): Promise<readonly MediaAsset[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_media_assets WHERE status = $1 ORDER BY id ASC",
+      [createMediaAssetStatus(status)],
+    );
+  }
+
+  findRequiringCleanup(): Promise<readonly MediaAsset[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_media_assets WHERE cleanup_required = true AND status <> 'cleaned' ORDER BY id ASC",
+      [],
+    );
+  }
+
+  findByMessage(messageId: MessageId): Promise<readonly MediaAsset[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_media_assets WHERE message_id = $1 ORDER BY id ASC",
+      [keyOf(messageId)],
+    );
+  }
+
+  async markRequiringCleanup(mediaId: MediaId): Promise<void> {
+    await this.ensureReady();
+    await this.connection.query(
+      "UPDATE omniwa_media_assets SET cleanup_required = true, updated_at = now() WHERE id = $1",
+      [keyOf(mediaId)],
+    );
   }
 }
 
@@ -1271,6 +1428,18 @@ async function findAuditRecordSourceSignalByAuditRecordId(
   );
 
   return result.rows[0]?.source_signal_ref ?? null;
+}
+
+async function findMediaAssetCleanupRequiredByMediaId(
+  connection: PostgresqlQueryExecutor,
+  mediaId: MediaId,
+): Promise<boolean> {
+  const result = await connection.query<{ cleanup_required: boolean | null }>(
+    "SELECT cleanup_required FROM omniwa_media_assets WHERE id = $1",
+    [keyOf(mediaId)],
+  );
+
+  return result.rows[0]?.cleanup_required === true;
 }
 
 function createPostgresqlMigrationBarrier(connection: PostgresqlConnection): () => Promise<void> {

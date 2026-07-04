@@ -133,9 +133,10 @@ endpoint-class limits. It also wires opt-in in-memory denied-decision evidence t
 and opt-in repository-backed ownership resolution through
 `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for resources that already carry explicit or safely
 derivable instance ownership, including attached media through its owning message and labels through
-their aggregate `instanceId`. Remaining N11.5 work should focus on owner modeling for resources
-without current owner fields, distributed rate limiting, and production profile validation beyond
-the database credential checks already present.
+their aggregate `instanceId`. PostgreSQL repository coverage now includes Label and MediaAsset for
+those ownership paths. Remaining N11.5 work should focus on owner modeling for resources without
+current owner fields, distributed rate limiting, and production profile validation beyond the
+database credential checks already present.
 Rate-limit snapshots can now be exported as approved low-cardinality API metric points without raw
 key, bucket, instance, or target identifiers. The rate-limit port is now async-compatible and has a
 Redis script-store foundation plus the concrete `redis` npm client adapter contained at the approved
