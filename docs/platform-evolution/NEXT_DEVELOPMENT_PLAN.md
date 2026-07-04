@@ -27,6 +27,7 @@ Implemented public surfaces currently include:
 | Health             | `GET /v1/health`                                                                | Implemented |
 | Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`     | Implemented |
 | Sessions           | `GET /v1/instances/{instanceId}/sessions`                                       | Implemented |
+| Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`       | Implemented |
 | Events             | `GET /v1/events`, `GET /v1/events/stream`                                       | Implemented |
 | Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                          | Implemented |
 | Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                              | Implemented |
@@ -61,25 +62,26 @@ The preferred order is:
 
 ## Immediate Next Increment
 
-### Increment N2 - Message Read APIs
+### Increment N3 - Chat Read APIs
 
 Goal:
 
-- Implement safe message read APIs for TUI message list/status screens.
+- Implement safe chat read APIs for TUI chat navigation and detail screens.
 
 Scope:
 
-- Application handler for message list/status queries.
-- API materialization for safe message DTOs.
-- Public DTO must not expose raw text unless the approved retention/privacy policy allows it.
+- Application handler for chat list/detail queries.
+- Prefer instance-scoped chat list queries before global navigation.
+- API materialization for safe chat DTOs.
+- Public DTO must not expose raw JID, participant identifiers, or provider payloads.
 - Client contract status and fixture.
 - TUI integration doc update.
 
 Definition of Done:
 
-- API returns safe success or collection envelopes for message read endpoints.
+- API returns safe success or collection envelopes for chat read endpoints.
 - Empty state is explicit.
-- No raw provider payload, raw JID, raw text, outbound intent ref, or domain event internals leak.
+- No raw provider payload, raw JID, contact phone number, or domain event internals leak.
 - `pnpm check` passes.
 
 Rollback:
@@ -88,18 +90,18 @@ Rollback:
 
 ## Planned Increments
 
-| Order | Increment                     | Goal                                                                  | Primary Client Value                              | Notes                                                         |
-| ----- | ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------- |
-| N1    | Queue Read Summary            | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                     |
-| N2    | Message Read APIs             | Implement message list/status reads                                   | Message screen can render history/status          | Do not expose raw text unless retention/privacy policy allows |
-| N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Prefer instance-scoped queries                                |
-| N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Redact raw phone/JID as required                              |
-| N5    | Group Read APIs               | Implement group list/detail/member reads                              | Groups screens become usable                      | No admin mutations yet                                        |
-| N6    | SDK/Client Contract Sync      | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Usually done inside each increment                            |
-| N7    | VS02 Real WhatsApp Local Demo | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Local live demo only, not production                          |
-| N8    | Controlled Message Mutations  | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Requires idempotency and event visibility                     |
-| N9    | Controlled Group Mutations    | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                    |
-| N10   | Production Hardening          | Close production blockers                                             | Platform moves toward production readiness        | Persistence, queue, secrets, observability, ownership         |
+| Order | Increment                     | Goal                                                                  | Primary Client Value                              | Notes                                                     |
+| ----- | ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| N1    | Queue Read Summary            | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                 |
+| N2    | Message Read APIs             | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed |
+| N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Prefer instance-scoped queries                            |
+| N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Redact raw phone/JID as required                          |
+| N5    | Group Read APIs               | Implement group list/detail/member reads                              | Groups screens become usable                      | No admin mutations yet                                    |
+| N6    | SDK/Client Contract Sync      | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Usually done inside each increment                        |
+| N7    | VS02 Real WhatsApp Local Demo | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Local live demo only, not production                      |
+| N8    | Controlled Message Mutations  | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Requires idempotency and event visibility                 |
+| N9    | Controlled Group Mutations    | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                |
+| N10   | Production Hardening          | Close production blockers                                             | Platform moves toward production readiness        | Persistence, queue, secrets, observability, ownership     |
 
 ## Read API Design Rules
 

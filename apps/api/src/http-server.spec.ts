@@ -803,6 +803,92 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(sessionsResponse.body)).not.toContain("domainEvents");
   });
 
+  it("materializes messages through the public API boundary without exposing payload internals", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        messageRepository: repositories.messageRepository,
+      },
+    });
+
+    await repositories.messageRepository.save({
+      id: "msg_demo",
+      instanceId: "inst_allowed",
+      direction: "outbound",
+      type: "text",
+      status: "created",
+      guardrailDecisionId: "guardrail_hidden",
+      domainEvents: [],
+    } as unknown as Parameters<typeof repositories.messageRepository.save>[0]);
+
+    const listResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances/inst_allowed/messages",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-messages",
+          "x-correlation-id": "corr-list-messages",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-messages",
+      },
+    );
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/messages/msg_demo",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-get-message",
+          "x-correlation-id": "corr-get-message",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-message",
+      },
+    );
+
+    expect(listResponse.statusCode).toBe(200);
+    expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([
+      {
+        resourceType: "message",
+        id: "msg_demo",
+        instanceId: "inst_allowed",
+        status: "created",
+        type: "text",
+        direction: "outbound",
+      },
+    ]);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "message",
+      resourceId: "msg_demo",
+      id: "msg_demo",
+      instanceId: "inst_allowed",
+      status: "created",
+      type: "text",
+      direction: "outbound",
+      readStatus: "result",
+    });
+    expect(JSON.stringify(listResponse.body)).not.toContain("guardrail_hidden");
+    expect(JSON.stringify(listResponse.body)).not.toContain("domainEvents");
+    expect(JSON.stringify(listResponse.body)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(listResponse.body)).not.toContain("jid");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("guardrail_hidden");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("domainEvents");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("jid");
+  });
+
   it("materializes events from the real EventLog query into public collection items", async () => {
     const repositories = createInMemoryRepositorySet();
     const eventLog = createInMemoryEventLogStore();

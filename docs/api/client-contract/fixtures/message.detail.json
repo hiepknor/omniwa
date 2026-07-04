@@ -1,0 +1,23 @@
+{
+  "data": {
+    "resourceType": "message",
+    "readStatus": "result",
+    "consistency": "strong_owner",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209791
+    },
+    "resultRef": "message:msg_demo:created",
+    "id": "msg_demo",
+    "instanceId": "inst_demo",
+    "status": "created",
+    "type": "text",
+    "direction": "outbound",
+    "resourceId": "msg_demo"
+  },
+  "meta": {
+    "requestId": "tui-message-detail-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z"
+  }
+}

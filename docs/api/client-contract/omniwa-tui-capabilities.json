@@ -92,7 +92,6 @@
       "chats",
       "contacts",
       "groups",
-      "messages",
       "audit",
       "settings",
       "metrics"
@@ -136,10 +135,10 @@
       "notes": "Routes exist but Application handler is unavailable."
     },
     "messages": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "MessageDto|OperationData",
-      "notes": "Read and send routes exist, but Application handlers are unavailable."
+      "notes": "Read routes are public for instance-scoped message lists and message status. Send/retry/cancel actions remain disabled until their public contract is promoted."
     },
     "media": {
       "status": "route_exists_not_implemented",
@@ -418,6 +417,27 @@
     },
     {
       "feature": "messages",
+      "method": "GET",
+      "path": "/v1/instances/{instanceId}/messages",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "MessageDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status", "type", "direction"],
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Returns safe message collection items. Raw text, JID, provider payload, outbound intent refs, guardrail refs, and domain events are not exposed."
+    },
+    {
+      "feature": "messages",
+      "method": "GET",
+      "path": "/v1/messages/{messageId}",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "MessageDto",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns safe message status data. Raw text, JID, provider payload, outbound intent refs, guardrail refs, and domain events are not exposed."
+    },
+    {
+      "feature": "messages",
       "method": "POST",
       "path": "/v1/instances/{instanceId}/messages/text",
       "status": "route_exists_not_implemented",
@@ -684,6 +704,8 @@
     "instancesList": "docs/api/client-contract/fixtures/instances.list.json",
     "instanceDetail": "docs/api/client-contract/fixtures/instance.detail.json",
     "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
+    "messagesList": "docs/api/client-contract/fixtures/messages.list.json",
+    "messageDetail": "docs/api/client-contract/fixtures/message.detail.json",
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
     "queueSummary": "docs/api/client-contract/fixtures/queue.summary.json",
     "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",

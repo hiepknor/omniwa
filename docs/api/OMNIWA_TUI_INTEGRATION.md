@@ -109,22 +109,24 @@ Error response:
 
 Wire these first:
 
-| Area      | Endpoint                                  | Status               | TUI use                                                                          |
-| --------- | ----------------------------------------- | -------------------- | -------------------------------------------------------------------------------- |
-| Health    | `GET /v1/health`                          | `implemented_public` | Backend connectivity and top-level status.                                       |
-| Instances | `GET /v1/instances`                       | `implemented_public` | Instance list screen with empty/loading/error support.                           |
-| Instances | `GET /v1/instances/{id}`                  | `implemented_public` | Instance detail/status panel after selecting a list item.                        |
-| Instances | `POST /v1/instances`                      | `implemented_public` | Optional create-instance action; requires `idempotency-key`.                     |
-| Sessions  | `GET /v1/instances/{id}/sessions`         | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable.   |
-| Events    | `GET /v1/events`                          | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs.   |
-| Realtime  | `GET /v1/events/stream`                   | `implemented_public` | SSE connection status and heartbeat support.                                     |
-| Queue     | `GET /v1/queue`                           | `implemented_public` | Queue summary screen; queue engine internals and job payloads are not exposed.   |
-| Jobs      | `GET /v1/jobs`                            | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope.         |
-| Jobs      | `GET /v1/jobs/{id}`                       | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed. |
-| Webhooks  | `GET /v1/webhooks`                        | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.           |
-| Webhooks  | `GET /v1/webhooks/{id}`                   | `implemented_public` | Webhook subscription detail/status panel.                                        |
-| Webhooks  | `GET /v1/webhook-deliveries`              | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.           |
-| Webhooks  | `GET /v1/webhook-deliveries/{id}/history` | `implemented_public` | Webhook delivery detail/history panel.                                           |
+| Area      | Endpoint                                  | Status               | TUI use                                                                                          |
+| --------- | ----------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
+| Health    | `GET /v1/health`                          | `implemented_public` | Backend connectivity and top-level status.                                                       |
+| Instances | `GET /v1/instances`                       | `implemented_public` | Instance list screen with empty/loading/error support.                                           |
+| Instances | `GET /v1/instances/{id}`                  | `implemented_public` | Instance detail/status panel after selecting a list item.                                        |
+| Instances | `POST /v1/instances`                      | `implemented_public` | Optional create-instance action; requires `idempotency-key`.                                     |
+| Sessions  | `GET /v1/instances/{id}/sessions`         | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable.                   |
+| Events    | `GET /v1/events`                          | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs.                   |
+| Realtime  | `GET /v1/events/stream`                   | `implemented_public` | SSE connection status and heartbeat support.                                                     |
+| Queue     | `GET /v1/queue`                           | `implemented_public` | Queue summary screen; queue engine internals and job payloads are not exposed.                   |
+| Jobs      | `GET /v1/jobs`                            | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope.                         |
+| Jobs      | `GET /v1/jobs/{id}`                       | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed.                 |
+| Messages  | `GET /v1/instances/{id}/messages`         | `implemented_public` | Instance-scoped message list; raw text, JID, provider payloads, and intent refs are not exposed. |
+| Messages  | `GET /v1/messages/{id}`                   | `implemented_public` | Message status/detail panel with safe status, type, direction, and instance ref.                 |
+| Webhooks  | `GET /v1/webhooks`                        | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.                           |
+| Webhooks  | `GET /v1/webhooks/{id}`                   | `implemented_public` | Webhook subscription detail/status panel.                                                        |
+| Webhooks  | `GET /v1/webhook-deliveries`              | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                           |
+| Webhooks  | `GET /v1/webhook-deliveries/{id}/history` | `implemented_public` | Webhook delivery detail/history panel.                                                           |
 
 Keep these disabled or read-only with a backend-not-ready state:
 
@@ -132,7 +134,7 @@ Keep these disabled or read-only with a backend-not-ready state:
 - Contacts
 - Groups
 - Group members
-- Messages
+- Message send/retry/cancel actions
 - Logs
 - Audit
 - Settings
@@ -193,6 +195,8 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/events"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/queue"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs/job_demo"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/messages"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/messages/msg_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks/webhook_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries"
@@ -221,6 +225,8 @@ Required fixture states:
 - Missing API key error
 - Instance collection empty
 - Instance collection list
+- Message collection list
+- Message detail/status
 - Group route exists but handler unavailable
 - SSE heartbeat
 

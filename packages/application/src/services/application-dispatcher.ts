@@ -1,6 +1,7 @@
 import {
   createInstance,
   createInstanceId,
+  createMessageId,
   createWebhookDeliveryId,
   createWebhookId,
   type GuardrailDecisionRepositoryPort,
@@ -9,7 +10,9 @@ import {
   type InstanceRepositoryPort,
   createJobId,
   jobStatuses,
+  type Message,
   type MessageRepositoryPort,
+  messageStatuses,
   type Session,
   type SessionRepositoryPort,
   type WebhookDelivery,
@@ -190,6 +193,8 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["GetInstanceStatus", (envelope) => this.getInstanceStatus(envelope)],
       ["ListInstances", (envelope) => this.listInstances(envelope)],
       ["ListInstanceSessions", (envelope) => this.listInstanceSessions(envelope)],
+      ["ListInstanceMessages", (envelope) => this.listInstanceMessages(envelope)],
+      ["GetMessageStatus", (envelope) => this.getMessageStatus(envelope)],
       ["ListEvents", (envelope) => this.listEvents(envelope)],
       ["ListWorkerJobs", (envelope) => this.listWorkerJobs(envelope)],
       ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
@@ -338,6 +343,66 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return queryOutcome(envelope, this.clock, sessions.length === 0 ? "empty" : "result", {
       resultRef: `sessions:${envelope.targetRef}:list:${sessions.length}`,
       items: sessions.map(sessionQueryItem),
+    });
+  }
+
+  private async listInstanceMessages(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.messageRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "message_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "instance_target_required",
+      });
+    }
+
+    const messages = (
+      await Promise.all(messageStatuses.map((status) => repository.findByStatus(status)))
+    )
+      .flat()
+      .filter((message) => String(message.instanceId) === envelope.targetRef);
+
+    return queryOutcome(envelope, this.clock, messages.length === 0 ? "empty" : "result", {
+      resultRef: `messages:${envelope.targetRef}:${messages.length}`,
+      items: messages.map(messageQueryItem),
+    });
+  }
+
+  private async getMessageStatus(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.messageRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "message_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "message_target_required",
+      });
+    }
+
+    const message = await repository.load(createMessageId(envelope.targetRef));
+
+    if (message === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `message:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `message:${message.id}:${message.status}`,
+      resource: messageQueryItem(message),
     });
   }
 
@@ -655,6 +720,22 @@ function sessionQueryItem(session: Session): Readonly<{
     id: String(session.id),
     instanceId: String(session.instanceId),
     status: session.status,
+  });
+}
+
+function messageQueryItem(message: Message): Readonly<{
+  id: string;
+  instanceId: string;
+  direction: Message["direction"];
+  type: Message["type"];
+  status: Message["status"];
+}> {
+  return Object.freeze({
+    id: String(message.id),
+    instanceId: String(message.instanceId),
+    direction: message.direction,
+    type: message.type,
+    status: message.status,
   });
 }
 

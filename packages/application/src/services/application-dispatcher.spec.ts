@@ -4,6 +4,8 @@ import {
   createInstanceId,
   createHealthStatus,
   createHealthStatusId,
+  createMessageId,
+  createOutboundMessageIntent,
   createRetryPolicy,
   createSession,
   createSessionId,
@@ -24,6 +26,10 @@ import {
   type InstanceStatus,
   type JobId,
   type JobStatus,
+  type Message,
+  type MessageId,
+  type MessageRepositoryPort,
+  type MessageStatus,
   type RepositorySaveResult,
   type Session,
   type SessionId,
@@ -277,6 +283,111 @@ describe("application dispatcher", () => {
         },
       ],
     });
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes ListInstanceMessages through the Message repository without leaking payloads", async () => {
+    const message = createOutboundMessageIntent({
+      id: createMessageId("msg:one"),
+      instanceId: createInstanceId("inst:one"),
+      type: "text",
+    });
+    const otherMessage = createOutboundMessageIntent({
+      id: createMessageId("msg:other"),
+      instanceId: createInstanceId("inst:other"),
+      type: "text",
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        messageRepository: new FakeMessageRepository([message, otherMessage]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListInstanceMessages",
+        queryRef: "qry-list-instance-messages",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst:one",
+        requestedConsistency: "retention_bound",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-instance-messages",
+      outcome: "result",
+      consistency: "retention_bound",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "messages:inst:one:1",
+      items: [
+        {
+          id: "msg:one",
+          instanceId: "inst:one",
+          direction: "outbound",
+          type: "text",
+          status: "created",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("raw");
+    expect(JSON.stringify(outcome)).not.toContain("jid");
+    expect(JSON.stringify(outcome)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes GetMessageStatus through the Message repository without leaking payloads", async () => {
+    const message = createOutboundMessageIntent({
+      id: createMessageId("msg:detail"),
+      instanceId: createInstanceId("inst:detail"),
+      type: "text",
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        messageRepository: new FakeMessageRepository([message]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetMessageStatus",
+        queryRef: "qry-get-message-status",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "msg:detail",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-message-status",
+      outcome: "result",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "message:msg:detail:created",
+      resource: {
+        id: "msg:detail",
+        instanceId: "inst:detail",
+        direction: "outbound",
+        type: "text",
+        status: "created",
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("raw");
+    expect(JSON.stringify(outcome)).not.toContain("jid");
+    expect(JSON.stringify(outcome)).not.toContain("outboundIntentRef");
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");
   });
 
@@ -728,8 +839,8 @@ describe("application dispatcher", () => {
 
     const outcome = await dispatcher.executeQuery(
       createApplicationQueryEnvelope({
-        name: "GetMessageStatus",
-        queryRef: "qry-message-status",
+        name: "GetMessageDeliveryHistory",
+        queryRef: "qry-message-delivery-history",
         requestContext,
         actorRef: "api_key:test",
         targetRef: "msg_1",
@@ -738,9 +849,9 @@ describe("application dispatcher", () => {
 
     expect(outcome).toEqual({
       kind: "query_outcome",
-      queryRef: "qry-message-status",
+      queryRef: "qry-message-delivery-history",
       outcome: "unavailable",
-      consistency: "strong_owner",
+      consistency: "retention_bound",
       freshness: {
         stale: false,
         refreshedAtEpochMilliseconds: 1_782_864_000_000,
@@ -887,6 +998,51 @@ class FakeSessionRepository implements SessionRepositoryPort {
   }
 
   private list(): readonly Session[] {
+    return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeMessageRepository implements MessageRepositoryPort {
+  private readonly records = new Map<string, Message>();
+
+  constructor(initialRecords: readonly Message[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: MessageId): Promise<Message | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: Message): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: MessageId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByStatus(status: MessageStatus): Promise<readonly Message[]> {
+    return Promise.resolve(this.list().filter((message) => message.status === status));
+  }
+
+  findByIdempotencyKey(): Promise<Message | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  findRecoverableByOwner(ownerContext: DomainOwnerContext): Promise<readonly Message[]> {
+    if (ownerContext !== "messaging") {
+      return Promise.resolve(Object.freeze([]));
+    }
+
+    return Promise.resolve(
+      this.list().filter((message) => ["queued", "processing", "failed"].includes(message.status)),
+    );
+  }
+
+  private list(): readonly Message[] {
     return Object.freeze([...this.records.values()]);
   }
 }

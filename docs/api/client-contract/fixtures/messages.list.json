@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "resourceType": "message",
+      "id": "msg_demo",
+      "instanceId": "inst_demo",
+      "status": "created",
+      "type": "text",
+      "direction": "outbound"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-messages-list-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "message",
+      "readStatus": "result",
+      "consistency": "retention_bound",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "messages:inst_demo:1"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}
