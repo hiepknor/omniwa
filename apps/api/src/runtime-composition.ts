@@ -7,7 +7,9 @@ import {
   type ApplicationDispatcherRepositories,
 } from "@omniwa/application";
 import {
+  DurableJsonGroupMutationIntentStore,
   DurableJsonOutboundMessageIntentStore,
+  InMemoryGroupMutationIntentStore,
   InMemoryOutboundMessageIntentStore,
   createDurableJsonRepositorySet,
   createDurableJsonEventLogStore,
@@ -64,6 +66,7 @@ export function createApiRuntimeComposition(
     env,
     repositoryProfile,
   );
+  const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
   const queueProvider = new InMemoryQueueProvider({
     workerJobRepository: repositories.workerJobRepository,
   });
@@ -86,6 +89,7 @@ export function createApiRuntimeComposition(
       ...optional("webhookDeliveryRepository", repositories.webhookDeliveryRepository),
     },
     outboundMessageIntentStore,
+    groupMutationIntentStore,
     queueProvider,
     domainEventPublisher,
     eventLog,
@@ -97,12 +101,34 @@ export function createApiRuntimeComposition(
     options: Object.freeze({
       dispatcher,
       outboundMessageIntentStore,
+      groupMutationIntentStore,
       ...optional("eventSource", eventSource),
       ...(apiKeys.length === 0
         ? { apiKeys }
         : { apiKeyVerifier: createApiKeyVerifierFromPlaintext(apiKeys) }),
     }),
   });
+}
+
+function createRuntimeGroupMutationIntentStore(
+  env: NodeJS.ProcessEnv,
+  repositoryProfile: ApiRepositoryProfile,
+): InMemoryGroupMutationIntentStore | DurableJsonGroupMutationIntentStore {
+  if (repositoryProfile !== "durable-json") {
+    return new InMemoryGroupMutationIntentStore();
+  }
+
+  const stateDirectory = env.OMNIWA_API_REPOSITORY_STATE_DIR?.trim();
+
+  if (stateDirectory === undefined || stateDirectory.length === 0) {
+    throw new Error(
+      "OMNIWA_API_REPOSITORY_STATE_DIR is required when OMNIWA_API_REPOSITORY_PROFILE=durable-json.",
+    );
+  }
+
+  return new DurableJsonGroupMutationIntentStore(
+    join(stateDirectory, "group-mutation-intents.json"),
+  );
 }
 
 function createRuntimeOutboundMessageIntentStore(

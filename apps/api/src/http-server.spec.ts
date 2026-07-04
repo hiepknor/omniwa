@@ -3,6 +3,7 @@ import {
   createApplicationDispatcher,
   createApplicationQueryOutcome,
   createApplicationPortFailure,
+  createGroupMutationIntentRef,
   createOutboundMessageIntentRef,
   type ApplicationCommandEnvelope,
   type ApplicationCommandOutcome,
@@ -10,6 +11,11 @@ import {
   type ApplicationPortResult,
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
+  type GroupMutationIntentInput,
+  type GroupMutationIntentReceipt,
+  type GroupMutationIntentRef,
+  type GroupMutationIntentStorePort,
+  type StoredGroupMutationIntent,
   type OutboundMessageIntentBinding,
   type OutboundMessageIntentReceipt,
   type OutboundMessageIntentRef,
@@ -2036,6 +2042,7 @@ describe("API HTTP transport", () => {
 
   it("maps group resources to approved group commands and queries", async () => {
     const dispatcher = new CapturingDispatcher();
+    const groupMutationIntentStore = new CapturingGroupMutationIntentStore();
 
     await request(dispatcher, "GET", "/v1/instances/inst_allowed/groups");
     await request(dispatcher, "POST", "/v1/instances/inst_allowed/groups/refresh", {
@@ -2050,23 +2057,29 @@ describe("API HTTP transport", () => {
     await request(dispatcher, "PATCH", "/v1/groups/group_1", {
       body: { subject: "New subject" },
       headers: { "idempotency-key": "update-group-metadata-1" },
+      groupMutationIntentStore,
     });
     await request(dispatcher, "PATCH", "/v1/groups/group_1/local-state", {
       body: { archived: true },
       headers: { "idempotency-key": "archive-group-1" },
+      groupMutationIntentStore,
     });
     await request(dispatcher, "POST", "/v1/groups/group_1/members", {
       body: { jid: "12025550123@s.whatsapp.net" },
       headers: { "idempotency-key": "add-group-member-1" },
+      groupMutationIntentStore,
     });
     await request(dispatcher, "POST", "/v1/groups/group_1/members/member_1/promote", {
       headers: { "idempotency-key": "promote-group-member-1" },
+      groupMutationIntentStore,
     });
     await request(dispatcher, "POST", "/v1/groups/group_1/members/member_1/demote", {
       headers: { "idempotency-key": "demote-group-member-1" },
+      groupMutationIntentStore,
     });
     await request(dispatcher, "DELETE", "/v1/groups/group_1/members/member_1", {
       headers: { "idempotency-key": "remove-group-member-1" },
+      groupMutationIntentStore,
     });
     await request(dispatcher, "POST", "/v1/groups/group_1/invite-link/refresh", {
       headers: { "idempotency-key": "refresh-group-invite-1" },
@@ -2089,6 +2102,46 @@ describe("API HTTP transport", () => {
       "RefreshGroupInviteLink",
     ]);
     expect(dispatcher.commandEnvelopes.every((envelope) => envelope.targetRef)).toBe(true);
+    expect(groupMutationIntentStore.intents.map((intent) => intent.kind)).toEqual([
+      "metadata",
+      "local_state",
+      "add_member",
+      "promote_member",
+      "demote_member",
+      "remove_member",
+    ]);
+    expect(groupMutationIntentStore.contexts.every((context) => context.actorRef)).toBe(true);
+    expect(dispatcher.commandEnvelopes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "AddGroupMember",
+          safeInputRef: expect.stringMatching(/^http\.add_group_member\.[a-f0-9]{24}$/u),
+        }),
+      ]),
+    );
+    expect(JSON.stringify(dispatcher.commandEnvelopes)).not.toContain("12025550123");
+  });
+
+  it("stores group member mutation input internally without leaking raw JID in the response", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const groupMutationIntentStore = new CapturingGroupMutationIntentStore();
+    const rawJid = "12025550123@s.whatsapp.net";
+
+    const response = await request(dispatcher, "POST", "/v1/groups/group_1/members", {
+      body: { jid: rawJid },
+      headers: { "idempotency-key": "add-group-member-safe" },
+      groupMutationIntentStore,
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(groupMutationIntentStore.intents).toEqual([
+      expect.objectContaining({
+        kind: "add_member",
+        memberJid: rawJid,
+      }),
+    ]);
+    expect(JSON.stringify(response.body)).not.toContain(rawJid);
+    expect(JSON.stringify(dispatcher.commandEnvelopes)).not.toContain(rawJid);
   });
 
   it("requires group admin scope for member administration", async () => {
@@ -2204,6 +2257,7 @@ function request(
     body?: unknown;
     headers?: Readonly<Record<string, string>>;
     outboundMessageIntentStore?: OutboundMessageIntentStorePort;
+    groupMutationIntentStore?: GroupMutationIntentStorePort;
   }> = {},
 ): Promise<ApiHttpResponse> {
   return handleApiHttpRequest(
@@ -2224,6 +2278,7 @@ function request(
       now: fixedNow,
       requestRefGenerator: () => "http-test",
       ...optional("outboundMessageIntentStore", input.outboundMessageIntentStore),
+      ...optional("groupMutationIntentStore", input.groupMutationIntentStore),
     },
   );
 }
@@ -2372,6 +2427,41 @@ class CapturingOutboundMessageIntentStore implements OutboundMessageIntentStoreP
         kind: "text",
         recipientRef: "stored-recipient",
         text: "stored-text",
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+}
+
+class CapturingGroupMutationIntentStore implements GroupMutationIntentStorePort {
+  readonly intents: GroupMutationIntentInput[] = [];
+  readonly contexts: ApplicationPortContext[] = [];
+
+  storeGroupMutationIntent(
+    intent: GroupMutationIntentInput,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<GroupMutationIntentReceipt>> {
+    this.intents.push(intent);
+    this.contexts.push(context);
+
+    return Promise.resolve(
+      ok({
+        groupMutationIntentRef:
+          intent.groupMutationIntentRef ?? createGroupMutationIntentRef("group_intent_generated"),
+        kind: intent.kind,
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+
+  resolveGroupMutationIntent(
+    groupMutationIntentRef: GroupMutationIntentRef,
+  ): Promise<ApplicationPortResult<StoredGroupMutationIntent>> {
+    return Promise.resolve(
+      ok({
+        groupMutationIntentRef,
+        kind: "metadata",
+        subject: "stored group mutation",
         createdAtEpochMilliseconds: 1,
       }),
     );

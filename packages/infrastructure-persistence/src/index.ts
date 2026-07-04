@@ -3,6 +3,7 @@ export * from "./durable-json-repositories.js";
 export * from "./durable-json-state-store.js";
 export * from "./event-log-runtime-publisher.js";
 export * from "./event-log-store.js";
+export * from "./group-mutation-intent-store.js";
 export * from "./in-memory-repositories.js";
 export * from "./outbound-message-intent-store.js";
 export * from "./postgresql-aggregate-repository.js";

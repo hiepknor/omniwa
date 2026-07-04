@@ -52,6 +52,7 @@ import {
   createApplicationQueryOutcome,
 } from "../queries/query-model.js";
 import type { EventLogReplayPort, PlatformEventRecord } from "../ports/event-log.js";
+import type { GroupMutationIntentStorePort } from "../ports/group-mutation-intent-store.js";
 import type {
   CommandHandler,
   CommandHandlerRegistry,
@@ -71,9 +72,22 @@ import {
   type MinimalMessageGuardrailService,
 } from "./minimal-message-guardrail.js";
 import { createCancelMessageHandler } from "./handlers/cancel-message.handler.js";
+import {
+  createGroupMutationHandler,
+  type GroupMutationCommandName,
+} from "./handlers/group-mutation.handler.js";
 import { createProcessOutboundMessageWorkHandler } from "./handlers/process-outbound-message-work.handler.js";
 import { createRetryMessageSendHandler } from "./handlers/retry-message-send.handler.js";
 import { createSendTextMessageHandler } from "./handlers/send-text-message.handler.js";
+
+const groupMutationCommands: readonly GroupMutationCommandName[] = Object.freeze([
+  "UpdateGroupMetadata",
+  "UpdateGroupLocalState",
+  "AddGroupMember",
+  "RemoveGroupMember",
+  "PromoteGroupMember",
+  "DemoteGroupMember",
+]);
 
 export type ApplicationDispatcherRepositories = Readonly<{
   instanceRepository: InstanceRepositoryPort;
@@ -96,6 +110,7 @@ export type ApplicationDispatcherOptions = Readonly<{
   healthSubjectRef?: string;
   activeSessionResolver?: ActiveSessionResolver;
   outboundMessageIntentStore?: OutboundMessageIntentStorePort;
+  groupMutationIntentStore?: GroupMutationIntentStorePort;
   guardrailService?: MinimalMessageGuardrailService;
   queueProvider?: QueueProviderPort;
   messagingProvider?: MessagingProviderPort;
@@ -121,6 +136,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly healthSubjectRef: string;
   private readonly activeSessionResolver: ActiveSessionResolver | undefined;
   private readonly outboundMessageIntentStore: OutboundMessageIntentStorePort | undefined;
+  private readonly groupMutationIntentStore: GroupMutationIntentStorePort | undefined;
   private readonly guardrailService: MinimalMessageGuardrailService | undefined;
   private readonly queueProvider: QueueProviderPort | undefined;
   private readonly messagingProvider: MessagingProviderPort | undefined;
@@ -136,6 +152,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     this.healthSubjectRef = options.healthSubjectRef ?? "platform";
     this.activeSessionResolver = options.activeSessionResolver;
     this.outboundMessageIntentStore = options.outboundMessageIntentStore;
+    this.groupMutationIntentStore = options.groupMutationIntentStore;
     this.guardrailService = options.guardrailService;
     this.queueProvider = options.queueProvider;
     this.messagingProvider = options.messagingProvider;
@@ -211,6 +228,14 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
 
     if (processOutboundMessageWorkHandler !== undefined) {
       handlers.set("ProcessOutboundMessageWork", processOutboundMessageWorkHandler);
+    }
+
+    for (const commandName of groupMutationCommands) {
+      const groupMutationHandler = this.createGroupMutationHandler(commandName);
+
+      if (groupMutationHandler !== undefined) {
+        handlers.set(commandName, groupMutationHandler);
+      }
     }
 
     return handlers;
@@ -340,6 +365,27 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
 
     return createCancelMessageHandler({
       messageRepository,
+      domainEventPublisher: this.domainEventPublisher,
+    });
+  }
+
+  private createGroupMutationHandler(
+    commandName: GroupMutationCommandName,
+  ): CommandHandler | undefined {
+    const groupRepository = this.repositories.groupRepository;
+
+    if (
+      groupRepository === undefined ||
+      this.groupMutationIntentStore === undefined ||
+      this.domainEventPublisher === undefined
+    ) {
+      return undefined;
+    }
+
+    return createGroupMutationHandler({
+      commandName,
+      groupRepository,
+      groupMutationIntentStore: this.groupMutationIntentStore,
       domainEventPublisher: this.domainEventPublisher,
     });
   }

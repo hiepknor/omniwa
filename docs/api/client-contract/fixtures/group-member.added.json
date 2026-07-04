@@ -1,0 +1,16 @@
+{
+  "data": {
+    "resourceType": "group",
+    "resourceId": "group_demo",
+    "operationStatus": "completed",
+    "accepted": true,
+    "retryable": false,
+    "async": false,
+    "resultRef": "group_demo"
+  },
+  "meta": {
+    "requestId": "req_demo",
+    "correlationId": "corr_demo",
+    "timestamp": "2026-06-30T00:00:00.000Z"
+  }
+}

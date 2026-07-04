@@ -10,6 +10,8 @@ import {
   type ApplicationCommandOutcome,
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
+  createGroupMutationIntentRef,
+  type GroupMutationIntentStorePort,
   type OutboundMessageIntentStorePort,
 } from "@omniwa/application";
 import {
@@ -83,6 +85,7 @@ export type ApiHttpServerOptions = Readonly<{
   securityAuditSink?: ApiSecurityAuditSink;
   eventSource?: RealtimeEventSource;
   outboundMessageIntentStore?: OutboundMessageIntentStorePort;
+  groupMutationIntentStore?: GroupMutationIntentStorePort;
   sseReplayLimit?: number;
   now?: () => Date;
   requestRefGenerator?: () => string;
@@ -377,6 +380,18 @@ export async function handleApiHttpRequest(
 
   if (outboundIntentFailure !== undefined) {
     return createErrorHttpResponse(outboundIntentFailure, metaBase);
+  }
+
+  const groupMutationIntentFailure = await storeGroupMutationIntentForAdapterRequest(
+    match,
+    request.body,
+    request.url,
+    context,
+    options.groupMutationIntentStore,
+  );
+
+  if (groupMutationIntentFailure !== undefined) {
+    return createErrorHttpResponse(groupMutationIntentFailure, metaBase);
   }
 
   const adapter =
@@ -1153,6 +1168,191 @@ async function storeOutboundIntentForAdapterRequest(
   }
 }
 
+async function storeGroupMutationIntentForAdapterRequest(
+  match: Extract<RouteMatch, { kind: "adapter" }>,
+  body: unknown,
+  url: string,
+  context: RouteContext,
+  groupMutationIntentStore: GroupMutationIntentStorePort | undefined,
+): Promise<HttpFailure | undefined> {
+  if (match.request.kind !== "command" || !isGroupMutationCommand(match.request.name)) {
+    return undefined;
+  }
+
+  const capabilityFailure = checkGroupMutationCapability(match.request.name, context.credential);
+
+  if (capabilityFailure !== undefined) {
+    return capabilityFailure;
+  }
+
+  if (groupMutationIntentStore === undefined) {
+    return {
+      category: "infrastructure",
+      code: "group_mutation_intent_store_not_configured",
+      message: "Group mutation request could not be accepted.",
+      statusCode: 503,
+    };
+  }
+
+  if (match.request.safeInputRef === undefined) {
+    return {
+      category: "internal",
+      code: "group_mutation_intent_ref_missing",
+      message: "Group mutation request could not be mapped to a safe input reference.",
+      statusCode: 500,
+    };
+  }
+
+  try {
+    const groupMutationIntentRef = createGroupMutationIntentRef(match.request.safeInputRef);
+    const intent = createHttpGroupMutationIntent(
+      match.request.name,
+      body,
+      url,
+      groupMutationIntentRef,
+    );
+
+    if (intent === undefined) {
+      return validation(
+        "invalid_body",
+        "Group mutation request body or member reference is invalid.",
+      );
+    }
+
+    const result = await groupMutationIntentStore.storeGroupMutationIntent(
+      intent,
+      createHttpApplicationPortContext(match.request, context),
+    );
+
+    if (!result.ok) {
+      return {
+        category: result.error.category === "unsafe_payload" ? "validation" : "infrastructure",
+        code: result.error.code,
+        message: "Group mutation request could not be accepted.",
+        statusCode: result.error.category === "unsafe_payload" ? 400 : 503,
+        details: {
+          retryable: result.error.retryable,
+        },
+      };
+    }
+
+    return undefined;
+  } catch {
+    return {
+      category: "validation",
+      code: "group_mutation_intent_ref_invalid",
+      message: "Group mutation request could not be mapped to a safe input reference.",
+      statusCode: 400,
+    };
+  }
+}
+
+function checkGroupMutationCapability(
+  commandName: string,
+  credential: ApiCredential,
+): HttpFailure | undefined {
+  const requiredScope =
+    commandName === "UpdateGroupMetadata" || commandName === "UpdateGroupLocalState"
+      ? "groups:write"
+      : "groups:admin";
+
+  if (credential.scopes.includes("admin:*") || credential.scopes.includes(requiredScope)) {
+    return undefined;
+  }
+
+  return {
+    category: "authorization",
+    code: "missing_scope",
+    message: "API credential is missing required scope.",
+    statusCode: 403,
+    details: {
+      requiredScope,
+    },
+  };
+}
+
+function createHttpGroupMutationIntent(
+  commandName: string,
+  body: unknown,
+  url: string,
+  groupMutationIntentRef: ReturnType<typeof createGroupMutationIntentRef>,
+): Parameters<GroupMutationIntentStorePort["storeGroupMutationIntent"]>[0] | undefined {
+  if (commandName === "UpdateGroupMetadata") {
+    if (!isPlainObject(body)) return undefined;
+
+    return {
+      groupMutationIntentRef,
+      kind: "metadata",
+      ...(typeof body.subject === "string" ? { subject: body.subject } : {}),
+      ...(typeof body.description === "string" ? { description: body.description } : {}),
+    };
+  }
+
+  if (commandName === "UpdateGroupLocalState") {
+    if (!isPlainObject(body)) return undefined;
+
+    return {
+      groupMutationIntentRef,
+      kind: "local_state",
+      ...(typeof body.muted === "boolean" ? { muted: body.muted } : {}),
+      ...(typeof body.archived === "boolean" ? { archived: body.archived } : {}),
+      ...(typeof body.pinned === "boolean" ? { pinned: body.pinned } : {}),
+    };
+  }
+
+  if (commandName === "AddGroupMember") {
+    if (!isPlainObject(body) || typeof body.jid !== "string") return undefined;
+
+    return {
+      groupMutationIntentRef,
+      kind: "add_member",
+      memberJid: body.jid,
+    };
+  }
+
+  if (
+    commandName === "RemoveGroupMember" ||
+    commandName === "PromoteGroupMember" ||
+    commandName === "DemoteGroupMember"
+  ) {
+    const memberRef = memberRefFromGroupMemberUrl(url);
+
+    if (memberRef === undefined) return undefined;
+
+    return {
+      groupMutationIntentRef,
+      kind:
+        commandName === "RemoveGroupMember"
+          ? "remove_member"
+          : commandName === "PromoteGroupMember"
+            ? "promote_member"
+            : "demote_member",
+      memberRef,
+    };
+  }
+
+  return undefined;
+}
+
+function memberRefFromGroupMemberUrl(url: string): string | undefined {
+  const parsedUrl = parseUrl(url);
+  const segments = parsedUrl === undefined ? undefined : splitPath(parsedUrl.pathname);
+  const memberRef = segments?.[4]?.trim();
+
+  return memberRef === undefined || memberRef.length === 0 ? undefined : memberRef;
+}
+
+function isGroupMutationCommand(commandName: string): boolean {
+  return [
+    "UpdateGroupMetadata",
+    "UpdateGroupLocalState",
+    "AddGroupMember",
+    "RemoveGroupMember",
+    "PromoteGroupMember",
+    "DemoteGroupMember",
+  ].includes(commandName);
+}
+
 function createHttpApplicationPortContext(
   request: ApiCommandRequest,
   context: RouteContext,
@@ -1768,7 +1968,25 @@ async function recordSecurityAudit(
 }
 
 function safeAuditPath(url: string): string {
-  return parseUrl(url)?.pathname ?? "/";
+  const pathname = parseUrl(url)?.pathname;
+
+  if (pathname === undefined) {
+    return "/";
+  }
+
+  const segments = splitPath(pathname);
+
+  if (
+    segments?.[0] === "v1" &&
+    segments[1] === "groups" &&
+    segments[3] === "members" &&
+    segments[4] !== undefined
+  ) {
+    const suffix = segments.slice(5).join("/");
+    return `/v1/groups/${segments[2]}/members/[member-ref]${suffix.length === 0 ? "" : `/${suffix}`}`;
+  }
+
+  return pathname;
 }
 
 function mapAdapterResponse(

@@ -15,10 +15,11 @@ Every progress update must be recorded here instead of being scattered across un
 
 ## Current Platform Increment
 
-| Increment                             | Status | Evidence                                                                                                                                                                                                  | Next                             |
-| ------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| N9 - Controlled Message Mutations     | Done   | Local `pnpm check` passed after enabling controlled text send, retry, and cancel handlers, client-contract fixtures, checker allowlist, TUI integration docs, and Rust SDK retry/cancel fixture coverage. | N10 - Controlled Group Mutations |
-| N8 - PostgreSQL Repository Completion | Done   | Local `pnpm test:postgres` passed against `127.0.0.1:55432`; GitHub Actions Quality Gate run `28701511362` passed with real PostgreSQL contract tests before `pnpm check`.                                | Completed predecessor for N9     |
+| Increment                             | Status | Evidence                                                                                                                                                                                                                                   | Next                          |
+| ------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| N10 - Controlled Group Mutations      | Done   | Local `pnpm check` passed after enabling metadata/local-state/add/remove/promote/demote group mutations with safe intent storage, group capability checks, audit action evidence, client-contract fixtures, and Rust SDK fixture coverage. | N11 - Production Hardening    |
+| N9 - Controlled Message Mutations     | Done   | Local `pnpm check` passed after enabling controlled text send, retry, and cancel handlers, client-contract fixtures, checker allowlist, TUI integration docs, and Rust SDK retry/cancel fixture coverage.                                  | Completed predecessor for N10 |
+| N8 - PostgreSQL Repository Completion | Done   | Local `pnpm test:postgres` passed against `127.0.0.1:55432`; GitHub Actions Quality Gate run `28701511362` passed with real PostgreSQL contract tests before `pnpm check`.                                                                 | Completed predecessor for N9  |
 
 ## Verification Snapshot
 

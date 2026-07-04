@@ -206,6 +206,88 @@ fn groups_client_uses_resource_operations() {
 }
 
 #[test]
+fn groups_client_exposes_controlled_mutations() {
+    let api_key = ApiKey::new("test-api-key").expect("valid API key");
+    let config = OmniwaClientConfig::new("http://localhost:3000", api_key).expect("valid config");
+    let operation_fixture = |result_ref: &'static str| {
+        SdkResponse::json(
+            202,
+            format!(
+                r#"{{"data":{{"resourceType":"group","resourceId":"group_demo","operationStatus":"completed","accepted":true,"retryable":false,"async":false,"resultRef":"{}"}},"meta":{{"requestId":"req_group","correlationId":"corr_group","timestamp":"2026-07-04T00:00:00.000Z"}}}}"#,
+                result_ref
+            ),
+        )
+    };
+    let transport = FixtureTransport::new()
+        .with_response("updateGroup", operation_fixture("group_demo"))
+        .with_response("updateGroupLocalState", operation_fixture("group_demo"))
+        .with_response("addGroupMember", operation_fixture("group_demo"))
+        .with_response("promoteGroupMember", operation_fixture("group_demo"))
+        .with_response("demoteGroupMember", operation_fixture("group_demo"))
+        .with_response("removeGroupMember", operation_fixture("group_demo"));
+    let client = OmniwaClient::new(config, transport);
+    let options = || RequestOptions {
+        idempotency_key: Some(
+            IdempotencyKey::new("idem-group-demo").expect("valid group idempotency key"),
+        ),
+        ..RequestOptions::default()
+    };
+
+    assert_eq!(
+        client
+            .groups()
+            .update_json("group_demo", r#"{"subject":"Support"}"#, options())
+            .expect("update group fixture")
+            .status_code,
+        202,
+    );
+    assert_eq!(
+        client
+            .groups()
+            .update_local_state_json("group_demo", r#"{"archived":true}"#, options())
+            .expect("update local state fixture")
+            .status_code,
+        202,
+    );
+    assert_eq!(
+        client
+            .groups()
+            .add_member_json(
+                "group_demo",
+                r#"{"jid":"12025550123@s.whatsapp.net"}"#,
+                options(),
+            )
+            .expect("add member fixture")
+            .status_code,
+        202,
+    );
+    assert_eq!(
+        client
+            .groups()
+            .promote_member("group_demo", "group_demo:member:1", "{}", options())
+            .expect("promote member fixture")
+            .status_code,
+        202,
+    );
+    assert_eq!(
+        client
+            .groups()
+            .demote_member("group_demo", "group_demo:member:1", "{}", options())
+            .expect("demote member fixture")
+            .status_code,
+        202,
+    );
+    assert_eq!(
+        client
+            .groups()
+            .remove_member("group_demo", "group_demo:member:1", "{}", options())
+            .expect("remove member fixture")
+            .status_code,
+        202,
+    );
+}
+
+#[test]
 fn navigation_clients_use_phase_i_resource_operations() {
     let chat_client = client_with_fixture(
         "listInstanceChats",

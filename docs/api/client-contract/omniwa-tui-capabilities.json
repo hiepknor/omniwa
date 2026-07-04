@@ -143,7 +143,7 @@
       "status": "implemented_public",
       "recommendedForTui": true,
       "dto": "GroupSummaryDto|GroupDetailDto|GroupMemberDto|OperationData",
-      "notes": "Instance-scoped list, group detail, and group member read routes are public. Top-level /v1/groups remains missing. Group mutations remain route_exists_not_implemented until action safety and audit are promoted."
+      "notes": "Instance-scoped list, group detail, group member read routes, metadata/local-state updates, and controlled member admin mutations are public. Top-level /v1/groups remains missing. Member admin actions require groups:admin and must use safe memberRef values from the members list."
     },
     "queue": {
       "status": "implemented_public",
@@ -438,23 +438,73 @@
       "feature": "groups",
       "method": "PATCH",
       "path": "/v1/groups/{groupId}",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "OperationData",
       "idempotencyRequired": true,
       "requestDto": "GroupMetadataRequest",
-      "responseEnvelope": "SuccessEnvelope"
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires groups:write. Response does not expose raw group JID, member JID, actions, or domain events."
+    },
+    {
+      "feature": "groups",
+      "method": "PATCH",
+      "path": "/v1/groups/{groupId}/local-state",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "GroupLocalStateRequest",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires groups:write. Supports local mute/archive/pin state only."
     },
     {
       "feature": "groups",
       "method": "POST",
       "path": "/v1/groups/{groupId}/members",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "OperationData",
       "idempotencyRequired": true,
       "requestDto": "GroupMemberRequest",
-      "responseEnvelope": "SuccessEnvelope"
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires groups:admin. Raw member JID is accepted only as request input and is stored behind a safe intent ref; it is not returned in public DTOs."
+    },
+    {
+      "feature": "groups",
+      "method": "DELETE",
+      "path": "/v1/groups/{groupId}/members/{memberJid}",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "Object",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members even though the path parameter remains named memberJid for compatibility."
+    },
+    {
+      "feature": "groups",
+      "method": "POST",
+      "path": "/v1/groups/{groupId}/members/{memberJid}/promote",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "Object",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members."
+    },
+    {
+      "feature": "groups",
+      "method": "POST",
+      "path": "/v1/groups/{groupId}/members/{memberJid}/demote",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "requestDto": "Object",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires groups:admin. TUI should pass the safe memberRef returned by GET /v1/groups/{groupId}/members."
     },
     {
       "feature": "messages",
@@ -835,6 +885,12 @@
     "groupsList": "docs/api/client-contract/fixtures/groups.list.json",
     "groupDetail": "docs/api/client-contract/fixtures/group.detail.json",
     "groupMembersList": "docs/api/client-contract/fixtures/group-members.list.json",
+    "groupMetadataUpdated": "docs/api/client-contract/fixtures/group-metadata.updated.json",
+    "groupLocalStateUpdated": "docs/api/client-contract/fixtures/group-local-state.updated.json",
+    "groupMemberAdded": "docs/api/client-contract/fixtures/group-member.added.json",
+    "groupMemberPromoted": "docs/api/client-contract/fixtures/group-member.promoted.json",
+    "groupMemberDemoted": "docs/api/client-contract/fixtures/group-member.demoted.json",
+    "groupMemberRemoved": "docs/api/client-contract/fixtures/group-member.removed.json",
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
     "queueSummary": "docs/api/client-contract/fixtures/queue.summary.json",
     "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",
