@@ -1,5 +1,6 @@
 # CodeGraph data files
 # These are local to each machine and should not be committed.
+.codegraph/
 
 # Database
 .codegraph/*.db
