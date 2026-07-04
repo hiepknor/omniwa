@@ -43,6 +43,10 @@ Current local runtime:
 - Local base URL is `http://127.0.0.1:3000`.
 - Local API key is `local-dev-secret-change-me`.
 - Public read surfaces must be consumed through REST or the official SDK, not internal handlers.
+- VS02 real WhatsApp local live demo is complete for local operator validation.
+- PostgreSQL repository completion is now the active production-hardening track. Foundation, Message,
+  Session, Webhook repositories, and webhook dispatcher PostgreSQL composition are complete; read
+  projection/guardrail adapters, API/worker hybrid removal, and real PostgreSQL CI remain.
 
 ## Development Strategy
 
@@ -59,52 +63,55 @@ The preferred order is:
 
 1. Complete TUI-critical read APIs.
 2. Keep client-contract and SDK synchronized after every endpoint.
-3. Prove the real WhatsApp local path through VS02.
-4. Enable selected mutations after read visibility exists.
-5. Harden production runtime, persistence, queueing, security, and observability.
+3. Keep production durability ahead of broader mutations by completing PostgreSQL repository coverage.
+4. Enable selected mutations after read visibility and durable state exist.
+5. Harden production runtime, queueing, security, and observability.
 
 ## Immediate Next Increment
 
-### Increment N7 - VS02 Real WhatsApp Local Demo
+### Increment N8 - PostgreSQL Repository Completion
 
 Goal:
 
-- Prove the local live WhatsApp path after the platform-client read surfaces are usable.
+- Finish durable repository coverage for the runtime paths already exposed through the platform API.
 
 Scope:
 
-- Start provider-runtime locally with the real Baileys provider.
-- Produce a real QR signal through EventLog/SSE.
-- Scan QR and persist durable-json auth state.
-- Restart without requiring a new QR when auth state remains valid.
-- Send a real text message through the local path.
-- Verify inbound, status, and connection events reach EventLog/SSE safely.
+- Implement PostgreSQL adapters for Chat, Contact, Group, GuardrailDecision, and HealthStatus.
+- Remove remaining in-memory fallbacks from API and worker `postgresql` runtime composition.
+- Extend repository contract coverage for the remaining adapters.
+- Prepare CI to run real PostgreSQL contract tests through `OMNIWA_POSTGRES_TEST_DATABASE_URL`.
 
 Definition of Done:
 
-- Real local demo checklist passes.
-- No raw QR, JID, text, auth state, or provider payload leaks through public DTOs or logs.
-- Production-only gaps remain explicitly documented.
+- `OMNIWA_API_REPOSITORY_PROFILE=postgresql` and `OMNIWA_WORKER_REPOSITORY_PROFILE=postgresql`
+  no longer use in-memory fallback for wired repositories.
+- Webhook dispatcher remains compatible with `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql`.
+- Contract tests cover all completed PostgreSQL adapters, including side-channel methods.
+- No raw JID, text, provider payload, auth state, or forbidden payload is denormalized into PostgreSQL
+  columns or exposed through public DTOs/logs.
 - `pnpm check` passes.
 
 Rollback:
 
-- Stop the local live runtime path and fall back to the existing fake/local-only demo mode.
+- Revert the specific adapter or runtime composition commit and fall back to durable-json or in-memory
+  local profile for development only.
 
 ## Planned Increments
 
-| Order | Increment                     | Goal                                                                  | Primary Client Value                              | Notes                                                     |
-| ----- | ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
-| N1    | Queue Read Summary            | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                 |
-| N2    | Message Read APIs             | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed |
-| N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed      |
-| N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                           |
-| N5    | Group Read APIs               | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                              |
-| N6    | SDK/Client Contract Sync      | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes         |
-| N7    | VS02 Real WhatsApp Local Demo | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Local live demo only, not production                      |
-| N8    | Controlled Message Mutations  | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Requires idempotency and event visibility                 |
-| N9    | Controlled Group Mutations    | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                |
-| N10   | Production Hardening          | Close production blockers                                             | Platform moves toward production readiness        | Persistence, queue, secrets, observability, ownership     |
+| Order | Increment                        | Goal                                                                  | Primary Client Value                              | Notes                                                     |
+| ----- | -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| N1    | Queue Read Summary               | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                 |
+| N2    | Message Read APIs                | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed |
+| N3    | Chat Read APIs                   | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed      |
+| N4    | Contact Read APIs                | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                           |
+| N5    | Group Read APIs                  | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                              |
+| N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes         |
+| N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                |
+| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Current; Phase 0-2 complete, Phase 3-5 remain             |
+| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Requires durable message/session/job state                |
+| N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                |
+| N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Queue, secrets, observability, ownership, load validation |
 
 ## Read API Design Rules
 
@@ -160,9 +167,9 @@ Expected checks include:
 
 ## VS02 Position
 
-VS02 remains important, but it should not block read-only platform client readiness.
+VS02 is complete for local live operator validation. It should not be treated as production readiness.
 
-VS02 proves:
+VS02 proved:
 
 - Real QR from `RealBaileysSocketProvider`.
 - QR scan works locally.
@@ -185,7 +192,8 @@ The project should not claim production readiness until the production gates in
 `docs/platform-evolution/PRODUCTION_EXECUTION_PLAN.md` and formal reviews pass.
 
 Production hardening remains a later track after the platform-client read surface and VS02 local
-runtime proof are stable.
+runtime proof are stable. The immediate production-hardening work is durable PostgreSQL repository
+completion before broad mutation expansion.
 
 ## Decision Summary
 
@@ -198,6 +206,7 @@ Message reads
   -> Group reads
   -> SDK/client-contract sync
   -> VS02 real WhatsApp local demo
+  -> PostgreSQL repository completion
   -> Controlled mutations
   -> Production hardening
 ```

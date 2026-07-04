@@ -10,42 +10,65 @@ the correctness and data-durability gaps that exist today.
 
 ## Problem Statement
 
-`InstanceRepositoryPort` and `WorkerJobRepositoryPort` have PostgreSQL adapters. The other repository
-ports do not. The API composition therefore runs a **hybrid** repository set under the `postgresql`
-profile: only Instance and WorkerJob are durable, while the remaining repositories silently fall back
-to in-memory storage.
+`InstanceRepositoryPort` and `WorkerJobRepositoryPort` were the first PostgreSQL adapters. The
+repository completion work has now added the shared PostgreSQL aggregate base plus Message, Session,
+WebhookSubscription, and WebhookDelivery adapters. The API and worker composition still run a
+**hybrid** repository set under the `postgresql` profile until the remaining projection/guardrail
+adapters are implemented and runtime wiring is switched over.
 
-Reference: `apps/api/src/runtime-composition.ts:196` (`createRuntimeRepositories`, `postgresql`
-branch) assigns `localProjectionRepositories = createInMemoryRepositorySet()` to
-`healthStatus`, `session`, `message`, `chat`, `contact`, `group`, `guardrailDecision`,
-`webhookSubscription`, and `webhookDelivery`.
+Reference: `apps/api/src/runtime-composition.ts` (`createRuntimeRepositories`, `postgresql` branch)
+assigns `localProjectionRepositories = createInMemoryRepositorySet()` to `healthStatus`, `session`,
+`message`, `chat`, `contact`, `group`, `guardrailDecision`, `webhookSubscription`, and
+`webhookDelivery`.
 
-Consequences:
+Original consequences:
 
 - Operators who select `OMNIWA_API_REPOSITORY_PROFILE=postgresql` believe they run a durable
   database, but 9 of the 11 wired repositories lose all data on restart.
-- `apps/webhook-dispatcher/src/runtime-composition.ts:117` openly rejects the `postgresql` profile,
-  so webhook delivery cannot run durably at all.
-- The worker composition (`apps/worker/src/runtime-composition.ts:252`) shares the same limitation.
+- The worker composition (`apps/worker/src/runtime-composition.ts`, `createWorkerRuntimeRepositories`)
+  shares the same limitation for session/message/guardrail/health state.
 
-This plan implements the 9 missing adapters, removes the hybrid fallback, and enables the existing
+Current consequences after the completed increments:
+
+- The webhook dispatcher can compose with PostgreSQL repositories.
+- Message, Session, WebhookSubscription, and WebhookDelivery adapters exist and have contract
+  coverage, but API/worker runtime composition has not yet switched all available adapters into the
+  `postgresql` profile.
+- Chat, Contact, Group, GuardrailDecision, and HealthStatus PostgreSQL adapters are still missing.
+
+This plan finishes the remaining adapters, removes the hybrid fallback, and enables the existing
 (currently skipped) real-PostgreSQL contract tests in CI.
+
+## Implementation Status Snapshot
+
+Status date: 2026-07-04.
+
+| Area                                      | Status   | Evidence                                                                                                                                        |
+| ----------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared PostgreSQL aggregate base          | Complete | `PostgresqlAggregateRepository` extracted and Instance/WorkerJob refactored.                                                                    |
+| Message adapter                           | Complete | `PostgresqlMessageRepository`, migration, idempotency side-channel, contract tests.                                                             |
+| Session adapter                           | Complete | `PostgresqlSessionRepository`, migration, contract tests.                                                                                       |
+| Webhook adapters                          | Complete | `PostgresqlWebhookSubscriptionRepository`, `PostgresqlWebhookDeliveryRepository`, migrations, signal/idempotency side-channels, contract tests. |
+| Webhook dispatcher PostgreSQL composition | Complete | `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql` now composes with PostgreSQL repositories.                                            |
+| Read projection / guardrail adapters      | Pending  | Chat, Contact, Group, GuardrailDecision, and HealthStatus adapters remain.                                                                      |
+| API/worker hybrid fallback removal        | Pending  | Runtime composition still needs to replace in-memory fallbacks with PostgreSQL adapters after remaining adapters land.                          |
+| Real PostgreSQL CI service                | Pending  | Env-gated real PostgreSQL tests still require CI provisioning with `OMNIWA_POSTGRES_TEST_DATABASE_URL`.                                         |
 
 ## Scope
 
 In scope — 9 repository adapters (the ports wired into the API/worker repository set):
 
-| Port | Aggregate | Consistency model | Owner context |
-| --- | --- | --- | --- |
-| `SessionRepositoryPort` | Session | `application_coordinated` | session |
-| `MessageRepositoryPort` | Message | `strong_owner` | messaging |
-| `ChatRepositoryPort` | Chat | `eventual_projection` | chat |
-| `ContactRepositoryPort` | Contact | `eventual_projection` | contact |
-| `GroupRepositoryPort` | Group | `application_coordinated` | group |
-| `WebhookSubscriptionRepositoryPort` | WebhookSubscription | `strong_owner` | webhook_delivery |
-| `WebhookDeliveryRepositoryPort` | WebhookDelivery | `application_coordinated` | webhook_delivery |
-| `GuardrailDecisionRepositoryPort` | GuardrailDecision | `strong_owner` | guardrails |
-| `HealthStatusRepositoryPort` | HealthStatus | `eventual_projection` | health |
+| Port                                | Aggregate           | Consistency model         | Owner context    | Status   |
+| ----------------------------------- | ------------------- | ------------------------- | ---------------- | -------- |
+| `SessionRepositoryPort`             | Session             | `application_coordinated` | session          | Complete |
+| `MessageRepositoryPort`             | Message             | `strong_owner`            | messaging        | Complete |
+| `ChatRepositoryPort`                | Chat                | `eventual_projection`     | chat             | Pending  |
+| `ContactRepositoryPort`             | Contact             | `eventual_projection`     | contact          | Pending  |
+| `GroupRepositoryPort`               | Group               | `application_coordinated` | group            | Pending  |
+| `WebhookSubscriptionRepositoryPort` | WebhookSubscription | `strong_owner`            | webhook_delivery | Complete |
+| `WebhookDeliveryRepositoryPort`     | WebhookDelivery     | `application_coordinated` | webhook_delivery | Complete |
+| `GuardrailDecisionRepositoryPort`   | GuardrailDecision   | `strong_owner`            | guardrails       | Pending  |
+| `HealthStatusRepositoryPort`        | HealthStatus        | `eventual_projection`     | health           | Pending  |
 
 Consistency models are taken verbatim from `repositoryAdapterPlans` in `repository-adapter-plan.ts`.
 
@@ -117,17 +140,17 @@ Every adapter that owns a side-channel column must ship a contract test assertin
 Denormalized columns are derived from the query methods implemented by the durable-json reference
 (`durable-json-repositories.ts`). Everything else lives in `aggregate jsonb`.
 
-| Adapter | Denormalized columns (indexed) | Query methods | Notes |
-| --- | --- | --- | --- |
-| Session | `instance_id`, `status`, `requires_recovery boolean` | `findByInstance`, `findByStatusForInstance`, `findRecoveryRequired` | |
-| Message | `status`, `idempotency_key UNIQUE` | `findByStatus`, `findByIdempotencyKey`, `findRecoverableByOwner` | `findRecoverableByOwner` returns `status IN ('queued','processing','failed')` only when owner context is `messaging`, else empty. Requires `recordIdempotencyKey`. |
-| Chat | `instance_id`, `status`, `jid`, `label_ids jsonb` | `findByInstance`, `findByStatus`, `findByJid`, `findByLabel` | `findByLabel` uses jsonb containment (`label_ids @> $1`) with a GIN index, unless `INDEX_STRATEGY.md` prescribes a join table. |
-| Contact | `instance_id`, `status`, `jid` | `findByInstance`, `findByStatus`, `findByJid` | |
-| Group | `instance_id`, `status`, `jid` | `findByInstance`, `findByStatus`, `findByJid` | |
-| WebhookSubscription | `status`, `signal_refs jsonb` | `findByStatus`, `findActiveForSignal` | `findActiveForSignal` = `status = 'active'` AND `signal_refs` contains ref. Requires `recordSignalSelection`. |
-| WebhookDelivery | `status`, `source_signal_ref`, `idempotency_key UNIQUE` | `findByStatus`, `findBySourceSignal`, `findByIdempotencyKey` | Requires `recordIdempotencyKey`. |
-| GuardrailDecision | `evaluated_intent_ref` | `findByEvaluatedIntent` | |
-| HealthStatus | `subject_ref`, `category` | `findBySubject`, `findByCategory` | |
+| Adapter             | Denormalized columns (indexed)                          | Query methods                                                       | Notes                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Session             | `instance_id`, `status`, `requires_recovery boolean`    | `findByInstance`, `findByStatusForInstance`, `findRecoveryRequired` |                                                                                                                                                                    |
+| Message             | `status`, `idempotency_key UNIQUE`                      | `findByStatus`, `findByIdempotencyKey`, `findRecoverableByOwner`    | `findRecoverableByOwner` returns `status IN ('queued','processing','failed')` only when owner context is `messaging`, else empty. Requires `recordIdempotencyKey`. |
+| Chat                | `instance_id`, `status`, `jid`, `label_ids jsonb`       | `findByInstance`, `findByStatus`, `findByJid`, `findByLabel`        | `findByLabel` uses jsonb containment (`label_ids @> $1`) with a GIN index, unless `INDEX_STRATEGY.md` prescribes a join table.                                     |
+| Contact             | `instance_id`, `status`, `jid`                          | `findByInstance`, `findByStatus`, `findByJid`                       |                                                                                                                                                                    |
+| Group               | `instance_id`, `status`, `jid`                          | `findByInstance`, `findByStatus`, `findByJid`                       |                                                                                                                                                                    |
+| WebhookSubscription | `status`, `signal_refs jsonb`                           | `findByStatus`, `findActiveForSignal`                               | `findActiveForSignal` = `status = 'active'` AND `signal_refs` contains ref. Requires `recordSignalSelection`.                                                      |
+| WebhookDelivery     | `status`, `source_signal_ref`, `idempotency_key UNIQUE` | `findByStatus`, `findBySourceSignal`, `findByIdempotencyKey`        | Requires `recordIdempotencyKey`.                                                                                                                                   |
+| GuardrailDecision   | `evaluated_intent_ref`                                  | `findByEvaluatedIntent`                                             |                                                                                                                                                                    |
+| HealthStatus        | `subject_ref`, `category`                               | `findBySubject`, `findByCategory`                                   |                                                                                                                                                                    |
 
 All `jid` / `source_signal_ref` / `subject_ref` values must be the safe references already carried on
 the aggregate (see governing constraint 2).
@@ -169,27 +192,27 @@ no behavior change.
 
 ## Execution Increments
 
-### Phase 0 — Foundation
+### Phase 0 — Foundation — Complete
 
 1. Read the schema-review docs listed under Governing Constraints (4).
 2. Extract `PostgresqlAggregateRepository` and refactor Instance/WorkerJob onto it. Tests stay green.
 
-### Phase 1 — Send Pipeline (highest value; closes the data-loss hazard)
+### Phase 1 — Send Pipeline — Complete
 
 3. `PostgresqlMessageRepository` + `recordIdempotencyKey` + migration.
 4. `PostgresqlSessionRepository` + migration.
 
-### Phase 2 — Webhook Pipeline
+### Phase 2 — Webhook Pipeline — Complete
 
 5. `PostgresqlWebhookSubscriptionRepository` and `PostgresqlWebhookDeliveryRepository` + migrations.
 6. Remove the `postgresql not supported` throw in `apps/webhook-dispatcher/src/runtime-composition.ts`
    and wire the PostgreSQL repository set.
 
-### Phase 3 — Read Projections
+### Phase 3 — Read Projections — Next
 
 7. `Chat`, `Contact`, `Group`, `HealthStatus`, `GuardrailDecision` adapters + migrations.
 
-### Phase 4 — Wiring and Hybrid Removal
+### Phase 4 — Wiring and Hybrid Removal — Pending
 
 8. In `apps/api/src/runtime-composition.ts` and `apps/worker/src/runtime-composition.ts`, replace the
    `localProjectionRepositories.*` (in-memory) assignments with the new PostgreSQL adapters. Delete the
@@ -197,7 +220,7 @@ no behavior change.
 9. Extend `PostgresqlRepositorySet`, `createPostgresqlRepositorySet`, and `postgresqlRepositoryMigrations`
    with the nine new adapters and migrations (ids following the `pgm_<date>_<seq>_<name>` convention).
 
-### Phase 5 — Tests and CI
+### Phase 5 — Tests and CI — Partial
 
 10. Add real-PostgreSQL contract tests per adapter, following `postgresql-repositories.spec.ts`
     (env-gated on `OMNIWA_POSTGRES_TEST_DATABASE_URL`). Each idempotency/signal side-channel gets an
@@ -206,16 +229,30 @@ no behavior change.
     tests actually run. This closes the current gap where the whole suite passes in ~3s because all
     real-PostgreSQL tests skip.
 
+Completed adapters now have repository contract coverage across in-memory, durable-json, and
+PostgreSQL implementations. The remaining Phase 5 work is to extend those tests to Phase 3 adapters
+and provision the CI PostgreSQL service so env-gated tests run continuously rather than skipping.
+
+## Completed Work Log
+
+| Commit    | Increment | Result                                                                                                                 |
+| --------- | --------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `3730a5a` | Phase 0   | Extracted shared PostgreSQL aggregate repository base.                                                                 |
+| `8fc1b29` | Phase 1   | Added PostgreSQL Message repository, migration, and idempotency contract coverage.                                     |
+| `d6b9d94` | Phase 1   | Added PostgreSQL Session repository, migration, and contract coverage.                                                 |
+| `a8b4b1c` | Phase 2   | Added PostgreSQL WebhookSubscription and WebhookDelivery repositories, migrations, and side-channel contract coverage. |
+| `579b608` | Phase 2   | Enabled webhook dispatcher PostgreSQL repository composition.                                                          |
+
 ## Definition of Done
 
-- All nine adapters implement their full port interface plus required side-channel methods.
-- The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost
-  on restart.
-- The webhook dispatcher runs under the `postgresql` profile.
-- Real-PostgreSQL contract tests run in CI (not skipped) and pass, including idempotency round-trips.
-- `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and the
-  regression/production gates.
-- No forbidden data is stored in any denormalized column.
+| DoD item                                                                                                                     | Status                         | Notes                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| All nine adapters implement their full port interface plus required side-channel methods.                                    | Partial                        | Message, Session, WebhookSubscription, and WebhookDelivery are complete; five adapters remain. |
+| The `postgresql` profile in API and worker exposes zero in-memory repositories; no aggregate is lost on restart.             | Pending                        | Requires Phase 3 adapters and Phase 4 wiring.                                                  |
+| The webhook dispatcher runs under the `postgresql` profile.                                                                  | Complete                       | Composition now accepts PostgreSQL and uses the PostgreSQL repository set.                     |
+| Real-PostgreSQL contract tests run in CI and pass, including idempotency round-trips.                                        | Pending                        | Tests are env-gated; CI PostgreSQL service still required.                                     |
+| `pnpm check` passes, including `arch:check`, `openapi:*`, `client-contract:check`, `sdk:*`, and regression/production gates. | Complete for current increment | Last checked after Phase 2 completion: 108 test files, 598 passed, 1 skipped.                  |
+| No forbidden data is stored in any denormalized column.                                                                      | Complete for current adapters  | Current denormalized columns use safe refs/status/idempotency metadata only.                   |
 
 ## Risks and Watch-Items
 
