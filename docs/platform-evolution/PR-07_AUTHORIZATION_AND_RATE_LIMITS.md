@@ -115,7 +115,9 @@ npm client adapter is contained at the API runtime boundary approved by
 `RedisRateLimitScriptClient`; otherwise it fails closed. Production API composition also rejects
 missing rate-limit configuration, the in-memory backend, Redis backend selection without a configured
 client, and missing AuditRecord-backed security-audit evidence before reaching the remaining
-production-adapter fail-safe.
+production-adapter fail-safe. Production API composition also requires
+`OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` so resource ownership checks cannot be silently left
+in resolver-less compatibility mode.
 
 API production profile composition also validates PostgreSQL configuration before reaching the
 remaining production-adapter fail-safe. The validation rejects non-PostgreSQL repository profiles,

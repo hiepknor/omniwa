@@ -108,6 +108,9 @@ export function createApiRuntimeComposition(
       : new DurableJsonApiKeyLifecycleStore(apiKeyLifecycleStorePath);
   const apiKeyVerifier = createRuntimeApiKeyVerifier(apiKeys, hashedApiKeys, apiKeyLifecycleStore);
   const rateLimitBackend = readRateLimitBackend(env);
+  const repositoryOwnershipResolutionEnabled = readBooleanEnv(
+    env.OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY,
+  );
   const redisRateLimitScriptClient = createRuntimeRedisRateLimitScriptClient(
     env,
     adapters,
@@ -127,6 +130,7 @@ export function createApiRuntimeComposition(
     ),
     hasRedisRateLimitScriptClient: redisRateLimitScriptClient !== undefined,
     securityAuditSinkKind: readSecurityAuditSinkKind(env),
+    repositoryOwnershipResolutionEnabled,
   });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
@@ -344,7 +348,10 @@ function createRuntimeRedisRateLimitScriptClient(
       "connectTimeoutMilliseconds",
       readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_REDIS_CONNECT_TIMEOUT_MS"),
     ),
-    ...optional("clientName", readOptionalStringEnv(env, "OMNIWA_API_RATE_LIMIT_REDIS_CLIENT_NAME")),
+    ...optional(
+      "clientName",
+      readOptionalStringEnv(env, "OMNIWA_API_RATE_LIMIT_REDIS_CLIENT_NAME"),
+    ),
   });
 }
 
@@ -683,6 +690,7 @@ function assertRuntimeProfileIsComposable(
     rateLimitWindowMilliseconds: number | undefined;
     hasRedisRateLimitScriptClient: boolean;
     securityAuditSinkKind: ApiSecurityAuditSinkKind;
+    repositoryOwnershipResolutionEnabled: boolean;
   }>,
 ): void {
   if (profile === "production") {
@@ -695,6 +703,7 @@ function assertRuntimeProfileIsComposable(
     assertProductionPostgresqlDatabaseUrl(options.postgresDatabaseUrl);
     assertProductionRateLimitConfiguration(options);
     assertProductionSecurityAuditConfiguration(options.securityAuditSinkKind);
+    assertProductionResourceOwnershipConfiguration(options.repositoryOwnershipResolutionEnabled);
 
     throw new Error(
       "OmniWA API production profile remains disabled until production queue and observability adapters are implemented.",
@@ -712,6 +721,14 @@ function assertProductionSecurityAuditConfiguration(sinkKind: ApiSecurityAuditSi
   if (sinkKind !== "audit-records") {
     throw new Error(
       "OmniWA API production profile requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true.",
+    );
+  }
+}
+
+function assertProductionResourceOwnershipConfiguration(enabled: boolean): void {
+  if (!enabled) {
+    throw new Error(
+      "OmniWA API production profile requires OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true.",
     );
   }
 }

@@ -792,72 +792,82 @@ describe("API runtime composition", () => {
     temporaryDirectories.push(directory);
 
     expect(() =>
-      createApiRuntimeComposition(
-        {
-          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
-          OMNIWA_API_RUNTIME_PROFILE: "production",
-          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
-          OMNIWA_POSTGRES_DATABASE_URL:
-            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
-          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
-          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
-          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
-          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
-        },
-      ),
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
     ).toThrow(/requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true/u);
 
     expect(() =>
-      createApiRuntimeComposition(
-        {
-          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
-          OMNIWA_API_RUNTIME_PROFILE: "production",
-          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
-          OMNIWA_POSTGRES_DATABASE_URL:
-            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
-          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
-          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
-          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
-          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
-          OMNIWA_API_SECURITY_AUDIT_IN_MEMORY: "true",
-        },
-      ),
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+        OMNIWA_API_SECURITY_AUDIT_IN_MEMORY: "true",
+      }),
     ).toThrow(/requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true/u);
 
     expect(() =>
-      createApiRuntimeComposition(
-        {
-          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
-          OMNIWA_API_RUNTIME_PROFILE: "production",
-          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
-          OMNIWA_POSTGRES_DATABASE_URL:
-            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
-          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
-          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
-          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
-          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
-          OMNIWA_API_SECURITY_AUDIT_LOG_PATH: join(directory, "audit-log.json"),
-        },
-      ),
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+        OMNIWA_API_SECURITY_AUDIT_LOG_PATH: join(directory, "audit-log.json"),
+      }),
     ).toThrow(/requires OMNIWA_API_SECURITY_AUDIT_RECORDS=true/u);
   });
 
-  it("still blocks production runtime composition after safe database, rate-limit, and audit validation", () => {
+  it("requires repository-backed ownership resolution for production runtime composition", () => {
     expect(() =>
-      createApiRuntimeComposition(
-        {
-          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
-          OMNIWA_API_RUNTIME_PROFILE: "production",
-          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
-          OMNIWA_POSTGRES_DATABASE_URL:
-            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
-          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
-          OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
-          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
-          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
-          OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
-        },
-      ),
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+        OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+      }),
+    ).toThrow(/requires OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true/u);
+  });
+
+  it("still blocks production runtime composition after safe database, rate-limit, audit, and ownership validation", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+        OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+        OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
+      }),
     ).toThrow(/production profile remains disabled/u);
   });
 

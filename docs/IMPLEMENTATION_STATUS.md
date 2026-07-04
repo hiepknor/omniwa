@@ -133,16 +133,18 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   hosts or known development credentials and rejects production profiles that do not configure
   `OMNIWA_API_RATE_LIMIT_BACKEND=redis` with either `OMNIWA_API_RATE_LIMIT_REDIS_URL` or an injected
   Redis script client and
-  `OMNIWA_API_SECURITY_AUDIT_RECORDS=true` before it reaches the remaining production-adapter
-  fail-safe. The rate-limit boundary is now
+  `OMNIWA_API_SECURITY_AUDIT_RECORDS=true`, and
+  `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` before it reaches the remaining
+  production-adapter fail-safe. The rate-limit boundary is now
   async-compatible and includes a shared counter-store limiter plus a Redis script store that hashes
   cache keys instead of writing key ids or instance refs into Redis keys. API runtime composition can
   select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` from explicit Redis URL configuration or an injected
   approved Redis script client, and fails closed if that backend is requested without either source.
   The concrete `redis` npm dependency is contained in the API runtime adapter boundary approved by
   accepted `docs/adr/ADR-0008-redis-rate-limit-client.md`. Production API composition also fails
-  closed unless the Redis-backed limiter and AuditRecord-backed security-audit evidence are
-  configured. PostgreSQL repository coverage now includes Label and MediaAsset for ownership
+  closed unless the Redis-backed limiter, AuditRecord-backed security-audit evidence, and
+  repository-backed resource ownership resolver are configured. PostgreSQL repository coverage now
+  includes Label and MediaAsset for ownership
   resolution where those aggregates carry or can safely derive an instance owner. Targetless global
   resources such as webhooks, deliveries, events, jobs, metrics, audit records, API keys, settings,
   and provider status now fail closed for instance-scoped credentials unless an explicit owner can

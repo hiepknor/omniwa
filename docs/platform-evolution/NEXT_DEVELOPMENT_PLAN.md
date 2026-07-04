@@ -137,16 +137,17 @@ their aggregate `instanceId`. PostgreSQL repository coverage now includes Label 
 those ownership paths. Targetless global resources without current instance owner fields now fail
 closed for instance-scoped credentials instead of being treated as globally readable. Remaining
 N11.5 work should focus on future owner modeling for currently global resources that later need
-instance-scoped access and production profile validation beyond the database, Redis rate-limit, and
-AuditRecord security-audit checks already present.
+instance-scoped access and production profile validation beyond the database, Redis rate-limit,
+AuditRecord security-audit, and repository-backed ownership checks already present.
 Rate-limit snapshots can now be exported as approved low-cardinality API metric points without raw
 key, bucket, instance, or target identifiers. The rate-limit port is now async-compatible and has a
 Redis script-store foundation plus the concrete `redis` npm client adapter contained at the approved
 API runtime boundary. API runtime composition can select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` from
 `OMNIWA_API_RATE_LIMIT_REDIS_URL` or an injected approved Redis script client. Production API
-composition now fails closed unless that Redis-backed limiter is configured and security-audit
-evidence is routed to domain `AuditRecord` persistence. The Redis adapter remains governed by
-accepted `docs/adr/ADR-0008-redis-rate-limit-client.md`.
+composition now fails closed unless that Redis-backed limiter is configured, security-audit evidence
+is routed to domain `AuditRecord` persistence, and repository-backed ownership resolution is
+enabled. The Redis adapter remains governed by accepted
+`docs/adr/ADR-0008-redis-rate-limit-client.md`.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.
 
