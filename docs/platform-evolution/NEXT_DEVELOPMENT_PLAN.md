@@ -31,6 +31,7 @@ Implemented public surfaces currently include:
 | Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                          | Implemented |
 | Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                              | Implemented |
 | Webhook Deliveries | `GET /v1/webhook-deliveries`, `GET /v1/webhook-deliveries/{deliveryId}/history` | Implemented |
+| Queue              | `GET /v1/queue`                                                                 | Implemented |
 
 Current local runtime:
 
@@ -60,25 +61,25 @@ The preferred order is:
 
 ## Immediate Next Increment
 
-### Increment N1 - Queue Read Summary
+### Increment N2 - Message Read APIs
 
 Goal:
 
-- Implement `GET /v1/queue` as a safe read-only operational summary.
+- Implement safe message read APIs for TUI message list/status screens.
 
 Scope:
 
-- Application handler for `GetQueueMetricsSnapshot`.
-- API materialization for queue summary DTO.
-- Public DTO must not expose queue engine internals.
+- Application handler for message list/status queries.
+- API materialization for safe message DTOs.
+- Public DTO must not expose raw text unless the approved retention/privacy policy allows it.
 - Client contract status and fixture.
 - TUI integration doc update.
 
 Definition of Done:
 
-- API returns a success envelope for `GET /v1/queue`.
+- API returns safe success or collection envelopes for message read endpoints.
 - Empty state is explicit.
-- No internal queue payload, outbound intent ref, retry metadata internals, or provider payload leaks.
+- No raw provider payload, raw JID, raw text, outbound intent ref, or domain event internals leak.
 - `pnpm check` passes.
 
 Rollback:
@@ -89,7 +90,7 @@ Rollback:
 
 | Order | Increment                     | Goal                                                                  | Primary Client Value                              | Notes                                                         |
 | ----- | ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------- |
-| N1    | Queue Read Summary            | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Keep read-only; no pause/resume yet                           |
+| N1    | Queue Read Summary            | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                     |
 | N2    | Message Read APIs             | Implement message list/status reads                                   | Message screen can render history/status          | Do not expose raw text unless retention/privacy policy allows |
 | N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Prefer instance-scoped queries                                |
 | N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Redact raw phone/JID as required                              |
@@ -183,11 +184,10 @@ runtime proof are stable.
 
 ## Decision Summary
 
-The next implementation track is:
+The remaining implementation track is:
 
 ```text
-Queue read summary
-  -> Message reads
+Message reads
   -> Chat reads
   -> Contact reads
   -> Group reads

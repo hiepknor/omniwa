@@ -118,6 +118,7 @@ Wire these first:
 | Sessions  | `GET /v1/instances/{id}/sessions`         | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable.   |
 | Events    | `GET /v1/events`                          | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs.   |
 | Realtime  | `GET /v1/events/stream`                   | `implemented_public` | SSE connection status and heartbeat support.                                     |
+| Queue     | `GET /v1/queue`                           | `implemented_public` | Queue summary screen; queue engine internals and job payloads are not exposed.   |
 | Jobs      | `GET /v1/jobs`                            | `implemented_public` | Jobs list screen; requires a credential with `jobs:read` or admin scope.         |
 | Jobs      | `GET /v1/jobs/{id}`                       | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed. |
 | Webhooks  | `GET /v1/webhooks`                        | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.           |
@@ -132,7 +133,6 @@ Keep these disabled or read-only with a backend-not-ready state:
 - Groups
 - Group members
 - Messages
-- Queue
 - Logs
 - Audit
 - Settings
@@ -190,6 +190,7 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/sessions"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/events"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/queue"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs/job_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks"

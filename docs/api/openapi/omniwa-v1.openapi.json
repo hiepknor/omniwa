@@ -4438,6 +4438,30 @@
           "count": {
             "type": "number"
           },
+          "totalJobCount": {
+            "type": "integer"
+          },
+          "queuedJobCount": {
+            "type": "integer"
+          },
+          "reservedJobCount": {
+            "type": "integer"
+          },
+          "runningJobCount": {
+            "type": "integer"
+          },
+          "retryingJobCount": {
+            "type": "integer"
+          },
+          "completedJobCount": {
+            "type": "integer"
+          },
+          "deadJobCount": {
+            "type": "integer"
+          },
+          "activeJobCount": {
+            "type": "integer"
+          },
           "status": {
             "type": "string"
           },

@@ -1,0 +1,27 @@
+{
+  "data": {
+    "resourceType": "metrics",
+    "readStatus": "result",
+    "consistency": "eventual_projection",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209791
+    },
+    "resultRef": "queue:active:1",
+    "id": "queue",
+    "status": "active",
+    "totalJobCount": 1,
+    "queuedJobCount": 1,
+    "reservedJobCount": 0,
+    "runningJobCount": 0,
+    "retryingJobCount": 0,
+    "completedJobCount": 0,
+    "deadJobCount": 0,
+    "activeJobCount": 1
+  },
+  "meta": {
+    "requestId": "tui-queue-summary-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z"
+  }
+}

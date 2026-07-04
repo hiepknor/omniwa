@@ -952,6 +952,75 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(detailResponse.body)).not.toContain("intent_hidden");
   });
 
+  it("materializes queue summary through the monitoring API boundary without exposing queue internals", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        workerJobRepository: repositories.workerJobRepository,
+      },
+    });
+
+    await repositories.workerJobRepository.save({
+      id: "job:queue-summary",
+      ownerContext: "operations",
+      workType: "outbound_message",
+      safeMetadata: {
+        jobKind: "outbound_message",
+        instanceId: "inst_queue",
+        messageId: "msg_queue",
+        outboundIntentRef: "intent_hidden",
+      },
+      status: "queued",
+      retryPolicy: {
+        maxAttempts: 3,
+        initialDelayMilliseconds: 100,
+        backoffMultiplier: 2,
+      },
+      recoveryActionRequired: false,
+      domainEvents: [],
+    } as unknown as Parameters<typeof repositories.workerJobRepository.save>[0]);
+
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/queue",
+        headers: {
+          "x-api-key": "monitoring-secret",
+          "x-request-id": "req-get-queue",
+          "x-correlation-id": "corr-get-queue",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-queue",
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toMatchObject({
+      resourceType: "metrics",
+      id: "queue",
+      status: "active",
+      totalJobCount: 1,
+      queuedJobCount: 1,
+      reservedJobCount: 0,
+      runningJobCount: 0,
+      retryingJobCount: 0,
+      completedJobCount: 0,
+      deadJobCount: 0,
+      activeJobCount: 1,
+      readStatus: "result",
+    });
+    expect(JSON.stringify(response.body)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(response.body)).not.toContain("intent_hidden");
+    expect(JSON.stringify(response.body)).not.toContain("safeMetadata");
+    expect(JSON.stringify(response.body)).not.toContain("retryPolicy");
+    expect(JSON.stringify(response.body)).not.toContain("domainEvents");
+  });
+
   it("materializes webhooks through the public API boundary without exposing target URLs", async () => {
     const repositories = createInMemoryRepositorySet();
     const dispatcher = createApplicationDispatcher({

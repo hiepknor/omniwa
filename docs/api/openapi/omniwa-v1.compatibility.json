@@ -3535,38 +3535,87 @@
   "schemas": {
     "ApiError": {
       "enumValues": [],
+      "properties": ["code", "details", "message"],
+      "required": ["code", "details", "message"]
+    },
+    "AuditRecordResource": {
+      "enumValues": [],
       "properties": [
-        "code",
-        "details",
-        "message"
+        "action",
+        "auditedResourceType",
+        "category",
+        "createdAt",
+        "id",
+        "resourceRef",
+        "resourceType",
+        "status"
       ],
-      "required": [
-        "code",
-        "details",
-        "message"
-      ]
+      "required": ["id", "resourceType"]
+    },
+    "ChatResource": {
+      "enumValues": [],
+      "properties": [
+        "displayName",
+        "id",
+        "instanceId",
+        "labelIds",
+        "lastMessageAt",
+        "resourceType",
+        "status",
+        "type",
+        "unreadCount",
+        "updatedAt"
+      ],
+      "required": ["id", "resourceType"]
     },
     "CollectionEnvelope": {
       "enumValues": [],
+      "properties": ["data", "meta"],
+      "required": ["data", "meta"]
+    },
+    "ContactResource": {
+      "enumValues": [],
       "properties": [
-        "data",
-        "meta"
+        "displayName",
+        "id",
+        "instanceId",
+        "labelIds",
+        "resourceType",
+        "status",
+        "updatedAt"
       ],
-      "required": [
-        "data",
-        "meta"
-      ]
+      "required": ["id", "resourceType"]
+    },
+    "DashboardResource": {
+      "enumValues": [],
+      "properties": [
+        "connectedInstanceCount",
+        "failedWebhookCount",
+        "id",
+        "instanceCount",
+        "queuedJobCount",
+        "resourceType",
+        "updatedAt"
+      ],
+      "required": ["resourceType"]
     },
     "ErrorEnvelope": {
       "enumValues": [],
+      "properties": ["error", "meta"],
+      "required": ["error", "meta"]
+    },
+    "EventResource": {
+      "enumValues": [],
       "properties": [
-        "error",
-        "meta"
+        "correlationId",
+        "id",
+        "resourceRef",
+        "resourceType",
+        "source",
+        "timestamp",
+        "type"
       ],
-      "required": [
-        "error",
-        "meta"
-      ]
+      "required": ["id", "resourceType"]
     },
     "GenericMediaMessageRequest": {
       "enumValues": [],
@@ -3580,136 +3629,287 @@
     },
     "GroupLocalStateRequest": {
       "enumValues": [],
-      "properties": [
-        "archived",
-        "muted",
-        "pinned"
-      ],
+      "properties": ["archived", "muted", "pinned"],
       "required": []
     },
     "GroupMemberRequest": {
       "enumValues": [],
+      "properties": ["jid"],
+      "required": ["jid"]
+    },
+    "GroupMemberResource": {
+      "enumValues": [],
       "properties": [
-        "jid"
+        "displayName",
+        "groupId",
+        "id",
+        "joinedAt",
+        "memberRef",
+        "resourceType",
+        "role",
+        "status",
+        "updatedAt"
       ],
-      "required": [
-        "jid"
-      ]
+      "required": ["id", "resourceType"]
     },
     "GroupMetadataRequest": {
       "enumValues": [],
-      "properties": [
-        "description",
-        "subject"
-      ],
+      "properties": ["description", "subject"],
       "required": []
+    },
+    "GroupResource": {
+      "enumValues": [],
+      "properties": [
+        "adminCount",
+        "archived",
+        "description",
+        "id",
+        "instanceId",
+        "memberCount",
+        "muted",
+        "pinned",
+        "resourceType",
+        "status",
+        "subject",
+        "updatedAt"
+      ],
+      "required": ["id", "resourceType"]
     },
     "GroupTextMessageRequest": {
       "enumValues": [],
+      "properties": ["text"],
+      "required": ["text"]
+    },
+    "HealthResource": {
+      "enumValues": [],
       "properties": [
-        "text"
+        "category",
+        "checkedAt",
+        "id",
+        "resourceType",
+        "status",
+        "subjectRef",
+        "updatedAt"
       ],
-      "required": [
-        "text"
-      ]
+      "required": ["resourceType"]
     },
     "InstanceCreateRequest": {
       "enumValues": [],
-      "properties": [
-        "displayName"
-      ],
+      "properties": ["displayName"],
       "required": []
+    },
+    "InstanceResource": {
+      "enumValues": [],
+      "properties": ["createdAt", "displayName", "id", "resourceType", "status", "updatedAt"],
+      "required": ["id", "resourceType"]
+    },
+    "JobResource": {
+      "enumValues": [],
+      "properties": [
+        "attemptCount",
+        "createdAt",
+        "id",
+        "nextRunAt",
+        "ownerContext",
+        "resourceRef",
+        "resourceType",
+        "status",
+        "updatedAt",
+        "workType"
+      ],
+      "required": ["id", "resourceType"]
+    },
+    "LabelResource": {
+      "enumValues": [],
+      "properties": ["color", "id", "instanceId", "name", "resourceType", "status", "updatedAt"],
+      "required": ["id", "resourceType"]
     },
     "MediaMessageRequest": {
       "enumValues": [],
-      "properties": [
-        "caption",
-        "mediaId",
-        "mediaRef",
-        "to",
-        "type"
-      ],
-      "required": [
-        "to"
-      ]
+      "properties": ["caption", "mediaId", "mediaRef", "to", "type"],
+      "required": ["to"]
     },
     "MediaRegistrationRequest": {
       "enumValues": [],
+      "properties": ["contentType", "fileRef", "mediaRef", "url"],
+      "required": []
+    },
+    "MediaResource": {
+      "enumValues": [],
       "properties": [
         "contentType",
-        "fileRef",
-        "mediaRef",
-        "url"
+        "createdAt",
+        "expiresAt",
+        "id",
+        "instanceId",
+        "mediaType",
+        "resourceType",
+        "sizeBytes",
+        "status"
       ],
-      "required": []
+      "required": ["id", "resourceType"]
+    },
+    "MessageResource": {
+      "enumValues": [],
+      "properties": [
+        "chatId",
+        "createdAt",
+        "deliveredAt",
+        "direction",
+        "groupId",
+        "id",
+        "instanceId",
+        "readAt",
+        "resourceType",
+        "status",
+        "type",
+        "updatedAt"
+      ],
+      "required": ["id", "resourceType"]
+    },
+    "MetricsResource": {
+      "enumValues": [],
+      "properties": [
+        "activeJobCount",
+        "completedJobCount",
+        "count",
+        "deadJobCount",
+        "id",
+        "queuedJobCount",
+        "reservedJobCount",
+        "resourceType",
+        "retryingJobCount",
+        "runningJobCount",
+        "status",
+        "totalJobCount",
+        "updatedAt",
+        "value"
+      ],
+      "required": ["resourceType"]
     },
     "ObjectRequest": {
       "enumValues": [],
       "properties": [],
       "required": []
     },
-    "PaginationMeta": {
+    "OperationData": {
       "enumValues": [],
       "properties": [
-        "pagination"
+        "accepted",
+        "async",
+        "operationStatus",
+        "reasonCode",
+        "resourceId",
+        "resourceType",
+        "resultRef",
+        "retryable"
       ],
+      "required": ["accepted", "operationStatus", "resourceType", "retryable"]
+    },
+    "PaginationMeta": {
+      "enumValues": [],
+      "properties": ["pagination"],
       "required": []
+    },
+    "ProviderResource": {
+      "enumValues": [],
+      "properties": ["capability", "id", "providerName", "resourceType", "status", "updatedAt"],
+      "required": ["resourceType"]
     },
     "PublicData": {
       "enumValues": [],
       "properties": [],
       "required": []
     },
-    "ResponseMeta": {
+    "PublicResourceData": {
       "enumValues": [],
       "properties": [
-        "correlationId",
-        "requestId",
-        "timestamp"
+        "createdAt",
+        "displayName",
+        "id",
+        "name",
+        "resourceType",
+        "status",
+        "updatedAt"
       ],
-      "required": [
-        "correlationId",
-        "requestId",
-        "timestamp"
-      ]
+      "required": ["resourceType"]
+    },
+    "ResourceReadData": {
+      "enumValues": [],
+      "properties": [
+        "consistency",
+        "freshness",
+        "id",
+        "readStatus",
+        "reasonCode",
+        "resourceId",
+        "resourceType",
+        "resultRef"
+      ],
+      "required": ["readStatus", "resourceType"]
+    },
+    "ResponseMeta": {
+      "enumValues": [],
+      "properties": ["correlationId", "requestId", "timestamp"],
+      "required": ["correlationId", "requestId", "timestamp"]
     },
     "SafeResourceId": {
       "enumValues": [],
       "properties": [],
       "required": []
     },
-    "SuccessEnvelope": {
+    "SessionResource": {
       "enumValues": [],
       "properties": [
-        "data",
-        "meta"
+        "createdAt",
+        "expiresAt",
+        "id",
+        "instanceId",
+        "resourceType",
+        "status",
+        "updatedAt"
       ],
-      "required": [
-        "data",
-        "meta"
-      ]
+      "required": ["id", "resourceType"]
+    },
+    "SettingsResource": {
+      "enumValues": [],
+      "properties": ["id", "profile", "resourceType", "status", "updatedAt"],
+      "required": ["resourceType"]
+    },
+    "SuccessEnvelope": {
+      "enumValues": [],
+      "properties": ["data", "meta"],
+      "required": ["data", "meta"]
     },
     "TextMessageRequest": {
       "enumValues": [],
+      "properties": ["text", "to", "type"],
+      "required": ["text", "to"]
+    },
+    "WebhookDeliveryResource": {
+      "enumValues": [],
       "properties": [
-        "text",
-        "to",
-        "type"
+        "attemptCount",
+        "createdAt",
+        "eventType",
+        "id",
+        "nextRetryAt",
+        "resourceType",
+        "status",
+        "updatedAt",
+        "webhookId"
       ],
-      "required": [
-        "text",
-        "to"
-      ]
+      "required": ["id", "resourceType"]
     },
     "WebhookRequest": {
       "enumValues": [],
-      "properties": [
-        "eventTypes",
-        "url"
-      ],
-      "required": [
-        "url"
-      ]
+      "properties": ["eventTypes", "url"],
+      "required": ["url"]
+    },
+    "WebhookResource": {
+      "enumValues": [],
+      "properties": ["createdAt", "eventTypes", "id", "resourceType", "status", "updatedAt"],
+      "required": ["id", "resourceType"]
     }
   }
 }

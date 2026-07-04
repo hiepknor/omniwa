@@ -193,6 +193,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["ListEvents", (envelope) => this.listEvents(envelope)],
       ["ListWorkerJobs", (envelope) => this.listWorkerJobs(envelope)],
       ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
+      ["GetQueueMetricsSnapshot", (envelope) => this.getQueueMetricsSnapshot(envelope)],
       ["ListWebhookSubscriptions", (envelope) => this.listWebhookSubscriptions(envelope)],
       ["GetWebhookStatus", (envelope) => this.getWebhookStatus(envelope)],
       ["ListWebhookDeliveries", (envelope) => this.listWebhookDeliveries(envelope)],
@@ -440,6 +441,44 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return queryOutcome(envelope, this.clock, "result", {
       resultRef: `job:${job.id}:${job.status}`,
       resource: workerJobQueryItem(job),
+    });
+  }
+
+  private async getQueueMetricsSnapshot(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.workerJobRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "worker_job_repository_not_configured",
+      });
+    }
+
+    const jobsByStatus = await Promise.all(
+      jobStatuses.map(async (status) => [status, await repository.findByStatus(status)] as const),
+    );
+    const counts = Object.fromEntries(
+      jobsByStatus.map(([status, jobs]) => [status, jobs.length]),
+    ) as Record<WorkerJob["status"], number>;
+    const activeJobCount = counts.queued + counts.reserved + counts.running + counts.retrying;
+    const totalJobCount = jobStatuses.reduce((total, status) => total + counts[status], 0);
+    const status = counts.dead > 0 ? "degraded" : activeJobCount > 0 ? "active" : "empty";
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `queue:${status}:${totalJobCount}`,
+      resource: Object.freeze({
+        id: "queue",
+        status,
+        totalJobCount,
+        queuedJobCount: counts.queued,
+        reservedJobCount: counts.reserved,
+        runningJobCount: counts.running,
+        retryingJobCount: counts.retrying,
+        completedJobCount: counts.completed,
+        deadJobCount: counts.dead,
+        activeJobCount,
+      }),
     });
   }
 

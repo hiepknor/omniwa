@@ -80,15 +80,19 @@
     "mustNotCallInternalCommandOrQueryHandlers": true,
     "mustTreatRouteExistsNotImplementedAsDisabledAction": true,
     "mustPreserveRequestAndCorrelationIds": true,
-    "recommendedInitialScreens": ["health", "instances", "sessions", "events", "eventsStream"],
+    "recommendedInitialScreens": [
+      "health",
+      "instances",
+      "sessions",
+      "events",
+      "eventsStream",
+      "queue"
+    ],
     "disabledUntilBackendHandlersExist": [
       "chats",
       "contacts",
       "groups",
       "messages",
-      "queue",
-      "jobs",
-      "webhooks",
       "audit",
       "settings",
       "metrics"
@@ -150,10 +154,10 @@
       "notes": "Instance-scoped list and group detail/member/action routes exist, but Application handlers are unavailable. Top-level /v1/groups is missing."
     },
     "queue": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "MetricsResource",
-      "notes": "Only /v1/queue summary route exists. Queue item/action routes are missing."
+      "notes": "Queue summary route is public through monitoring/admin credentials. Queue item/action routes are missing."
     },
     "jobs": {
       "status": "implemented_public",
@@ -424,6 +428,16 @@
       "responseEnvelope": "SuccessEnvelope"
     },
     {
+      "feature": "queue",
+      "method": "GET",
+      "path": "/v1/queue",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "MetricsResource",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires metrics:read, monitoring, or admin scope. Public DTO does not expose queue engine internals or job payloads."
+    },
+    {
       "feature": "jobs",
       "method": "GET",
       "path": "/v1/jobs",
@@ -671,6 +685,7 @@
     "instanceDetail": "docs/api/client-contract/fixtures/instance.detail.json",
     "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
+    "queueSummary": "docs/api/client-contract/fixtures/queue.summary.json",
     "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",
     "jobDetail": "docs/api/client-contract/fixtures/job.detail.json",
     "webhooksList": "docs/api/client-contract/fixtures/webhooks.list.json",

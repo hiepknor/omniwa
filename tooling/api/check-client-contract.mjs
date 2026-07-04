@@ -15,6 +15,7 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "POST /v1/instances",
   "GET /v1/events",
   "GET /v1/events/stream",
+  "GET /v1/queue",
   "GET /v1/jobs",
   "GET /v1/jobs/{jobId}",
   "GET /v1/webhooks",
@@ -315,6 +316,7 @@ async function checkRequiredFixtureFiles(projectRoot, contract, findings) {
     "authMissingError",
     "instancesEmpty",
     "instancesList",
+    "queueSummary",
     "groupUnavailable",
     "sseHeartbeat",
   ];

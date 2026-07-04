@@ -441,6 +441,66 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");
   });
 
+  it("executes GetQueueMetricsSnapshot through the WorkerJob repository", async () => {
+    const queuedJob = queueWorkerJob(
+      createJobId("job:queue-summary"),
+      "operations",
+      "outbound_message",
+      retryPolicy,
+      {
+        jobKind: "outbound_message",
+        instanceId: "inst:queue-summary",
+        messageId: "msg:queue-summary",
+        outboundIntentRef: "intent:secret-ref",
+      },
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        workerJobRepository: new FakeWorkerJobRepository([queuedJob]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetQueueMetricsSnapshot",
+        queryRef: "qry-get-queue",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-queue",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "queue:active:1",
+      resource: {
+        id: "queue",
+        status: "active",
+        totalJobCount: 1,
+        queuedJobCount: 1,
+        reservedJobCount: 0,
+        runningJobCount: 0,
+        retryingJobCount: 0,
+        completedJobCount: 0,
+        deadJobCount: 0,
+        activeJobCount: 1,
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("outboundIntentRef");
+    expect(JSON.stringify(outcome)).not.toContain("secret-ref");
+    expect(JSON.stringify(outcome)).not.toContain("safeMetadata");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
   it("executes ListWebhookSubscriptions through the Webhook repository", async () => {
     const webhook = createWebhookSubscription(
       createWebhookId("webhook:one"),
