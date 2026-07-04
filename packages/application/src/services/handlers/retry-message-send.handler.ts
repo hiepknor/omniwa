@@ -336,6 +336,7 @@ class RetryMessageSendHandler {
 }
 
 function isRetryableOriginalMessage(message: Message): boolean {
+  // Media retry remains outside the current controlled N9 mutation scope.
   return (
     message.direction === "outbound" &&
     message.type === "text" &&

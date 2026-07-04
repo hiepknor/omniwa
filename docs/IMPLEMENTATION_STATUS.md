@@ -95,6 +95,8 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   the queue engine itself is not a production distributed queue.
 - Integration and live-network tests intentionally avoid requiring real WhatsApp credentials in normal
   PR validation.
+- Controlled message retry is intentionally text-only in the current N9 scope; media retry remains a
+  follow-up capability.
 - Multi-process worker/provider-runtime socket sharing is not productionized.
 - Auth state durable JSON exists for local/live validation, but production encryption and distributed
   ownership remain open hardening items.
