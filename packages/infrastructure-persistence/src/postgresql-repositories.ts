@@ -21,19 +21,17 @@ import {
   type InstanceStatus,
   type JobId,
   type JobStatus,
-  type RepositorySaveResult,
   type SessionId,
   type WorkerJob,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import { Pool, type PoolConfig, type QueryResult, type QueryResultRow } from "pg";
+import {
+  PostgresqlAggregateRepository,
+  type PostgresqlQueryExecutor,
+} from "./postgresql-aggregate-repository.js";
 
-export type PostgresqlQueryExecutor = Readonly<{
-  query<TRow extends QueryResultRow = QueryResultRow>(
-    text: string,
-    values?: readonly unknown[],
-  ): Promise<QueryResult<TRow>>;
-}>;
+export type { PostgresqlQueryExecutor } from "./postgresql-aggregate-repository.js";
 
 export type PostgresqlTransactionClient = PostgresqlQueryExecutor &
   Readonly<{
@@ -217,90 +215,48 @@ export type PostgresqlInstanceRepositoryOptions = Readonly<{
   migrationBarrier?: () => Promise<void>;
 }>;
 
-export class PostgresqlInstanceRepository implements InstanceRepositoryPort {
-  private readonly connection: PostgresqlQueryExecutor;
-  private readonly migrationBarrier: (() => Promise<void>) | undefined;
-
+export class PostgresqlInstanceRepository
+  extends PostgresqlAggregateRepository<Instance, InstanceId>
+  implements InstanceRepositoryPort
+{
   constructor(
     connection: PostgresqlQueryExecutor,
     options: PostgresqlInstanceRepositoryOptions = {},
   ) {
-    this.connection = connection;
-    this.migrationBarrier = options.migrationBarrier;
-  }
-
-  async load(id: InstanceId): Promise<Instance | undefined> {
-    await this.ensureReady();
-
-    const result = await this.connection.query<InstanceRow>(
-      "SELECT aggregate FROM omniwa_instances WHERE id = $1",
-      [keyOf(id)],
-    );
-    const row = result.rows[0];
-
-    return row === undefined ? undefined : decodeInstanceAggregate(row.aggregate);
-  }
-
-  async save(instance: Instance): Promise<RepositorySaveResult> {
-    await this.ensureReady();
-
-    await this.connection.query(
-      `INSERT INTO omniwa_instances (
-        id,
-        status,
-        current_session_id,
-        action_required_reason,
-        aggregate,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5::jsonb, now())
-      ON CONFLICT (id) DO UPDATE SET
-        status = EXCLUDED.status,
-        current_session_id = EXCLUDED.current_session_id,
-        action_required_reason = EXCLUDED.action_required_reason,
-        aggregate = EXCLUDED.aggregate,
-        updated_at = now()`,
-      [
-        keyOf(instance.id),
-        instance.status,
-        optionalNullable(instance.currentSessionId),
-        optionalNullable(instance.actionRequiredReason),
-        JSON.stringify(instance),
-      ],
-    );
-
-    return Object.freeze({ saved: true });
-  }
-
-  async exists(id: InstanceId): Promise<boolean> {
-    await this.ensureReady();
-
-    const result = await this.connection.query("SELECT 1 FROM omniwa_instances WHERE id = $1", [
-      keyOf(id),
-    ]);
-
-    return result.rowCount !== null && result.rowCount > 0;
+    super(connection, {
+      tableName: "omniwa_instances",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "status",
+          value: (instance: Instance) => instance.status,
+        }),
+        Object.freeze({
+          name: "current_session_id",
+          value: (instance: Instance) => optionalNullable(instance.currentSessionId),
+        }),
+        Object.freeze({
+          name: "action_required_reason",
+          value: (instance: Instance) => optionalNullable(instance.actionRequiredReason),
+        }),
+      ]),
+      decode: decodeInstanceAggregate,
+      getId: (instance) => keyOf(instance.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
   }
 
   async findByStatus(status: InstanceStatus): Promise<readonly Instance[]> {
-    await this.ensureReady();
-
-    const result = await this.connection.query<InstanceRow>(
+    return this.findManyBySql(
       "SELECT aggregate FROM omniwa_instances WHERE status = $1 ORDER BY id ASC",
       [createInstanceStatus(status)],
     );
-
-    return Object.freeze(result.rows.map((row) => decodeInstanceAggregate(row.aggregate)));
   }
 
   async findNonTerminal(): Promise<readonly Instance[]> {
-    await this.ensureReady();
-
-    const result = await this.connection.query<InstanceRow>(
+    return this.findManyBySql(
       "SELECT aggregate FROM omniwa_instances WHERE status <> $1 ORDER BY id ASC",
       ["destroyed"],
     );
-
-    return Object.freeze(result.rows.map((row) => decodeInstanceAggregate(row.aggregate)));
   }
 
   async getCurrentSessionId(instanceId: InstanceId): Promise<SessionId | undefined> {
@@ -314,105 +270,61 @@ export class PostgresqlInstanceRepository implements InstanceRepositoryPort {
 
     return value === undefined || value === null ? undefined : createSessionId(value);
   }
-
-  private ensureReady(): Promise<void> {
-    return this.migrationBarrier?.() ?? Promise.resolve();
-  }
 }
 
 export type PostgresqlWorkerJobRepositoryOptions = Readonly<{
   migrationBarrier?: () => Promise<void>;
 }>;
 
-export class PostgresqlWorkerJobRepository implements WorkerJobRepositoryPort {
-  private readonly connection: PostgresqlQueryExecutor;
-  private readonly migrationBarrier: (() => Promise<void>) | undefined;
-
+export class PostgresqlWorkerJobRepository
+  extends PostgresqlAggregateRepository<WorkerJob, JobId>
+  implements WorkerJobRepositoryPort
+{
   constructor(
     connection: PostgresqlQueryExecutor,
     options: PostgresqlWorkerJobRepositoryOptions = {},
   ) {
-    this.connection = connection;
-    this.migrationBarrier = options.migrationBarrier;
-  }
-
-  async load(id: JobId): Promise<WorkerJob | undefined> {
-    await this.ensureReady();
-
-    const result = await this.connection.query<WorkerJobRow>(
-      "SELECT aggregate FROM omniwa_worker_jobs WHERE id = $1",
-      [keyOf(id)],
-    );
-    const row = result.rows[0];
-
-    return row === undefined ? undefined : decodeWorkerJobAggregate(row.aggregate);
-  }
-
-  async save(workerJob: WorkerJob): Promise<RepositorySaveResult> {
-    await this.ensureReady();
-
-    const existingIdempotencyKey = await this.findIdempotencyKeyByJobId(workerJob.id);
-
-    await this.connection.query(
-      `INSERT INTO omniwa_worker_jobs (
-        id,
-        status,
-        owner_context,
-        work_type,
-        idempotency_key,
-        aggregate,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, now())
-      ON CONFLICT (id) DO UPDATE SET
-        status = EXCLUDED.status,
-        owner_context = EXCLUDED.owner_context,
-        work_type = EXCLUDED.work_type,
-        idempotency_key = COALESCE(omniwa_worker_jobs.idempotency_key, EXCLUDED.idempotency_key),
-        aggregate = EXCLUDED.aggregate,
-        updated_at = now()`,
-      [
-        keyOf(workerJob.id),
-        workerJob.status,
-        workerJob.ownerContext,
-        workerJob.workType,
-        existingIdempotencyKey,
-        JSON.stringify(workerJob),
-      ],
-    );
-
-    return Object.freeze({ saved: true });
-  }
-
-  async exists(id: JobId): Promise<boolean> {
-    await this.ensureReady();
-
-    const result = await this.connection.query("SELECT 1 FROM omniwa_worker_jobs WHERE id = $1", [
-      keyOf(id),
-    ]);
-
-    return result.rowCount !== null && result.rowCount > 0;
+    super(connection, {
+      tableName: "omniwa_worker_jobs",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "status",
+          value: (workerJob: WorkerJob) => workerJob.status,
+        }),
+        Object.freeze({
+          name: "owner_context",
+          value: (workerJob: WorkerJob) => workerJob.ownerContext,
+        }),
+        Object.freeze({
+          name: "work_type",
+          value: (workerJob: WorkerJob) => workerJob.workType,
+        }),
+        Object.freeze({
+          name: "idempotency_key",
+          value: (workerJob: WorkerJob) =>
+            findWorkerJobIdempotencyKeyByJobId(connection, workerJob.id),
+          updateExpression:
+            "COALESCE(omniwa_worker_jobs.idempotency_key, EXCLUDED.idempotency_key)",
+        }),
+      ]),
+      decode: decodeWorkerJobAggregate,
+      getId: (workerJob) => keyOf(workerJob.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
   }
 
   async findByStatus(status: JobStatus): Promise<readonly WorkerJob[]> {
-    await this.ensureReady();
-
-    const result = await this.connection.query<WorkerJobRow>(
+    return this.findManyBySql(
       "SELECT aggregate FROM omniwa_worker_jobs WHERE status = $1 ORDER BY id ASC",
       [createJobStatus(status)],
     );
-
-    return Object.freeze(result.rows.map((row) => decodeWorkerJobAggregate(row.aggregate)));
   }
 
   async findByOwnerContext(ownerContext: DomainOwnerContext): Promise<readonly WorkerJob[]> {
-    await this.ensureReady();
-
-    const result = await this.connection.query<WorkerJobRow>(
+    return this.findManyBySql(
       "SELECT aggregate FROM omniwa_worker_jobs WHERE owner_context = $1 ORDER BY id ASC",
       [createDomainOwnerContext(ownerContext)],
     );
-
-    return Object.freeze(result.rows.map((row) => decodeWorkerJobAggregate(row.aggregate)));
   }
 
   async findByIdempotencyKey(idempotencyKey: IdempotencyKey): Promise<WorkerJob | undefined> {
@@ -435,28 +347,23 @@ export class PostgresqlWorkerJobRepository implements WorkerJobRepositoryPort {
       [keyOf(createIdempotencyKey(keyOf(idempotencyKey))), keyOf(jobId)],
     );
   }
-
-  private async findIdempotencyKeyByJobId(jobId: JobId): Promise<string | null> {
-    const result = await this.connection.query<{ idempotency_key: string | null }>(
-      "SELECT idempotency_key FROM omniwa_worker_jobs WHERE id = $1",
-      [keyOf(jobId)],
-    );
-
-    return result.rows[0]?.idempotency_key ?? null;
-  }
-
-  private ensureReady(): Promise<void> {
-    return this.migrationBarrier?.() ?? Promise.resolve();
-  }
 }
-
-type InstanceRow = QueryResultRow & {
-  aggregate: unknown;
-};
 
 type WorkerJobRow = QueryResultRow & {
   aggregate: unknown;
 };
+
+async function findWorkerJobIdempotencyKeyByJobId(
+  connection: PostgresqlQueryExecutor,
+  jobId: JobId,
+): Promise<string | null> {
+  const result = await connection.query<{ idempotency_key: string | null }>(
+    "SELECT idempotency_key FROM omniwa_worker_jobs WHERE id = $1",
+    [keyOf(jobId)],
+  );
+
+  return result.rows[0]?.idempotency_key ?? null;
+}
 
 function createPostgresqlMigrationBarrier(connection: PostgresqlConnection): () => Promise<void> {
   let migrationPromise: Promise<void> | undefined;
