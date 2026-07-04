@@ -783,6 +783,41 @@ describe("RealBaileysSocketProvider", () => {
     expect(JSON.stringify(statusSignal)).not.toContain(rawProviderMessageId);
   });
 
+  it("maps alternate Baileys status shapes into safe message_status signals", async () => {
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+    });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.update",
+      messageUpdates([
+        topLevelStatusUpdate("BAILEYS_TOP_LEVEL_STATUS_ID", WAMessageStatus.DELIVERY_ACK, {
+          messageTimestamp: 1_804_000_005,
+        }),
+        statusUpdate("BAILEYS_STRING_STATUS_ID", "READ", {
+          messageTimestamp: 1_804_000_006,
+        }),
+      ]),
+    );
+    await flushAsyncSignals();
+
+    const statusSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "message_status");
+
+    expect(statusSignals.map((signal) => signal.safeMetadata?.status)).toEqual([
+      "delivered",
+      "read",
+    ]);
+    expect(statusSignals.map((signal) => signal.safeMetadata?.occurredAt)).toEqual([
+      "2027-03-02T15:06:45.000Z",
+      "2027-03-02T15:06:46.000Z",
+    ]);
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_TOP_LEVEL_STATUS_ID");
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_STRING_STATUS_ID");
+  });
+
   it("maps read and failed message statuses safely", async () => {
     const harness = createRealProviderHarness({
       nowEpochMilliseconds: () => 1_804_000_000_000,
@@ -848,6 +883,39 @@ describe("RealBaileysSocketProvider", () => {
     );
     expect(statusSignals[0]?.safeMetadata?.status).toBe("sent");
     expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_DUPLICATE_STATUS_ID");
+  });
+
+  it("ignores message content-only updates without leaking content as status failures", async () => {
+    const harness = createRealProviderHarness();
+    const rawProviderMessageId = "BAILEYS_CONTENT_ONLY_STATUS_ID";
+    const rawText = "raw content-only update text";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.update",
+      messageUpdates([
+        {
+          key: {
+            id: rawProviderMessageId,
+            remoteJid: "12025550123@s.whatsapp.net",
+            fromMe: true,
+          },
+          update: {
+            message: {
+              conversation: rawText,
+            },
+          },
+        } as WAMessageUpdate,
+      ]),
+    );
+    await flushAsyncSignals();
+
+    const signals = harness.provider.drainSignals({ sessionId });
+
+    expect(signals.filter((signal) => signal.kind === "message_status")).toHaveLength(0);
+    expect(signals.filter((signal) => signal.kind === "failure")).toHaveLength(0);
+    expect(JSON.stringify(signals)).not.toContain(rawProviderMessageId);
+    expect(JSON.stringify(signals)).not.toContain(rawText);
   });
 
   it("fails safe for malformed or unsupported message status updates", async () => {
@@ -1183,7 +1251,7 @@ function messageUpdates(updates: readonly WAMessageUpdate[]): BaileysEventMap["m
 
 function statusUpdate(
   providerMessageId: string,
-  status: number,
+  status: unknown,
   update: Partial<WAMessage> = {},
 ): WAMessageUpdate {
   return {
@@ -1197,6 +1265,22 @@ function statusUpdate(
       ...update,
     },
   } as WAMessageUpdate;
+}
+
+function topLevelStatusUpdate(
+  providerMessageId: string,
+  status: unknown,
+  update: Partial<WAMessage> = {},
+): WAMessageUpdate {
+  return {
+    key: {
+      id: providerMessageId,
+      remoteJid: "12025550123@s.whatsapp.net",
+      fromMe: true,
+    },
+    status,
+    ...update,
+  } as unknown as WAMessageUpdate;
 }
 
 async function flushAsyncSignals(): Promise<void> {

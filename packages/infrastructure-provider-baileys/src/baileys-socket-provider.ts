@@ -538,8 +538,14 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       return;
     }
 
+    const statusCandidate = readMessageUpdateStatus(update);
+
+    if (statusCandidate === undefined && isMessageContentOnlyUpdate(update?.update)) {
+      return;
+    }
+
     const providerMessageRef = createProviderMessageRef(request, providerMessageId);
-    const status = mapBaileysMessageStatus(readMessageUpdateStatus(update?.update));
+    const status = mapBaileysMessageStatus(statusCandidate);
 
     if (status === undefined) {
       this.recordStatusFailure(
@@ -553,7 +559,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       return;
     }
 
-    const occurredAt = occurredAtIso(update?.update?.messageTimestamp, this.nowEpochMilliseconds);
+    const occurredAt = occurredAtIso(readMessageUpdateTimestamp(update), this.nowEpochMilliseconds);
     const failureReasonRef =
       status === "failed"
         ? createFailureReasonRef(request, providerMessageId, "status_failed")
@@ -901,12 +907,50 @@ function isMessageUpsertPayload(
   return isObjectRecord(value) && Array.isArray(value.messages);
 }
 
-function readMessageUpdateStatus(update: unknown): unknown {
-  if (!isObjectRecord(update)) {
+function readMessageUpdateStatus(rawUpdate: unknown): unknown {
+  if (!isObjectRecord(rawUpdate)) {
     return undefined;
   }
 
-  return update.status;
+  const nestedUpdate = isObjectRecord(rawUpdate.update) ? rawUpdate.update : undefined;
+
+  if (nestedUpdate !== undefined && hasOwnValue(nestedUpdate, "status")) {
+    return nestedUpdate.status;
+  }
+
+  if (hasOwnValue(rawUpdate, "status")) {
+    return rawUpdate.status;
+  }
+
+  return undefined;
+}
+
+function readMessageUpdateTimestamp(
+  rawUpdate: unknown,
+): WAMessage["messageTimestamp"] | null | undefined {
+  if (!isObjectRecord(rawUpdate)) {
+    return undefined;
+  }
+
+  const nestedUpdate = isObjectRecord(rawUpdate.update) ? rawUpdate.update : undefined;
+
+  if (nestedUpdate !== undefined && hasOwnValue(nestedUpdate, "messageTimestamp")) {
+    return nestedUpdate.messageTimestamp as WAMessage["messageTimestamp"] | null | undefined;
+  }
+
+  if (hasOwnValue(rawUpdate, "messageTimestamp")) {
+    return rawUpdate.messageTimestamp as WAMessage["messageTimestamp"] | null | undefined;
+  }
+
+  return undefined;
+}
+
+function isMessageContentOnlyUpdate(update: unknown): boolean {
+  return isObjectRecord(update) && hasOwnValue(update, "message") && !hasOwnValue(update, "status");
+}
+
+function hasOwnValue(record: Readonly<Record<string, unknown>>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
 }
 
 function mapBaileysMessageStatus(
@@ -922,6 +966,40 @@ function mapBaileysMessageStatus(
     case WAMessageStatus.READ:
     case WAMessageStatus.PLAYED:
       return "read";
+    default:
+      return mapBaileysMessageStatusString(status);
+  }
+}
+
+function mapBaileysMessageStatusString(
+  status: unknown,
+): "sent" | "delivered" | "read" | "failed" | undefined {
+  if (typeof status !== "string") {
+    return undefined;
+  }
+
+  switch (status.trim().toLowerCase()) {
+    case "2":
+    case "server_ack":
+    case "server-ack":
+    case "serverack":
+    case "sent":
+      return "sent";
+    case "3":
+    case "delivery_ack":
+    case "delivery-ack":
+    case "deliveryack":
+    case "delivered":
+      return "delivered";
+    case "4":
+    case "5":
+    case "read":
+    case "played":
+      return "read";
+    case "0":
+    case "error":
+    case "failed":
+      return "failed";
     default:
       return undefined;
   }
