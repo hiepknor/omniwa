@@ -56,7 +56,8 @@ OMNIWA_API_KEY_SECRET_NAME
 The lifecycle store path lets runtime composition build an `ApiKeyVerifier` from durable hashed
 records without retaining plaintext API key configuration. The secret-name path lets an async runtime
 composition read key material through `SecretProvider`, hash it immediately, and pass only the hash
-into the normal verifier path. Production runtime remains blocked until the final target
+into the normal verifier path. The API process entrypoint now selects `EnvSecretProvider` for that
+secret-name path. Production runtime remains blocked until the final target external
 secret-management adapter, operational provisioning workflow, and production auth store posture are
 approved for the production profile.
 

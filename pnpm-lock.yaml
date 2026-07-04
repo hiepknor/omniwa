@@ -44,6 +44,9 @@ importers:
       '@omniwa/infrastructure-queue':
         specifier: workspace:*
         version: link:../../packages/infrastructure-queue
+      '@omniwa/infrastructure-secrets':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-secrets
       '@omniwa/interface-api':
         specifier: workspace:*
         version: link:../../packages/interface-api
