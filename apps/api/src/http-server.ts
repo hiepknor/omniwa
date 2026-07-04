@@ -770,7 +770,10 @@ function matchRoute(
   }
 
   if (method === "GET" && matches(segments, ["v1", "contacts"])) {
-    return adapterQuery("public", "ListContacts", undefined, "eventual_projection");
+    return partialRoute(
+      "global_contacts_public_route_not_available",
+      "Global contact listing is not exposed through the public API boundary; use /v1/instances/{instanceId}/contacts.",
+    );
   }
 
   if (method === "GET" && matches(segments, ["v1", "contacts", ":contactId"])) {

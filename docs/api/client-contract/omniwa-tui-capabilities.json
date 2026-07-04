@@ -88,7 +88,7 @@
       "eventsStream",
       "queue"
     ],
-    "disabledUntilBackendHandlersExist": ["contacts", "groups", "audit", "settings", "metrics"]
+    "disabledUntilBackendHandlersExist": ["groups", "audit", "settings", "metrics"]
   },
   "resources": {
     "health": {
@@ -116,10 +116,10 @@
       "notes": "Instance-scoped list and detail read routes are public. Global /v1/chats remains disabled for public clients. Public DTOs do not expose raw JIDs, phone numbers, participant identifiers, or provider payloads."
     },
     "contacts": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "ContactDto",
-      "notes": "Routes exist but Application handler is unavailable."
+      "notes": "Instance-scoped list and detail read routes are public. Global /v1/contacts remains disabled for public clients. Public DTOs do not expose raw JIDs, phone numbers, or provider payloads."
     },
     "labels": {
       "status": "route_exists_not_implemented",
@@ -361,6 +361,38 @@
       "status": "missing",
       "authRequired": false,
       "dto": "MessageDto[]"
+    },
+    {
+      "feature": "contacts",
+      "method": "GET",
+      "path": "/v1/contacts",
+      "status": "route_exists_not_implemented",
+      "authRequired": true,
+      "dto": "ContactDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status"],
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Intentionally disabled for public clients because it is not instance-scoped. Use /v1/instances/{instanceId}/contacts."
+    },
+    {
+      "feature": "contacts",
+      "method": "GET",
+      "path": "/v1/instances/{instanceId}/contacts",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "ContactDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status"],
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Preferred TUI route for instance-scoped contact navigation."
+    },
+    {
+      "feature": "contacts",
+      "method": "GET",
+      "path": "/v1/contacts/{contactId}",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "ContactDto",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns safe contact status/detail data without raw JIDs, phone numbers, or provider payloads."
     },
     {
       "feature": "groups",
@@ -629,6 +661,19 @@
       "lastMessageAt",
       "updatedAt"
     ],
+    "ContactDto": [
+      "resourceType",
+      "readStatus",
+      "consistency",
+      "freshness",
+      "resultRef",
+      "resourceId",
+      "id",
+      "instanceId",
+      "status",
+      "displayName",
+      "updatedAt"
+    ],
     "MessageDto": [
       "resourceType",
       "id",
@@ -735,6 +780,8 @@
     "messageDetail": "docs/api/client-contract/fixtures/message.detail.json",
     "chatsList": "docs/api/client-contract/fixtures/chats.list.json",
     "chatDetail": "docs/api/client-contract/fixtures/chat.detail.json",
+    "contactsList": "docs/api/client-contract/fixtures/contacts.list.json",
+    "contactDetail": "docs/api/client-contract/fixtures/contact.detail.json",
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
     "queueSummary": "docs/api/client-contract/fixtures/queue.summary.json",
     "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",

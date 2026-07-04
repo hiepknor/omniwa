@@ -1,0 +1,22 @@
+{
+  "data": {
+    "resourceType": "contact",
+    "readStatus": "result",
+    "consistency": "strong_owner",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209791
+    },
+    "resultRef": "contact:contact_demo:discovered",
+    "resourceId": "contact_demo",
+    "id": "contact_demo",
+    "instanceId": "inst_demo",
+    "status": "discovered",
+    "displayName": "Demo Contact"
+  },
+  "meta": {
+    "requestId": "tui-contact-detail-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z"
+  }
+}

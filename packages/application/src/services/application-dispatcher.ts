@@ -3,6 +3,10 @@ import {
   type ChatRepositoryPort,
   chatStatuses,
   createChatId,
+  type Contact,
+  type ContactRepositoryPort,
+  contactStatuses,
+  createContactId,
   createInstance,
   createInstanceId,
   createMessageId,
@@ -71,6 +75,7 @@ export type ApplicationDispatcherRepositories = Readonly<{
   sessionRepository?: SessionRepositoryPort;
   messageRepository?: MessageRepositoryPort;
   chatRepository?: ChatRepositoryPort;
+  contactRepository?: ContactRepositoryPort;
   guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
   workerJobRepository?: WorkerJobRepositoryPort;
   webhookSubscriptionRepository?: WebhookSubscriptionRepositoryPort;
@@ -203,6 +208,9 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["ListChats", (envelope) => this.listChats(envelope)],
       ["ListInstanceChats", (envelope) => this.listInstanceChats(envelope)],
       ["GetChatStatus", (envelope) => this.getChatStatus(envelope)],
+      ["ListContacts", (envelope) => this.listContacts(envelope)],
+      ["ListInstanceContacts", (envelope) => this.listInstanceContacts(envelope)],
+      ["GetContactStatus", (envelope) => this.getContactStatus(envelope)],
       ["ListEvents", (envelope) => this.listEvents(envelope)],
       ["ListWorkerJobs", (envelope) => this.listWorkerJobs(envelope)],
       ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
@@ -488,6 +496,85 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return queryOutcome(envelope, this.clock, "result", {
       resultRef: `chat:${chat.id}:${chat.status}`,
       resource: chatQueryItem(chat),
+    });
+  }
+
+  private async listContacts(envelope: ApplicationQueryEnvelope): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.contactRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "contact_repository_not_configured",
+      });
+    }
+
+    const contacts = (
+      await Promise.all(contactStatuses.map((status) => repository.findByStatus(status)))
+    )
+      .flat()
+      .filter((contact) => contact.status !== "deleted");
+
+    return queryOutcome(envelope, this.clock, contacts.length === 0 ? "empty" : "result", {
+      resultRef: `contacts:list:${contacts.length}`,
+      items: contacts.map(contactQueryItem),
+    });
+  }
+
+  private async listInstanceContacts(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.contactRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "contact_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "instance_target_required",
+      });
+    }
+
+    const contacts = (await repository.findByInstance(createInstanceId(envelope.targetRef))).filter(
+      (contact) => contact.status !== "deleted",
+    );
+
+    return queryOutcome(envelope, this.clock, contacts.length === 0 ? "empty" : "result", {
+      resultRef: `contacts:${envelope.targetRef}:list:${contacts.length}`,
+      items: contacts.map(contactQueryItem),
+    });
+  }
+
+  private async getContactStatus(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.contactRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "contact_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "contact_target_required",
+      });
+    }
+
+    const contact = await repository.load(createContactId(envelope.targetRef));
+
+    if (contact === undefined || contact.status === "deleted") {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `contact:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `contact:${contact.id}:${contact.status}`,
+      resource: contactQueryItem(contact),
     });
   }
 
@@ -843,6 +930,23 @@ function chatQueryItem(chat: Chat): Readonly<{
     labelIds: Object.freeze(chat.labelIds.map(String)),
     muted: chat.muted,
     pinned: chat.pinned,
+  });
+}
+
+function contactQueryItem(contact: Contact): Readonly<{
+  id: string;
+  instanceId: string;
+  status: Contact["status"];
+  displayName?: string;
+}> {
+  return Object.freeze({
+    id: String(contact.id),
+    instanceId: String(contact.instanceId),
+    status: contact.status,
+    ...optional(
+      "displayName",
+      contact.displayName === undefined ? undefined : String(contact.displayName),
+    ),
   });
 }
 

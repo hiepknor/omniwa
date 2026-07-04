@@ -982,6 +982,91 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(detailResponse.body)).not.toContain("jid");
   });
 
+  it("materializes contacts through the public API boundary without exposing JIDs or phone numbers", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+        contactRepository: repositories.contactRepository,
+      },
+    });
+
+    await repositories.contactRepository.save({
+      id: "contact_demo",
+      instanceId: "inst_allowed",
+      jid: "12025550123@s.whatsapp.net",
+      status: "discovered",
+      displayName: "Demo Contact",
+      phoneNumber: "+12025550123",
+    } as unknown as Parameters<typeof repositories.contactRepository.save>[0]);
+
+    const instanceListResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances/inst_allowed/contacts",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-list-instance-contacts",
+          "x-correlation-id": "corr-list-instance-contacts",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-instance-contacts",
+      },
+    );
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/contacts/contact_demo",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-get-contact",
+          "x-correlation-id": "corr-get-contact",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-get-contact",
+      },
+    );
+
+    expect(instanceListResponse.statusCode).toBe(200);
+    expect(
+      "data" in instanceListResponse.body ? instanceListResponse.body.data : undefined,
+    ).toEqual([
+      {
+        resourceType: "contact",
+        id: "contact_demo",
+        instanceId: "inst_allowed",
+        status: "discovered",
+        displayName: "Demo Contact",
+      },
+    ]);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "contact",
+      resourceId: "contact_demo",
+      id: "contact_demo",
+      instanceId: "inst_allowed",
+      status: "discovered",
+      displayName: "Demo Contact",
+      readStatus: "result",
+    });
+    expect(JSON.stringify(instanceListResponse.body)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(instanceListResponse.body)).not.toContain("12025550123");
+    expect(JSON.stringify(instanceListResponse.body)).not.toContain("phoneNumber");
+    expect(JSON.stringify(instanceListResponse.body)).not.toContain("jid");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("12025550123");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("phoneNumber");
+    expect(JSON.stringify(detailResponse.body)).not.toContain("jid");
+  });
+
   it("materializes events from the real EventLog query into public collection items", async () => {
     const repositories = createInMemoryRepositorySet();
     const eventLog = createInMemoryEventLogStore();
@@ -1740,7 +1825,7 @@ describe("API HTTP transport", () => {
     const globalChatsResponse = await request(dispatcher, "GET", "/v1/chats");
     await request(dispatcher, "GET", "/v1/instances/inst_allowed/chats");
     await request(dispatcher, "GET", "/v1/chats/chat_1");
-    await request(dispatcher, "GET", "/v1/contacts");
+    const globalContactsResponse = await request(dispatcher, "GET", "/v1/contacts");
     await request(dispatcher, "GET", "/v1/instances/inst_allowed/contacts");
     await request(dispatcher, "GET", "/v1/contacts/contact_1");
     await request(dispatcher, "GET", "/v1/labels");
@@ -1750,10 +1835,12 @@ describe("API HTTP transport", () => {
     expect(
       "error" in globalChatsResponse.body ? globalChatsResponse.body.error.code : undefined,
     ).toBe("global_chats_public_route_not_available");
+    expect(
+      "error" in globalContactsResponse.body ? globalContactsResponse.body.error.code : undefined,
+    ).toBe("global_contacts_public_route_not_available");
     expect(dispatcher.queryEnvelopes.map((envelope) => envelope.name)).toEqual([
       "ListInstanceChats",
       "GetChatStatus",
-      "ListContacts",
       "ListInstanceContacts",
       "GetContactStatus",
       "ListLabels",
@@ -1763,7 +1850,6 @@ describe("API HTTP transport", () => {
     expect(dispatcher.queryEnvelopes.map((envelope) => envelope.targetRef)).toEqual([
       "inst_allowed",
       "chat_1",
-      undefined,
       "inst_allowed",
       "contact_1",
       undefined,

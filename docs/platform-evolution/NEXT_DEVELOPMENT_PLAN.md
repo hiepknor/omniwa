@@ -29,6 +29,7 @@ Implemented public surfaces currently include:
 | Sessions           | `GET /v1/instances/{instanceId}/sessions`                                       | Implemented |
 | Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`       | Implemented |
 | Chats              | `GET /v1/instances/{instanceId}/chats`, `GET /v1/chats/{chatId}`                | Implemented |
+| Contacts           | `GET /v1/instances/{instanceId}/contacts`, `GET /v1/contacts/{contactId}`       | Implemented |
 | Events             | `GET /v1/events`, `GET /v1/events/stream`                                       | Implemented |
 | Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                          | Implemented |
 | Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                              | Implemented |
@@ -63,26 +64,26 @@ The preferred order is:
 
 ## Immediate Next Increment
 
-### Increment N4 - Contact Read APIs
+### Increment N5 - Group Read APIs
 
 Goal:
 
-- Implement safe contact read APIs for TUI contact selection and detail screens.
+- Implement safe group read APIs for TUI group navigation, detail, and member screens.
 
 Scope:
 
-- Application handler for contact list/detail queries.
-- Prefer instance-scoped contact list queries before global navigation.
-- API materialization for safe contact DTOs.
-- Public DTO must not expose raw phone numbers, raw JIDs, participant identifiers, or provider payloads.
+- Application handlers for group list, group detail, and group member queries.
+- Prefer instance-scoped group list queries before global navigation.
+- API materialization for safe group and group member DTOs.
+- Public DTO must not expose raw member JIDs, phone numbers, invite secrets, participant identifiers, or provider payloads.
 - Client contract status and fixture.
 - TUI integration doc update.
 
 Definition of Done:
 
-- API returns safe success or collection envelopes for contact read endpoints.
+- API returns safe success or collection envelopes for group read endpoints.
 - Empty state is explicit.
-- No raw provider payload, raw JID, raw phone number, or domain event internals leak.
+- No raw provider payload, raw member JID, raw phone number, invite secret, or domain event internals leak.
 - `pnpm check` passes.
 
 Rollback:
@@ -96,7 +97,7 @@ Rollback:
 | N1    | Queue Read Summary            | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                 |
 | N2    | Message Read APIs             | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed |
 | N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed      |
-| N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Redact raw phone/JID as required                          |
+| N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                           |
 | N5    | Group Read APIs               | Implement group list/detail/member reads                              | Groups screens become usable                      | No admin mutations yet                                    |
 | N6    | SDK/Client Contract Sync      | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Usually done inside each increment                        |
 | N7    | VS02 Real WhatsApp Local Demo | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Local live demo only, not production                      |

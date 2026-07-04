@@ -2,6 +2,9 @@ import {
   classifyHealthy,
   createChat,
   createChatId,
+  createContact,
+  createContactDisplayName,
+  createContactId,
   createJobId,
   createInstanceId,
   createHealthStatus,
@@ -10,6 +13,7 @@ import {
   createLabelId,
   createMessageId,
   createOutboundMessageIntent,
+  createPhoneNumber,
   createRetryPolicy,
   createSession,
   createSessionId,
@@ -24,6 +28,10 @@ import {
   type ChatId,
   type ChatRepositoryPort,
   type ChatStatus,
+  type Contact,
+  type ContactId,
+  type ContactRepositoryPort,
+  type ContactStatus,
   type HealthCategory,
   type HealthStatus,
   type HealthStatusId,
@@ -566,6 +574,163 @@ describe("application dispatcher", () => {
     });
     expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
     expect(JSON.stringify(outcome)).not.toContain("12025550125");
+    expect(JSON.stringify(outcome)).not.toContain("jid");
+  });
+
+  it("executes ListContacts through the Contact repository without leaking JIDs or phone numbers", async () => {
+    const contact = createContact({
+      id: createContactId("contact:one"),
+      instanceId: createInstanceId("inst:one"),
+      jid: createJid("12025550123@s.whatsapp.net"),
+      displayName: createContactDisplayName("Demo Contact"),
+      phoneNumber: createPhoneNumber("+12025550123"),
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        contactRepository: new FakeContactRepository([contact]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListContacts",
+        queryRef: "qry-list-contacts",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-contacts",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "contacts:list:1",
+      items: [
+        {
+          id: "contact:one",
+          instanceId: "inst:one",
+          status: "discovered",
+          displayName: "Demo Contact",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(outcome)).not.toContain("12025550123");
+    expect(JSON.stringify(outcome)).not.toContain("phoneNumber");
+    expect(JSON.stringify(outcome)).not.toContain("jid");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes ListInstanceContacts through the Contact repository", async () => {
+    const contact = createContact({
+      id: createContactId("contact:instance"),
+      instanceId: createInstanceId("inst:one"),
+      jid: createJid("12025550124@s.whatsapp.net"),
+      displayName: createContactDisplayName("Instance Contact"),
+    });
+    const otherContact = createContact({
+      id: createContactId("contact:other"),
+      instanceId: createInstanceId("inst:other"),
+      jid: createJid("12025550125@s.whatsapp.net"),
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        contactRepository: new FakeContactRepository([contact, otherContact]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListInstanceContacts",
+        queryRef: "qry-list-instance-contacts",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst:one",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-instance-contacts",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "contacts:inst:one:list:1",
+      items: [
+        {
+          id: "contact:instance",
+          instanceId: "inst:one",
+          status: "discovered",
+          displayName: "Instance Contact",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(outcome)).not.toContain("12025550124");
+    expect(JSON.stringify(outcome)).not.toContain("12025550125");
+  });
+
+  it("executes GetContactStatus through the Contact repository without leaking JIDs or phone numbers", async () => {
+    const contact = createContact({
+      id: createContactId("contact:detail"),
+      instanceId: createInstanceId("inst:detail"),
+      jid: createJid("12025550126@s.whatsapp.net"),
+      displayName: createContactDisplayName("Detail Contact"),
+      phoneNumber: createPhoneNumber("+12025550126"),
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        contactRepository: new FakeContactRepository([contact]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetContactStatus",
+        queryRef: "qry-get-contact-status",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "contact:detail",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-contact-status",
+      outcome: "result",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "contact:contact:detail:discovered",
+      resource: {
+        id: "contact:detail",
+        instanceId: "inst:detail",
+        status: "discovered",
+        displayName: "Detail Contact",
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(outcome)).not.toContain("12025550126");
+    expect(JSON.stringify(outcome)).not.toContain("phoneNumber");
     expect(JSON.stringify(outcome)).not.toContain("jid");
   });
 
@@ -1264,6 +1429,45 @@ class FakeChatRepository implements ChatRepositoryPort {
   }
 
   private list(): readonly Chat[] {
+    return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeContactRepository implements ContactRepositoryPort {
+  private readonly records = new Map<string, Contact>();
+
+  constructor(initialRecords: readonly Contact[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: ContactId): Promise<Contact | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: Contact): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: ContactId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Contact[]> {
+    return Promise.resolve(this.list().filter((contact) => contact.instanceId === instanceId));
+  }
+
+  findByStatus(status: ContactStatus): Promise<readonly Contact[]> {
+    return Promise.resolve(this.list().filter((contact) => contact.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Contact | undefined> {
+    return Promise.resolve(this.list().find((contact) => contact.jid === jid));
+  }
+
+  private list(): readonly Contact[] {
     return Object.freeze([...this.records.values()]);
   }
 }
