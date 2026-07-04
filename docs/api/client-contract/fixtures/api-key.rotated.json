@@ -1,0 +1,37 @@
+{
+  "data": {
+    "resourceType": "apiKey",
+    "resourceId": "api_key_operator_next",
+    "operationStatus": "completed",
+    "accepted": true,
+    "async": false,
+    "revoked": {
+      "resourceType": "apiKey",
+      "id": "api_key_operator",
+      "kind": "api_key",
+      "scopes": ["instances:read", "messages:send"],
+      "allowedInstanceRefs": ["inst_demo"],
+      "status": "revoked",
+      "createdAt": "2026-07-05T00:00:00.000Z",
+      "updatedAt": "2026-07-05T01:00:00.000Z",
+      "revokedAt": "2026-07-05T01:00:00.000Z",
+      "revocationReasonCode": "rotated"
+    },
+    "replacement": {
+      "resourceType": "apiKey",
+      "id": "api_key_operator_next",
+      "kind": "api_key",
+      "scopes": ["instances:read", "messages:send"],
+      "allowedInstanceRefs": ["inst_demo"],
+      "status": "active",
+      "rotatedFromKeyId": "api_key_operator",
+      "createdAt": "2026-07-05T01:00:00.000Z",
+      "updatedAt": "2026-07-05T01:00:00.000Z"
+    }
+  },
+  "meta": {
+    "requestId": "req_fixture_api_key_rotated",
+    "correlationId": "corr_fixture_api_key_rotated",
+    "timestamp": "2026-07-05T01:00:00.000Z"
+  }
+}

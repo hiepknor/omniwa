@@ -41,6 +41,7 @@ import {
 } from "./http-server.js";
 import { InMemoryFixedWindowRateLimiter } from "./api-rate-limiter.js";
 import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
+import { ApiKeyLifecycleService, InMemoryApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import {
   createEventLogRealtimeEventSource,
   createRealtimeEventEnvelope,
@@ -2228,6 +2229,260 @@ describe("API HTTP transport", () => {
     ]);
   });
 
+  it("lists API key lifecycle records through the admin boundary without exposing key material", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const apiKeyLifecycleService = createTestApiKeyLifecycleService();
+
+    await apiKeyLifecycleService.provision({
+      key: "managed-api-key-secret",
+      credential: {
+        kind: "api_key",
+        keyId: "managed-api-key",
+        scopes: ["instances:read"],
+        allowedInstanceRefs: ["inst_allowed"],
+      },
+      actorRef: "test:seed",
+    });
+
+    const response = await request(dispatcher, "GET", "/v1/api-keys", {
+      apiKey: "admin-secret",
+      apiKeyLifecycleService,
+    });
+    const serialized = JSON.stringify(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toEqual([
+      {
+        resourceType: "apiKey",
+        id: "managed-api-key",
+        kind: "api_key",
+        scopes: ["instances:read"],
+        allowedInstanceRefs: ["inst_allowed"],
+        status: "active",
+        createdAt: "2026-06-30T00:00:00.000Z",
+        updatedAt: "2026-06-30T00:00:00.000Z",
+      },
+    ]);
+    expect(serialized).not.toContain("managed-api-key-secret");
+    expect(serialized).not.toContain("sha256:");
+    expect(dispatcher.commandEnvelopes).toHaveLength(0);
+    expect(dispatcher.queryEnvelopes).toHaveLength(0);
+  });
+
+  it("requires admin scope before API key lifecycle routes can run", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
+    const apiKeyLifecycleService = createTestApiKeyLifecycleService();
+
+    const response = await request(dispatcher, "GET", "/v1/api-keys", {
+      apiKeyLifecycleService,
+      securityAuditSink,
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect("error" in response.body ? response.body.error : undefined).toMatchObject({
+      code: "missing_scope",
+      details: {
+        category: "authorization",
+        requiredScope: "admin:*",
+      },
+    });
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "authorization_denied",
+        requestId: "req-test",
+        correlationId: "corr-test",
+        keyId: "test-public-key",
+        credentialKind: "api_key",
+        operationRef: "ListApiKeys",
+        resourceType: "api_key",
+      }),
+    ]);
+    expect(dispatcher.commandEnvelopes).toHaveLength(0);
+    expect(dispatcher.queryEnvelopes).toHaveLength(0);
+  });
+
+  it("fails safe when API key lifecycle routes are not configured", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const response = await request(dispatcher, "GET", "/v1/api-keys", {
+      apiKey: "admin-secret",
+    });
+
+    expect(response.statusCode).toBe(501);
+    expect("error" in response.body ? response.body.error : undefined).toMatchObject({
+      code: "api_key_lifecycle_service_not_configured",
+      details: {
+        category: "not_implemented",
+      },
+    });
+    expect(dispatcher.commandEnvelopes).toHaveLength(0);
+    expect(dispatcher.queryEnvelopes).toHaveLength(0);
+  });
+
+  it("provisions API keys through admin lifecycle routes with safe DTOs and audit evidence", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const apiKeyLifecycleService = createTestApiKeyLifecycleService();
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
+
+    const response = await request(dispatcher, "POST", "/v1/api-keys", {
+      apiKey: "admin-secret",
+      apiKeyLifecycleService,
+      securityAuditSink,
+      body: {
+        key: "new-managed-secret",
+        keyId: "managed-provisioned-key",
+        kind: "api_key",
+        scopes: ["instances:read", "messages:send"],
+        allowedInstanceRefs: ["inst_allowed"],
+      },
+    });
+    const serialized = JSON.stringify(response.body);
+
+    expect(response.statusCode).toBe(201);
+    expect("data" in response.body ? response.body.data : undefined).toMatchObject({
+      resourceType: "apiKey",
+      resourceId: "managed-provisioned-key",
+      operationStatus: "completed",
+      accepted: true,
+      async: false,
+      apiKey: {
+        resourceType: "apiKey",
+        id: "managed-provisioned-key",
+        kind: "api_key",
+        scopes: ["instances:read", "messages:send"],
+        allowedInstanceRefs: ["inst_allowed"],
+        status: "active",
+      },
+    });
+    expect(serialized).not.toContain("new-managed-secret");
+    expect(serialized).not.toContain("sha256:");
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "admin_action",
+        code: "api_key_lifecycle_admin_action",
+        operationRef: "ProvisionApiKey",
+        targetRef: "managed-provisioned-key",
+        resourceType: "api_key",
+        keyId: "test-admin-key",
+        credentialKind: "admin_key",
+      }),
+    ]);
+    expect(dispatcher.commandEnvelopes).toHaveLength(0);
+    expect(dispatcher.queryEnvelopes).toHaveLength(0);
+  });
+
+  it("revokes API keys through admin lifecycle routes without exposing hashes or plaintext", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const apiKeyLifecycleService = createTestApiKeyLifecycleService();
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
+
+    await apiKeyLifecycleService.provision({
+      key: "revoked-managed-secret",
+      credential: {
+        kind: "api_key",
+        keyId: "managed-revoked-key",
+        scopes: ["instances:read"],
+      },
+      actorRef: "test:seed",
+    });
+
+    const response = await request(dispatcher, "POST", "/v1/api-keys/managed-revoked-key/revoke", {
+      apiKey: "admin-secret",
+      apiKeyLifecycleService,
+      securityAuditSink,
+      body: {
+        reasonCode: "operator_requested",
+      },
+    });
+    const serialized = JSON.stringify(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toMatchObject({
+      resourceType: "apiKey",
+      resourceId: "managed-revoked-key",
+      operationStatus: "completed",
+      apiKey: {
+        resourceType: "apiKey",
+        id: "managed-revoked-key",
+        status: "revoked",
+        revocationReasonCode: "operator_requested",
+      },
+    });
+    expect(serialized).not.toContain("revoked-managed-secret");
+    expect(serialized).not.toContain("sha256:");
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "admin_action",
+        path: "/v1/api-keys/[key-id]/revoke",
+        operationRef: "RevokeApiKey",
+        targetRef: "managed-revoked-key",
+        resourceType: "api_key",
+      }),
+    ]);
+  });
+
+  it("rotates API keys through admin lifecycle routes with safe replacement DTOs", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const apiKeyLifecycleService = createTestApiKeyLifecycleService();
+    const securityAuditSink = new InMemoryApiSecurityAuditSink();
+
+    await apiKeyLifecycleService.provision({
+      key: "rotation-current-secret",
+      credential: {
+        kind: "api_key",
+        keyId: "managed-current-key",
+        scopes: ["instances:read"],
+      },
+      actorRef: "test:seed",
+    });
+
+    const response = await request(dispatcher, "POST", "/v1/api-keys/managed-current-key/rotate", {
+      apiKey: "admin-secret",
+      apiKeyLifecycleService,
+      securityAuditSink,
+      body: {
+        nextKey: "rotation-next-secret",
+        nextKeyId: "managed-next-key",
+        kind: "api_key",
+        scopes: ["instances:read", "messages:send"],
+        reasonCode: "scheduled_rotation",
+      },
+    });
+    const serialized = JSON.stringify(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toMatchObject({
+      resourceType: "apiKey",
+      resourceId: "managed-next-key",
+      operationStatus: "completed",
+      revoked: {
+        resourceType: "apiKey",
+        id: "managed-current-key",
+        status: "revoked",
+        revocationReasonCode: "scheduled_rotation",
+      },
+      replacement: {
+        resourceType: "apiKey",
+        id: "managed-next-key",
+        status: "active",
+        rotatedFromKeyId: "managed-current-key",
+        scopes: ["instances:read", "messages:send"],
+      },
+    });
+    expect(serialized).not.toContain("rotation-current-secret");
+    expect(serialized).not.toContain("rotation-next-secret");
+    expect(serialized).not.toContain("sha256:");
+    expect(securityAuditSink.snapshot()).toEqual([
+      expect.objectContaining({
+        eventType: "admin_action",
+        path: "/v1/api-keys/[key-id]/rotate",
+        operationRef: "RotateApiKey",
+        targetRef: "managed-next-key",
+        resourceType: "api_key",
+      }),
+    ]);
+  });
+
   it("keeps scheduler-owned routes explicitly partial", async () => {
     const dispatcher = new CapturingDispatcher();
     const reconnectResponse = await request(
@@ -2258,10 +2513,13 @@ function request(
   url: string,
   input: Readonly<{
     apiKey?: string;
+    apiKeys?: readonly ApiKeyConfig[];
+    apiKeyLifecycleService?: ApiKeyLifecycleService;
     body?: unknown;
     headers?: Readonly<Record<string, string>>;
     outboundMessageIntentStore?: OutboundMessageIntentStorePort;
     groupMutationIntentStore?: GroupMutationIntentStorePort;
+    securityAuditSink?: InMemoryApiSecurityAuditSink;
   }> = {},
 ): Promise<ApiHttpResponse> {
   return handleApiHttpRequest(
@@ -2278,17 +2536,26 @@ function request(
     },
     {
       dispatcher,
-      apiKeys,
+      apiKeys: input.apiKeys ?? apiKeys,
       now: fixedNow,
       requestRefGenerator: () => "http-test",
+      ...optional("apiKeyLifecycleService", input.apiKeyLifecycleService),
       ...optional("outboundMessageIntentStore", input.outboundMessageIntentStore),
       ...optional("groupMutationIntentStore", input.groupMutationIntentStore),
+      ...optional("securityAuditSink", input.securityAuditSink),
     },
   );
 }
 
 function fixedNow(): Date {
   return new Date("2026-06-30T00:00:00.000Z");
+}
+
+function createTestApiKeyLifecycleService(): ApiKeyLifecycleService {
+  return new ApiKeyLifecycleService({
+    store: new InMemoryApiKeyLifecycleStore(),
+    now: fixedNow,
+  });
 }
 
 function getCollectionMeta(response: ApiHttpResponse): HttpCollectionResponseMeta {

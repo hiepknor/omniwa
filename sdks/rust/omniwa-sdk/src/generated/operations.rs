@@ -200,6 +200,12 @@ pub const LIST_ACTION_REQUIRED_ITEMS: Operation = Operation {
     path: "/v1/action-required",
 };
 
+pub const LIST_API_KEYS: Operation = Operation {
+    operation_id: "listApiKeys",
+    method: "GET",
+    path: "/v1/api-keys",
+};
+
 pub const LIST_AUDIT_RECORDS: Operation = Operation {
     operation_id: "listAuditRecords",
     method: "GET",
@@ -302,6 +308,12 @@ pub const PROMOTE_GROUP_MEMBER: Operation = Operation {
     path: "/v1/groups/{groupId}/members/{memberJid}/promote",
 };
 
+pub const PROVISION_API_KEY: Operation = Operation {
+    operation_id: "provisionApiKey",
+    method: "POST",
+    path: "/v1/api-keys",
+};
+
 pub const REFRESH_GROUP_INVITE_LINK: Operation = Operation {
     operation_id: "refreshGroupInviteLink",
     method: "POST",
@@ -366,6 +378,18 @@ pub const RETRY_WEBHOOK_DELIVERY: Operation = Operation {
     operation_id: "retryWebhookDelivery",
     method: "POST",
     path: "/v1/webhook-deliveries/{deliveryId}/retry",
+};
+
+pub const REVOKE_API_KEY: Operation = Operation {
+    operation_id: "revokeApiKey",
+    method: "POST",
+    path: "/v1/api-keys/{keyId}/revoke",
+};
+
+pub const ROTATE_API_KEY: Operation = Operation {
+    operation_id: "rotateApiKey",
+    method: "POST",
+    path: "/v1/api-keys/{keyId}/rotate",
 };
 
 pub const SEND_GROUP_TEXT_MESSAGE: Operation = Operation {
@@ -467,6 +491,7 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     GET_WEBHOOK_DELIVERY_HISTORY,
     GET_WEBHOOK_METRICS,
     LIST_ACTION_REQUIRED_ITEMS,
+    LIST_API_KEYS,
     LIST_AUDIT_RECORDS,
     LIST_CHATS,
     LIST_CONTACTS,
@@ -484,6 +509,7 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     LIST_WEBHOOK_DELIVERIES,
     LIST_WEBHOOKS,
     PROMOTE_GROUP_MEMBER,
+    PROVISION_API_KEY,
     REFRESH_GROUP_INVITE_LINK,
     REFRESH_INSTANCE_GROUPS,
     REFRESH_INSTANCE_QR,
@@ -495,6 +521,8 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     RETIRE_WEBHOOK,
     RETRY_MESSAGE,
     RETRY_WEBHOOK_DELIVERY,
+    REVOKE_API_KEY,
+    ROTATE_API_KEY,
     SEND_GROUP_TEXT_MESSAGE,
     SEND_INSTANCE_MEDIA_MESSAGE,
     SEND_INSTANCE_MESSAGE,
@@ -542,6 +570,7 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "getWebhookDeliveryHistory" => Some(GET_WEBHOOK_DELIVERY_HISTORY),
         "getWebhookMetrics" => Some(GET_WEBHOOK_METRICS),
         "listActionRequiredItems" => Some(LIST_ACTION_REQUIRED_ITEMS),
+        "listApiKeys" => Some(LIST_API_KEYS),
         "listAuditRecords" => Some(LIST_AUDIT_RECORDS),
         "listChats" => Some(LIST_CHATS),
         "listContacts" => Some(LIST_CONTACTS),
@@ -559,6 +588,7 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "listWebhookDeliveries" => Some(LIST_WEBHOOK_DELIVERIES),
         "listWebhooks" => Some(LIST_WEBHOOKS),
         "promoteGroupMember" => Some(PROMOTE_GROUP_MEMBER),
+        "provisionApiKey" => Some(PROVISION_API_KEY),
         "refreshGroupInviteLink" => Some(REFRESH_GROUP_INVITE_LINK),
         "refreshInstanceGroups" => Some(REFRESH_INSTANCE_GROUPS),
         "refreshInstanceQr" => Some(REFRESH_INSTANCE_QR),
@@ -570,6 +600,8 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "retireWebhook" => Some(RETIRE_WEBHOOK),
         "retryMessage" => Some(RETRY_MESSAGE),
         "retryWebhookDelivery" => Some(RETRY_WEBHOOK_DELIVERY),
+        "revokeApiKey" => Some(REVOKE_API_KEY),
+        "rotateApiKey" => Some(ROTATE_API_KEY),
         "sendGroupTextMessage" => Some(SEND_GROUP_TEXT_MESSAGE),
         "sendInstanceMediaMessage" => Some(SEND_INSTANCE_MEDIA_MESSAGE),
         "sendInstanceMessage" => Some(SEND_INSTANCE_MESSAGE),

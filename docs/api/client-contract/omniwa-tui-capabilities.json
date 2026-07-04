@@ -188,10 +188,10 @@
       "notes": "Route exists under /v1/audit-records, requires admin/audit scope, handler unavailable."
     },
     "apiKeys": {
-      "status": "internal_only",
+      "status": "implemented_public",
       "recommendedForTui": false,
-      "dto": "ApiKeyDto",
-      "notes": "API key lifecycle helpers exist internally, but there is no public API key management route."
+      "dto": "ApiKeyDto|ApiKeyLifecycleOperationData",
+      "notes": "Admin-only API key lifecycle routes are public for platform operators. They require admin:* and never return plaintext keys or keyHash values."
     },
     "settings": {
       "status": "route_exists_not_implemented",
@@ -680,9 +680,45 @@
       "feature": "apiKeys",
       "method": "GET",
       "path": "/v1/api-keys",
-      "status": "internal_only",
-      "authRequired": false,
-      "dto": "ApiKeyDto[]"
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "ApiKeyDto[]",
+      "queryParams": ["cursor", "limit", "sort"],
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Requires admin:* scope. Response contains safe API key lifecycle records only."
+    },
+    {
+      "feature": "apiKeys",
+      "method": "POST",
+      "path": "/v1/api-keys",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "ApiKeyLifecycleOperationData",
+      "requestDto": "ApiKeyProvisionRequest",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires admin:* scope. Request key is write-only and is never returned."
+    },
+    {
+      "feature": "apiKeys",
+      "method": "POST",
+      "path": "/v1/api-keys/{keyId}/revoke",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "ApiKeyLifecycleOperationData",
+      "requestDto": "ApiKeyRevocationRequest",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires admin:* scope. Revokes the safe keyId route target."
+    },
+    {
+      "feature": "apiKeys",
+      "method": "POST",
+      "path": "/v1/api-keys/{keyId}/rotate",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "ApiKeyLifecycleOperationData",
+      "requestDto": "ApiKeyRotationRequest",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Requires admin:* scope. nextKey is write-only and is never returned."
     },
     {
       "feature": "settings",
@@ -864,6 +900,29 @@
       "async",
       "resultRef",
       "reasonCode"
+    ],
+    "ApiKeyDto": [
+      "resourceType",
+      "id",
+      "kind",
+      "scopes",
+      "allowedInstanceRefs",
+      "status",
+      "rotatedFromKeyId",
+      "createdAt",
+      "updatedAt",
+      "revokedAt",
+      "revocationReasonCode"
+    ],
+    "ApiKeyLifecycleOperationData": [
+      "resourceType",
+      "resourceId",
+      "operationStatus",
+      "accepted",
+      "async",
+      "apiKey",
+      "revoked",
+      "replacement"
     ]
   },
   "fixtures": {
@@ -899,6 +958,10 @@
     "webhookDetail": "docs/api/client-contract/fixtures/webhook.detail.json",
     "webhookDeliveriesList": "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
     "webhookDeliveryHistory": "docs/api/client-contract/fixtures/webhook-delivery.history.json",
-    "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse"
+    "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse",
+    "apiKeysList": "docs/api/client-contract/fixtures/api-keys.list.json",
+    "apiKeyProvisioned": "docs/api/client-contract/fixtures/api-key.provisioned.json",
+    "apiKeyRevoked": "docs/api/client-contract/fixtures/api-key.revoked.json",
+    "apiKeyRotated": "docs/api/client-contract/fixtures/api-key.rotated.json"
   }
 }

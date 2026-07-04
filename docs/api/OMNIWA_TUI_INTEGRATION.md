@@ -107,7 +107,9 @@ Error response:
 
 ## Current TUI Integration Scope
 
-Wire these first:
+Wire standard TUI screens from these surfaces first. Admin/operator-only rows are included for
+contract completeness and should remain disabled by default unless the client is explicitly running in
+an admin profile.
 
 | Area      | Endpoint                                     | Status               | TUI use                                                                                          |
 | --------- | -------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
@@ -143,6 +145,10 @@ Wire these first:
 | Webhooks  | `GET /v1/webhooks/{id}`                      | `implemented_public` | Webhook subscription detail/status panel.                                                        |
 | Webhooks  | `GET /v1/webhook-deliveries`                 | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                           |
 | Webhooks  | `GET /v1/webhook-deliveries/{id}/history`    | `implemented_public` | Webhook delivery detail/history panel.                                                           |
+| API Keys  | `GET /v1/api-keys`                           | `implemented_public` | Admin/operator-only lifecycle list. Requires `admin:*`; never displays plaintext keys or hashes. |
+| API Keys  | `POST /v1/api-keys`                          | `implemented_public` | Admin/operator-only provision action. Request key is write-only and is not returned.             |
+| API Keys  | `POST /v1/api-keys/{id}/revoke`              | `implemented_public` | Admin/operator-only revoke action by safe key id.                                                |
+| API Keys  | `POST /v1/api-keys/{id}/rotate`              | `implemented_public` | Admin/operator-only rotate action. Replacement key is write-only and is not returned.            |
 
 Keep these disabled or read-only with a backend-not-ready state:
 
@@ -153,6 +159,10 @@ Keep these disabled or read-only with a backend-not-ready state:
 - Audit
 - Settings
 - Metrics
+
+API key lifecycle routes are public platform APIs but are **not** recommended for default TUI
+navigation. Only enable them in an explicit operator/admin mode after the capability manifest marks
+`apiKeys.recommendedForTui` as suitable for that client profile and the credential has `admin:*`.
 
 ## Realtime Contract
 
@@ -241,6 +251,21 @@ curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"
 ```
 
+Admin API-key lifecycle checks require a runtime configured with
+`OMNIWA_API_KEY_LIFECYCLE_STORE_PATH` and an `admin:*` credential:
+
+```sh
+curl -sS -H "x-api-key: $ADMIN_KEY" "$BASE/v1/api-keys"
+curl -sS -X POST -H "x-api-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"key":"new-secret","keyId":"api_key_operator","kind":"api_key","scopes":["instances:read"]}' \
+  "$BASE/v1/api-keys"
+curl -sS -X POST -H "x-api-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"reasonCode":"operator_requested"}' "$BASE/v1/api-keys/api_key_operator/revoke"
+curl -sS -X POST -H "x-api-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"nextKey":"next-secret","nextKeyId":"api_key_operator_next","kind":"api_key","scopes":["instances:read"]}' \
+  "$BASE/v1/api-keys/api_key_operator/rotate"
+```
+
 Group member mutations return `operationStatus: "accepted"` because the backend records the
 controlled local action and audit evidence. Provider-backed WhatsApp synchronization for these
 member actions is still outside the current scope. Group metadata and local-state mutations return
@@ -278,6 +303,8 @@ Required fixture states:
 - Group collection list
 - Group detail/status
 - Group members list
+- API key lifecycle list
+- API key provision/revoke/rotate operations
 - SSE heartbeat
 
 `omniwa-tui` should copy or consume these fixtures in its own test suite pinned to a backend

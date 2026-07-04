@@ -8,6 +8,7 @@ export const apiSecurityAuditEventTypes = [
   "authorization_denied",
   "rate_limit_denied",
   "admin_bypass",
+  "admin_action",
 ] as const;
 
 export type ApiSecurityAuditEventType = (typeof apiSecurityAuditEventTypes)[number];

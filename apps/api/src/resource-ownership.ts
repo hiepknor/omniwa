@@ -14,6 +14,7 @@ export const apiResourceOwnershipResourceTypes = [
   "job",
   "event",
   "audit_record",
+  "api_key",
   "settings",
   "provider",
   "metrics",
@@ -209,6 +210,7 @@ export function inferApiResourceOwnershipResourceType(
   if (operationRef.includes("Label")) return "label";
   if (operationRef.includes("Events")) return "event";
   if (operationRef.includes("Audit")) return "audit_record";
+  if (operationRef.includes("ApiKey")) return "api_key";
   if (operationRef.includes("Configuration")) return "settings";
   if (operationRef.includes("Provider")) return "provider";
   if (operationRef.includes("Metrics") || operationRef.includes("Queue")) return "metrics";

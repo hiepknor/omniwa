@@ -1,0 +1,24 @@
+{
+  "data": {
+    "resourceType": "apiKey",
+    "resourceId": "api_key_operator",
+    "operationStatus": "completed",
+    "accepted": true,
+    "async": false,
+    "apiKey": {
+      "resourceType": "apiKey",
+      "id": "api_key_operator",
+      "kind": "api_key",
+      "scopes": ["instances:read", "messages:send"],
+      "allowedInstanceRefs": ["inst_demo"],
+      "status": "active",
+      "createdAt": "2026-07-05T00:00:00.000Z",
+      "updatedAt": "2026-07-05T00:00:00.000Z"
+    }
+  },
+  "meta": {
+    "requestId": "req_fixture_api_key_provisioned",
+    "correlationId": "corr_fixture_api_key_provisioned",
+    "timestamp": "2026-07-05T00:00:00.000Z"
+  }
+}

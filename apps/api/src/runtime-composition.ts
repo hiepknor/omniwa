@@ -28,7 +28,7 @@ import {
   type ApiKeyVerifier,
   type HashedApiKeyConfig,
 } from "./api-key-auth.js";
-import { DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
+import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import {
   readApiKeysFromEnv,
   readHashedApiKeysFromEnv,
@@ -68,11 +68,11 @@ export function createApiRuntimeComposition(
   const apiKeys = readApiKeysFromEnv(env);
   const hashedApiKeys = readHashedApiKeysFromEnv(env);
   const apiKeyLifecycleStorePath = readApiKeyLifecycleStorePath(env);
-  const apiKeyVerifier = createRuntimeApiKeyVerifier(
-    apiKeys,
-    hashedApiKeys,
-    apiKeyLifecycleStorePath,
-  );
+  const apiKeyLifecycleStore =
+    apiKeyLifecycleStorePath === undefined
+      ? undefined
+      : new DurableJsonApiKeyLifecycleStore(apiKeyLifecycleStorePath);
+  const apiKeyVerifier = createRuntimeApiKeyVerifier(apiKeys, hashedApiKeys, apiKeyLifecycleStore);
 
   assertRuntimeProfileIsComposable(
     profile,
@@ -130,6 +130,12 @@ export function createApiRuntimeComposition(
       outboundMessageIntentStore,
       groupMutationIntentStore,
       ...optional("eventSource", eventSource),
+      ...optional(
+        "apiKeyLifecycleService",
+        apiKeyLifecycleStore === undefined
+          ? undefined
+          : new ApiKeyLifecycleService({ store: apiKeyLifecycleStore }),
+      ),
       ...(apiKeyVerifier === undefined ? { apiKeys } : { apiKeyVerifier }),
     }),
   });
@@ -162,12 +168,12 @@ export async function createApiRuntimeCompositionFromSecrets(
 function createRuntimeApiKeyVerifier(
   apiKeys: readonly ApiKeyConfig[],
   hashedApiKeys: readonly HashedApiKeyConfig[],
-  apiKeyLifecycleStorePath: string | undefined,
+  apiKeyLifecycleStore: DurableJsonApiKeyLifecycleStore | undefined,
 ): ApiKeyVerifier | undefined {
   const configuredSources = [
     apiKeys.length > 0 ? "OMNIWA_API_KEY" : undefined,
     hashedApiKeys.length > 0 ? "OMNIWA_API_KEY_HASH" : undefined,
-    apiKeyLifecycleStorePath !== undefined ? "OMNIWA_API_KEY_LIFECYCLE_STORE_PATH" : undefined,
+    apiKeyLifecycleStore !== undefined ? "OMNIWA_API_KEY_LIFECYCLE_STORE_PATH" : undefined,
   ].filter((source): source is string => source !== undefined);
 
   if (configuredSources.length > 1) {
@@ -176,16 +182,14 @@ function createRuntimeApiKeyVerifier(
     );
   }
 
-  if (apiKeyLifecycleStorePath !== undefined) {
-    const records = new DurableJsonApiKeyLifecycleStore(
-      apiKeyLifecycleStorePath,
-    ).listApiKeyRecordsSync();
+  if (apiKeyLifecycleStore !== undefined) {
+    const records = apiKeyLifecycleStore.listApiKeyRecordsSync();
 
     if (!records.some((record) => record.status === "active")) {
       throw new Error("OMNIWA_API_KEY_LIFECYCLE_STORE_PATH must contain an active API key.");
     }
 
-    return createHashedApiKeyVerifier(records);
+    return createApiKeyLifecycleStoreVerifier(apiKeyLifecycleStore);
   }
 
   if (hashedApiKeys.length > 0) {
@@ -197,6 +201,16 @@ function createRuntimeApiKeyVerifier(
   }
 
   return undefined;
+}
+
+function createApiKeyLifecycleStoreVerifier(
+  store: DurableJsonApiKeyLifecycleStore,
+): ApiKeyVerifier {
+  return {
+    verify(providedKey: string | undefined) {
+      return createHashedApiKeyVerifier(store.listApiKeyRecordsSync()).verify(providedKey);
+    },
+  };
 }
 
 function readApiKeyLifecycleStorePath(env: NodeJS.ProcessEnv): string | undefined {

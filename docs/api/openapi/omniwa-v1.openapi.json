@@ -2942,6 +2942,201 @@
           }
         }
       }
+    },
+    "/v1/api-keys": {
+      "get": {
+        "tags": ["Admin"],
+        "operationId": "listApiKeys",
+        "summary": "List API key lifecycle records",
+        "description": "Lists safe API key lifecycle records. Plaintext keys and keyHash values are never returned.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CollectionSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Admin"],
+        "operationId": "provisionApiKey",
+        "summary": "Provision an API key",
+        "description": "Creates a hashed API key lifecycle record. The provided key is write-only and is not returned.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiKeyProvisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        }
+      }
+    },
+    "/v1/api-keys/{keyId}/revoke": {
+      "post": {
+        "tags": ["Admin"],
+        "operationId": "revokeApiKey",
+        "summary": "Revoke an API key",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ApiKeyId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiKeyRevocationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        }
+      }
+    },
+    "/v1/api-keys/{keyId}/rotate": {
+      "post": {
+        "tags": ["Admin"],
+        "operationId": "rotateApiKey",
+        "summary": "Rotate an API key",
+        "description": "Revokes the current key and creates a safe replacement record. Plaintext key material is write-only.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ApiKeyId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiKeyRotationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3123,6 +3318,16 @@
         "schema": {
           "$ref": "#/components/schemas/SafeResourceId"
         }
+      },
+      "ApiKeyId": {
+        "name": "keyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Safe API key identifier. This is not the API key secret or hash."
       }
     },
     "requestBodies": {
@@ -3787,6 +3992,12 @@
           },
           {
             "$ref": "#/components/schemas/ProviderResource"
+          },
+          {
+            "$ref": "#/components/schemas/ApiKeyResource"
+          },
+          {
+            "$ref": "#/components/schemas/ApiKeyLifecycleOperationData"
           }
         ]
       },
@@ -4602,6 +4813,179 @@
           }
         },
         "additionalProperties": true
+      },
+      "ApiKeyResource": {
+        "type": "object",
+        "required": ["resourceType", "id", "kind", "scopes", "status", "createdAt", "updatedAt"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["apiKey"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["api_key", "admin_key", "monitoring_key"]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "allowedInstanceRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "revoked"]
+          },
+          "rotatedFromKeyId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revokedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revocationReasonCode": {
+            "type": "string"
+          }
+        },
+        "description": "Safe API key lifecycle resource. It never exposes plaintext key material or keyHash values."
+      },
+      "ApiKeyLifecycleOperationData": {
+        "type": "object",
+        "required": ["resourceType", "operationStatus", "accepted", "async"],
+        "additionalProperties": false,
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["apiKey"]
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "operationStatus": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "async": {
+            "type": "boolean"
+          },
+          "apiKey": {
+            "$ref": "#/components/schemas/ApiKeyResource"
+          },
+          "revoked": {
+            "$ref": "#/components/schemas/ApiKeyResource"
+          },
+          "replacement": {
+            "$ref": "#/components/schemas/ApiKeyResource"
+          }
+        }
+      },
+      "ApiKeyProvisionRequest": {
+        "type": "object",
+        "required": ["key", "keyId", "scopes"],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "writeOnly": true
+          },
+          "keyId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["api_key", "admin_key", "monitoring_key"]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "allowedInstanceRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "ApiKeyRotationRequest": {
+        "type": "object",
+        "required": ["nextKey", "nextKeyId", "scopes"],
+        "additionalProperties": false,
+        "properties": {
+          "nextKey": {
+            "type": "string",
+            "minLength": 1,
+            "writeOnly": true
+          },
+          "nextKeyId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["api_key", "admin_key", "monitoring_key"]
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "allowedInstanceRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reasonCode": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiKeyRevocationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reasonCode": {
+            "type": "string"
+          }
+        }
       }
     }
   }

@@ -197,7 +197,11 @@ export function classifyRateLimitEndpoint(
     return "event_stream";
   }
 
-  if (pathname.startsWith("/v1/settings") || pathname.startsWith("/v1/audit-records")) {
+  if (
+    pathname.startsWith("/v1/settings") ||
+    pathname.startsWith("/v1/audit-records") ||
+    pathname.startsWith("/v1/api-keys")
+  ) {
     return "admin";
   }
 

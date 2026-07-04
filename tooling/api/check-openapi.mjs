@@ -74,6 +74,10 @@ const expectedOperations = Object.freeze([
   ["post", "/v1/settings/validate"],
   ["post", "/v1/settings/activate"],
   ["get", "/v1/audit-records"],
+  ["get", "/v1/api-keys"],
+  ["post", "/v1/api-keys"],
+  ["post", "/v1/api-keys/{keyId}/revoke"],
+  ["post", "/v1/api-keys/{keyId}/rotate"],
 ]);
 
 const internalApplicationNames = Object.freeze([
@@ -236,6 +240,7 @@ function checkRequiredSchemas(openApiSpec) {
     "GroupMemberResource",
     "JobResource",
     "WebhookResource",
+    "ApiKeyResource",
   ]) {
     if (!isRecord(openApiSpec.components?.schemas?.[schemaName])) {
       findings.push(`Missing required schema: ${schemaName}.`);
@@ -270,6 +275,7 @@ function checkPublicDataSchemas(openApiSpec) {
     "GroupMemberResource",
     "JobResource",
     "WebhookResource",
+    "ApiKeyResource",
   ]) {
     const ref = `#/components/schemas/${schemaName}`;
 

@@ -51,6 +51,7 @@ import {
   type RealtimeEventSource,
 } from "./realtime-event-stream.js";
 import type { ApiSecurityAuditSink } from "./api-security-audit.js";
+import type { ApiKeyLifecycleSafeRecord, ApiKeyLifecycleService } from "./api-key-lifecycle.js";
 import {
   authorizeApiResourceOwnership,
   inferApiResourceOwnershipResourceType,
@@ -85,6 +86,7 @@ export type ApiHttpServerOptions = Readonly<{
   rateLimiter?: ApiRateLimiter;
   resourceOwnershipResolver?: ApiResourceOwnershipResolver;
   securityAuditSink?: ApiSecurityAuditSink;
+  apiKeyLifecycleService?: ApiKeyLifecycleService;
   eventSource?: RealtimeEventSource;
   outboundMessageIntentStore?: OutboundMessageIntentStorePort;
   groupMutationIntentStore?: GroupMutationIntentStorePort;
@@ -198,10 +200,18 @@ type RouteMatch =
       bodyValidation?: BodyValidation;
     }>
   | Readonly<{
+      kind: "api_key_lifecycle";
+      action: ApiKeyLifecycleRouteAction;
+      keyId?: string;
+      bodyValidation?: BodyValidation;
+    }>
+  | Readonly<{
       kind: "partial";
       bodyValidation?: BodyValidation;
       failure: HttpFailure;
     }>;
+
+type ApiKeyLifecycleRouteAction = "list" | "provision" | "revoke" | "rotate";
 
 type BodyValidation = Readonly<{
   required: boolean;
@@ -296,6 +306,18 @@ export async function handleApiHttpRequest(
 
   if (match.kind === "partial") {
     return createErrorHttpResponse(match.failure, metaBase);
+  }
+
+  if (match.kind === "api_key_lifecycle") {
+    return handleApiKeyLifecycleRoute({
+      match,
+      request,
+      body: request.body,
+      context,
+      meta: metaBase,
+      timestamp,
+      options,
+    });
   }
 
   const ownership = await checkResourceOwnership(match.request, options.resourceOwnershipResolver);
@@ -996,6 +1018,22 @@ function matchRoute(
     return adapterQuery("admin", "QueryAuditRecords", undefined, "retention_bound");
   }
 
+  if (method === "GET" && matches(segments, ["v1", "api-keys"])) {
+    return apiKeyLifecycleRoute("list");
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "api-keys"])) {
+    return apiKeyLifecycleRoute("provision", undefined, validateApiKeyProvisionBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "api-keys", ":keyId", "revoke"])) {
+    return apiKeyLifecycleRoute("revoke", segments[2], validateOptionalObjectBody);
+  }
+
+  if (method === "POST" && matches(segments, ["v1", "api-keys", ":keyId", "rotate"])) {
+    return apiKeyLifecycleRoute("rotate", segments[2], validateApiKeyRotationBody);
+  }
+
   return undefined;
 }
 
@@ -1073,6 +1111,31 @@ function partialRoute(
         message,
         statusCode: 501,
       },
+    }),
+  };
+}
+
+function apiKeyLifecycleRoute(
+  action: ApiKeyLifecycleRouteAction,
+  keyId?: string,
+  validateBody?: (body: unknown) => HttpFailure | undefined,
+): Readonly<{
+  build(context: RouteContext, body: unknown): RouteMatch;
+  bodyValidation?: BodyValidation;
+}> {
+  return {
+    ...(validateBody === undefined
+      ? {}
+      : {
+          bodyValidation: {
+            required: action !== "revoke",
+            validate: validateBody,
+          },
+        }),
+    build: () => ({
+      kind: "api_key_lifecycle",
+      action,
+      ...optional("keyId", keyId),
     }),
   };
 }
@@ -1377,6 +1440,439 @@ function isGroupMutationCommand(commandName: string): boolean {
     "PromoteGroupMember",
     "DemoteGroupMember",
   ].includes(commandName);
+}
+
+async function handleApiKeyLifecycleRoute(input: {
+  match: Extract<RouteMatch, { kind: "api_key_lifecycle" }>;
+  request: ApiHttpRequest;
+  body: unknown;
+  context: RouteContext;
+  meta: HttpResponseMeta;
+  timestamp: string;
+  options: ApiHttpServerOptions;
+}): Promise<ApiHttpResponse> {
+  const operationRef = operationRefForApiKeyLifecycleAction(input.match.action);
+
+  if (!input.context.credential.scopes.includes("admin:*")) {
+    await recordSecurityAudit(input.options.securityAuditSink, {
+      eventType: "authorization_denied",
+      requestId: input.context.requestId,
+      correlationId: input.context.correlationId,
+      timestamp: input.timestamp,
+      method: input.request.method,
+      url: input.request.url,
+      code: "missing_scope",
+      statusCode: 403,
+      keyId: input.context.credential.keyId,
+      credentialKind: input.context.credential.kind,
+      operationRef,
+      ...optional("targetRef", input.match.keyId),
+      resourceType: "api_key",
+    });
+
+    return createErrorHttpResponse(
+      {
+        category: "authorization",
+        code: "missing_scope",
+        message: "API credential is missing required scope.",
+        statusCode: 403,
+        details: {
+          requiredScope: "admin:*",
+        },
+      },
+      input.meta,
+    );
+  }
+
+  const rateLimit = checkRateLimit(
+    input.context.credential,
+    input.request.method,
+    input.request.url,
+    undefined,
+    input.match.keyId,
+    input.options.rateLimiter,
+  );
+
+  if (rateLimit.failure !== undefined) {
+    await recordSecurityAudit(input.options.securityAuditSink, {
+      eventType: "rate_limit_denied",
+      requestId: input.context.requestId,
+      correlationId: input.context.correlationId,
+      timestamp: input.timestamp,
+      method: input.request.method,
+      url: input.request.url,
+      code: rateLimit.failure.code,
+      statusCode: rateLimit.failure.statusCode,
+      keyId: input.context.credential.keyId,
+      credentialKind: input.context.credential.kind,
+      operationRef,
+      ...optional("targetRef", input.match.keyId),
+      resourceType: "api_key",
+      ...optional("endpointClass", rateLimit.endpointClass),
+      ...optional("rateLimitBucketKey", rateLimit.bucketKey),
+    });
+
+    return createErrorHttpResponse(rateLimit.failure, input.meta);
+  }
+
+  if (input.options.apiKeyLifecycleService === undefined) {
+    return createErrorHttpResponse(
+      {
+        category: "not_implemented",
+        code: "api_key_lifecycle_service_not_configured",
+        message: "API key lifecycle service is not configured for this runtime.",
+        statusCode: 501,
+      },
+      input.meta,
+    );
+  }
+
+  try {
+    const actorRef = `${input.context.credential.kind}:${input.context.credential.keyId}`;
+
+    switch (input.match.action) {
+      case "list": {
+        const records = await input.options.apiKeyLifecycleService.listSafeRecords();
+
+        return createApiKeyLifecycleCollectionResponse(records, input.meta);
+      }
+      case "provision": {
+        const request = createProvisionApiKeyInput(input.body, actorRef);
+        const record = await input.options.apiKeyLifecycleService.provision(request);
+
+        await recordApiKeyLifecycleAdminAction(input, operationRef, record.credential.keyId);
+
+        return createApiKeyLifecycleOperationResponse(
+          "completed",
+          toPublicApiKeyRecord(record),
+          input.meta,
+          201,
+        );
+      }
+      case "revoke": {
+        const keyId = requireApiKeyRouteKeyId(input.match);
+        const reasonCode = isPlainObject(input.body)
+          ? safeOptionalString(input.body.reasonCode)
+          : undefined;
+        const record = await input.options.apiKeyLifecycleService.revoke({
+          keyId,
+          actorRef,
+          ...optional("reasonCode", reasonCode),
+        });
+
+        await recordApiKeyLifecycleAdminAction(input, operationRef, keyId);
+
+        return createApiKeyLifecycleOperationResponse(
+          "completed",
+          toPublicApiKeyRecord(record),
+          input.meta,
+        );
+      }
+      case "rotate": {
+        const keyId = requireApiKeyRouteKeyId(input.match);
+        const rotationInput = createRotateApiKeyInput(input.body, keyId, actorRef);
+        const rotation = await input.options.apiKeyLifecycleService.rotate(rotationInput);
+
+        await recordApiKeyLifecycleAdminAction(
+          input,
+          operationRef,
+          rotation.replacement.credential.keyId,
+        );
+
+        return createApiKeyLifecycleRotationResponse(rotation, input.meta);
+      }
+    }
+  } catch (error) {
+    return createErrorHttpResponse(apiKeyLifecycleFailureFromError(error), input.meta);
+  }
+}
+
+async function recordApiKeyLifecycleAdminAction(
+  input: {
+    match: Extract<RouteMatch, { kind: "api_key_lifecycle" }>;
+    request: ApiHttpRequest;
+    context: RouteContext;
+    timestamp: string;
+    options: ApiHttpServerOptions;
+  },
+  operationRef: string,
+  targetRef: string,
+): Promise<void> {
+  await recordSecurityAudit(input.options.securityAuditSink, {
+    eventType: "admin_action",
+    requestId: input.context.requestId,
+    correlationId: input.context.correlationId,
+    timestamp: input.timestamp,
+    method: input.request.method,
+    url: input.request.url,
+    code: "api_key_lifecycle_admin_action",
+    statusCode: input.match.action === "provision" ? 201 : 200,
+    keyId: input.context.credential.keyId,
+    credentialKind: input.context.credential.kind,
+    operationRef,
+    targetRef,
+    resourceType: "api_key",
+  });
+}
+
+function createApiKeyLifecycleCollectionResponse(
+  records: readonly ApiKeyLifecycleSafeRecord[],
+  meta: HttpResponseMeta,
+): ApiHttpResponse {
+  const queryOptions: PublicCollectionQueryOptions = {
+    limit: records.length,
+    cursorOffset: 0,
+    cursorContext: "query=ListApiKeys|limit=all",
+    filters: Object.freeze({}),
+  };
+  const collectionPage = publicCollectionPage(
+    records,
+    "apiKey",
+    queryOptions,
+    encodeCollectionCursor,
+  );
+
+  return Object.freeze({
+    statusCode: 200,
+    headers: createJsonHeaders(meta),
+    body: Object.freeze({
+      data: collectionPage.items,
+      meta: Object.freeze({
+        ...meta,
+        query: Object.freeze({
+          resourceType: "apiKey",
+          readStatus: "result",
+          consistency: "strong_owner",
+          resultRef: `api_keys:list:${records.length}`,
+        }),
+        pagination: paginationMetaFromOptions(queryOptions, collectionPage),
+      }),
+    }),
+  });
+}
+
+function createApiKeyLifecycleOperationResponse(
+  operationStatus: string,
+  record: Readonly<Record<string, unknown>>,
+  meta: HttpResponseMeta,
+  statusCode = 200,
+): ApiHttpResponse {
+  return Object.freeze({
+    statusCode,
+    headers: createJsonHeaders(meta),
+    body: Object.freeze({
+      data: Object.freeze({
+        resourceType: "apiKey",
+        resourceId: record.id,
+        operationStatus,
+        accepted: true,
+        async: false,
+        apiKey: record,
+      }),
+      meta,
+    }),
+  });
+}
+
+function createApiKeyLifecycleRotationResponse(
+  rotation: Awaited<ReturnType<ApiKeyLifecycleService["rotate"]>>,
+  meta: HttpResponseMeta,
+): ApiHttpResponse {
+  const revoked = toPublicApiKeyRecord(rotation.revoked);
+  const replacement = toPublicApiKeyRecord(rotation.replacement);
+
+  return Object.freeze({
+    statusCode: 200,
+    headers: createJsonHeaders(meta),
+    body: Object.freeze({
+      data: Object.freeze({
+        resourceType: "apiKey",
+        resourceId: replacement.id,
+        operationStatus: "completed",
+        accepted: true,
+        async: false,
+        revoked,
+        replacement,
+      }),
+      meta,
+    }),
+  });
+}
+
+function toPublicApiKeyRecord(record: unknown): Readonly<Record<string, unknown>> {
+  if (isPlainObject(record) && isPlainObject(record.credential)) {
+    return publicResourceData("apiKey", {
+      keyId: record.credential.keyId,
+      kind: record.credential.kind,
+      scopes: record.credential.scopes,
+      allowedInstanceRefs: record.credential.allowedInstanceRefs,
+      status: record.status,
+      rotatedFromKeyId: record.rotatedFromKeyId,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      revokedAt: record.revokedAt,
+      revocationReasonCode: record.revocationReasonCode,
+    });
+  }
+
+  return publicResourceData("apiKey", record);
+}
+
+function operationRefForApiKeyLifecycleAction(action: ApiKeyLifecycleRouteAction): string {
+  switch (action) {
+    case "list":
+      return "ListApiKeys";
+    case "provision":
+      return "ProvisionApiKey";
+    case "revoke":
+      return "RevokeApiKey";
+    case "rotate":
+      return "RotateApiKey";
+  }
+}
+
+function requireApiKeyRouteKeyId(
+  match: Extract<RouteMatch, { kind: "api_key_lifecycle" }>,
+): string {
+  if (match.keyId === undefined) {
+    throw new TypeError("API key route keyId is required.");
+  }
+
+  return match.keyId;
+}
+
+function createProvisionApiKeyInput(
+  body: unknown,
+  actorRef: string,
+): Parameters<ApiKeyLifecycleService["provision"]>[0] {
+  if (!isPlainObject(body)) {
+    throw new TypeError("API key provision body must be an object.");
+  }
+
+  return {
+    key: String(body.key),
+    credential: createApiKeyLifecycleCredential(body, "keyId"),
+    actorRef,
+  };
+}
+
+function createRotateApiKeyInput(
+  body: unknown,
+  currentKeyId: string,
+  actorRef: string,
+): Parameters<ApiKeyLifecycleService["rotate"]>[0] {
+  if (!isPlainObject(body)) {
+    throw new TypeError("API key rotate body must be an object.");
+  }
+
+  return {
+    currentKeyId,
+    nextKey: String(body.nextKey),
+    nextCredential: createApiKeyLifecycleCredential(body, "nextKeyId"),
+    actorRef,
+    ...optional("reasonCode", safeOptionalString(body.reasonCode) ?? "rotated"),
+  };
+}
+
+function createApiKeyLifecycleCredential(
+  body: Readonly<Record<string, unknown>>,
+  keyIdField: "keyId" | "nextKeyId",
+): ApiCredential {
+  const keyId = safeRequiredBodyString(body, keyIdField);
+  const kind = normalizeApiKeyLifecycleCredentialKind(body.kind);
+  const scopes = normalizeApiKeyLifecycleScopes(body.scopes);
+  const allowedInstanceRefs =
+    body.allowedInstanceRefs === undefined
+      ? undefined
+      : normalizeApiKeyLifecycleStringArray(body.allowedInstanceRefs, "allowedInstanceRefs");
+
+  return Object.freeze({
+    kind,
+    keyId,
+    scopes,
+    ...optional("allowedInstanceRefs", allowedInstanceRefs),
+  });
+}
+
+function normalizeApiKeyLifecycleCredentialKind(value: unknown): ApiCredentialKind {
+  if (value === undefined) {
+    return "api_key";
+  }
+
+  if (value === "api_key" || value === "admin_key" || value === "monitoring_key") {
+    return value;
+  }
+
+  throw new TypeError("API key credential kind is invalid.");
+}
+
+function normalizeApiKeyLifecycleScopes(value: unknown): readonly ApiScope[] {
+  const scopes = normalizeApiKeyLifecycleStringArray(value, "scopes");
+
+  return Object.freeze(
+    scopes.map((scope) => {
+      if (!isApiScope(scope)) {
+        throw new TypeError("API key lifecycle field 'scopes' contains an unsupported scope.");
+      }
+
+      return scope;
+    }),
+  );
+}
+
+function normalizeApiKeyLifecycleStringArray(value: unknown, field: string): readonly string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new TypeError(`API key lifecycle field '${field}' must be a non-empty string array.`);
+  }
+
+  const output = value.map((item) => {
+    if (typeof item !== "string" || item.trim().length === 0 || hasControlCharacter(item)) {
+      throw new TypeError(`API key lifecycle field '${field}' contains an invalid string.`);
+    }
+
+    return item.trim();
+  });
+
+  return Object.freeze(output);
+}
+
+function safeRequiredBodyString(body: Readonly<Record<string, unknown>>, field: string): string {
+  const value = body[field];
+
+  if (typeof value !== "string" || value.trim().length === 0 || hasControlCharacter(value)) {
+    throw new TypeError(`API key lifecycle field '${field}' is invalid.`);
+  }
+
+  return value.trim();
+}
+
+function apiKeyLifecycleFailureFromError(error: unknown): HttpFailure {
+  const message = error instanceof Error ? error.message : "";
+
+  if (message.includes("already")) {
+    return {
+      category: "conflict",
+      code: "api_key_lifecycle_conflict",
+      message: "API key lifecycle request conflicts with existing key state.",
+      statusCode: 409,
+    };
+  }
+
+  if (message.includes("not found")) {
+    return {
+      category: "not_found",
+      code: "api_key_not_found",
+      message: "API key was not found.",
+      statusCode: 404,
+    };
+  }
+
+  return {
+    category: "validation",
+    code: "api_key_lifecycle_request_invalid",
+    message: "API key lifecycle request is invalid.",
+    statusCode: 400,
+  };
 }
 
 function createHttpApplicationPortContext(
@@ -2001,6 +2497,11 @@ function safeAuditPath(url: string): string {
   }
 
   const segments = splitPath(pathname);
+
+  if (segments?.[0] === "v1" && segments[1] === "api-keys" && segments[2] !== undefined) {
+    const suffix = segments.slice(3).join("/");
+    return `/v1/api-keys/[key-id]${suffix.length === 0 ? "" : `/${suffix}`}`;
+  }
 
   if (
     segments?.[0] === "v1" &&
@@ -2762,6 +3263,47 @@ function validateWebhookBody(body: unknown): HttpFailure | undefined {
   return requiredStringField(body, "url");
 }
 
+function validateApiKeyProvisionBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  return (
+    requiredStringField(body, "key") ??
+    requiredStringField(body, "keyId") ??
+    optionalApiKeyCredentialKind(body) ??
+    requiredStringArrayField(body, "scopes") ??
+    optionalStringArrayField(body, "allowedInstanceRefs")
+  );
+}
+
+function validateApiKeyRotationBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  return (
+    requiredStringField(body, "nextKey") ??
+    requiredStringField(body, "nextKeyId") ??
+    optionalApiKeyCredentialKind(body) ??
+    requiredStringArrayField(body, "scopes") ??
+    optionalStringArrayField(body, "allowedInstanceRefs") ??
+    optionalStringField(body, "reasonCode")
+  );
+}
+
 function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -2790,6 +3332,59 @@ function optionalStringField(
   }
 
   return validation("invalid_body", `Optional field '${field}' must be a non-empty string.`);
+}
+
+function requiredStringArrayField(
+  body: Readonly<Record<string, unknown>>,
+  field: string,
+): HttpFailure | undefined {
+  const value = body[field];
+
+  if (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === "string" && item.trim().length > 0)
+  ) {
+    return undefined;
+  }
+
+  return validation(
+    "invalid_body",
+    `Request body requires non-empty string array field '${field}'.`,
+  );
+}
+
+function optionalStringArrayField(
+  body: Readonly<Record<string, unknown>>,
+  field: string,
+): HttpFailure | undefined {
+  const value = body[field];
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return requiredStringArrayField(body, field);
+}
+
+function optionalApiKeyCredentialKind(
+  body: Readonly<Record<string, unknown>>,
+): HttpFailure | undefined {
+  const value = body.kind;
+
+  if (
+    value === undefined ||
+    value === "api_key" ||
+    value === "admin_key" ||
+    value === "monitoring_key"
+  ) {
+    return undefined;
+  }
+
+  return validation(
+    "invalid_body",
+    "Optional field 'kind' must be api_key, admin_key, or monitoring_key.",
+  );
 }
 
 function validation(code: string, message: string): HttpFailure {

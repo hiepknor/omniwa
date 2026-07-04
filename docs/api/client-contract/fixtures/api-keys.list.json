@@ -1,0 +1,42 @@
+{
+  "data": [
+    {
+      "resourceType": "apiKey",
+      "id": "api_key_admin",
+      "kind": "admin_key",
+      "scopes": ["admin:*"],
+      "status": "active",
+      "createdAt": "2026-07-05T00:00:00.000Z",
+      "updatedAt": "2026-07-05T00:00:00.000Z"
+    },
+    {
+      "resourceType": "apiKey",
+      "id": "api_key_operator",
+      "kind": "api_key",
+      "scopes": ["instances:read", "messages:send"],
+      "allowedInstanceRefs": ["inst_demo"],
+      "status": "revoked",
+      "createdAt": "2026-07-05T00:00:00.000Z",
+      "updatedAt": "2026-07-05T01:00:00.000Z",
+      "revokedAt": "2026-07-05T01:00:00.000Z",
+      "revocationReasonCode": "operator_requested"
+    }
+  ],
+  "meta": {
+    "requestId": "req_fixture_api_keys_list",
+    "correlationId": "corr_fixture_api_keys_list",
+    "timestamp": "2026-07-05T00:00:00.000Z",
+    "query": {
+      "resourceType": "apiKey",
+      "readStatus": "result",
+      "consistency": "strong_owner",
+      "resultRef": "api_keys:list:2"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 2
+    }
+  }
+}

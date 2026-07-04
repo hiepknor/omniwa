@@ -22,20 +22,21 @@ The platform foundation is active and usable for selected public read paths.
 
 Implemented public surfaces currently include:
 
-| Capability         | Public Surface                                                                                          | Status      |
-| ------------------ | ------------------------------------------------------------------------------------------------------- | ----------- |
-| Health             | `GET /v1/health`                                                                                        | Implemented |
-| Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`                             | Implemented |
-| Sessions           | `GET /v1/instances/{instanceId}/sessions`                                                               | Implemented |
-| Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`                               | Implemented |
-| Chats              | `GET /v1/instances/{instanceId}/chats`, `GET /v1/chats/{chatId}`                                        | Implemented |
-| Contacts           | `GET /v1/instances/{instanceId}/contacts`, `GET /v1/contacts/{contactId}`                               | Implemented |
-| Groups             | `GET /v1/instances/{instanceId}/groups`, `GET /v1/groups/{groupId}`, `GET /v1/groups/{groupId}/members` | Implemented |
-| Events             | `GET /v1/events`, `GET /v1/events/stream`                                                               | Implemented |
-| Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                                                  | Implemented |
-| Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                                                      | Implemented |
-| Webhook Deliveries | `GET /v1/webhook-deliveries`, `GET /v1/webhook-deliveries/{deliveryId}/history`                         | Implemented |
-| Queue              | `GET /v1/queue`                                                                                         | Implemented |
+| Capability         | Public Surface                                                                                          | Status                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Health             | `GET /v1/health`                                                                                        | Implemented            |
+| Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`                             | Implemented            |
+| Sessions           | `GET /v1/instances/{instanceId}/sessions`                                                               | Implemented            |
+| Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`                               | Implemented            |
+| Chats              | `GET /v1/instances/{instanceId}/chats`, `GET /v1/chats/{chatId}`                                        | Implemented            |
+| Contacts           | `GET /v1/instances/{instanceId}/contacts`, `GET /v1/contacts/{contactId}`                               | Implemented            |
+| Groups             | `GET /v1/instances/{instanceId}/groups`, `GET /v1/groups/{groupId}`, `GET /v1/groups/{groupId}/members` | Implemented            |
+| Events             | `GET /v1/events`, `GET /v1/events/stream`                                                               | Implemented            |
+| Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                                                  | Implemented            |
+| Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                                                      | Implemented            |
+| Webhook Deliveries | `GET /v1/webhook-deliveries`, `GET /v1/webhook-deliveries/{deliveryId}/history`                         | Implemented            |
+| Queue              | `GET /v1/queue`                                                                                         | Implemented            |
+| API Keys           | `GET /v1/api-keys`, `POST /v1/api-keys`, revoke/rotate routes                                           | Implemented admin-only |
 
 Current local runtime:
 
@@ -110,19 +111,22 @@ Rollback:
 | N11.1 | Production queue foundation        | Replace in-memory-only queue semantics behind `QueueProviderPort`    | Done    |
 | N11.2 | Durable EventLog / outbox / replay | Make event visibility and SSE replay survive restart                 | Done    |
 | N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Done    |
-| N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Current |
-| N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Planned |
+| N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Done    |
+| N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Current |
 | N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Planned |
 | N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Planned |
 
 N11.3 is done with durable local and PostgreSQL provider-runtime lease guards, active lease renewal
-during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`. N11.4 is
-now current. Its first slices allow API runtime composition from `OMNIWA_API_KEY_HASH`,
+during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`. N11.4
+allows API runtime composition from `OMNIWA_API_KEY_HASH`,
 `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`, and `SecretProvider` via `OMNIWA_API_KEY_SECRET_NAME` without
 retaining plaintext API key configuration; the API process entrypoint now uses `EnvSecretProvider`
 for that secret-name path; and provider runtime can encrypt durable Baileys auth-state JSON with
-`OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY`. Production external secret-provider selection, admin
-lifecycle operations, and production-profile validation remain next.
+`OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY`. It also exposes admin-only `/v1/api-keys` lifecycle
+routes for safe list, provision, revoke, and rotate flows when `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`
+is configured. N11.5 is now current and should focus on authorization coverage, rate limits, and
+denied-decision evidence. Production external secret-provider selection and final production-profile
+validation remain later hardening work.
 
 ## Planned Increments
 

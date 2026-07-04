@@ -9,7 +9,12 @@ Type: compatible-contract-promotion
 
 Affected contract:
 
+- `docs/api/openapi/omniwa-v1.openapi.json`
 - `docs/api/client-contract/omniwa-tui-capabilities.json`
+- `docs/api/client-contract/fixtures/api-keys.list.json`
+- `docs/api/client-contract/fixtures/api-key.provisioned.json`
+- `docs/api/client-contract/fixtures/api-key.revoked.json`
+- `docs/api/client-contract/fixtures/api-key.rotated.json`
 - `docs/api/client-contract/fixtures/message-send.queued.json`
 - `docs/api/client-contract/fixtures/message-retry.queued.json`
 - `docs/api/client-contract/fixtures/message-cancel.accepted.json`
@@ -26,10 +31,17 @@ Client impact:
   `implemented_public` for clients that follow the capability manifest.
 - Promotes controlled group metadata, local-state, add-member, remove-member,
   promote-member, and demote-member mutations to `implemented_public`.
+- Promotes admin-only API key lifecycle routes to `implemented_public`:
+  `GET /v1/api-keys`, `POST /v1/api-keys`,
+  `POST /v1/api-keys/{keyId}/revoke`, and
+  `POST /v1/api-keys/{keyId}/rotate`.
 - Group member mutations return `operationStatus: "accepted"` because they record
   controlled local intents and audit evidence; they do not imply provider-backed
   WhatsApp completion. Group metadata and local-state mutations remain
   `operationStatus: "completed"`.
+- API key lifecycle routes require `admin:*` and return only safe key ids,
+  credential kind, scopes, status, timestamps, and reason codes. Plaintext keys
+  and `sha256:` hashes are not returned in public DTOs or fixtures.
 - Requires clients to use safe `memberRef` values from the group member list for
   remove/promote/demote actions.
 - Keeps raw JID, text, provider payload, outbound intent refs, guardrail refs,
@@ -39,8 +51,9 @@ Client impact:
 SDK impact:
 
 - Rust SDK already exposes generated `sendInstanceTextMessage`, `retryMessage`,
-  `cancelMessage`, and group mutation operations; fixture coverage now
-  validates retry/cancel and group action contract envelopes.
+  `cancelMessage`, group mutation operations, and generated API-key lifecycle
+  operation ids; fixture coverage now validates retry/cancel, group action, and
+  API-key lifecycle contract envelopes.
 
 Migration note:
 
@@ -48,6 +61,8 @@ Migration note:
   pass `idempotency-key` for every send, retry, and cancel request.
 - Clients should gate group mutations through the capability manifest and pass
   `idempotency-key` for every metadata/local-state/member action request.
+- Clients should keep API-key lifecycle UI disabled unless running in an explicit
+  admin/operator mode with an `admin:*` credential.
 
 ## 0.1.0
 

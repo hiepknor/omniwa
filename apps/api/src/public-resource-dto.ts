@@ -227,6 +227,20 @@ const defaultPublicResourceSchema: PublicResourceSchema = Object.freeze({
 });
 
 const publicResourceSchemas: Readonly<Record<string, PublicResourceSchema>> = Object.freeze({
+  apiKey: Object.freeze({
+    idFields: Object.freeze(["keyId", "id", "resourceId"]),
+    fields: Object.freeze([
+      publicStringField("kind"),
+      publicStringArrayField("scopes"),
+      publicStringArrayField("allowedInstanceRefs"),
+      publicStringField("status"),
+      publicStringField("rotatedFromKeyId"),
+      publicStringField("createdAt"),
+      publicStringField("updatedAt"),
+      publicStringField("revokedAt"),
+      publicStringField("revocationReasonCode"),
+    ]),
+  }),
   auditRecord: Object.freeze({
     idFields: Object.freeze(["id", "auditRecordId", "resourceId"]),
     fields: Object.freeze([

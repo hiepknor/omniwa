@@ -167,7 +167,62 @@ describe("API runtime composition", () => {
       keyId: "durable-runtime-key",
       scopes: ["instances:read"],
     });
+    expect(composition.options.apiKeyLifecycleService).toBeDefined();
     expect(JSON.stringify(composition.options)).not.toContain(rawApiKey);
+  });
+
+  it("keeps runtime API key lifecycle service and verifier on the same durable store", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-key-runtime-live-"));
+    temporaryDirectories.push(directory);
+    const storePath = join(directory, "api-keys.json");
+    const initialApiKey = "initial-lifecycle-secret";
+    const managedApiKey = "managed-lifecycle-secret";
+    const seedService = new ApiKeyLifecycleService({
+      store: new DurableJsonApiKeyLifecycleStore(storePath),
+      now: () => new Date("2026-07-04T00:00:00.000Z"),
+    });
+
+    await seedService.provision({
+      key: initialApiKey,
+      credential: {
+        kind: "admin_key",
+        keyId: "initial-admin-key",
+        scopes: ["admin:*"],
+      },
+    });
+
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_KEY_LIFECYCLE_STORE_PATH: storePath,
+    });
+    const lifecycleService = composition.options.apiKeyLifecycleService;
+
+    expect(lifecycleService).toBeDefined();
+    await lifecycleService?.provision({
+      key: managedApiKey,
+      credential: {
+        kind: "api_key",
+        keyId: "managed-runtime-key",
+        scopes: ["instances:read"],
+      },
+      actorRef: "admin_key:initial-admin-key",
+    });
+
+    expect(composition.options.apiKeyVerifier?.verify(managedApiKey)).toEqual({
+      kind: "api_key",
+      keyId: "managed-runtime-key",
+      scopes: ["instances:read"],
+    });
+
+    await lifecycleService?.revoke({
+      keyId: "managed-runtime-key",
+      actorRef: "admin_key:initial-admin-key",
+      reasonCode: "operator_requested",
+    });
+
+    expect(composition.options.apiKeyVerifier?.verify(managedApiKey)).toBeUndefined();
+    expect(JSON.stringify(composition.options)).not.toContain(initialApiKey);
+    expect(JSON.stringify(composition.options)).not.toContain(managedApiKey);
   });
 
   it("rejects mixing API key lifecycle store with env key sources", () => {
