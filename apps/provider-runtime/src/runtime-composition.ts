@@ -26,6 +26,11 @@ import {
   readLocalQrOperatorOutputConfig,
   type LocalQrOperatorOutputConfig,
 } from "./local-qr-operator-output.js";
+import {
+  createLocalInboundRecipientOperatorSink,
+  readLocalInboundRecipientOperatorOutputConfig,
+  type LocalInboundRecipientOperatorOutputConfig,
+} from "./local-inbound-recipient-operator-output.js";
 
 export const providerRuntimeCompositionProfiles = ["local", "test", "production"] as const;
 
@@ -61,6 +66,7 @@ export type ProviderRuntimeComposition = Readonly<{
   liveMode: ProviderRuntimeLiveMode;
   readiness: ProviderRuntimeReadiness;
   localQrOutput: LocalQrOperatorOutputConfig;
+  localInboundRecipientOutput: LocalInboundRecipientOperatorOutputConfig;
   paths: ProviderRuntimeCompositionPaths;
   eventLog: EventLogPort;
   authStateStore: BaileysAuthStateStore;
@@ -97,7 +103,14 @@ export function createProviderRuntimeComposition(
 
   const paths = readProviderRuntimeCompositionPaths(env);
   const localQrOutput = readLocalQrOperatorOutputConfig(env, paths.stateDirectory);
+  const localInboundRecipientOutput = readLocalInboundRecipientOperatorOutputConfig(
+    env,
+    paths.stateDirectory,
+  );
   const qrCodeOperatorSink = createLocalQrOperatorSink(localQrOutput);
+  const inboundRecipientOperatorSink = createLocalInboundRecipientOperatorSink(
+    localInboundRecipientOutput,
+  );
   const eventLog = overrides.eventLog ?? createDurableJsonEventLogStore(paths.eventLogPath);
   const authStateStore =
     overrides.authStateStore ?? new DurableJsonBaileysAuthStateStore(paths.authStatePath);
@@ -106,6 +119,7 @@ export function createProviderRuntimeComposition(
     new RealBaileysSocketProvider({
       authStateStore,
       ...optional("qrCodeOperatorSink", qrCodeOperatorSink),
+      ...optional("inboundRecipientOperatorSink", inboundRecipientOperatorSink),
     });
   const signalIngress =
     overrides.signalIngress ??
@@ -127,6 +141,7 @@ export function createProviderRuntimeComposition(
     liveMode,
     readiness: providerRuntimeReadiness(liveMode),
     localQrOutput,
+    localInboundRecipientOutput,
     paths,
     eventLog,
     authStateStore,

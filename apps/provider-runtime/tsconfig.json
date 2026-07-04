@@ -8,6 +8,8 @@
   "exclude": ["dist", "node_modules"],
   "references": [
     { "path": "../../packages/application" },
+    { "path": "../api" },
+    { "path": "../worker" },
     { "path": "../../packages/config" },
     { "path": "../../packages/domain" },
     { "path": "../../packages/errors" },

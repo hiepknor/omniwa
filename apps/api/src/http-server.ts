@@ -1067,12 +1067,29 @@ function createCommandRequest(
     credential: context.credential,
     requestId: context.requestId,
     correlationId: context.correlationId,
-    safeInputRef: `http:${name}:${context.requestRef}`,
+    safeInputRef: createSafeHttpInputRef(name, context.requestRef),
     dataClassification: "confidential",
     ...optional("targetRef", targetRef),
     ...optional("traceId", context.traceId),
     ...optional("idempotencyKey", context.idempotencyKey),
   });
+}
+
+function createSafeHttpInputRef(name: string, requestRef: string): string {
+  const commandCode = name
+    .replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
+    .replace(/[^A-Za-z0-9]+/gu, "_")
+    .replace(/^_+|_+$/gu, "")
+    .toLowerCase();
+  const safeCommandCode = commandCode.length === 0 ? "command" : commandCode;
+  const digest = createHash("sha256")
+    .update(name)
+    .update(":")
+    .update(requestRef)
+    .digest("hex")
+    .slice(0, 24);
+
+  return `http.${safeCommandCode}.${digest}`;
 }
 
 async function storeOutboundIntentForAdapterRequest(

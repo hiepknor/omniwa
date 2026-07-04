@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@omniwa/application": "workspace:*",
+    "@omniwa/app-api": "workspace:*",
+    "@omniwa/app-worker": "workspace:*",
     "@omniwa/config": "workspace:*",
     "@omniwa/domain": "workspace:*",
     "@omniwa/errors": "workspace:*",

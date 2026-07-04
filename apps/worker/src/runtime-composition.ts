@@ -18,6 +18,7 @@ import {
 } from "@omniwa/application";
 import type {
   HealthStatusRepositoryPort,
+  GuardrailDecisionRepositoryPort,
   InstanceRepositoryPort,
   MessageRepositoryPort,
   ProviderId,
@@ -89,6 +90,7 @@ type WorkerRuntimeRepositories = Readonly<{
   sessionRepository?: SessionRepositoryPort;
   messageRepository?: MessageRepositoryPort;
   workerJobRepository: WorkerJobRepositoryPort;
+  guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
   healthStatusRepository?: HealthStatusRepositoryPort;
 }>;
 
@@ -122,19 +124,21 @@ export function createWorkerRuntimeComposition(
     ...optional("socketProvider", overrides.socketProvider),
     ...optional("outboundMessageResolver", overrides.outboundMessageResolver),
   });
+  const queueProvider = new InMemoryQueueProvider({
+    workerJobRepository: repositories.workerJobRepository,
+  });
   const dispatcher = createApplicationDispatcher({
     repositories: {
       instanceRepository: repositories.instanceRepository,
       ...optional("sessionRepository", repositories.sessionRepository),
       ...optional("messageRepository", repositories.messageRepository),
+      ...optional("guardrailDecisionRepository", repositories.guardrailDecisionRepository),
       ...optional("healthStatusRepository", repositories.healthStatusRepository),
     },
     outboundMessageIntentStore,
+    queueProvider,
     messagingProvider: providerComposition.messagingProvider,
     domainEventPublisher,
-  });
-  const queueProvider = new InMemoryQueueProvider({
-    workerJobRepository: repositories.workerJobRepository,
   });
   const runtime = new WorkerRuntime({
     queueProvider,
@@ -257,6 +261,7 @@ function createWorkerRuntimeRepositories(
       workerJobRepository: postgresqlRepositories.workerJobRepository,
       sessionRepository: localProjectionRepositories.sessionRepository,
       messageRepository: localProjectionRepositories.messageRepository,
+      guardrailDecisionRepository: localProjectionRepositories.guardrailDecisionRepository,
       healthStatusRepository: localProjectionRepositories.healthStatusRepository,
     });
   }

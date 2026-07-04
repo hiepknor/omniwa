@@ -75,6 +75,7 @@ export type RealBaileysSocketProviderOptions = Readonly<{
   nowEpochMilliseconds?: () => number;
   qrChallengeTtlMs?: number;
   qrCodeOperatorSink?: BaileysQrCodeOperatorSink;
+  inboundRecipientOperatorSink?: BaileysInboundRecipientOperatorSink;
 }>;
 
 export type BaileysQrCodeOperatorEvent = Readonly<{
@@ -90,6 +91,22 @@ export type BaileysQrCodeOperatorEvent = Readonly<{
 
 export type BaileysQrCodeOperatorSink = Readonly<{
   captureQrCode(event: BaileysQrCodeOperatorEvent): void;
+}>;
+
+export type BaileysInboundRecipientOperatorEvent = Readonly<{
+  instanceId: InstanceId;
+  providerId: ProviderId;
+  sessionId?: SessionId;
+  conversationRef: string;
+  conversationKind: "private" | "group" | "unknown";
+  recipientJid: string;
+  occurredAt: string;
+  dataClassification: "secret";
+  localOnly: true;
+}>;
+
+export type BaileysInboundRecipientOperatorSink = Readonly<{
+  captureInboundRecipient(event: BaileysInboundRecipientOperatorEvent): void;
 }>;
 
 export const baileysDisconnectActions = [
@@ -301,6 +318,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
   private readonly nowEpochMilliseconds: () => number;
   private readonly qrChallengeTtlMs: number;
   private readonly qrCodeOperatorSink: BaileysQrCodeOperatorSink | undefined;
+  private readonly inboundRecipientOperatorSink: BaileysInboundRecipientOperatorSink | undefined;
   private readonly sockets = new Map<string, WASocket>();
   private readonly signals: TranslatedProviderSignal[] = [];
 
@@ -310,6 +328,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     this.nowEpochMilliseconds = options.nowEpochMilliseconds ?? Date.now;
     this.qrChallengeTtlMs = options.qrChallengeTtlMs ?? 60_000;
     this.qrCodeOperatorSink = options.qrCodeOperatorSink;
+    this.inboundRecipientOperatorSink = options.inboundRecipientOperatorSink;
   }
 
   getSocket(request: BaileysSocketRequest, context: ApplicationPortContext): BaileysSocketLike {
@@ -357,6 +376,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
         ...DEFAULT_CONNECTION_CONFIG,
         auth: auth.state,
         emitOwnEvents: false,
+        logger: createSilentBaileysLogger(),
         printQRInTerminal: false,
       });
 
@@ -681,7 +701,16 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
 
     const providerMessageRef = createProviderMessageRef(request, providerMessageId);
     const conversationRef = createConversationRef(request, remoteJid);
+    const conversationKind = conversationKindFromJid(remoteJid);
+    const occurredAt = occurredAtIso(message?.messageTimestamp, this.nowEpochMilliseconds);
     const contentKind = detectInboundContentKind(message?.message);
+
+    this.captureInboundRecipient(request, {
+      conversationRef,
+      conversationKind,
+      recipientJid: remoteJid,
+      occurredAt,
+    });
 
     if (contentKind === undefined) {
       this.recordInboundFailure(
@@ -692,7 +721,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
           providerMessageRef,
           conversationRef,
           contentKind: "unsupported",
-          conversationKind: conversationKindFromJid(remoteJid),
+          conversationKind,
         },
       );
       return;
@@ -710,11 +739,49 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
         sessionId: String(request.sessionId ?? request.instanceId),
         providerMessageRef,
         conversationRef,
-        occurredAt: occurredAtIso(message?.messageTimestamp, this.nowEpochMilliseconds),
+        occurredAt,
         contentKind,
-        conversationKind: conversationKindFromJid(remoteJid),
+        conversationKind,
       },
     );
+  }
+
+  private captureInboundRecipient(
+    request: BaileysSocketRequest,
+    input: Readonly<{
+      conversationRef: string;
+      conversationKind: "private" | "group" | "unknown";
+      recipientJid: string;
+      occurredAt: string;
+    }>,
+  ): void {
+    if (this.inboundRecipientOperatorSink === undefined) {
+      return;
+    }
+
+    try {
+      this.inboundRecipientOperatorSink.captureInboundRecipient({
+        instanceId: request.instanceId,
+        providerId: request.providerId,
+        ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
+        conversationRef: input.conversationRef,
+        conversationKind: input.conversationKind,
+        recipientJid: input.recipientJid,
+        occurredAt: input.occurredAt,
+        dataClassification: "secret",
+        localOnly: true,
+      });
+    } catch {
+      this.recordInboundFailure(
+        request,
+        "inbound_recipient_operator_sink_failed",
+        "inbound_recipient_operator_sink_failed",
+        {
+          conversationRef: input.conversationRef,
+          conversationKind: input.conversationKind,
+        },
+      );
+    }
   }
 
   private recordStatusFailure(
@@ -1326,6 +1393,16 @@ function safeSocketProviderFailure(code: string, retryable: boolean): BaileysPro
     retryable,
     message: "Baileys socket provider failed with a sanitized provider error.",
   });
+}
+
+function createSilentBaileysLogger(): NonNullable<UserFacingSocketConfig["logger"]> {
+  const logger = DEFAULT_CONNECTION_CONFIG.logger.child({
+    class: "omniwa.baileys",
+  });
+
+  logger.level = "silent";
+
+  return logger;
 }
 
 function createBaileysAuthenticationState(input: {

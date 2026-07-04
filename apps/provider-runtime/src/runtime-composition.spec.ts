@@ -62,6 +62,9 @@ describe("provider runtime composition", () => {
     expect(composition.localQrOutput).toEqual({
       mode: "disabled",
     });
+    expect(composition.localInboundRecipientOutput).toEqual({
+      mode: "disabled",
+    });
     expect(composition.supervisor).toBeInstanceOf(ProviderRuntimeSupervisor);
     expect(composition.socketProvider).toBeInstanceOf(RealBaileysSocketProvider);
     expect(composition.authStateStore).toBeInstanceOf(DurableJsonBaileysAuthStateStore);
@@ -80,6 +83,7 @@ describe("provider runtime composition", () => {
       ...envFor(stateDirectory),
       OMNIWA_LIVE_DEMO_MODE: "1",
       OMNIWA_LOCAL_QR_OUTPUT: "file",
+      OMNIWA_LOCAL_INBOUND_RECIPIENT_OUTPUT: "file",
     });
 
     expect(composition.profile).toBe("local");
@@ -96,6 +100,10 @@ describe("provider runtime composition", () => {
     expect(composition.localQrOutput).toEqual({
       mode: "file",
       filePath: join(stateDirectory, "provider-runtime", "local-qr.secret.json"),
+    });
+    expect(composition.localInboundRecipientOutput).toEqual({
+      mode: "file",
+      filePath: join(stateDirectory, "provider-runtime", "local-inbound-recipient.secret.json"),
     });
     expect(composition.paths.authStatePath).toBe(
       join(stateDirectory, "provider-runtime", "baileys-auth-state.json"),
@@ -200,9 +208,16 @@ describe("provider runtime composition", () => {
     expect(source).toContain("liveMode: composition.liveMode");
     expect(source).toContain("readiness: composition.readiness");
     expect(source).toContain("localQrOutput: composition.localQrOutput");
+    expect(source).toContain(
+      "localInboundRecipientOutput: composition.localInboundRecipientOutput",
+    );
     expect(source).toContain("keepsProcessAlive: loop.keepsProcessAlive");
     expect(source).toContain("startProviderRuntimeLocalLiveSession");
+    expect(source).toContain("startProviderRuntimeLocalLiveOutboundWorker");
+    expect(source).toContain("startProviderRuntimeLocalLiveApiServer");
     expect(source).toContain("localLiveSession");
+    expect(source).toContain("localLiveOutboundWorker");
+    expect(source).toContain("localLiveApiServer");
     expect(source).not.toContain("requires MessagingProviderPort and SecretProvider");
   });
 

@@ -32,6 +32,8 @@ import {
   FakeBaileysSocketProvider,
   RealBaileysSocketProvider,
   mapBaileysDisconnectReason,
+  type BaileysInboundRecipientOperatorEvent,
+  type BaileysInboundRecipientOperatorSink,
   type BaileysQrCodeOperatorEvent,
   type BaileysQrCodeOperatorSink,
   type BaileysSocketRequest,
@@ -207,6 +209,7 @@ describe("RealBaileysSocketProvider", () => {
     expect(order).toEqual(["load", "factory"]);
     expect(factoryCalls).toHaveLength(1);
     expect(factoryCalls[0]?.auth).toBeDefined();
+    expect(factoryCalls[0]?.logger?.level).toBe("silent");
   });
 
   it("saves auth state when Baileys emits creds.update", async () => {
@@ -621,6 +624,56 @@ describe("RealBaileysSocketProvider", () => {
     expect(JSON.stringify(signals)).not.toContain(rawJid);
     expect(JSON.stringify(signals)).not.toContain(rawText);
     expect(JSON.stringify(signals)).not.toContain(rawProviderMessageId);
+  });
+
+  it("can capture inbound recipient JID only through an explicit local secret sink", async () => {
+    const captured: BaileysInboundRecipientOperatorEvent[] = [];
+    const sink: BaileysInboundRecipientOperatorSink = {
+      captureInboundRecipient(event): void {
+        captured.push(event);
+      },
+    };
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+      inboundRecipientOperatorSink: sink,
+    });
+    const rawJid = "12025550123@s.whatsapp.net";
+    const rawText = "raw inbound recipient text secret";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "messages.upsert",
+      inboundUpsert({
+        key: {
+          id: "BAILEYS_INBOUND_RECIPIENT_MESSAGE_ID",
+          remoteJid: rawJid,
+          fromMe: false,
+        },
+        messageTimestamp: 1_804_000_001,
+        message: {
+          conversation: rawText,
+        },
+      }),
+    );
+    await flushAsyncSignals();
+
+    const signals = harness.provider.drainSignals({ sessionId });
+
+    expect(captured).toEqual([
+      {
+        instanceId,
+        providerId,
+        sessionId,
+        conversationRef: expect.stringMatching(/^conversation_[a-f0-9]{16}$/u),
+        conversationKind: "private",
+        occurredAt: "2027-03-02T15:06:41.000Z",
+        recipientJid: rawJid,
+        dataClassification: "secret",
+        localOnly: true,
+      },
+    ]);
+    expect(JSON.stringify(signals)).not.toContain(rawJid);
+    expect(JSON.stringify(signals)).not.toContain(rawText);
   });
 
   it("uses deterministic occurrence refs for duplicate inbound provider messages", async () => {
@@ -1273,6 +1326,7 @@ function createRealProviderHarness(
     nowEpochMilliseconds?: () => number;
     qrChallengeTtlMs?: number;
     qrCodeOperatorSink?: BaileysQrCodeOperatorSink;
+    inboundRecipientOperatorSink?: BaileysInboundRecipientOperatorSink;
   }> = {},
 ): Readonly<{
   provider: RealBaileysSocketProvider;
@@ -1297,6 +1351,9 @@ function createRealProviderHarness(
     ...(options.qrCodeOperatorSink === undefined
       ? {}
       : { qrCodeOperatorSink: options.qrCodeOperatorSink }),
+    ...(options.inboundRecipientOperatorSink === undefined
+      ? {}
+      : { inboundRecipientOperatorSink: options.inboundRecipientOperatorSink }),
   });
 
   return {

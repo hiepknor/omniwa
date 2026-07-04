@@ -107,6 +107,12 @@ importers:
 
   apps/provider-runtime:
     dependencies:
+      '@omniwa/app-api':
+        specifier: workspace:*
+        version: link:../api
+      '@omniwa/app-worker':
+        specifier: workspace:*
+        version: link:../worker
       '@omniwa/application':
         specifier: workspace:*
         version: link:../../packages/application

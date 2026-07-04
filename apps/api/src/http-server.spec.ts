@@ -1885,11 +1885,12 @@ describe("API HTTP transport", () => {
     expect(serialized).not.toContain(rawText);
     expect(outboundMessageIntentStore.textIntents).toEqual([
       {
-        outboundIntentRef: "http:SendTextMessage:http-test",
+        outboundIntentRef: expect.stringMatching(/^http\.send_text_message\.[a-f0-9]{24}$/u),
         recipientRef: rawJid,
         text: rawText,
       },
     ]);
+    const storedIntentRef = outboundMessageIntentStore.textIntents[0]?.outboundIntentRef;
     expect(outboundMessageIntentStore.contexts).toEqual([
       expect.objectContaining({
         actorRef: "api_key:test-public-key",
@@ -1903,7 +1904,7 @@ describe("API HTTP transport", () => {
         targetRef: "inst_allowed",
         actorRef: "api_key:test-public-key",
         idempotencyKey: "send-text-1",
-        safeInputRef: "http:SendTextMessage:http-test",
+        safeInputRef: storedIntentRef,
       }),
     ]);
   });
