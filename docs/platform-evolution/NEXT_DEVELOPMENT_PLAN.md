@@ -109,31 +109,31 @@ Rollback:
 | N11.0 | Production plan reconciliation     | Align execution docs with N8/N9/N10 implementation evidence          | Done    |
 | N11.1 | Production queue foundation        | Replace in-memory-only queue semantics behind `QueueProviderPort`    | Done    |
 | N11.2 | Durable EventLog / outbox / replay | Make event visibility and SSE replay survive restart                 | Done    |
-| N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Current |
-| N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Planned |
+| N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Done    |
+| N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Current |
 | N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Planned |
 | N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Planned |
 | N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Planned |
 
-N11.3 has started with a durable local provider-runtime lease guard. It remains current until
-distributed production ownership/fencing is implemented or explicitly deferred with updated
-production-readiness criteria.
+N11.3 is done with durable local and PostgreSQL provider-runtime lease guards, active lease renewal
+during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`. N11.4 is
+now current and must harden API-key and secret posture before production profile enablement.
 
 ## Planned Increments
 
-| Order | Increment                        | Goal                                                                  | Primary Client Value                              | Notes                                                                                          |
-| ----- | -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| N1    | Queue Read Summary               | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                                                      |
-| N2    | Message Read APIs                | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed                                      |
-| N3    | Chat Read APIs                   | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed                                           |
-| N4    | Contact Read APIs                | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                                                                |
-| N5    | Group Read APIs                  | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                                                                   |
-| N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes                                              |
-| N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                                                     |
-| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Done; GitHub Quality Gate `28701511362` passed                                                 |
-| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Done; send/retry/cancel promoted in client contract                                            |
-| N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Done; metadata/local-state/member actions promoted with safe intent storage and audit evidence |
-| N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Current; queue, secrets, observability, ownership, load validation                             |
+| Order | Increment                        | Goal                                                                  | Primary Client Value                              | Notes                                                                                                                                         |
+| ----- | -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1    | Queue Read Summary               | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                                                                                                     |
+| N2    | Message Read APIs                | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed                                                                                     |
+| N3    | Chat Read APIs                   | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed                                                                                          |
+| N4    | Contact Read APIs                | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                                                                                                               |
+| N5    | Group Read APIs                  | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                                                                                                                  |
+| N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes                                                                                             |
+| N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                                                                                                    |
+| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Done; GitHub Quality Gate `28701511362` passed                                                                                                |
+| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Done; send/retry/cancel promoted in client contract                                                                                           |
+| N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Done; metadata/local-state/member actions promoted with safe intent storage and audit evidence                                                |
+| N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Current; queue, provider ownership, and event replay foundations are done; secrets, authorization, webhook reliability, and validation remain |
 
 ## Read API Design Rules
 
@@ -202,7 +202,6 @@ VS02 proved:
 
 VS02 does not solve:
 
-- Distributed ownership/lease.
 - Production encryption for auth state.
 - Multi-process socket bridge.
 - Production queue engine.
@@ -230,7 +229,7 @@ Message reads
   -> VS02 real WhatsApp local demo
   -> PostgreSQL repository completion (done)
   -> Controlled mutations
-  -> Production hardening (current)
+  -> Production hardening (current: N11.4 secret and API-key hardening)
 ```
 
 This order is intentionally incremental, rollbackable, testable, and compatible with the frozen

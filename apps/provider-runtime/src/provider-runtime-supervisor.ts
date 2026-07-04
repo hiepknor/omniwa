@@ -86,10 +86,12 @@ export type ProviderRuntimeSupervisorOwnershipGuard = Readonly<{
   acquire(
     session: ProviderRuntimeSupervisorSessionRef,
     ownerRef: string,
-  ): ProviderRuntimeSupervisorOwnershipDecision;
-  release(session: ProviderRuntimeSupervisorSessionRef, ownerRef: string): boolean;
-  currentOwner(session: ProviderRuntimeSupervisorSessionRef): string | undefined;
+  ): MaybePromise<ProviderRuntimeSupervisorOwnershipDecision>;
+  release(session: ProviderRuntimeSupervisorSessionRef, ownerRef: string): MaybePromise<boolean>;
+  currentOwner(session: ProviderRuntimeSupervisorSessionRef): MaybePromise<string | undefined>;
 }>;
+
+type MaybePromise<T> = T | Promise<T>;
 
 export type ProviderRuntimeSupervisorOwnershipDecision =
   | Readonly<{
@@ -125,7 +127,7 @@ export class InMemoryProviderRuntimeSupervisorOwnershipGuard implements Provider
     const key = sessionKey(session);
     const currentOwner = this.owners.get(key);
 
-    if (currentOwner !== undefined) {
+    if (currentOwner !== undefined && currentOwner !== ownerRef) {
       return Object.freeze({
         acquired: false,
         ownerRef: currentOwner,
@@ -186,7 +188,7 @@ export class ProviderRuntimeSupervisor {
       );
     }
 
-    const ownership = this.ownershipGuard.acquire(input, this.ownerRef);
+    const ownership = await this.ownershipGuard.acquire(input, this.ownerRef);
 
     if (!ownership.acquired) {
       return err(
@@ -209,7 +211,7 @@ export class ProviderRuntimeSupervisor {
         source: "provider",
       });
       this.transition(session, "DISCONNECTED", undefined, failure);
-      this.ownershipGuard.release(input, this.ownerRef);
+      await this.ownershipGuard.release(input, this.ownerRef);
 
       return err(supervisorFailureAsApplicationPortFailure(failure));
     }
@@ -249,7 +251,7 @@ export class ProviderRuntimeSupervisor {
 
       return err(supervisorFailureAsApplicationPortFailure(failure));
     } finally {
-      this.ownershipGuard.release(input, this.ownerRef);
+      await this.ownershipGuard.release(input, this.ownerRef);
     }
 
     this.transition(session, "DESTROYED");
@@ -264,6 +266,25 @@ export class ProviderRuntimeSupervisor {
 
     for (const session of this.sessions.values()) {
       if (session.state === "DESTROYED") {
+        continue;
+      }
+
+      const renewal = shouldHoldOwnership(session.state)
+        ? await this.ownershipGuard.acquire(session, this.ownerRef)
+        : Object.freeze({ acquired: true } as const);
+
+      if (!renewal.acquired) {
+        this.transition(
+          session,
+          "DISCONNECTED",
+          undefined,
+          safeFailure({
+            code: "provider_runtime_supervisor_ownership_lost",
+            message: "Provider runtime supervisor lost ownership for this session.",
+            retryable: true,
+            source: "runtime",
+          }),
+        );
         continue;
       }
 
@@ -303,7 +324,7 @@ export class ProviderRuntimeSupervisor {
         }
 
         if (shouldSurrenderOwnership(signal)) {
-          this.ownershipGuard.release(session, this.ownerRef);
+          await this.ownershipGuard.release(session, this.ownerRef);
         }
 
         drainedSignals.push(
@@ -359,7 +380,7 @@ export class ProviderRuntimeSupervisor {
     this.stopDrainLoop();
 
     for (const session of this.sessions.values()) {
-      this.ownershipGuard.release(session, this.ownerRef);
+      void Promise.resolve(this.ownershipGuard.release(session, this.ownerRef));
       if (session.state !== "DESTROYED") {
         this.transition(session, "DESTROYED");
       }
@@ -460,6 +481,16 @@ function stateFromSignal(
   }
 
   return undefined;
+}
+
+function shouldHoldOwnership(state: ProviderRuntimeSupervisorState): boolean {
+  return (
+    state === "STARTING" ||
+    state === "QR_REQUIRED" ||
+    state === "PAIRING" ||
+    state === "CONNECTED" ||
+    state === "RECONNECTING"
+  );
 }
 
 function failureFromSignal(

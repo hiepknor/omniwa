@@ -25,6 +25,9 @@ import { describe, expect, it } from "vitest";
 import {
   InMemoryProviderRuntimeSupervisorOwnershipGuard,
   ProviderRuntimeSupervisor,
+  type ProviderRuntimeSupervisorOwnershipDecision,
+  type ProviderRuntimeSupervisorOwnershipGuard,
+  type ProviderRuntimeSupervisorSessionRef,
 } from "./provider-runtime-supervisor.js";
 
 const timestamp = "2026-07-03T00:00:00.000Z";
@@ -335,6 +338,51 @@ describe("ProviderRuntimeSupervisor", () => {
     expect(guard.currentOwner(startInput())).toBe("provider-supervisor-a");
   });
 
+  it("renews active ownership during tick before draining provider signals", async () => {
+    const ownershipGuard = new RecordingOwnershipGuard();
+    const socketProvider = new QueuedSignalSocketProvider();
+    const { supervisor, eventLog } = createSupervisorHarness({ socketProvider, ownershipGuard });
+
+    await supervisor.startSession(startInput(), context);
+    socketProvider.emitConnected(socketRequest(), context);
+
+    const tick = await supervisor.tick(context);
+
+    expect(tick.ok).toBe(true);
+    expect(ownershipGuard.acquireCalls).toBe(2);
+    expect(supervisor.snapshot().sessions[0]).toMatchObject({
+      state: "CONNECTED",
+    });
+    expect(eventLog.records()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "provider.connection.v1",
+        }),
+      ]),
+    );
+  });
+
+  it("does not drain provider signals after ownership is lost", async () => {
+    const ownershipGuard = new LostRenewalOwnershipGuard();
+    const socketProvider = new QueuedSignalSocketProvider();
+    const { supervisor, eventLog } = createSupervisorHarness({ socketProvider, ownershipGuard });
+
+    await supervisor.startSession(startInput(), context);
+    socketProvider.emitConnected(socketRequest(), context);
+
+    const tick = await supervisor.tick(context);
+
+    expect(tick.ok).toBe(true);
+    expect(eventLog.records()).toEqual([]);
+    expect(supervisor.snapshot().sessions[0]).toMatchObject({
+      state: "DISCONNECTED",
+      failure: {
+        code: "provider_runtime_supervisor_ownership_lost",
+        source: "runtime",
+      },
+    });
+  });
+
   it("does not create duplicate events when tick drains the same signal twice", async () => {
     const signal = providerSignal({
       signalRef: "provider.baileys.connected",
@@ -386,7 +434,7 @@ describe("ProviderRuntimeSupervisor", () => {
 function createSupervisorHarness(
   options: Readonly<{
     socketProvider?: FakeBaileysSocketProvider;
-    ownershipGuard?: InMemoryProviderRuntimeSupervisorOwnershipGuard;
+    ownershipGuard?: ProviderRuntimeSupervisorOwnershipGuard;
     ownerRef?: string;
   }> = {},
 ): Readonly<{
@@ -478,6 +526,64 @@ class QueuedSignalSocketProvider extends FakeBaileysSocketProvider {
     this.queuedSignals.length = 0;
 
     return Object.freeze([...drained, ...queued]);
+  }
+}
+
+class RecordingOwnershipGuard implements ProviderRuntimeSupervisorOwnershipGuard {
+  acquireCalls = 0;
+  protected readonly ownersBySessionKey = new Map<string, string>();
+
+  acquire(
+    session: ProviderRuntimeSupervisorSessionRef,
+    ownerRef: string,
+  ): ProviderRuntimeSupervisorOwnershipDecision {
+    this.acquireCalls += 1;
+    const key = ownershipSessionKey(session);
+    const owner = this.ownersBySessionKey.get(key);
+
+    if (owner !== undefined && owner !== ownerRef) {
+      return Object.freeze({
+        acquired: false,
+        ownerRef: owner,
+      });
+    }
+
+    this.ownersBySessionKey.set(key, ownerRef);
+
+    return Object.freeze({ acquired: true });
+  }
+
+  release(session: ProviderRuntimeSupervisorSessionRef, ownerRef: string): boolean {
+    const key = ownershipSessionKey(session);
+
+    if (this.ownersBySessionKey.get(key) !== ownerRef) {
+      return false;
+    }
+
+    this.ownersBySessionKey.delete(key);
+
+    return true;
+  }
+
+  currentOwner(session: ProviderRuntimeSupervisorSessionRef): string | undefined {
+    return this.ownersBySessionKey.get(ownershipSessionKey(session));
+  }
+}
+
+class LostRenewalOwnershipGuard extends RecordingOwnershipGuard {
+  override acquire(
+    session: ProviderRuntimeSupervisorSessionRef,
+    ownerRef: string,
+  ): ProviderRuntimeSupervisorOwnershipDecision {
+    if (this.acquireCalls > 0) {
+      this.acquireCalls += 1;
+      return Object.freeze({
+        acquired: false,
+        ownerRef: "provider-supervisor-other-owner",
+      });
+    }
+
+    return super.acquire(session, ownerRef);
   }
 }
 
@@ -581,4 +687,8 @@ function optional<TKey extends string, TValue>(
   value: TValue | undefined,
 ): Partial<Record<TKey, TValue>> {
   return value === undefined ? {} : ({ [key]: value } as Record<TKey, TValue>);
+}
+
+function ownershipSessionKey(session: ProviderRuntimeSupervisorSessionRef): string {
+  return `${session.instanceId}:${session.providerId}:${session.sessionId}`;
 }

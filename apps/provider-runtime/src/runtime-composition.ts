@@ -12,7 +12,10 @@ import {
   DurableJsonBaileysAuthStateStore,
   RealBaileysSocketProvider,
 } from "@omniwa/infrastructure-provider-baileys";
-import { createDurableJsonEventLogStore } from "@omniwa/infrastructure-persistence";
+import {
+  createDurableJsonEventLogStore,
+  createPostgresqlConnectionPool,
+} from "@omniwa/infrastructure-persistence";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { randomUUID } from "node:crypto";
 
@@ -21,7 +24,10 @@ import {
   ProviderRuntimeSupervisor,
   type ProviderRuntimeSupervisorOwnershipGuard,
 } from "./provider-runtime-supervisor.js";
-import { DurableJsonProviderRuntimeSupervisorOwnershipGuard } from "./provider-runtime-ownership-guard.js";
+import {
+  DurableJsonProviderRuntimeSupervisorOwnershipGuard,
+  PostgresqlProviderRuntimeSupervisorOwnershipGuard,
+} from "./provider-runtime-ownership-guard.js";
 import {
   createLocalQrOperatorSink,
   readLocalQrOperatorOutputConfig,
@@ -59,6 +65,7 @@ export type ProviderRuntimeCompositionPaths = Readonly<{
 export const providerRuntimeOwnershipModes = [
   "single_instance_in_memory",
   "durable_json_local_lease",
+  "postgresql_lease",
 ] as const;
 
 export type ProviderRuntimeOwnershipMode = (typeof providerRuntimeOwnershipModes)[number];
@@ -143,7 +150,7 @@ export function createProviderRuntimeComposition(
     signalIngress,
     ownershipGuard:
       overrides.ownershipGuard ??
-      createProviderRuntimeOwnershipGuard(ownershipMode, paths.ownershipLeasePath),
+      createProviderRuntimeOwnershipGuard(ownershipMode, paths.ownershipLeasePath, env),
     ...optional("ownerRef", ownerRef),
   });
 
@@ -336,6 +343,11 @@ export function readProviderRuntimeOwnershipMode(
     case "durable":
     case "durable-json":
     case "durable_json_local_lease":
+      return "durable_json_local_lease";
+    case "postgres":
+    case "postgresql":
+    case "postgresql_lease":
+      return "postgresql_lease";
     case undefined:
     case "":
       return "durable_json_local_lease";
@@ -347,14 +359,35 @@ export function readProviderRuntimeOwnershipMode(
 function createProviderRuntimeOwnershipGuard(
   ownershipMode: ProviderRuntimeOwnershipMode,
   ownershipLeasePath: string,
+  env: NodeJS.ProcessEnv,
 ): ProviderRuntimeSupervisorOwnershipGuard {
   if (ownershipMode === "single_instance_in_memory") {
     return new InMemoryProviderRuntimeSupervisorOwnershipGuard();
   }
 
+  if (ownershipMode === "postgresql_lease") {
+    return new PostgresqlProviderRuntimeSupervisorOwnershipGuard({
+      connection: createPostgresqlConnectionPool(readProviderRuntimeOwnershipDatabaseUrl(env)),
+    });
+  }
+
   return new DurableJsonProviderRuntimeSupervisorOwnershipGuard({
     filePath: ownershipLeasePath,
   });
+}
+
+function readProviderRuntimeOwnershipDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string {
+  const value =
+    env.OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL?.trim() ??
+    env.OMNIWA_POSTGRES_DATABASE_URL?.trim();
+
+  if (value === undefined || value.length === 0) {
+    throw new Error(
+      "OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL or OMNIWA_POSTGRES_DATABASE_URL is required when OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE=postgresql.",
+    );
+  }
+
+  return value;
 }
 
 function assertProviderRuntimeProfileIsComposable(

@@ -214,6 +214,36 @@ describe("provider runtime composition", () => {
     composition.shutdown();
   });
 
+  it("can select PostgreSQL ownership mode when a database URL is configured", () => {
+    const composition = createProviderRuntimeComposition({
+      ...envFor(createTemporaryDirectory()),
+      OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "postgresql",
+      OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL:
+        "postgresql://omniwa:omniwa@127.0.0.1:5432/omniwa_test",
+    });
+
+    expect(composition.readiness.ownershipMode).toBe("postgresql_lease");
+
+    composition.shutdown();
+  });
+
+  it("rejects PostgreSQL ownership mode without leaking database configuration", () => {
+    const rawDatabaseUrl = "postgresql://raw-secret-user:raw-secret-password@localhost/omniwa";
+    let caught: unknown;
+
+    try {
+      createProviderRuntimeComposition({
+        ...envFor(createTemporaryDirectory()),
+        OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "postgresql",
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(String(caught)).toContain("OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL");
+    expect(String(caught)).not.toContain(rawDatabaseUrl);
+  });
+
   it("replaces the provider-runtime index stub with runtime composition startup", () => {
     const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
 
@@ -309,6 +339,9 @@ describe("provider runtime composition", () => {
     expect(
       readProviderRuntimeOwnershipMode({ OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "durable" }),
     ).toBe("durable_json_local_lease");
+    expect(
+      readProviderRuntimeOwnershipMode({ OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "postgresql" }),
+    ).toBe("postgresql_lease");
     expect(
       readProviderRuntimeOwnershipMode({
         OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "single_instance_in_memory",
