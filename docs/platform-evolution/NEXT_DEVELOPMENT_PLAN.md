@@ -44,10 +44,11 @@ Current local runtime:
 - Local API key is `local-dev-secret-change-me`.
 - Public read surfaces must be consumed through REST or the official SDK, not internal handlers.
 - VS02 real WhatsApp local live demo is complete for local operator validation.
-- PostgreSQL repository completion is now the active production-hardening track. Foundation, Message,
-  Session, Chat, Contact, Group, Webhook repositories, GuardrailDecision/HealthStatus repositories,
-  webhook dispatcher PostgreSQL composition, and API/worker hybrid removal are complete. Real
-  PostgreSQL CI is configured and awaits the first remote workflow run after push.
+- PostgreSQL repository completion for runtime-exposed paths is done. Foundation, Message, Session,
+  Chat, Contact, Group, Webhook repositories, GuardrailDecision/HealthStatus repositories, webhook
+  dispatcher PostgreSQL composition, API/worker hybrid removal, and real PostgreSQL CI are complete.
+- GitHub Actions Quality Gate run `28701511362` passed real PostgreSQL contract tests before the full
+  `pnpm check` gate.
 
 ## Development Strategy
 
@@ -64,38 +65,36 @@ The preferred order is:
 
 1. Complete TUI-critical read APIs.
 2. Keep client-contract and SDK synchronized after every endpoint.
-3. Keep production durability ahead of broader mutations by completing PostgreSQL repository coverage.
+3. Keep production durability ahead of broader mutations; N8 completed PostgreSQL coverage for the
+   runtime paths already exposed through the platform API.
 4. Enable selected mutations after read visibility and durable state exist.
 5. Harden production runtime, queueing, security, and observability.
 
 ## Immediate Next Increment
 
-### Increment N8 - PostgreSQL Repository Completion
+### Increment N9 - Controlled Message Mutations
 
 Goal:
 
-- Finish durable repository coverage for the runtime paths already exposed through the platform API.
+- Expand message actions only where state is durable and visible.
 
 Scope:
 
-- Run real PostgreSQL contract tests through `OMNIWA_POSTGRES_TEST_DATABASE_URL` in CI.
-- Keep all scoped PostgreSQL adapters wired through `createPostgresqlRepositorySet`.
+- Keep public message mutations resource-oriented and avoid exposing internal command/query names.
+- Preserve idempotency for send/retry/cancel flows.
+- Keep message/job/session state visible through existing public read surfaces.
+- Update OpenAPI, client contract fixtures, and Rust SDK operations when public contract changes.
 
 Definition of Done:
 
-- `OMNIWA_API_REPOSITORY_PROFILE=postgresql` and `OMNIWA_WORKER_REPOSITORY_PROFILE=postgresql`
-  no longer use in-memory fallback for wired repositories.
-- Webhook dispatcher remains compatible with `OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql`.
-- Contract tests cover all completed PostgreSQL adapters, including side-channel methods.
-- CI provisions PostgreSQL and runs `pnpm test:postgres` before the full `pnpm check` gate.
-- No raw JID, text, provider payload, auth state, or forbidden payload is denormalized into PostgreSQL
-  columns or exposed through public DTOs/logs.
-- `pnpm check` passes.
+- Mutation responses do not leak raw JID, text, provider payload, auth state, or forbidden payload.
+- Duplicate idempotency keys do not create duplicate accepted messages or worker jobs.
+- Retry/cancel behavior is visible through message/job read models.
+- `pnpm check` and relevant narrow tests pass.
 
 Rollback:
 
-- Revert the specific adapter or runtime composition commit and fall back to durable-json or in-memory
-  local profile for development only.
+- Revert the specific mutation endpoint or handler commit and leave read APIs intact.
 
 ## Planned Increments
 
@@ -108,8 +107,8 @@ Rollback:
 | N5    | Group Read APIs                  | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                              |
 | N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes         |
 | N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                |
-| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Current; Phase 0-5 configured, first CI run pending       |
-| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Next after PostgreSQL CI passes                           |
+| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Done; GitHub Quality Gate `28701511362` passed            |
+| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Current                                                   |
 | N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Add audit evidence before enabling actions                |
 | N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Queue, secrets, observability, ownership, load validation |
 
@@ -192,8 +191,8 @@ The project should not claim production readiness until the production gates in
 `docs/platform-evolution/PRODUCTION_EXECUTION_PLAN.md` and formal reviews pass.
 
 Production hardening remains a later track after the platform-client read surface and VS02 local
-runtime proof are stable. The immediate production-hardening work is durable PostgreSQL repository
-completion before broad mutation expansion.
+runtime proof are stable. Durable PostgreSQL repository completion for runtime-exposed paths is done;
+the immediate platform work is now controlled message mutations before broader admin actions.
 
 ## Decision Summary
 
@@ -206,7 +205,7 @@ Message reads
   -> Group reads
   -> SDK/client-contract sync
   -> VS02 real WhatsApp local demo
-  -> PostgreSQL repository completion
+  -> PostgreSQL repository completion (done)
   -> Controlled mutations
   -> Production hardening
 ```

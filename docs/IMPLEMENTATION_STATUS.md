@@ -13,6 +13,12 @@ Every progress update must be recorded here instead of being scattered across un
 - Evidence basis: source file counts, recent git history, runtime composition files, provider/queue
   adapters, PostgreSQL repository code, and CI workflow status.
 
+## Current Platform Increment
+
+| Increment                             | Status | Evidence                                                                                                                                                                   | Next                              |
+| ------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| N8 - PostgreSQL Repository Completion | Done   | Local `pnpm test:postgres` passed against `127.0.0.1:55432`; GitHub Actions Quality Gate run `28701511362` passed with real PostgreSQL contract tests before `pnpm check`. | N9 - Controlled Message Mutations |
+
 ## Verification Snapshot
 
 The counts below use two views:
@@ -62,7 +68,7 @@ done
 | Runtime apps                                                                                     | Frozen                      | API, worker, webhook dispatcher, provider runtime, background, scheduler, health, metrics, and projection-builder apps exist | `apps/*/src` and runtime composition tests.                                                                                                                                                      | Multi-process socket bridge and production runtime orchestration are not complete.                                                                                                  |
 | Webhooks / Events / Realtime                                                                     | Frozen                      | Implemented foundation                                                                                                       | Webhook dispatcher runtime, EventLog/SSE read surfaces, safe provider signal ingestion.                                                                                                          | Replay guarantees, production scaling, and operational alerting need further hardening.                                                                                             |
 | SDK / Client contract                                                                            | Active implementation track | Rust SDK foundation and client contract checks present                                                                       | `sdks/rust/omniwa-sdk`, `tooling/sdk`, `docs/api/client-contract`.                                                                                                                               | SDK must stay generated/checked as public API evolves.                                                                                                                              |
-| CI / Quality gates                                                                               | Active implementation track | GitHub Actions quality gate configured                                                                                       | `.github/workflows/quality-gate.yml`; runs PostgreSQL contract test before `pnpm check`.                                                                                                         | CI success does not by itself mean production readiness.                                                                                                                            |
+| CI / Quality gates                                                                               | Active implementation track | GitHub Actions quality gate passing                                                                                          | `.github/workflows/quality-gate.yml`; run `28701511362` passed PostgreSQL contract tests before `pnpm check`.                                                                                    | CI success does not by itself mean production readiness.                                                                                                                            |
 
 ## Recent Implementation Evidence
 
@@ -73,10 +79,14 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - `3730a5a` through `19a4f71` added and wired PostgreSQL repository coverage.
 - `6efbf4e`, `49fecfa`, and `338ba1b` added and fixed the GitHub Actions quality gate with real
   PostgreSQL repository contract tests.
+- `28701511362` is the first post-normalization GitHub Actions Quality Gate run that passed
+  PostgreSQL contract tests and the full repository quality gate after the documentation cleanup
+  commits were pushed.
 
 ## Known Gaps
 
-- PostgreSQL repository coverage is not complete for the full 18-port catalog.
+- N8 PostgreSQL repository completion is done for the runtime paths already exposed through the
+  platform API. PostgreSQL coverage is still not complete for the full 18-port catalog.
 - The queue provider is still `InMemoryQueueProvider`; WorkerJob state can be PostgreSQL-backed, but
   the queue engine itself is not a production distributed queue.
 - Integration and live-network tests intentionally avoid requiring real WhatsApp credentials in normal
