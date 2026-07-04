@@ -20,8 +20,18 @@ import {
 } from "@omniwa/infrastructure-persistence";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 
-import { createApiKeyVerifierFromPlaintext } from "./api-key-auth.js";
-import { readApiKeysFromEnv, type ApiHttpServerOptions, type ApiKeyConfig } from "./http-server.js";
+import {
+  createApiKeyVerifierFromPlaintext,
+  createHashedApiKeyVerifier,
+  type ApiKeyVerifier,
+  type HashedApiKeyConfig,
+} from "./api-key-auth.js";
+import {
+  readApiKeysFromEnv,
+  readHashedApiKeysFromEnv,
+  type ApiHttpServerOptions,
+  type ApiKeyConfig,
+} from "./http-server.js";
 import { createEventLogRealtimeEventSource } from "./realtime-event-stream.js";
 
 export const apiRuntimeProfiles = ["local", "test", "production"] as const;
@@ -49,8 +59,10 @@ export function createApiRuntimeComposition(
   const profile = readRuntimeProfile(env);
   const repositoryProfile = readRepositoryProfile(env);
   const apiKeys = readApiKeysFromEnv(env);
+  const hashedApiKeys = readHashedApiKeysFromEnv(env);
+  const apiKeyVerifier = createRuntimeApiKeyVerifier(apiKeys, hashedApiKeys);
 
-  assertRuntimeProfileIsComposable(profile, apiKeys);
+  assertRuntimeProfileIsComposable(profile, apiKeys.length > 0 || hashedApiKeys.length > 0);
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
   const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
@@ -103,11 +115,28 @@ export function createApiRuntimeComposition(
       outboundMessageIntentStore,
       groupMutationIntentStore,
       ...optional("eventSource", eventSource),
-      ...(apiKeys.length === 0
-        ? { apiKeys }
-        : { apiKeyVerifier: createApiKeyVerifierFromPlaintext(apiKeys) }),
+      ...(apiKeyVerifier === undefined ? { apiKeys } : { apiKeyVerifier }),
     }),
   });
+}
+
+function createRuntimeApiKeyVerifier(
+  apiKeys: readonly ApiKeyConfig[],
+  hashedApiKeys: readonly HashedApiKeyConfig[],
+): ApiKeyVerifier | undefined {
+  if (apiKeys.length > 0 && hashedApiKeys.length > 0) {
+    throw new Error("Configure either OMNIWA_API_KEY or OMNIWA_API_KEY_HASH, not both.");
+  }
+
+  if (hashedApiKeys.length > 0) {
+    return createHashedApiKeyVerifier(hashedApiKeys);
+  }
+
+  if (apiKeys.length > 0) {
+    return createApiKeyVerifierFromPlaintext(apiKeys);
+  }
+
+  return undefined;
 }
 
 function createRuntimeGroupMutationIntentStore(
@@ -252,7 +281,7 @@ function readBooleanEnv(value: string | undefined): boolean {
 
 function assertRuntimeProfileIsComposable(
   profile: ApiRuntimeProfile,
-  apiKeys: readonly ApiKeyConfig[],
+  hasConfiguredApiKey: boolean,
 ): void {
   if (profile === "production") {
     throw new Error(
@@ -260,9 +289,9 @@ function assertRuntimeProfileIsComposable(
     );
   }
 
-  if (profile !== "test" && apiKeys.length === 0) {
+  if (profile !== "test" && !hasConfiguredApiKey) {
     throw new Error(
-      "OmniWA API runtime requires OMNIWA_API_KEY for local and production profiles.",
+      "OmniWA API runtime requires OMNIWA_API_KEY or OMNIWA_API_KEY_HASH for local and production profiles.",
     );
   }
 }

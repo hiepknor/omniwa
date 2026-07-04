@@ -10,6 +10,7 @@ import {
   readRepositoryProfile,
   readRuntimeProfile,
 } from "./runtime-composition.js";
+import { hashApiKey } from "./api-key-auth.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -59,6 +60,36 @@ describe("API runtime composition", () => {
     expect(composition.options.apiKeys).toEqual([]);
     expect(composition.options.dispatcher).toBeDefined();
     expect(composition.options.outboundMessageIntentStore).toBeDefined();
+  });
+
+  it("composes local runtime from a hashed API key without keeping plaintext config", () => {
+    const rawApiKey = "hashed-runtime-secret";
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_KEY_HASH: hashApiKey(rawApiKey),
+      OMNIWA_API_KEY_ID: "hashed-env-key",
+      OMNIWA_API_KEY_SCOPES: "instances:read,health:read",
+      OMNIWA_API_KEY_ALLOWED_INSTANCES: "inst_allowed",
+    });
+
+    expect(composition.options.apiKeys).toBeUndefined();
+    expect(composition.options.apiKeyVerifier?.verify(rawApiKey)).toEqual({
+      kind: "api_key",
+      keyId: "hashed-env-key",
+      scopes: ["instances:read", "health:read"],
+      allowedInstanceRefs: ["inst_allowed"],
+    });
+    expect(JSON.stringify(composition.options)).not.toContain(rawApiKey);
+  });
+
+  it("rejects mixed plaintext and hashed API key runtime configuration", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_KEY: "plaintext-secret",
+        OMNIWA_API_KEY_HASH: hashApiKey("hashed-secret"),
+      }),
+    ).toThrow(/either OMNIWA_API_KEY or OMNIWA_API_KEY_HASH/u);
   });
 
   it("composes a durable JSON repository profile for restartable local state", async () => {
@@ -140,7 +171,7 @@ describe("API runtime composition", () => {
       createApiRuntimeComposition({
         OMNIWA_API_RUNTIME_PROFILE: "local",
       }),
-    ).toThrow(/requires OMNIWA_API_KEY/i);
+    ).toThrow(/requires OMNIWA_API_KEY or OMNIWA_API_KEY_HASH/i);
   });
 
   it("requires a repository state directory for durable JSON composition", () => {

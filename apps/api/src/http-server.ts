@@ -35,8 +35,10 @@ import {
 
 import {
   createApiKeyVerifierFromPlaintext,
+  type ApiKeyHash,
   type ApiKeyConfig,
   type ApiKeyVerifier,
+  type HashedApiKeyConfig,
 } from "./api-key-auth.js";
 import {
   classifyRateLimitEndpoint,
@@ -575,6 +577,30 @@ export function readApiKeysFromEnv(env: NodeJS.ProcessEnv = process.env): readon
         scopes: parseScopes(env.OMNIWA_API_KEY_SCOPES),
         ...optional("allowedInstanceRefs", parseCsv(env.OMNIWA_API_KEY_ALLOWED_INSTANCES)),
       }),
+    }),
+  ]);
+}
+
+export function readHashedApiKeysFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): readonly HashedApiKeyConfig[] {
+  const keyHash = env.OMNIWA_API_KEY_HASH?.trim();
+
+  if (keyHash === undefined || keyHash.length === 0) {
+    return [];
+  }
+
+  return Object.freeze([
+    Object.freeze({
+      keyHash: keyHash as ApiKeyHash,
+      credential: Object.freeze({
+        kind: parseCredentialKind(env.OMNIWA_API_KEY_KIND),
+        keyId: env.OMNIWA_API_KEY_ID?.trim() || "env-api-key",
+        scopes: parseScopes(env.OMNIWA_API_KEY_SCOPES),
+        ...optional("allowedInstanceRefs", parseCsv(env.OMNIWA_API_KEY_ALLOWED_INSTANCES)),
+      }),
+      status: parseApiKeyStatus(env.OMNIWA_API_KEY_STATUS),
+      ...optional("rotatedFromKeyId", env.OMNIWA_API_KEY_ROTATED_FROM_ID?.trim()),
     }),
   ]);
 }
@@ -2391,6 +2417,19 @@ function parseCredentialKind(value: string | undefined): ApiCredentialKind {
     case "api_key":
     default:
       return "api_key";
+  }
+}
+
+function parseApiKeyStatus(value: string | undefined): "active" | "revoked" {
+  switch (value?.trim()) {
+    case "revoked":
+      return "revoked";
+    case "active":
+    case undefined:
+    case "":
+      return "active";
+    default:
+      throw new Error("Unsupported OmniWA API key status.");
   }
 }
 
