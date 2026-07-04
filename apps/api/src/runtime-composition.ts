@@ -494,6 +494,7 @@ function createRuntimeRepositories(
       groupRepository: postgresqlRepositories.groupRepository,
       guardrailDecisionRepository: postgresqlRepositories.guardrailDecisionRepository,
       workerJobRepository: postgresqlRepositories.workerJobRepository,
+      auditRecordRepository: postgresqlRepositories.auditRecordRepository,
       webhookSubscriptionRepository: postgresqlRepositories.webhookSubscriptionRepository,
       webhookDeliveryRepository: postgresqlRepositories.webhookDeliveryRepository,
     });

@@ -76,8 +76,7 @@ Runtime composition can also enable the current security-audit sinks with:
 
 These sinks are mutually exclusive. The `OMNIWA_API_SECURITY_AUDIT_RECORDS=true` path records safe
 denied-decision evidence as approved domain `AuditRecord` aggregates when the selected repository
-profile provides `AuditRecordRepositoryPort`. PostgreSQL AuditRecord persistence remains follow-up
-because the current PostgreSQL repository set does not yet cover the full catalog port.
+profile provides `AuditRecordRepositoryPort`.
 
 Runtime composition can enable repository-backed ownership resolution with:
 
@@ -122,4 +121,3 @@ pnpm check
 - Wire production-grade distributed rate limiting before multi-process production runtime.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current
   aggregate state.
-- Add PostgreSQL `AuditRecordRepositoryPort` coverage before claiming production audit persistence.

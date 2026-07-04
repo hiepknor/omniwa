@@ -129,11 +129,11 @@ is configured. N11.5 is now current; its first slice wires opt-in API rate limit
 endpoint-class limits. It also wires opt-in in-memory denied-decision evidence through
 `OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true`, durable JSON security-audit evidence through
 `OMNIWA_API_SECURITY_AUDIT_LOG_PATH`, approved domain `AuditRecord` persistence through
-`OMNIWA_API_SECURITY_AUDIT_RECORDS=true` when the selected repository profile provides the audit
-repository, and opt-in repository-backed ownership resolution through
+`OMNIWA_API_SECURITY_AUDIT_RECORDS=true` through the selected repository profile's audit repository,
+and opt-in repository-backed ownership resolution through
 `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for resources that already carry explicit instance
-ownership. Remaining N11.5 work should focus on full ownership coverage, PostgreSQL AuditRecord
-persistence, and distributed rate limiting. Rate-limit snapshots can now be exported as approved
+ownership. Remaining N11.5 work should focus on full ownership coverage, distributed rate limiting,
+and production database credential validation. Rate-limit snapshots can now be exported as approved
 low-cardinality API metric points without raw key, bucket, instance, or target identifiers.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.

@@ -573,16 +573,18 @@ describe("API runtime composition", () => {
     );
   });
 
-  it("fails fast when AuditRecord security audit persistence is requested without a repository", () => {
-    expect(() =>
-      createApiRuntimeComposition({
-        OMNIWA_API_KEY: "local-secret",
-        OMNIWA_API_RUNTIME_PROFILE: "local",
-        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
-        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
-        OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
-      }),
-    ).toThrow(/requires an AuditRecordRepositoryPort-backed repository profile/u);
+  it("wires AuditRecord security audit persistence for PostgreSQL repository profile", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+      OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+      OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+    });
+
+    expect(composition.options.securityAuditSink).toBeInstanceOf(
+      DomainAuditRecordApiSecurityAuditSink,
+    );
   });
 
   it("wires an env-configured repository-backed resource ownership resolver", () => {

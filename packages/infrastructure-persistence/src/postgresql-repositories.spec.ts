@@ -3,6 +3,7 @@ import type { FieldDef, QueryResult, QueryResultRow } from "pg";
 
 import {
   createPostgresqlConnectionPool,
+  PostgresqlAuditRecordRepository,
   PostgresqlChatRepository,
   PostgresqlContactRepository,
   PostgresqlGroupRepository,
@@ -26,6 +27,7 @@ import {
   describeGroupRepositoryContract,
   describeGuardrailDecisionRepositoryContract,
   describeHealthStatusRepositoryContract,
+  describeAuditRecordRepositoryContract,
   describeInstanceRepositoryContract,
   describeMessageRepositoryContract,
   describeSessionRepositoryContract,
@@ -123,6 +125,10 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260704_0011_health_status_repository",
         description: expect.stringContaining("HealthStatusRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260705_0012_audit_record_repository",
+        description: expect.stringContaining("AuditRecordRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -157,6 +163,9 @@ describe("PostgreSQL migration runner", () => {
     expect(postgresqlInstanceRepositoryMigrations[10]?.statements.join("\n")).toContain(
       "omniwa_health_statuses",
     );
+    expect(postgresqlInstanceRepositoryMigrations[11]?.statements.join("\n")).toContain(
+      "omniwa_audit_records",
+    );
   });
 });
 
@@ -175,7 +184,7 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
       await connection.query(
-        "TRUNCATE TABLE omniwa_health_statuses, omniwa_guardrail_decisions, omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
+        "TRUNCATE TABLE omniwa_audit_records, omniwa_health_statuses, omniwa_guardrail_decisions, omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
       );
     });
 
@@ -221,6 +230,11 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeHealthStatusRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlHealthStatusRepository(connection),
+    });
+
+    describeAuditRecordRepositoryContract({
+      name: "postgresql",
+      create: () => new PostgresqlAuditRecordRepository(connection),
     });
 
     describeWebhookSubscriptionRepositoryContract({

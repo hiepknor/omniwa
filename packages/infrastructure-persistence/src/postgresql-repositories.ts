@@ -29,6 +29,9 @@ import {
   createWebhookSubscriptionStatus,
   createWebhookUrl,
   createWorkerJobSafeMetadata,
+  type AuditRecord,
+  type AuditRecordId,
+  type AuditRecordRepositoryPort,
   type Chat,
   type ChatId,
   type ChatRepositoryPort,
@@ -124,6 +127,7 @@ export type PostgresqlRepositorySet = Readonly<{
   webhookDeliveryRepository: PostgresqlWebhookDeliveryRepository;
   webhookSubscriptionRepository: PostgresqlWebhookSubscriptionRepository;
   workerJobRepository: PostgresqlWorkerJobRepository;
+  auditRecordRepository: PostgresqlAuditRecordRepository;
 }>;
 
 export const postgresqlRepositoryMigrations = Object.freeze([
@@ -307,6 +311,23 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_health_statuses_category_idx ON omniwa_health_statuses (category)",
     ]),
   }),
+  Object.freeze({
+    id: "pgm_20260705_0012_audit_record_repository",
+    description: "Create PostgreSQL source-state storage for AuditRecordRepositoryPort.",
+    statements: Object.freeze([
+      `CREATE TABLE IF NOT EXISTS omniwa_audit_records (
+        id text PRIMARY KEY,
+        audit_category text NOT NULL,
+        status text NOT NULL,
+        source_signal_ref text NULL,
+        aggregate jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      "CREATE INDEX IF NOT EXISTS omniwa_audit_records_audit_category_idx ON omniwa_audit_records (audit_category)",
+      "CREATE INDEX IF NOT EXISTS omniwa_audit_records_status_idx ON omniwa_audit_records (status)",
+      "CREATE INDEX IF NOT EXISTS omniwa_audit_records_source_signal_ref_idx ON omniwa_audit_records (source_signal_ref)",
+    ]),
+  }),
 ]) satisfies readonly PostgresqlSqlMigration[];
 
 export const postgresqlInstanceRepositoryMigrations = postgresqlRepositoryMigrations;
@@ -441,6 +462,9 @@ export function createPostgresqlRepositorySet(
       ...optional("migrationBarrier", migrationBarrier),
     }),
     workerJobRepository: new PostgresqlWorkerJobRepository(connection, {
+      ...optional("migrationBarrier", migrationBarrier),
+    }),
+    auditRecordRepository: new PostgresqlAuditRecordRepository(connection, {
       ...optional("migrationBarrier", migrationBarrier),
     }),
   });
@@ -785,6 +809,66 @@ export class PostgresqlHealthStatusRepository
     return this.findManyBySql(
       "SELECT aggregate FROM omniwa_health_statuses WHERE category = $1 ORDER BY id ASC",
       [createHealthCategory(category)],
+    );
+  }
+}
+
+export type PostgresqlAuditRecordRepositoryOptions = Readonly<{
+  migrationBarrier?: () => Promise<void>;
+}>;
+
+export class PostgresqlAuditRecordRepository
+  extends PostgresqlAggregateRepository<AuditRecord, AuditRecordId>
+  implements AuditRecordRepositoryPort
+{
+  constructor(
+    connection: PostgresqlQueryExecutor,
+    options: PostgresqlAuditRecordRepositoryOptions = {},
+  ) {
+    super(connection, {
+      tableName: "omniwa_audit_records",
+      columns: Object.freeze([
+        Object.freeze({
+          name: "audit_category",
+          value: (record: AuditRecord) => record.auditCategory,
+        }),
+        Object.freeze({
+          name: "status",
+          value: (record: AuditRecord) => record.status,
+        }),
+        Object.freeze({
+          name: "source_signal_ref",
+          value: (record: AuditRecord) =>
+            findAuditRecordSourceSignalByAuditRecordId(connection, record.id),
+          updateExpression:
+            "COALESCE(omniwa_audit_records.source_signal_ref, EXCLUDED.source_signal_ref)",
+        }),
+      ]),
+      decode: (value) => decodeProjectionAggregate<AuditRecord>(value, "AuditRecord"),
+      getId: (record) => keyOf(record.id),
+      ...optional("migrationBarrier", options.migrationBarrier),
+    });
+  }
+
+  findBySourceSignal(sourceSignalRef: string): Promise<readonly AuditRecord[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_audit_records WHERE source_signal_ref = $1 ORDER BY id ASC",
+      [sourceSignalRef],
+    );
+  }
+
+  findRetentionExpired(): Promise<readonly AuditRecord[]> {
+    return this.findManyBySql(
+      "SELECT aggregate FROM omniwa_audit_records WHERE status = 'retention_expired' ORDER BY id ASC",
+      [],
+    );
+  }
+
+  async recordSourceSignal(auditRecordId: AuditRecordId, sourceSignalRef: string): Promise<void> {
+    await this.ensureReady();
+    await this.connection.query(
+      "UPDATE omniwa_audit_records SET source_signal_ref = $2, updated_at = now() WHERE id = $1",
+      [keyOf(auditRecordId), sourceSignalRef],
     );
   }
 }
@@ -1175,6 +1259,18 @@ async function findWorkerJobIdempotencyKeyByJobId(
   );
 
   return result.rows[0]?.idempotency_key ?? null;
+}
+
+async function findAuditRecordSourceSignalByAuditRecordId(
+  connection: PostgresqlQueryExecutor,
+  auditRecordId: AuditRecordId,
+): Promise<string | null> {
+  const result = await connection.query<{ source_signal_ref: string | null }>(
+    "SELECT source_signal_ref FROM omniwa_audit_records WHERE id = $1",
+    [keyOf(auditRecordId)],
+  );
+
+  return result.rows[0]?.source_signal_ref ?? null;
 }
 
 function createPostgresqlMigrationBarrier(connection: PostgresqlConnection): () => Promise<void> {

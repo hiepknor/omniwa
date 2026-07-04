@@ -1,5 +1,7 @@
 import {
   activateContact,
+  createAuditRecordAggregate,
+  createAuditRecordId,
   activateGroup,
   createInstance,
   createInstanceId,
@@ -33,6 +35,7 @@ import {
   createWebhookId,
   createWebhookSubscriptionAggregate,
   createWebhookUrl,
+  expireAuditRetention,
   queueMessage,
   validateWebhookSubscription,
   markInstanceConnected,
@@ -40,6 +43,8 @@ import {
   markMessageProcessing,
   queueWorkerJob,
   reserveWorkerJob,
+  type AuditRecordId,
+  type AuditRecordRepositoryPort,
   type InstanceRepositoryPort,
   type IdempotencyKey,
   type ChatRepositoryPort,
@@ -588,6 +593,74 @@ export function describeHealthStatusRepositoryContract(
       await expect(repository.findBySubject("missing-health-subject")).resolves.toBeUndefined();
       await expect(repository.findByCategory("degraded")).resolves.toEqual([degraded]);
       await expect(repository.findByCategory("healthy")).resolves.toEqual([healthy]);
+    });
+  });
+}
+
+export type AuditRecordRepositoryContractFactory = Readonly<{
+  name: string;
+  beforeEach?: () => Promise<void> | void;
+  create(): AuditRecordRepositoryPort &
+    Partial<{
+      recordSourceSignal(
+        auditRecordId: AuditRecordId,
+        sourceSignalRef: string,
+      ): Promise<void> | void;
+    }>;
+}>;
+
+export function describeAuditRecordRepositoryContract(
+  factory: AuditRecordRepositoryContractFactory,
+): void {
+  describe(`${factory.name} AuditRecordRepositoryPort contract`, () => {
+    beforeEach(async () => {
+      await factory.beforeEach?.();
+    });
+
+    it("saves, loads, and filters audit records by source signal and retention", async () => {
+      const repository = factory.create();
+      const auditRecord = createAuditRecordAggregate({
+        id: createAuditRecordId(`${safeFactoryName(factory.name)}-audit-recorded`),
+        auditCategory: "api_security.authentication_denied",
+        evidenceSummaryCode: "api_security.authentication_denied.missing_or_invalid_api_key.401",
+        retentionPolicy: {
+          category: "audit_record",
+          retentionDays: 180,
+        },
+        redacted: true,
+      });
+      const expired = expireAuditRetention(
+        createAuditRecordAggregate({
+          id: createAuditRecordId(`${safeFactoryName(factory.name)}-audit-expired`),
+          auditCategory: "api_security.rate_limit_denied",
+          evidenceSummaryCode: "api_security.rate_limit_denied.rate_limit_exceeded.429",
+          retentionPolicy: {
+            category: "audit_record",
+            retentionDays: 30,
+          },
+          redacted: true,
+        }),
+      );
+
+      await expect(repository.exists(auditRecord.id)).resolves.toBe(false);
+      await repository.save(auditRecord);
+      await repository.save(expired);
+
+      await expect(repository.exists(auditRecord.id)).resolves.toBe(true);
+      await expect(repository.load(auditRecord.id)).resolves.toEqual(auditRecord);
+
+      if (repository.recordSourceSignal !== undefined) {
+        await repository.recordSourceSignal(auditRecord.id, "api_security.signal_recorded");
+        await repository.recordSourceSignal(expired.id, "api_security.signal_expired");
+      }
+
+      await expect(repository.findBySourceSignal("api_security.signal_recorded")).resolves.toEqual([
+        auditRecord,
+      ]);
+      await expect(repository.findBySourceSignal("api_security.signal_missing")).resolves.toEqual(
+        [],
+      );
+      await expect(repository.findRetentionExpired()).resolves.toEqual([expired]);
     });
   });
 }
