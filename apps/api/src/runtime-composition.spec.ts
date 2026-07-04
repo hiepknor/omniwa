@@ -17,6 +17,7 @@ import { hashApiKey } from "./api-key-auth.js";
 import { handleApiHttpRequest } from "./http-server.js";
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
+import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 
 const runtimeRateLimitCredential: ApiCredential = {
   kind: "api_key",
@@ -475,6 +476,18 @@ describe("API runtime composition", () => {
       }),
     ]);
     expect(JSON.stringify(events)).not.toContain("invalid-runtime-secret");
+  });
+
+  it("wires an env-configured repository-backed resource ownership resolver", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
+    });
+
+    expect(composition.options.resourceOwnershipResolver).toBeInstanceOf(
+      RepositoryApiResourceOwnershipResolver,
+    );
   });
 
   it("fails fast for production profile until production adapters are implemented", () => {

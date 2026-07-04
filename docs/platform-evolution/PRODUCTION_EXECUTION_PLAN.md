@@ -64,7 +64,7 @@ must use this status overlay instead of restarting already-completed foundation 
 | P0-06 | Partial                 | Durable WorkerJob-backed queue provider exists behind `QueueProviderPort`; cross-process atomic leasing and final production queue semantics remain open.                                                                                                                                                                                                                                                                                                                                                     |
 | P0-07 | Mostly closed           | API key auth/lifecycle foundations exist, API runtime can compose from `OMNIWA_API_KEY_HASH`, `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`, or `SecretProvider` via `OMNIWA_API_KEY_SECRET_NAME` without retaining plaintext key config, the API process entrypoint wires the secret-name path through `EnvSecretProvider`, and admin `/v1/api-keys` list/provision/revoke/rotate routes exist behind `admin:*` with safe DTOs and audit evidence. Least-privilege depth and rate-limit hardening continue in N11.5. |
 | P0-08 | Partial                 | Rate limiter foundation exists and API runtime composition can now opt in through `OMNIWA_API_RATE_LIMIT_MAX_REQUESTS`, `OMNIWA_API_RATE_LIMIT_WINDOW_MS`, and endpoint-class override env vars. Production distributed throttling, metrics export, and guardrail integration need hardening.                                                                                                                                                                                                                 |
-| P0-09 | Partial                 | Resource ownership checks exist for current surfaces, and API runtime composition can opt in to in-memory denied-decision evidence with `OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true`. Production ownership coverage, persistent audit evidence, and regression depth need hardening.                                                                                                                                                                                                                            |
+| P0-09 | Partial                 | Resource ownership checks exist for current surfaces. API runtime composition can opt in to in-memory denied-decision evidence with `OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true` and repository-backed ownership resolution with `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for session/message/chat/contact/group/job resources that carry explicit instance ownership. Full production ownership coverage, persistent audit evidence, and regression depth need hardening.                               |
 | P0-10 | Partial                 | Env/local secret providers exist, API process composition can use them for API key material, and provider runtime can encrypt durable Baileys auth-state JSON with `OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY` while preserving local backward compatibility for existing unencrypted state. Production external secret-provider selection and production-profile validation remain open.                                                                                                                      |
 | P0-11 | Foundation closed       | Durable JSON EventLog/outbox and SSE replay survive restart. Production outbox consumers, selected production EventLog backend, and backlog metrics remain open.                                                                                                                                                                                                                                                                                                                                              |
 | P0-12 | Partial                 | Webhook dispatcher runtime exists. Production durable retry/dead-letter/signing/replay hardening remains open.                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -388,7 +388,9 @@ Definition of Done:
 - Rate limits exist by key, instance, and endpoint class; the current runtime-wired limiter is
   opt-in in-memory and must be replaced or backed by a distributed adapter before multi-process
   production.
-- Resource IDs resolve to ownership before authorization decisions.
+- Resource IDs resolve to ownership before authorization decisions; the current repository-backed
+  resolver covers instance-owned resource aggregates and fails closed for unsupported resources when
+  enabled.
 - Denied security decisions produce safe evidence; the current runtime-wired sink is opt-in
   in-memory and must be persisted before production promotion.
 - Secret values are never logged or serialized.
@@ -761,6 +763,7 @@ Goal:
 Deliverables:
 
 - Ownership resolver for instance, message, group, webhook, delivery, job, event resources.
+- Repository-backed ownership resolver for instance-owned resources.
 - Runtime-wired rate limiter by API key, instance, and endpoint class.
 - Guardrail throttling hooks.
 - Runtime-wired denied-decision audit evidence.

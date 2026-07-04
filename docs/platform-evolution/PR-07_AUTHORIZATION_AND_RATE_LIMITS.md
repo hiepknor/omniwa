@@ -14,6 +14,7 @@ hooks that production adapters can persist later.
 | ----------------------------- | -------- | -------------------------------------------------------------------------------------- |
 | Resource ownership types      | Complete | Ownership checks now classify instance, message, group, webhook, delivery, job, event. |
 | Resource ownership resolver   | Complete | In-memory resource-to-instance resolver exists for runtime/test composition.           |
+| Repository ownership resolver | Partial  | Runtime can resolve session/message/chat/contact/group/job owners from repositories.   |
 | Admin bypass decision         | Complete | `admin:*` bypass is explicit in the ownership decision and can be audited.             |
 | Instance-scoped rate limiting | Complete | Rate-limit buckets prefer resolved `instanceRef` over non-instance resource ids.       |
 | Endpoint-class guardrails     | Complete | In-memory limiter supports per-endpoint-class limits such as lower message send caps.  |
@@ -74,6 +75,15 @@ Runtime composition can also enable the current in-memory security-audit sink wi
 This records safe denied-decision evidence for local/dev hardening. Persistent audit storage remains
 separate follow-up work.
 
+Runtime composition can enable repository-backed ownership resolution with:
+
+- `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true`
+
+The resolver currently covers resources whose aggregate state already carries explicit instance
+ownership: session, message, chat, contact, group, and worker jobs with safe `instanceId` metadata.
+Resources without current instance-owner fields fail closed when this resolver is enabled and remain
+follow-up work for full production coverage.
+
 ## Verification
 
 Targeted tests:
@@ -99,3 +109,5 @@ pnpm check
 - Persist `ApiSecurityAuditSink` events into the approved audit storage.
 - Wire production-grade distributed rate limiting before multi-process production runtime.
 - Export rate-limit snapshots through the approved metrics runtime.
+- Complete ownership coverage for resources that do not yet carry an explicit owner in current
+  aggregate state.

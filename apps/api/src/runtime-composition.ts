@@ -34,6 +34,7 @@ import {
   type ApiRateLimitEndpointClass,
 } from "./api-rate-limiter.js";
 import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
+import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 import {
   readApiKeysFromEnv,
   readHashedApiKeysFromEnv,
@@ -101,6 +102,7 @@ export function createApiRuntimeComposition(
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
   const rateLimiter = createRuntimeRateLimiter(env);
   const securityAuditSink = createRuntimeSecurityAuditSink(env);
+  const resourceOwnershipResolver = createRuntimeResourceOwnershipResolver(env, repositories);
   const queueProvider = new InMemoryQueueProvider({
     workerJobRepository: repositories.workerJobRepository,
   });
@@ -139,6 +141,7 @@ export function createApiRuntimeComposition(
       ...optional("eventSource", eventSource),
       ...optional("rateLimiter", rateLimiter),
       ...optional("securityAuditSink", securityAuditSink),
+      ...optional("resourceOwnershipResolver", resourceOwnershipResolver),
       ...optional(
         "apiKeyLifecycleService",
         apiKeyLifecycleStore === undefined
@@ -242,6 +245,22 @@ function createRuntimeSecurityAuditSink(
 ): InMemoryApiSecurityAuditSink | undefined {
   return readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_IN_MEMORY)
     ? new InMemoryApiSecurityAuditSink()
+    : undefined;
+}
+
+function createRuntimeResourceOwnershipResolver(
+  env: NodeJS.ProcessEnv,
+  repositories: ApiRuntimeRepositorySet,
+): RepositoryApiResourceOwnershipResolver | undefined {
+  return readBooleanEnv(env.OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY)
+    ? new RepositoryApiResourceOwnershipResolver({
+        ...optional("sessionRepository", repositories.sessionRepository),
+        ...optional("messageRepository", repositories.messageRepository),
+        ...optional("chatRepository", repositories.chatRepository),
+        ...optional("contactRepository", repositories.contactRepository),
+        ...optional("groupRepository", repositories.groupRepository),
+        workerJobRepository: repositories.workerJobRepository,
+      })
     : undefined;
 }
 
