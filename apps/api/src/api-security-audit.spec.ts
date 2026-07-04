@@ -2,9 +2,12 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { SecurityAuditEvidenceApplicationService } from "@omniwa/application";
+import { InMemoryAuditRecordRepository } from "@omniwa/infrastructure-persistence";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  DomainAuditRecordApiSecurityAuditSink,
   DurableJsonApiSecurityAuditSink,
   InMemoryApiSecurityAuditSink,
   type ApiSecurityAuditEvent,
@@ -53,6 +56,39 @@ describe("API security audit sinks", () => {
 
     expect(readFileSync(filePath, "utf8")).not.toContain("raw-secret-should-not-persist");
     expect(sink.snapshot()).toEqual([auditEvent()]);
+  });
+
+  it("persists API security events as domain AuditRecords without raw identifiers", async () => {
+    const repository = new InMemoryAuditRecordRepository();
+    const sink = new DomainAuditRecordApiSecurityAuditSink(
+      new SecurityAuditEvidenceApplicationService({
+        auditRecordRepository: repository,
+      }),
+    );
+    const event = auditEvent({
+      eventType: "rate_limit_denied",
+      code: "rate_limit_exceeded",
+      statusCode: 429,
+      keyId: "raw-key-id-should-not-persist",
+      targetRef: "msg_raw_target",
+      instanceRef: "inst_raw_instance",
+      rateLimitBucketKey: "raw-key-id-should-not-persist:message_send:instance:inst_raw_instance",
+    });
+
+    await sink.record(event);
+    await sink.record(event);
+
+    expect(repository.list()).toEqual([
+      expect.objectContaining({
+        auditCategory: "api_security.rate_limit_denied",
+        evidenceSummaryCode: "api_security.rate_limit_denied.rate_limit_exceeded.429",
+        status: "recorded",
+        redacted: true,
+      }),
+    ]);
+    expect(JSON.stringify(repository.list())).not.toContain("raw-key-id-should-not-persist");
+    expect(JSON.stringify(repository.list())).not.toContain("inst_raw_instance");
+    expect(JSON.stringify(repository.list())).not.toContain("msg_raw_target");
   });
 });
 

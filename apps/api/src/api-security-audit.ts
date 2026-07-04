@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+
+import type { SecurityAuditEvidenceApplicationService } from "@omniwa/application";
 import { DurableJsonStateStore } from "@omniwa/infrastructure-persistence";
 import type { ApiCredentialKind } from "@omniwa/interface-api";
 
@@ -81,6 +84,29 @@ export class DurableJsonApiSecurityAuditSink implements ApiSecurityAuditSink {
   }
 }
 
+export class DomainAuditRecordApiSecurityAuditSink implements ApiSecurityAuditSink {
+  private readonly service: SecurityAuditEvidenceApplicationService;
+
+  constructor(service: SecurityAuditEvidenceApplicationService) {
+    this.service = service;
+  }
+
+  async record(event: ApiSecurityAuditEvent): Promise<void> {
+    const normalized = normalizeAuditEvent(event);
+    const result = await this.service.record({
+      sourceSignalRef: createAuditSourceSignalRef(normalized),
+      auditCategory: `api_security.${normalized.eventType}`,
+      evidenceSummaryCode: createAuditEvidenceSummaryCode(normalized),
+      dataClassification: "internal",
+      redacted: true,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error.code);
+    }
+  }
+}
+
 function normalizeAuditEvent(event: ApiSecurityAuditEvent): ApiSecurityAuditEvent {
   return Object.freeze({
     eventType: event.eventType,
@@ -100,6 +126,28 @@ function normalizeAuditEvent(event: ApiSecurityAuditEvent): ApiSecurityAuditEven
     ...optional("endpointClass", event.endpointClass),
     ...optional("rateLimitBucketKey", event.rateLimitBucketKey),
   });
+}
+
+function createAuditSourceSignalRef(event: ApiSecurityAuditEvent): string {
+  const digest = createHash("sha256").update(JSON.stringify(event)).digest("hex").slice(0, 32);
+
+  return `api_security.${digest}`;
+}
+
+function createAuditEvidenceSummaryCode(event: ApiSecurityAuditEvent): string {
+  return `api_security.${event.eventType}.${safeCodeSegment(event.code)}.${event.statusCode}`;
+}
+
+function safeCodeSegment(value: string): string {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/gu, "_")
+    .replace(/^[_\-.]+|[_\-.]+$/gu, "");
+
+  return normalized.length === 0 || !/^[a-z]/u.test(normalized)
+    ? `code_${normalized || "unknown"}`
+    : normalized;
 }
 
 function optional<TKey extends string, TValue>(

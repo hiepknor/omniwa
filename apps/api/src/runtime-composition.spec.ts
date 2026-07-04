@@ -17,6 +17,7 @@ import { hashApiKey } from "./api-key-auth.js";
 import { handleApiHttpRequest } from "./http-server.js";
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import {
+  DomainAuditRecordApiSecurityAuditSink,
   DurableJsonApiSecurityAuditSink,
   InMemoryApiSecurityAuditSink,
 } from "./api-security-audit.js";
@@ -557,7 +558,31 @@ describe("API runtime composition", () => {
         OMNIWA_API_SECURITY_AUDIT_IN_MEMORY: "true",
         OMNIWA_API_SECURITY_AUDIT_LOG_PATH: join(directory, "audit-log.json"),
       }),
-    ).toThrow(/Configure either OMNIWA_API_SECURITY_AUDIT_LOG_PATH/u);
+    ).toThrow(/Configure only one API security audit sink/u);
+  });
+
+  it("wires API security audit events into domain AuditRecord persistence when requested", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+    });
+
+    expect(composition.options.securityAuditSink).toBeInstanceOf(
+      DomainAuditRecordApiSecurityAuditSink,
+    );
+  });
+
+  it("fails fast when AuditRecord security audit persistence is requested without a repository", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+        OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+      }),
+    ).toThrow(/requires an AuditRecordRepositoryPort-backed repository profile/u);
   });
 
   it("wires an env-configured repository-backed resource ownership resolver", () => {

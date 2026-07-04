@@ -30,6 +30,7 @@ export * from "./services/handlers/retry-message-send.handler.js";
 export * from "./services/handlers/send-text-message.handler.js";
 export * from "./services/minimal-message-guardrail.js";
 export * from "./services/provider-signal-ingress.js";
+export * from "./services/security-audit-evidence-service.js";
 export * from "./transactions/unit-of-work.js";
 export * from "./workflows/workflow-catalog.js";
 export * from "./workflows/workflow-state.js";

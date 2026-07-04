@@ -21,7 +21,7 @@ hooks that production adapters can persist later.
 | Runtime rate-limit wiring     | Complete | API runtime can opt in through env-configured fixed-window limits.                     |
 | Rate-limit observability      | Complete | Limiter exposes safe snapshots and exports low-cardinality API metric points.          |
 | Security audit hook           | Complete | HTTP boundary records auth, authorization, rate-limit denial, and admin bypass events. |
-| Runtime audit wiring          | Complete | API runtime can opt in to in-memory or durable JSON denied-decision evidence.          |
+| Runtime audit wiring          | Complete | API runtime can opt in to in-memory, durable JSON, or domain AuditRecord evidence.     |
 | Regression coverage           | Complete | Tests cover resource ownership, rate exhaustion, audit events, and admin bypass.       |
 
 ## Boundary Rules Preserved
@@ -72,9 +72,12 @@ Runtime composition can also enable the current security-audit sinks with:
 
 - `OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true`
 - `OMNIWA_API_SECURITY_AUDIT_LOG_PATH`
+- `OMNIWA_API_SECURITY_AUDIT_RECORDS=true`
 
-These sinks record safe denied-decision evidence for local/dev hardening. Approved domain
-`AuditRecord` persistence remains separate follow-up work.
+These sinks are mutually exclusive. The `OMNIWA_API_SECURITY_AUDIT_RECORDS=true` path records safe
+denied-decision evidence as approved domain `AuditRecord` aggregates when the selected repository
+profile provides `AuditRecordRepositoryPort`. PostgreSQL AuditRecord persistence remains follow-up
+because the current PostgreSQL repository set does not yet cover the full catalog port.
 
 Runtime composition can enable repository-backed ownership resolution with:
 
@@ -116,7 +119,7 @@ pnpm check
 
 - Replace the in-memory ownership resolver with a persistent resolver backed by production read
   models or repositories.
-- Persist `ApiSecurityAuditSink` events into approved domain `AuditRecord` storage.
 - Wire production-grade distributed rate limiting before multi-process production runtime.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current
   aggregate state.
+- Add PostgreSQL `AuditRecordRepositoryPort` coverage before claiming production audit persistence.

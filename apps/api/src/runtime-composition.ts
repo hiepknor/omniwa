@@ -1,10 +1,12 @@
 import { join } from "node:path";
 
-import type { WorkerJobRepositoryPort } from "@omniwa/domain";
+import type { AuditRecordRepositoryPort, WorkerJobRepositoryPort } from "@omniwa/domain";
 import { createSecretName, createSecretPurpose, type SecretProvider } from "@omniwa/config";
 import {
+  SecurityAuditEvidenceApplicationService,
   createApplicationDispatcher,
   createDomainEventPublisher,
+  type AuditRecordSourceSignalRecorder,
   type ApplicationDispatcherRepositories,
 } from "@omniwa/application";
 import {
@@ -34,6 +36,7 @@ import {
   type ApiRateLimitEndpointClass,
 } from "./api-rate-limiter.js";
 import {
+  DomainAuditRecordApiSecurityAuditSink,
   DurableJsonApiSecurityAuditSink,
   InMemoryApiSecurityAuditSink,
   type ApiSecurityAuditSink,
@@ -68,6 +71,7 @@ export type ApiRuntimeSecretCompositionOptions = Readonly<{
 type ApiRuntimeRepositorySet = ApplicationDispatcherRepositories &
   Readonly<{
     workerJobRepository: WorkerJobRepositoryPort;
+    auditRecordRepository?: AuditRecordRepositoryPort & AuditRecordSourceSignalRecorder;
   }>;
 
 export function createApiRuntimeComposition(
@@ -105,7 +109,7 @@ export function createApiRuntimeComposition(
   );
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
   const rateLimiter = createRuntimeRateLimiter(env);
-  const securityAuditSink = createRuntimeSecurityAuditSink(env);
+  const securityAuditSink = createRuntimeSecurityAuditSink(env, repositories);
   const resourceOwnershipResolver = createRuntimeResourceOwnershipResolver(env, repositories);
   const queueProvider = new InMemoryQueueProvider({
     workerJobRepository: repositories.workerJobRepository,
@@ -244,13 +248,36 @@ function createRuntimeRateLimiter(
   });
 }
 
-function createRuntimeSecurityAuditSink(env: NodeJS.ProcessEnv): ApiSecurityAuditSink | undefined {
+function createRuntimeSecurityAuditSink(
+  env: NodeJS.ProcessEnv,
+  repositories: ApiRuntimeRepositorySet,
+): ApiSecurityAuditSink | undefined {
   const durablePath = env.OMNIWA_API_SECURITY_AUDIT_LOG_PATH?.trim();
   const useInMemory = readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_IN_MEMORY);
+  const useAuditRecords = readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_RECORDS);
+  const configuredSinkCount = [
+    durablePath !== undefined && durablePath.length > 0,
+    useInMemory,
+    useAuditRecords,
+  ].filter(Boolean).length;
 
-  if (durablePath !== undefined && durablePath.length > 0 && useInMemory) {
+  if (configuredSinkCount > 1) {
     throw new Error(
-      "Configure either OMNIWA_API_SECURITY_AUDIT_LOG_PATH or OMNIWA_API_SECURITY_AUDIT_IN_MEMORY, not both.",
+      "Configure only one API security audit sink: OMNIWA_API_SECURITY_AUDIT_LOG_PATH, OMNIWA_API_SECURITY_AUDIT_IN_MEMORY, or OMNIWA_API_SECURITY_AUDIT_RECORDS.",
+    );
+  }
+
+  if (useAuditRecords) {
+    if (repositories.auditRecordRepository === undefined) {
+      throw new Error(
+        "OMNIWA_API_SECURITY_AUDIT_RECORDS requires an AuditRecordRepositoryPort-backed repository profile.",
+      );
+    }
+
+    return new DomainAuditRecordApiSecurityAuditSink(
+      new SecurityAuditEvidenceApplicationService({
+        auditRecordRepository: repositories.auditRecordRepository,
+      }),
     );
   }
 
