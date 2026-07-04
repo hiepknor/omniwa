@@ -17,6 +17,7 @@ import {
   type AuthenticationCreds,
   type AuthenticationState,
   type BaileysEventMap,
+  type MessageUserReceiptUpdate,
   type SignalDataSet,
   type SignalDataTypeMap,
   type SignalKeyStore,
@@ -372,6 +373,9 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       socket.ev.on("messages.update", (updates) => {
         this.recordMessagesUpdate(request, updates);
       });
+      socket.ev.on("message-receipt.update", (updates) => {
+        this.recordMessageReceiptUpdates(request, updates);
+      });
 
       this.sockets.set(socketKey(request), socket);
 
@@ -520,6 +524,17 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
     });
   }
 
+  private recordMessageReceiptUpdates(request: BaileysSocketRequest, updates: unknown): void {
+    if (!Array.isArray(updates)) {
+      this.recordStatusFailure(request, "malformed_message_receipt_update", "receipt_malformed");
+      return;
+    }
+
+    updates.forEach((update, index) => {
+      this.recordMessageReceiptUpdate(request, update, index);
+    });
+  }
+
   private recordMessageStatusUpdate(
     request: BaileysSocketRequest,
     rawUpdate: unknown,
@@ -544,10 +559,11 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       return;
     }
 
-    const providerMessageRef = createProviderMessageRef(request, providerMessageId);
     const status = mapBaileysMessageStatus(statusCandidate);
 
     if (status === undefined) {
+      const providerMessageRef = createProviderMessageRef(request, providerMessageId);
+
       this.recordStatusFailure(
         request,
         "unsupported_message_status",
@@ -559,7 +575,67 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       return;
     }
 
-    const occurredAt = occurredAtIso(readMessageUpdateTimestamp(update), this.nowEpochMilliseconds);
+    this.recordMessageStatusSignal(
+      request,
+      providerMessageId,
+      status,
+      readMessageUpdateTimestamp(update),
+    );
+  }
+
+  private recordMessageReceiptUpdate(
+    request: BaileysSocketRequest,
+    rawUpdate: unknown,
+    index: number,
+  ): void {
+    const update = isObjectRecord(rawUpdate)
+      ? (rawUpdate as Partial<MessageUserReceiptUpdate>)
+      : undefined;
+    const key = isObjectRecord(update?.key) ? update.key : undefined;
+    const providerMessageId = typeof key?.id === "string" ? key.id : undefined;
+
+    if (providerMessageId === undefined) {
+      this.recordStatusFailure(
+        request,
+        "malformed_message_receipt_update",
+        `receipt_malformed.${index}`,
+      );
+      return;
+    }
+
+    const receipt = isObjectRecord(update?.receipt) ? update.receipt : undefined;
+    const status = mapBaileysReceiptStatus(receipt);
+
+    if (status === undefined) {
+      const providerMessageRef = createProviderMessageRef(request, providerMessageId);
+
+      this.recordStatusFailure(
+        request,
+        "unsupported_message_receipt_status",
+        `receipt_unsupported.${providerMessageRef}`,
+        {
+          providerMessageRef,
+        },
+      );
+      return;
+    }
+
+    this.recordMessageStatusSignal(
+      request,
+      providerMessageId,
+      status,
+      readMessageReceiptTimestamp(receipt),
+    );
+  }
+
+  private recordMessageStatusSignal(
+    request: BaileysSocketRequest,
+    providerMessageId: string,
+    status: "sent" | "delivered" | "read" | "failed",
+    timestamp: WAMessage["messageTimestamp"] | null | undefined,
+  ): void {
+    const providerMessageRef = createProviderMessageRef(request, providerMessageId);
+    const occurredAt = occurredAtIso(timestamp, this.nowEpochMilliseconds);
     const failureReasonRef =
       status === "failed"
         ? createFailureReasonRef(request, providerMessageId, "status_failed")
@@ -943,6 +1019,53 @@ function readMessageUpdateTimestamp(
   }
 
   return undefined;
+}
+
+function mapBaileysReceiptStatus(
+  receipt: Readonly<Record<string, unknown>> | undefined,
+): "delivered" | "read" | undefined {
+  if (receipt === undefined) {
+    return undefined;
+  }
+
+  if (hasUsableTimestamp(receipt.playedTimestamp) || hasUsableTimestamp(receipt.readTimestamp)) {
+    return "read";
+  }
+
+  if (
+    hasUsableTimestamp(receipt.receiptTimestamp) ||
+    (Array.isArray(receipt.deliveredDeviceJid) && receipt.deliveredDeviceJid.length > 0)
+  ) {
+    return "delivered";
+  }
+
+  return undefined;
+}
+
+function readMessageReceiptTimestamp(
+  receipt: Readonly<Record<string, unknown>> | undefined,
+): WAMessage["messageTimestamp"] | null | undefined {
+  if (receipt === undefined) {
+    return undefined;
+  }
+
+  if (hasUsableTimestamp(receipt.playedTimestamp)) {
+    return receipt.playedTimestamp as WAMessage["messageTimestamp"];
+  }
+
+  if (hasUsableTimestamp(receipt.readTimestamp)) {
+    return receipt.readTimestamp as WAMessage["messageTimestamp"];
+  }
+
+  if (hasUsableTimestamp(receipt.receiptTimestamp)) {
+    return receipt.receiptTimestamp as WAMessage["messageTimestamp"];
+  }
+
+  return undefined;
+}
+
+function hasUsableTimestamp(timestamp: unknown): boolean {
+  return timestampToEpochMilliseconds(timestamp) !== undefined;
 }
 
 function isMessageContentOnlyUpdate(update: unknown): boolean {

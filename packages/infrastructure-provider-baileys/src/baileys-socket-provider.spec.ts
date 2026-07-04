@@ -918,6 +918,107 @@ describe("RealBaileysSocketProvider", () => {
     expect(JSON.stringify(signals)).not.toContain(rawText);
   });
 
+  it("maps message-receipt.update delivered and read receipts safely", async () => {
+    const harness = createRealProviderHarness({
+      nowEpochMilliseconds: () => 1_804_000_000_000,
+    });
+    const rawParticipantJid = "12025550123@s.whatsapp.net";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "message-receipt.update",
+      messageReceiptUpdates([
+        receiptUpdate("BAILEYS_RECEIPT_DELIVERED_ID", {
+          userJid: rawParticipantJid,
+          receiptTimestamp: 1_804_000_007,
+        }),
+        receiptUpdate("BAILEYS_RECEIPT_READ_ID", {
+          userJid: rawParticipantJid,
+          readTimestamp: 1_804_000_008,
+        }),
+      ]),
+    );
+    await flushAsyncSignals();
+
+    const statusSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "message_status");
+
+    expect(statusSignals.map((signal) => signal.safeMetadata?.status)).toEqual([
+      "delivered",
+      "read",
+    ]);
+    expect(statusSignals.map((signal) => signal.safeMetadata?.occurredAt)).toEqual([
+      "2027-03-02T15:06:47.000Z",
+      "2027-03-02T15:06:48.000Z",
+    ]);
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_RECEIPT_DELIVERED_ID");
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_RECEIPT_READ_ID");
+    expect(JSON.stringify(statusSignals)).not.toContain(rawParticipantJid);
+  });
+
+  it("uses deterministic occurrence refs for duplicate message receipt updates", async () => {
+    const harness = createRealProviderHarness();
+    const update = receiptUpdate("BAILEYS_DUPLICATE_RECEIPT_ID", {
+      receiptTimestamp: 1_804_000_009,
+    });
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit("message-receipt.update", messageReceiptUpdates([update]));
+    harness.socket.ev.emit("message-receipt.update", messageReceiptUpdates([update]));
+    await flushAsyncSignals();
+
+    const statusSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "message_status");
+
+    expect(statusSignals).toHaveLength(2);
+    expect(statusSignals[0]?.occurrenceRef).toBe(statusSignals[1]?.occurrenceRef);
+    expect(statusSignals[0]?.safeMetadata?.providerMessageRef).toBe(
+      statusSignals[1]?.safeMetadata?.providerMessageRef,
+    );
+    expect(statusSignals[0]?.safeMetadata?.status).toBe("delivered");
+    expect(JSON.stringify(statusSignals)).not.toContain("BAILEYS_DUPLICATE_RECEIPT_ID");
+  });
+
+  it("fails safe for malformed or unsupported message receipt updates", async () => {
+    const harness = createRealProviderHarness();
+    const rawProviderMessageId = "BAILEYS_UNSUPPORTED_RECEIPT_ID";
+    const rawParticipantJid = "12025550123@s.whatsapp.net";
+
+    await harness.provider.startSession(socketRequest(), context);
+    harness.socket.ev.emit(
+      "message-receipt.update",
+      messageReceiptUpdates([
+        receiptUpdate(rawProviderMessageId, { userJid: rawParticipantJid }),
+        { key: {}, receipt: {} },
+      ]),
+    );
+    await flushAsyncSignals();
+
+    const failureSignals = harness.provider
+      .drainSignals({ sessionId })
+      .filter((signal) => signal.kind === "failure");
+
+    expect(failureSignals).toEqual([
+      expect.objectContaining({
+        signalRef: "provider.baileys.message_status_unsupported",
+        safeMetadata: expect.objectContaining({
+          reasonCode: "unsupported_message_receipt_status",
+          providerMessageRef: expect.stringMatching(/^provider_msg_[a-f0-9]{16}$/u),
+        }),
+      }),
+      expect.objectContaining({
+        signalRef: "provider.baileys.message_status_unsupported",
+        safeMetadata: expect.objectContaining({
+          reasonCode: "malformed_message_receipt_update",
+        }),
+      }),
+    ]);
+    expect(JSON.stringify(failureSignals)).not.toContain(rawProviderMessageId);
+    expect(JSON.stringify(failureSignals)).not.toContain(rawParticipantJid);
+  });
+
   it("fails safe for malformed or unsupported message status updates", async () => {
     const harness = createRealProviderHarness();
     const rawProviderMessageId = "BAILEYS_UNSUPPORTED_STATUS_ID";
@@ -1249,6 +1350,12 @@ function messageUpdates(updates: readonly WAMessageUpdate[]): BaileysEventMap["m
   return [...updates];
 }
 
+function messageReceiptUpdates(
+  updates: readonly BaileysEventMap["message-receipt.update"][number][],
+): BaileysEventMap["message-receipt.update"] {
+  return [...updates];
+}
+
 function statusUpdate(
   providerMessageId: string,
   status: unknown,
@@ -1281,6 +1388,20 @@ function topLevelStatusUpdate(
     status,
     ...update,
   } as unknown as WAMessageUpdate;
+}
+
+function receiptUpdate(
+  providerMessageId: string,
+  receipt: BaileysEventMap["message-receipt.update"][number]["receipt"],
+): BaileysEventMap["message-receipt.update"][number] {
+  return {
+    key: {
+      id: providerMessageId,
+      remoteJid: "12025550123@g.us",
+      fromMe: true,
+    },
+    receipt,
+  };
 }
 
 async function flushAsyncSignals(): Promise<void> {
