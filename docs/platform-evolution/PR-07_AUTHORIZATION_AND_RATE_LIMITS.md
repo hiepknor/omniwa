@@ -21,7 +21,7 @@ hooks that production adapters can persist later.
 | Runtime rate-limit wiring     | Complete | API runtime can opt in through env-configured fixed-window limits.                     |
 | Rate-limit observability      | Complete | Limiter exposes safe bucket snapshots with key id, endpoint class, scope, and counts.  |
 | Security audit hook           | Complete | HTTP boundary records auth, authorization, rate-limit denial, and admin bypass events. |
-| Runtime audit wiring          | Complete | API runtime can opt in to in-memory denied-decision evidence.                          |
+| Runtime audit wiring          | Complete | API runtime can opt in to in-memory or durable JSON denied-decision evidence.          |
 | Regression coverage           | Complete | Tests cover resource ownership, rate exhaustion, audit events, and admin bypass.       |
 
 ## Boundary Rules Preserved
@@ -68,12 +68,13 @@ Optional endpoint-class overrides:
 - `OMNIWA_API_RATE_LIMIT_ADMIN_MAX_REQUESTS`
 - `OMNIWA_API_RATE_LIMIT_EVENT_STREAM_MAX_REQUESTS`
 
-Runtime composition can also enable the current in-memory security-audit sink with:
+Runtime composition can also enable the current security-audit sinks with:
 
 - `OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true`
+- `OMNIWA_API_SECURITY_AUDIT_LOG_PATH`
 
-This records safe denied-decision evidence for local/dev hardening. Persistent audit storage remains
-separate follow-up work.
+These sinks record safe denied-decision evidence for local/dev hardening. Approved domain
+`AuditRecord` persistence remains separate follow-up work.
 
 Runtime composition can enable repository-backed ownership resolution with:
 
@@ -106,7 +107,7 @@ pnpm check
 
 - Replace the in-memory ownership resolver with a persistent resolver backed by production read
   models or repositories.
-- Persist `ApiSecurityAuditSink` events into the approved audit storage.
+- Persist `ApiSecurityAuditSink` events into approved domain `AuditRecord` storage.
 - Wire production-grade distributed rate limiting before multi-process production runtime.
 - Export rate-limit snapshots through the approved metrics runtime.
 - Complete ownership coverage for resources that do not yet carry an explicit owner in current

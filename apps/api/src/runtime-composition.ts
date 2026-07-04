@@ -33,7 +33,11 @@ import {
   InMemoryFixedWindowRateLimiter,
   type ApiRateLimitEndpointClass,
 } from "./api-rate-limiter.js";
-import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
+import {
+  DurableJsonApiSecurityAuditSink,
+  InMemoryApiSecurityAuditSink,
+  type ApiSecurityAuditSink,
+} from "./api-security-audit.js";
 import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 import {
   readApiKeysFromEnv,
@@ -240,12 +244,21 @@ function createRuntimeRateLimiter(
   });
 }
 
-function createRuntimeSecurityAuditSink(
-  env: NodeJS.ProcessEnv,
-): InMemoryApiSecurityAuditSink | undefined {
-  return readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_IN_MEMORY)
-    ? new InMemoryApiSecurityAuditSink()
-    : undefined;
+function createRuntimeSecurityAuditSink(env: NodeJS.ProcessEnv): ApiSecurityAuditSink | undefined {
+  const durablePath = env.OMNIWA_API_SECURITY_AUDIT_LOG_PATH?.trim();
+  const useInMemory = readBooleanEnv(env.OMNIWA_API_SECURITY_AUDIT_IN_MEMORY);
+
+  if (durablePath !== undefined && durablePath.length > 0 && useInMemory) {
+    throw new Error(
+      "Configure either OMNIWA_API_SECURITY_AUDIT_LOG_PATH or OMNIWA_API_SECURITY_AUDIT_IN_MEMORY, not both.",
+    );
+  }
+
+  if (durablePath !== undefined && durablePath.length > 0) {
+    return new DurableJsonApiSecurityAuditSink(durablePath);
+  }
+
+  return useInMemory ? new InMemoryApiSecurityAuditSink() : undefined;
 }
 
 function createRuntimeResourceOwnershipResolver(

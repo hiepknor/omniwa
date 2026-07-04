@@ -16,7 +16,10 @@ import {
 import { hashApiKey } from "./api-key-auth.js";
 import { handleApiHttpRequest } from "./http-server.js";
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
-import { InMemoryApiSecurityAuditSink } from "./api-security-audit.js";
+import {
+  DurableJsonApiSecurityAuditSink,
+  InMemoryApiSecurityAuditSink,
+} from "./api-security-audit.js";
 import { RepositoryApiResourceOwnershipResolver } from "./repository-resource-ownership-resolver.js";
 
 const runtimeRateLimitCredential: ApiCredential = {
@@ -476,6 +479,67 @@ describe("API runtime composition", () => {
       }),
     ]);
     expect(JSON.stringify(events)).not.toContain("invalid-runtime-secret");
+  });
+
+  it("wires an env-configured durable JSON security audit sink", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-security-audit-runtime-"));
+    temporaryDirectories.push(directory);
+    const auditPath = join(directory, "audit-log.json");
+    const firstComposition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_SECURITY_AUDIT_LOG_PATH: auditPath,
+    });
+
+    expect(firstComposition.options.securityAuditSink).toBeInstanceOf(
+      DurableJsonApiSecurityAuditSink,
+    );
+
+    await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "invalid-runtime-secret",
+          "x-request-id": "runtime-durable-audit-denied",
+          "x-correlation-id": "runtime-durable-audit-correlation",
+        },
+      },
+      firstComposition.options,
+    );
+
+    const secondComposition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_SECURITY_AUDIT_LOG_PATH: auditPath,
+    });
+    const events = (
+      secondComposition.options.securityAuditSink as DurableJsonApiSecurityAuditSink
+    ).snapshot();
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        eventType: "authentication_denied",
+        requestId: "runtime-durable-audit-denied",
+        path: "/v1/instances",
+        code: "missing_or_invalid_api_key",
+      }),
+    ]);
+    expect(JSON.stringify(events)).not.toContain("invalid-runtime-secret");
+  });
+
+  it("rejects mixed security audit sink runtime configuration", () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-security-audit-mixed-"));
+    temporaryDirectories.push(directory);
+
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_SECURITY_AUDIT_IN_MEMORY: "true",
+        OMNIWA_API_SECURITY_AUDIT_LOG_PATH: join(directory, "audit-log.json"),
+      }),
+    ).toThrow(/Configure either OMNIWA_API_SECURITY_AUDIT_LOG_PATH/u);
   });
 
   it("wires an env-configured repository-backed resource ownership resolver", () => {
