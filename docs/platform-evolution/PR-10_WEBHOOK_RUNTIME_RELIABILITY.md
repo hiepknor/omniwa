@@ -16,6 +16,9 @@ Implemented capabilities:
   outcomes.
 - Webhook transport signs outbound deliveries with timestamped HMAC SHA-256
   signatures.
+- `FetchWebhookHttpGateway` can send the already-sanitized outbound webhook
+  body over HTTP with safe timeout, network failure, and receiver header
+  handling.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
@@ -72,8 +75,9 @@ is still tracked separately in the production execution plan.
 
 - Replace in-memory queue recovery with the future production queue adapter.
 - Add operational API/read model for webhook dead-letter management.
-- Add real HTTP gateway timeout/circuit-breaker implementation when outbound
-  network transport is finalized.
+- Wire `FetchWebhookHttpGateway` into the production dispatcher runtime once
+  production queue, secret, and observability adapters are composed together.
+- Add circuit-breaker behavior if production receiver failure rates require it.
 - Add full end-to-end tests once the production Application dispatcher,
   persistence adapter, and queue adapter are wired together.
 
@@ -82,7 +86,7 @@ is still tracked separately in the production execution plan.
 Targeted checks used for this slice:
 
 ```text
-pnpm exec vitest run packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/infrastructure-webhook/src/webhook-transport.adapter.spec.ts packages/infrastructure-webhook/src/webhook-dispatcher-runtime.spec.ts apps/webhook-dispatcher/src/webhook-dispatcher-app.spec.ts
+pnpm exec vitest run packages/infrastructure-webhook/src/webhook-http-gateway.spec.ts packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/infrastructure-webhook/src/webhook-transport.adapter.spec.ts packages/infrastructure-webhook/src/webhook-dispatcher-runtime.spec.ts apps/webhook-dispatcher/src/webhook-dispatcher-app.spec.ts
 ```
 
 Full repository quality gate:

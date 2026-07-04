@@ -112,8 +112,8 @@ Rollback:
 | N11.2 | Durable EventLog / outbox / replay | Make event visibility and SSE replay survive restart                 | Done    |
 | N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Done    |
 | N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Done    |
-| N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Current |
-| N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Planned |
+| N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Done    |
+| N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Current |
 | N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Planned |
 
 N11.3 is done with durable local and PostgreSQL provider-runtime lease guards, active lease renewal
@@ -124,7 +124,8 @@ retaining plaintext API key configuration; the API process entrypoint now uses `
 for that secret-name path; and provider runtime can encrypt durable Baileys auth-state JSON with
 `OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY`. It also exposes admin-only `/v1/api-keys` lifecycle
 routes for safe list, provision, revoke, and rotate flows when `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`
-is configured. N11.5 is now current; its first slice wires opt-in API rate limits from
+is configured. N11.5 is done for the current production-hardening scope. It wires opt-in API rate
+limits from
 `OMNIWA_API_RATE_LIMIT_MAX_REQUESTS` and `OMNIWA_API_RATE_LIMIT_WINDOW_MS`, plus optional
 endpoint-class limits. It also wires opt-in in-memory denied-decision evidence through
 `OMNIWA_API_SECURITY_AUDIT_IN_MEMORY=true`, durable JSON security-audit evidence through
@@ -135,10 +136,9 @@ and opt-in repository-backed ownership resolution through
 derivable instance ownership, including attached media through its owning message and labels through
 their aggregate `instanceId`. PostgreSQL repository coverage now includes Label and MediaAsset for
 those ownership paths. Targetless global resources without current instance owner fields now fail
-closed for instance-scoped credentials instead of being treated as globally readable. Remaining
-N11.5 work should focus on future owner modeling for currently global resources that later need
-instance-scoped access and production profile validation beyond the database, Redis rate-limit,
-AuditRecord security-audit, and repository-backed ownership checks already present.
+closed for instance-scoped credentials instead of being treated as globally readable. Future owner
+modeling for currently global resources that later need instance-scoped access is deferred until the
+product requires those filtered read models.
 Rate-limit snapshots can now be exported as approved low-cardinality API metric points without raw
 key, bucket, instance, or target identifiers. The rate-limit port is now async-compatible and has a
 Redis script-store foundation plus the concrete `redis` npm client adapter contained at the approved
@@ -150,22 +150,27 @@ enabled. The Redis adapter remains governed by accepted
 `docs/adr/ADR-0008-redis-rate-limit-client.md`.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.
+N11.6 is current. The dispatcher runtime already has durable restart recovery, retry/dead-letter,
+HMAC/timestamp signing, replay verification, metrics, and audit evidence. The current slice adds a
+real `FetchWebhookHttpGateway` foundation with safe timeout/network failure mapping; production
+runtime wiring still remains disabled until the remaining production queue, secret, HTTP gateway, and
+observability adapters can be composed together safely.
 
 ## Planned Increments
 
-| Order | Increment                        | Goal                                                                  | Primary Client Value                              | Notes                                                                                                                                         |
-| ----- | -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| N1    | Queue Read Summary               | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                                                                                                     |
-| N2    | Message Read APIs                | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed                                                                                     |
-| N3    | Chat Read APIs                   | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed                                                                                          |
-| N4    | Contact Read APIs                | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                                                                                                               |
-| N5    | Group Read APIs                  | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                                                                                                                  |
-| N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes                                                                                             |
-| N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                                                                                                    |
-| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Done; GitHub Quality Gate `28701511362` passed                                                                                                |
-| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Done; send/retry/cancel promoted in client contract                                                                                           |
-| N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Done; metadata/local-state/member actions promoted with safe intent storage and audit evidence                                                |
-| N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Current; queue, provider ownership, and event replay foundations are done; secrets, authorization, webhook reliability, and validation remain |
+| Order | Increment                        | Goal                                                                  | Primary Client Value                              | Notes                                                                                                                                        |
+| ----- | -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1    | Queue Read Summary               | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                                                                                                    |
+| N2    | Message Read APIs                | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed                                                                                    |
+| N3    | Chat Read APIs                   | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed                                                                                         |
+| N4    | Contact Read APIs                | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Done; raw phone/JID not exposed                                                                                                              |
+| N5    | Group Read APIs                  | Implement group list/detail/member reads                              | Groups screens become usable                      | Done; no admin mutations yet                                                                                                                 |
+| N6    | SDK/Client Contract Sync         | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Done inside each increment unless OpenAPI changes                                                                                            |
+| N7    | VS02 Real WhatsApp Local Demo    | Prove QR, auth persistence, restart, send text, inbound/status events | Runtime confidence before broad mutations         | Done; local live demo only, not production                                                                                                   |
+| N8    | PostgreSQL Repository Completion | Remove repository durability gaps and runtime hybrid fallbacks        | Platform state survives restart under PostgreSQL  | Done; GitHub Quality Gate `28701511362` passed                                                                                               |
+| N9    | Controlled Message Mutations     | Expand send/retry/cancel where state is visible                       | TUI can enable actions safely                     | Done; send/retry/cancel promoted in client contract                                                                                          |
+| N10   | Controlled Group Mutations       | Add group admin actions behind capability checks                      | Professional group management                     | Done; metadata/local-state/member actions promoted with safe intent storage and audit evidence                                               |
+| N11   | Production Hardening             | Close production blockers                                             | Platform moves toward production readiness        | Current; queue, provider ownership, event replay, secrets, and authorization foundations are done; webhook reliability and validation remain |
 
 ## Read API Design Rules
 
