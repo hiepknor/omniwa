@@ -88,14 +88,7 @@
       "eventsStream",
       "queue"
     ],
-    "disabledUntilBackendHandlersExist": [
-      "chats",
-      "contacts",
-      "groups",
-      "audit",
-      "settings",
-      "metrics"
-    ]
+    "disabledUntilBackendHandlersExist": ["contacts", "groups", "audit", "settings", "metrics"]
   },
   "resources": {
     "health": {
@@ -117,10 +110,10 @@
       "notes": "Instance-scoped session list is public at /v1/instances/{instanceId}/sessions. Top-level /v1/sessions remains missing."
     },
     "chats": {
-      "status": "route_exists_not_implemented",
-      "recommendedForTui": false,
+      "status": "implemented_public",
+      "recommendedForTui": true,
       "dto": "ChatSummaryDto|ChatDetailDto",
-      "notes": "Routes exist under /v1/chats and /v1/instances/{instanceId}/chats, but Application handler is unavailable."
+      "notes": "Instance-scoped list and detail read routes are public. Global /v1/chats remains disabled for public clients. Public DTOs do not expose raw JIDs, phone numbers, participant identifiers, or provider payloads."
     },
     "contacts": {
       "status": "route_exists_not_implemented",
@@ -337,16 +330,29 @@
       "authRequired": true,
       "dto": "ChatSummaryDto[]",
       "queryParams": ["cursor", "limit", "sort", "search", "status", "labelId"],
-      "responseEnvelope": "CollectionEnvelope"
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Intentionally disabled for public clients because it is not instance-scoped. Use /v1/instances/{instanceId}/chats."
+    },
+    {
+      "feature": "chats",
+      "method": "GET",
+      "path": "/v1/instances/{instanceId}/chats",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "ChatSummaryDto[]",
+      "queryParams": ["cursor", "limit", "sort", "search", "status", "labelId"],
+      "responseEnvelope": "CollectionEnvelope",
+      "notes": "Preferred TUI route for instance-scoped chat navigation."
     },
     {
       "feature": "chats",
       "method": "GET",
       "path": "/v1/chats/{chatId}",
-      "status": "route_exists_not_implemented",
+      "status": "implemented_public",
       "authRequired": true,
       "dto": "ChatDetailDto",
-      "responseEnvelope": "SuccessEnvelope"
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns safe chat status/detail data without raw JIDs or provider payloads."
     },
     {
       "feature": "chats",
@@ -599,6 +605,27 @@
       "type",
       "unreadCount",
       "labelIds",
+      "muted",
+      "pinned",
+      "lastMessageAt",
+      "updatedAt"
+    ],
+    "ChatDetailDto": [
+      "resourceType",
+      "readStatus",
+      "consistency",
+      "freshness",
+      "resultRef",
+      "resourceId",
+      "id",
+      "instanceId",
+      "status",
+      "displayName",
+      "type",
+      "unreadCount",
+      "labelIds",
+      "muted",
+      "pinned",
       "lastMessageAt",
       "updatedAt"
     ],
@@ -706,6 +733,8 @@
     "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
     "messagesList": "docs/api/client-contract/fixtures/messages.list.json",
     "messageDetail": "docs/api/client-contract/fixtures/message.detail.json",
+    "chatsList": "docs/api/client-contract/fixtures/chats.list.json",
+    "chatDetail": "docs/api/client-contract/fixtures/chat.detail.json",
     "eventsList": "docs/api/client-contract/fixtures/events.list.json",
     "queueSummary": "docs/api/client-contract/fixtures/queue.summary.json",
     "jobsList": "docs/api/client-contract/fixtures/jobs.list.json",

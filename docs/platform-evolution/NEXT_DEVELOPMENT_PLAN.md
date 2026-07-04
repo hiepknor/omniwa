@@ -28,6 +28,7 @@ Implemented public surfaces currently include:
 | Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`     | Implemented |
 | Sessions           | `GET /v1/instances/{instanceId}/sessions`                                       | Implemented |
 | Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`       | Implemented |
+| Chats              | `GET /v1/instances/{instanceId}/chats`, `GET /v1/chats/{chatId}`                | Implemented |
 | Events             | `GET /v1/events`, `GET /v1/events/stream`                                       | Implemented |
 | Jobs               | `GET /v1/jobs`, `GET /v1/jobs/{jobId}`                                          | Implemented |
 | Webhooks           | `GET /v1/webhooks`, `GET /v1/webhooks/{webhookId}`                              | Implemented |
@@ -62,26 +63,26 @@ The preferred order is:
 
 ## Immediate Next Increment
 
-### Increment N3 - Chat Read APIs
+### Increment N4 - Contact Read APIs
 
 Goal:
 
-- Implement safe chat read APIs for TUI chat navigation and detail screens.
+- Implement safe contact read APIs for TUI contact selection and detail screens.
 
 Scope:
 
-- Application handler for chat list/detail queries.
-- Prefer instance-scoped chat list queries before global navigation.
-- API materialization for safe chat DTOs.
-- Public DTO must not expose raw JID, participant identifiers, or provider payloads.
+- Application handler for contact list/detail queries.
+- Prefer instance-scoped contact list queries before global navigation.
+- API materialization for safe contact DTOs.
+- Public DTO must not expose raw phone numbers, raw JIDs, participant identifiers, or provider payloads.
 - Client contract status and fixture.
 - TUI integration doc update.
 
 Definition of Done:
 
-- API returns safe success or collection envelopes for chat read endpoints.
+- API returns safe success or collection envelopes for contact read endpoints.
 - Empty state is explicit.
-- No raw provider payload, raw JID, contact phone number, or domain event internals leak.
+- No raw provider payload, raw JID, raw phone number, or domain event internals leak.
 - `pnpm check` passes.
 
 Rollback:
@@ -94,7 +95,7 @@ Rollback:
 | ----- | ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
 | N1    | Queue Read Summary            | Implement `GET /v1/queue`                                             | Queue screen can show system state                | Done; keep read-only; no pause/resume yet                 |
 | N2    | Message Read APIs             | Implement message list/status reads                                   | Message screen can render history/status          | Done; read-only; no raw text/JID/provider payload exposed |
-| N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Prefer instance-scoped queries                            |
+| N3    | Chat Read APIs                | Implement chat list/detail reads                                      | Chat navigation becomes usable                    | Done; read-only; no raw JID/provider payload exposed      |
 | N4    | Contact Read APIs             | Implement contact list/detail reads                                   | Send-message UX can select recipients safely      | Redact raw phone/JID as required                          |
 | N5    | Group Read APIs               | Implement group list/detail/member reads                              | Groups screens become usable                      | No admin mutations yet                                    |
 | N6    | SDK/Client Contract Sync      | Regenerate/check SDK and fixtures for N1-N5                           | `omniwa-tui` can follow contract without guessing | Usually done inside each increment                        |

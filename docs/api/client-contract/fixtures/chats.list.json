@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "resourceType": "chat",
+      "id": "chat_demo",
+      "instanceId": "inst_demo",
+      "status": "open",
+      "type": "direct",
+      "unreadCount": 3,
+      "labelIds": ["label_demo"],
+      "muted": true,
+      "pinned": true
+    }
+  ],
+  "meta": {
+    "requestId": "tui-chats-list-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z",
+    "query": {
+      "resourceType": "chat",
+      "readStatus": "result",
+      "consistency": "eventual_projection",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1782991209791
+      },
+      "resultRef": "chats:inst_demo:list:1"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50
+    }
+  }
+}

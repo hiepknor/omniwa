@@ -1,4 +1,8 @@
 import {
+  type Chat,
+  type ChatRepositoryPort,
+  chatStatuses,
+  createChatId,
   createInstance,
   createInstanceId,
   createMessageId,
@@ -66,6 +70,7 @@ export type ApplicationDispatcherRepositories = Readonly<{
   healthStatusRepository?: HealthStatusRepositoryPort;
   sessionRepository?: SessionRepositoryPort;
   messageRepository?: MessageRepositoryPort;
+  chatRepository?: ChatRepositoryPort;
   guardrailDecisionRepository?: GuardrailDecisionRepositoryPort;
   workerJobRepository?: WorkerJobRepositoryPort;
   webhookSubscriptionRepository?: WebhookSubscriptionRepositoryPort;
@@ -195,6 +200,9 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       ["ListInstanceSessions", (envelope) => this.listInstanceSessions(envelope)],
       ["ListInstanceMessages", (envelope) => this.listInstanceMessages(envelope)],
       ["GetMessageStatus", (envelope) => this.getMessageStatus(envelope)],
+      ["ListChats", (envelope) => this.listChats(envelope)],
+      ["ListInstanceChats", (envelope) => this.listInstanceChats(envelope)],
+      ["GetChatStatus", (envelope) => this.getChatStatus(envelope)],
       ["ListEvents", (envelope) => this.listEvents(envelope)],
       ["ListWorkerJobs", (envelope) => this.listWorkerJobs(envelope)],
       ["GetWorkerJobStatus", (envelope) => this.getWorkerJobStatus(envelope)],
@@ -403,6 +411,83 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return queryOutcome(envelope, this.clock, "result", {
       resultRef: `message:${message.id}:${message.status}`,
       resource: messageQueryItem(message),
+    });
+  }
+
+  private async listChats(envelope: ApplicationQueryEnvelope): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.chatRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "chat_repository_not_configured",
+      });
+    }
+
+    const chats = (await Promise.all(chatStatuses.map((status) => repository.findByStatus(status))))
+      .flat()
+      .filter((chat) => chat.status !== "deleted");
+
+    return queryOutcome(envelope, this.clock, chats.length === 0 ? "empty" : "result", {
+      resultRef: `chats:list:${chats.length}`,
+      items: chats.map(chatQueryItem),
+    });
+  }
+
+  private async listInstanceChats(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.chatRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "chat_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "instance_target_required",
+      });
+    }
+
+    const chats = (await repository.findByInstance(createInstanceId(envelope.targetRef))).filter(
+      (chat) => chat.status !== "deleted",
+    );
+
+    return queryOutcome(envelope, this.clock, chats.length === 0 ? "empty" : "result", {
+      resultRef: `chats:${envelope.targetRef}:list:${chats.length}`,
+      items: chats.map(chatQueryItem),
+    });
+  }
+
+  private async getChatStatus(
+    envelope: ApplicationQueryEnvelope,
+  ): Promise<ApplicationQueryOutcome> {
+    const repository = this.repositories.chatRepository;
+
+    if (repository === undefined) {
+      return queryOutcome(envelope, this.clock, "unavailable", {
+        reasonCode: "chat_repository_not_configured",
+      });
+    }
+
+    if (envelope.targetRef === undefined) {
+      return queryOutcome(envelope, this.clock, "empty", {
+        reasonCode: "chat_target_required",
+      });
+    }
+
+    const chat = await repository.load(createChatId(envelope.targetRef));
+
+    if (chat === undefined || chat.status === "deleted") {
+      return queryOutcome(envelope, this.clock, "empty", {
+        resultRef: `chat:${envelope.targetRef}:empty`,
+      });
+    }
+
+    return queryOutcome(envelope, this.clock, "result", {
+      resultRef: `chat:${chat.id}:${chat.status}`,
+      resource: chatQueryItem(chat),
     });
   }
 
@@ -736,6 +821,28 @@ function messageQueryItem(message: Message): Readonly<{
     direction: message.direction,
     type: message.type,
     status: message.status,
+  });
+}
+
+function chatQueryItem(chat: Chat): Readonly<{
+  id: string;
+  instanceId: string;
+  status: Chat["status"];
+  type: Chat["kind"];
+  unreadCount: number;
+  labelIds: readonly string[];
+  muted: boolean;
+  pinned: boolean;
+}> {
+  return Object.freeze({
+    id: String(chat.id),
+    instanceId: String(chat.instanceId),
+    status: chat.status,
+    type: chat.kind,
+    unreadCount: chat.unreadCount,
+    labelIds: Object.freeze(chat.labelIds.map(String)),
+    muted: chat.muted,
+    pinned: chat.pinned,
   });
 }
 

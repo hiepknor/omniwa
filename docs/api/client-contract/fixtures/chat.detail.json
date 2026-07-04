@@ -1,0 +1,26 @@
+{
+  "data": {
+    "resourceType": "chat",
+    "readStatus": "result",
+    "consistency": "strong_owner",
+    "freshness": {
+      "stale": false,
+      "refreshedAtEpochMilliseconds": 1782991209791
+    },
+    "resultRef": "chat:chat_demo:open",
+    "id": "chat_demo",
+    "instanceId": "inst_demo",
+    "status": "open",
+    "type": "direct",
+    "unreadCount": 3,
+    "labelIds": ["label_demo"],
+    "muted": true,
+    "pinned": true,
+    "resourceId": "chat_demo"
+  },
+  "meta": {
+    "requestId": "tui-chat-detail-fixture",
+    "correlationId": "tui-correlation-fixture",
+    "timestamp": "2026-07-02T11:20:09.776Z"
+  }
+}

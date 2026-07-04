@@ -247,6 +247,8 @@ const publicResourceSchemas: Readonly<Record<string, PublicResourceSchema>> = Ob
       publicStringField("type"),
       publicNumberField("unreadCount"),
       publicStringArrayField("labelIds"),
+      publicBooleanField("muted"),
+      publicBooleanField("pinned"),
       publicStringField("lastMessageAt"),
       publicStringField("updatedAt"),
     ]),

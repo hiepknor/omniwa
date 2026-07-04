@@ -1,9 +1,13 @@
 import {
   classifyHealthy,
+  createChat,
+  createChatId,
   createJobId,
   createInstanceId,
   createHealthStatus,
   createHealthStatusId,
+  createJid,
+  createLabelId,
   createMessageId,
   createOutboundMessageIntent,
   createRetryPolicy,
@@ -16,6 +20,10 @@ import {
   queueWorkerJob,
   scheduleWebhookDelivery,
   type DomainOwnerContext,
+  type Chat,
+  type ChatId,
+  type ChatRepositoryPort,
+  type ChatStatus,
   type HealthCategory,
   type HealthStatus,
   type HealthStatusId,
@@ -26,6 +34,8 @@ import {
   type InstanceStatus,
   type JobId,
   type JobStatus,
+  type Jid,
+  type LabelId,
   type Message,
   type MessageId,
   type MessageRepositoryPort,
@@ -389,6 +399,174 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("jid");
     expect(JSON.stringify(outcome)).not.toContain("outboundIntentRef");
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes ListChats through the Chat repository without leaking JIDs", async () => {
+    const labelId = createLabelId("label:priority");
+    const chat = createChat({
+      id: createChatId("chat:one"),
+      instanceId: createInstanceId("inst:one"),
+      jid: createJid("12025550123@s.whatsapp.net"),
+      labelIds: [labelId],
+      unreadCount: 2,
+      muted: true,
+      pinned: true,
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        chatRepository: new FakeChatRepository([chat]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListChats",
+        queryRef: "qry-list-chats",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-chats",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "chats:list:1",
+      items: [
+        {
+          id: "chat:one",
+          instanceId: "inst:one",
+          status: "open",
+          type: "direct",
+          unreadCount: 2,
+          labelIds: ["label:priority"],
+          muted: true,
+          pinned: true,
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(outcome)).not.toContain("12025550123");
+    expect(JSON.stringify(outcome)).not.toContain("jid");
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("executes ListInstanceChats through the Chat repository", async () => {
+    const chat = createChat({
+      id: createChatId("chat:instance"),
+      instanceId: createInstanceId("inst:one"),
+      jid: createJid("12345@g.us"),
+      unreadCount: 1,
+    });
+    const otherChat = createChat({
+      id: createChatId("chat:other"),
+      instanceId: createInstanceId("inst:other"),
+      jid: createJid("12025550124@s.whatsapp.net"),
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        chatRepository: new FakeChatRepository([chat, otherChat]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListInstanceChats",
+        queryRef: "qry-list-instance-chats",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "inst:one",
+        requestedConsistency: "eventual_projection",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-list-instance-chats",
+      outcome: "result",
+      consistency: "eventual_projection",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "chats:inst:one:list:1",
+      items: [
+        {
+          id: "chat:instance",
+          instanceId: "inst:one",
+          status: "open",
+          type: "group",
+          unreadCount: 1,
+          labelIds: [],
+          muted: false,
+          pinned: false,
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@g.us");
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+  });
+
+  it("executes GetChatStatus through the Chat repository without leaking JIDs", async () => {
+    const chat = createChat({
+      id: createChatId("chat:detail"),
+      instanceId: createInstanceId("inst:detail"),
+      jid: createJid("12025550125@s.whatsapp.net"),
+      unreadCount: 4,
+    });
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        chatRepository: new FakeChatRepository([chat]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "GetChatStatus",
+        queryRef: "qry-get-chat-status",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "chat:detail",
+        requestedConsistency: "strong_owner",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "query_outcome",
+      queryRef: "qry-get-chat-status",
+      outcome: "result",
+      consistency: "strong_owner",
+      freshness: {
+        stale: false,
+        refreshedAtEpochMilliseconds: 1_782_864_000_000,
+      },
+      resultRef: "chat:chat:detail:open",
+      resource: {
+        id: "chat:detail",
+        instanceId: "inst:detail",
+        status: "open",
+        type: "direct",
+        unreadCount: 4,
+        labelIds: [],
+        muted: false,
+        pinned: false,
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain("@s.whatsapp.net");
+    expect(JSON.stringify(outcome)).not.toContain("12025550125");
+    expect(JSON.stringify(outcome)).not.toContain("jid");
   });
 
   it("executes ListEvents through the EventLog replay port", async () => {
@@ -1043,6 +1221,49 @@ class FakeMessageRepository implements MessageRepositoryPort {
   }
 
   private list(): readonly Message[] {
+    return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeChatRepository implements ChatRepositoryPort {
+  private readonly records = new Map<string, Chat>();
+
+  constructor(initialRecords: readonly Chat[] = []) {
+    for (const record of initialRecords) {
+      this.records.set(String(record.id), record);
+    }
+  }
+
+  load(id: ChatId): Promise<Chat | undefined> {
+    return Promise.resolve(this.records.get(String(id)));
+  }
+
+  save(aggregate: Chat): Promise<RepositorySaveResult> {
+    this.records.set(String(aggregate.id), aggregate);
+    return Promise.resolve({ saved: true });
+  }
+
+  exists(id: ChatId): Promise<boolean> {
+    return Promise.resolve(this.records.has(String(id)));
+  }
+
+  findByInstance(instanceId: InstanceId): Promise<readonly Chat[]> {
+    return Promise.resolve(this.list().filter((chat) => chat.instanceId === instanceId));
+  }
+
+  findByStatus(status: ChatStatus): Promise<readonly Chat[]> {
+    return Promise.resolve(this.list().filter((chat) => chat.status === status));
+  }
+
+  findByJid(jid: Jid): Promise<Chat | undefined> {
+    return Promise.resolve(this.list().find((chat) => chat.jid === jid));
+  }
+
+  findByLabel(labelId: LabelId): Promise<readonly Chat[]> {
+    return Promise.resolve(this.list().filter((chat) => chat.labelIds.includes(labelId)));
+  }
+
+  private list(): readonly Chat[] {
     return Object.freeze([...this.records.values()]);
   }
 }

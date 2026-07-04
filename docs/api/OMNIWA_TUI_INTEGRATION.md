@@ -123,6 +123,8 @@ Wire these first:
 | Jobs      | `GET /v1/jobs/{id}`                       | `implemented_public` | Job detail/status panel; safe metadata and outbound intent refs are not exposed.                 |
 | Messages  | `GET /v1/instances/{id}/messages`         | `implemented_public` | Instance-scoped message list; raw text, JID, provider payloads, and intent refs are not exposed. |
 | Messages  | `GET /v1/messages/{id}`                   | `implemented_public` | Message status/detail panel with safe status, type, direction, and instance ref.                 |
+| Chats     | `GET /v1/instances/{id}/chats`            | `implemented_public` | Preferred instance-scoped chat list for TUI navigation.                                          |
+| Chats     | `GET /v1/chats/{id}`                      | `implemented_public` | Chat detail/status panel with safe unread, label, mute, and pin state.                           |
 | Webhooks  | `GET /v1/webhooks`                        | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.                           |
 | Webhooks  | `GET /v1/webhooks/{id}`                   | `implemented_public` | Webhook subscription detail/status panel.                                                        |
 | Webhooks  | `GET /v1/webhook-deliveries`              | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                           |
@@ -130,10 +132,10 @@ Wire these first:
 
 Keep these disabled or read-only with a backend-not-ready state:
 
-- Chats
 - Contacts
 - Groups
 - Group members
+- Chat message timeline by chat id
 - Message send/retry/cancel actions
 - Logs
 - Audit
@@ -197,6 +199,8 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/jobs/job_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/messages"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/messages/msg_demo"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances/inst_demo/chats"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/chats/chat_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks/webhook_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries"
@@ -211,6 +215,7 @@ Negative-state checks:
 ```sh
 curl -sS "$BASE/v1/health"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/sessions"
+curl -sS -H "x-api-key: $KEY" "$BASE/v1/chats"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/groups"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/groups/group_1"
 ```
@@ -227,6 +232,8 @@ Required fixture states:
 - Instance collection list
 - Message collection list
 - Message detail/status
+- Chat collection list
+- Chat detail/status
 - Group route exists but handler unavailable
 - SSE heartbeat
 

@@ -759,7 +759,10 @@ function matchRoute(
   }
 
   if (method === "GET" && matches(segments, ["v1", "chats"])) {
-    return adapterQuery("public", "ListChats", undefined, "eventual_projection");
+    return partialRoute(
+      "global_chats_public_route_not_available",
+      "Global chat listing is not exposed through the public API boundary; use /v1/instances/{instanceId}/chats.",
+    );
   }
 
   if (method === "GET" && matches(segments, ["v1", "chats", ":chatId"])) {
@@ -1568,12 +1571,12 @@ function resourceTypeForQuery(name: string): string {
   if (name.includes("GroupMember")) return "groupMember";
   if (name.includes("Session")) return "session";
   if (name.includes("Message")) return "message";
-  if (name.includes("Instance")) return "instance";
   if (name.includes("Media")) return "media";
   if (name.includes("Chat")) return "chat";
   if (name.includes("Contact")) return "contact";
   if (name.includes("Label")) return "label";
   if (name.includes("Group")) return "group";
+  if (name.includes("Instance")) return "instance";
   if (name.includes("Events")) return "event";
   if (name.includes("Audit")) return "auditRecord";
   if (name.includes("Dashboard")) return "dashboard";
