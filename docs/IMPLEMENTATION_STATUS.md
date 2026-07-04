@@ -127,9 +127,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   ownership resolution through `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for session, message,
   chat, contact, group, and job resources with explicit instance ownership. Rate-limit snapshots can
   now be converted into approved low-cardinality API metric points without exporting API key ids,
-  bucket keys, instance refs, or target refs. Distributed rate limiting, full ownership coverage for
-  resources without current owner fields, and production database credential validation remain open
-  N11.5 follow-up work.
+  bucket keys, instance refs, or target refs. API production runtime composition now validates that
+  PostgreSQL configuration does not use local hosts or known development credentials before it
+  reaches the remaining production-adapter fail-safe. Distributed rate limiting and full ownership
+  coverage for resources without current owner fields remain open N11.5 follow-up work.
 
 ## Update Rule
 

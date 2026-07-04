@@ -96,6 +96,11 @@ Rate-limit snapshots can be converted into approved API metric points:
 The exporter aggregates by endpoint class and scope kind only. It does not export API key ids, bucket
 keys, instance refs, target refs, or raw request data.
 
+API production profile composition also validates PostgreSQL configuration before reaching the
+remaining production-adapter fail-safe. The validation rejects non-PostgreSQL repository profiles,
+local database hosts, missing username/password credentials, and known development database
+credentials without logging or serializing the configured database URL.
+
 ## Verification
 
 Targeted tests:

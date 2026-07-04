@@ -133,8 +133,9 @@ endpoint-class limits. It also wires opt-in in-memory denied-decision evidence t
 and opt-in repository-backed ownership resolution through
 `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` for resources that already carry explicit instance
 ownership. Remaining N11.5 work should focus on full ownership coverage, distributed rate limiting,
-and production database credential validation. Rate-limit snapshots can now be exported as approved
-low-cardinality API metric points without raw key, bucket, instance, or target identifiers.
+and production profile validation beyond the database credential checks already present.
+Rate-limit snapshots can now be exported as approved low-cardinality API metric points without raw
+key, bucket, instance, or target identifiers.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.
 

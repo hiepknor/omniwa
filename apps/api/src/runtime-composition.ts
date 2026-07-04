@@ -88,10 +88,12 @@ export function createApiRuntimeComposition(
       : new DurableJsonApiKeyLifecycleStore(apiKeyLifecycleStorePath);
   const apiKeyVerifier = createRuntimeApiKeyVerifier(apiKeys, hashedApiKeys, apiKeyLifecycleStore);
 
-  assertRuntimeProfileIsComposable(
-    profile,
-    apiKeys.length > 0 || hashedApiKeys.length > 0 || apiKeyLifecycleStorePath !== undefined,
-  );
+  assertRuntimeProfileIsComposable(profile, {
+    hasConfiguredApiKey:
+      apiKeys.length > 0 || hashedApiKeys.length > 0 || apiKeyLifecycleStorePath !== undefined,
+    repositoryProfile,
+    postgresDatabaseUrl: env.OMNIWA_POSTGRES_DATABASE_URL,
+  });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
   const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
@@ -535,17 +537,92 @@ function readOptionalPositiveIntegerEnv(env: NodeJS.ProcessEnv, name: string): n
 
 function assertRuntimeProfileIsComposable(
   profile: ApiRuntimeProfile,
-  hasConfiguredApiKey: boolean,
+  options: Readonly<{
+    hasConfiguredApiKey: boolean;
+    repositoryProfile: ApiRepositoryProfile;
+    postgresDatabaseUrl: string | undefined;
+  }>,
 ): void {
   if (profile === "production") {
+    if (options.repositoryProfile !== "postgresql") {
+      throw new Error(
+        "OmniWA API production profile requires OMNIWA_API_REPOSITORY_PROFILE=postgresql.",
+      );
+    }
+
+    assertProductionPostgresqlDatabaseUrl(options.postgresDatabaseUrl);
+
     throw new Error(
-      "OmniWA API production profile requires production persistence, secret, queue, and observability adapters before runtime composition is allowed.",
+      "OmniWA API production profile remains disabled until production queue and observability adapters are implemented.",
     );
   }
 
-  if (profile !== "test" && !hasConfiguredApiKey) {
+  if (profile !== "test" && !options.hasConfiguredApiKey) {
     throw new Error(
       "OmniWA API runtime requires OMNIWA_API_KEY or OMNIWA_API_KEY_HASH for local and production profiles.",
     );
   }
+}
+
+function assertProductionPostgresqlDatabaseUrl(value: string | undefined): void {
+  const databaseUrl = value?.trim();
+
+  if (databaseUrl === undefined || databaseUrl.length === 0) {
+    throw new Error(
+      "OmniWA API production profile requires OMNIWA_POSTGRES_DATABASE_URL with production credentials.",
+    );
+  }
+
+  let parsed: URL;
+
+  try {
+    parsed = new URL(databaseUrl);
+  } catch {
+    throw new Error("OMNIWA_POSTGRES_DATABASE_URL must be a valid PostgreSQL URL.");
+  }
+
+  if (parsed.protocol !== "postgresql:" && parsed.protocol !== "postgres:") {
+    throw new Error("OMNIWA_POSTGRES_DATABASE_URL must use the postgres or postgresql protocol.");
+  }
+
+  if (isLocalDatabaseHost(parsed.hostname)) {
+    throw new Error(
+      "OmniWA API production profile must not use local PostgreSQL host credentials.",
+    );
+  }
+
+  if (parsed.username.length === 0 || parsed.password.length === 0) {
+    throw new Error("OmniWA API production profile requires a PostgreSQL username and password.");
+  }
+
+  if (isKnownDevelopmentDatabaseCredential(parsed.username, parsed.password)) {
+    throw new Error(
+      "OmniWA API production profile must not use known development PostgreSQL credentials.",
+    );
+  }
+}
+
+function isLocalDatabaseHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  );
+}
+
+function isKnownDevelopmentDatabaseCredential(username: string, password: string): boolean {
+  const normalizedUsername = decodeURIComponent(username).trim().toLowerCase();
+  const normalizedPassword = decodeURIComponent(password).trim().toLowerCase();
+
+  return (
+    normalizedUsername === "omniwa" ||
+    normalizedUsername === "postgres" ||
+    normalizedPassword === "omniwa" ||
+    normalizedPassword === "postgres" ||
+    normalizedPassword === "password" ||
+    normalizedPassword === "local-dev-secret-change-me"
+  );
 }

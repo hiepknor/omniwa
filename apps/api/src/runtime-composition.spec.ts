@@ -599,13 +599,47 @@ describe("API runtime composition", () => {
     );
   });
 
-  it("fails fast for production profile until production adapters are implemented", () => {
+  it("requires PostgreSQL repository profile for production runtime composition", () => {
     expect(() =>
       createApiRuntimeComposition({
         OMNIWA_API_KEY: "production-secret",
         OMNIWA_API_RUNTIME_PROFILE: "production",
       }),
-    ).toThrow(/production profile requires production persistence/i);
+    ).toThrow(/OMNIWA_API_REPOSITORY_PROFILE=postgresql/u);
+  });
+
+  it("rejects local PostgreSQL database hosts for production runtime composition", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://safe_user:safe_password@127.0.0.1:5432/omniwa",
+      }),
+    ).toThrow(/must not use local PostgreSQL host credentials/u);
+  });
+
+  it("rejects known development PostgreSQL credentials for production runtime composition", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@db.prod.example/omniwa",
+      }),
+    ).toThrow(/must not use known development PostgreSQL credentials/u);
+  });
+
+  it("still blocks production runtime composition after safe database credential validation", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+      }),
+    ).toThrow(/production profile remains disabled/u);
   });
 
   it("requires an API key for local runtime composition", () => {
