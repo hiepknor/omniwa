@@ -30,6 +30,10 @@ import {
 } from "./api-key-auth.js";
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import {
+  InMemoryFixedWindowRateLimiter,
+  type ApiRateLimitEndpointClass,
+} from "./api-rate-limiter.js";
+import {
   readApiKeysFromEnv,
   readHashedApiKeysFromEnv,
   type ApiHttpServerOptions,
@@ -94,6 +98,7 @@ export function createApiRuntimeComposition(
     repositoryProfile,
   );
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
+  const rateLimiter = createRuntimeRateLimiter(env);
   const queueProvider = new InMemoryQueueProvider({
     workerJobRepository: repositories.workerJobRepository,
   });
@@ -130,6 +135,7 @@ export function createApiRuntimeComposition(
       outboundMessageIntentStore,
       groupMutationIntentStore,
       ...optional("eventSource", eventSource),
+      ...optional("rateLimiter", rateLimiter),
       ...optional(
         "apiKeyLifecycleService",
         apiKeyLifecycleStore === undefined
@@ -201,6 +207,58 @@ function createRuntimeApiKeyVerifier(
   }
 
   return undefined;
+}
+
+function createRuntimeRateLimiter(
+  env: NodeJS.ProcessEnv,
+): InMemoryFixedWindowRateLimiter | undefined {
+  const maxRequests = readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_MAX_REQUESTS");
+  const windowMilliseconds = readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_WINDOW_MS");
+  const endpointClassLimits = readEndpointClassRateLimitEnv(env);
+  const hasEndpointClassLimits = Object.keys(endpointClassLimits).length > 0;
+
+  if (maxRequests === undefined && windowMilliseconds === undefined && !hasEndpointClassLimits) {
+    return undefined;
+  }
+
+  if (maxRequests === undefined || windowMilliseconds === undefined) {
+    throw new Error(
+      "Configure OMNIWA_API_RATE_LIMIT_MAX_REQUESTS and OMNIWA_API_RATE_LIMIT_WINDOW_MS together.",
+    );
+  }
+
+  return new InMemoryFixedWindowRateLimiter({
+    maxRequests,
+    windowMilliseconds,
+    endpointClassLimits,
+  });
+}
+
+function readEndpointClassRateLimitEnv(
+  env: NodeJS.ProcessEnv,
+): Partial<Record<ApiRateLimitEndpointClass, number>> {
+  return {
+    ...optional(
+      "read",
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_READ_MAX_REQUESTS"),
+    ),
+    ...optional(
+      "write",
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_WRITE_MAX_REQUESTS"),
+    ),
+    ...optional(
+      "message_send",
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_MESSAGE_SEND_MAX_REQUESTS"),
+    ),
+    ...optional(
+      "admin",
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_ADMIN_MAX_REQUESTS"),
+    ),
+    ...optional(
+      "event_stream",
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_API_RATE_LIMIT_EVENT_STREAM_MAX_REQUESTS"),
+    ),
+  };
 }
 
 function createApiKeyLifecycleStoreVerifier(
@@ -386,6 +444,22 @@ function readBooleanEnv(value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase();
 
   return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+function readOptionalPositiveIntegerEnv(env: NodeJS.ProcessEnv, name: string): number | undefined {
+  const value = env[name]?.trim();
+
+  if (value === undefined || value.length === 0) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+
+  if (!/^\d+$/u.test(value) || !Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+
+  return parsed;
 }
 
 function assertRuntimeProfileIsComposable(

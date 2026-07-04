@@ -63,7 +63,7 @@ must use this status overlay instead of restarting already-completed foundation 
 | P0-05 | Closed for exposed path | PostgreSQL repositories and CI contract tests cover runtime-exposed paths. Full catalog coverage remains follow-up, not the next N11 blocker.                                                                                                                                                                                                                                                                                                                                                                 |
 | P0-06 | Partial                 | Durable WorkerJob-backed queue provider exists behind `QueueProviderPort`; cross-process atomic leasing and final production queue semantics remain open.                                                                                                                                                                                                                                                                                                                                                     |
 | P0-07 | Mostly closed           | API key auth/lifecycle foundations exist, API runtime can compose from `OMNIWA_API_KEY_HASH`, `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`, or `SecretProvider` via `OMNIWA_API_KEY_SECRET_NAME` without retaining plaintext key config, the API process entrypoint wires the secret-name path through `EnvSecretProvider`, and admin `/v1/api-keys` list/provision/revoke/rotate routes exist behind `admin:*` with safe DTOs and audit evidence. Least-privilege depth and rate-limit hardening continue in N11.5. |
-| P0-08 | Partial                 | Rate limiter foundation exists. Production abuse throttling and guardrail integration need hardening.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| P0-08 | Partial                 | Rate limiter foundation exists and API runtime composition can now opt in through `OMNIWA_API_RATE_LIMIT_MAX_REQUESTS`, `OMNIWA_API_RATE_LIMIT_WINDOW_MS`, and endpoint-class override env vars. Production distributed throttling, metrics export, and guardrail integration need hardening.                                                                                                                                                                                                                 |
 | P0-09 | Partial                 | Resource ownership checks exist for current surfaces. Production coverage and regression depth need hardening.                                                                                                                                                                                                                                                                                                                                                                                                |
 | P0-10 | Partial                 | Env/local secret providers exist, API process composition can use them for API key material, and provider runtime can encrypt durable Baileys auth-state JSON with `OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY` while preserving local backward compatibility for existing unencrypted state. Production external secret-provider selection and production-profile validation remain open.                                                                                                                      |
 | P0-11 | Foundation closed       | Durable JSON EventLog/outbox and SSE replay survive restart. Production outbox consumers, selected production EventLog backend, and backlog metrics remain open.                                                                                                                                                                                                                                                                                                                                              |
@@ -385,7 +385,9 @@ Definition of Done:
 
 - API keys are stored hashed and verified constant-time.
 - Rotation and revocation are audited.
-- Rate limits exist by key, instance, and endpoint class.
+- Rate limits exist by key, instance, and endpoint class; the current runtime-wired limiter is
+  opt-in in-memory and must be replaced or backed by a distributed adapter before multi-process
+  production.
 - Resource IDs resolve to ownership before authorization decisions.
 - Secret values are never logged or serialized.
 - Security regression tests are part of `pnpm check` or a required CI gate.
@@ -757,7 +759,7 @@ Goal:
 Deliverables:
 
 - Ownership resolver for instance, message, group, webhook, delivery, job, event resources.
-- Rate limiter by API key, instance, and endpoint class.
+- Runtime-wired rate limiter by API key, instance, and endpoint class.
 - Guardrail throttling hooks.
 - Audit for denied decisions.
 
@@ -779,10 +781,11 @@ Definition of Done:
 
 Risks:
 
-| Risk                                    | Mitigation                                            |
-| --------------------------------------- | ----------------------------------------------------- |
-| Ownership resolver causes extra DB load | Start with indexed lookup paths and measure in PR-17. |
-| Rate limits break internal operations   | Separate public/admin/internal runtime boundaries.    |
+| Risk                                    | Mitigation                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Ownership resolver causes extra DB load | Start with indexed lookup paths and measure in PR-17.                                      |
+| Rate limits break internal operations   | Separate public/admin/internal runtime boundaries.                                         |
+| In-memory limits reset per process      | Keep as local/runtime foundation; add distributed adapter before multi-process production. |
 
 ### Sprint PR-8 - Provider Runtime Vertical Slice
 

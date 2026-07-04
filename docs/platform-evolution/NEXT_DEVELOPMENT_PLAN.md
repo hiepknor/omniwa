@@ -124,9 +124,11 @@ retaining plaintext API key configuration; the API process entrypoint now uses `
 for that secret-name path; and provider runtime can encrypt durable Baileys auth-state JSON with
 `OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY`. It also exposes admin-only `/v1/api-keys` lifecycle
 routes for safe list, provision, revoke, and rotate flows when `OMNIWA_API_KEY_LIFECYCLE_STORE_PATH`
-is configured. N11.5 is now current and should focus on authorization coverage, rate limits, and
-denied-decision evidence. Production external secret-provider selection and final production-profile
-validation remain later hardening work.
+is configured. N11.5 is now current; its first slice wires opt-in API rate limits from
+`OMNIWA_API_RATE_LIMIT_MAX_REQUESTS` and `OMNIWA_API_RATE_LIMIT_WINDOW_MS`, plus optional
+endpoint-class limits. Remaining N11.5 work should focus on persistent ownership resolution,
+denied-decision evidence, distributed rate limiting, and metrics export. Production external
+secret-provider selection and final production-profile validation remain later hardening work.
 
 ## Planned Increments
 

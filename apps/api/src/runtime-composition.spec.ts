@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { SecretValue, type SecretDescriptor, type SecretProvider } from "@omniwa/config";
+import type { ApiCredential } from "@omniwa/interface-api";
 import { createCorrelationId, createRequestContext, createRequestId, ok } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -13,7 +14,14 @@ import {
   readRuntimeProfile,
 } from "./runtime-composition.js";
 import { hashApiKey } from "./api-key-auth.js";
+import { handleApiHttpRequest } from "./http-server.js";
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
+
+const runtimeRateLimitCredential: ApiCredential = {
+  kind: "api_key",
+  keyId: "runtime-rate-key",
+  scopes: ["messages:send"],
+};
 
 const temporaryDirectories: string[] = [];
 
@@ -313,6 +321,121 @@ describe("API runtime composition", () => {
     ).toMatchObject({
       status: "not_found",
     });
+  });
+
+  it("wires an env-configured API rate limiter into the HTTP runtime", async () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "1",
+      OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+    });
+
+    const first = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-rate-1",
+          "x-correlation-id": "runtime-rate-correlation",
+        },
+      },
+      composition.options,
+    );
+    const second = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-rate-2",
+          "x-correlation-id": "runtime-rate-correlation",
+        },
+      },
+      composition.options,
+    );
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(429);
+    expect("error" in second.body ? second.body.error : undefined).toMatchObject({
+      code: "rate_limit_exceeded",
+      details: {
+        endpointClass: "read",
+        limit: 1,
+        remaining: 0,
+      },
+    });
+  });
+
+  it("wires endpoint-class rate limits for message sends", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "10",
+      OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      OMNIWA_API_RATE_LIMIT_MESSAGE_SEND_MAX_REQUESTS: "1",
+    });
+    const rateLimiter = composition.options.rateLimiter;
+
+    expect(rateLimiter).toBeDefined();
+    expect(
+      rateLimiter?.check({
+        credential: runtimeRateLimitCredential,
+        method: "POST",
+        url: "/v1/instances/inst_allowed/messages/text",
+        endpointClass: "message_send",
+        instanceRef: "inst_allowed",
+      }),
+    ).toMatchObject({ allowed: true, limit: 1, remaining: 0 });
+    expect(
+      rateLimiter?.check({
+        credential: runtimeRateLimitCredential,
+        method: "POST",
+        url: "/v1/instances/inst_allowed/messages/text",
+        endpointClass: "message_send",
+        instanceRef: "inst_allowed",
+      }),
+    ).toMatchObject({ allowed: false, limit: 1 });
+  });
+
+  it("requires max requests and window to be configured together for API rate limiting", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "10",
+      }),
+    ).toThrow(/MAX_REQUESTS and OMNIWA_API_RATE_LIMIT_WINDOW_MS together/u);
+
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
+    ).toThrow(/MAX_REQUESTS and OMNIWA_API_RATE_LIMIT_WINDOW_MS together/u);
+  });
+
+  it("rejects invalid API rate limiter environment values safely", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "0",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+      }),
+    ).toThrow(/OMNIWA_API_RATE_LIMIT_MAX_REQUESTS must be a positive integer/u);
+
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "10",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+        OMNIWA_API_RATE_LIMIT_ADMIN_MAX_REQUESTS: "NaN",
+      }),
+    ).toThrow(/OMNIWA_API_RATE_LIMIT_ADMIN_MAX_REQUESTS must be a positive integer/u);
   });
 
   it("fails fast for production profile until production adapters are implemented", () => {
