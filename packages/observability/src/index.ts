@@ -1,4 +1,5 @@
 export * from "./alerts.js";
+export * from "./dashboard-alert-routing.js";
 export * from "./data-classification.js";
 export * from "./health.js";
 export * from "./logger.js";

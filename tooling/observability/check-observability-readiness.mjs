@@ -6,6 +6,7 @@ export const requiredObservabilityEvidenceFiles = Object.freeze([
   "docs/runbooks/OBSERVABILITY_AND_DEPENDENCY_READINESS.md",
   "packages/observability/src/metric-catalog.ts",
   "packages/observability/src/alerts.ts",
+  "packages/observability/src/dashboard-alert-routing.ts",
   "packages/infrastructure-observability/src/dependency-health.ts",
   "packages/infrastructure-observability/src/metrics-exporter.ts",
   "packages/infrastructure-observability/src/structured-log-backend.ts",
@@ -15,6 +16,7 @@ export const requiredObservabilityEvidenceFiles = Object.freeze([
 
 export const requiredObservabilityEvidenceTests = Object.freeze([
   "packages/observability/src/metric-catalog.spec.ts",
+  "packages/observability/src/dashboard-alert-routing.spec.ts",
   "packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts",
   "apps/metrics/src/index.spec.ts",
   "apps/health/src/index.spec.ts",

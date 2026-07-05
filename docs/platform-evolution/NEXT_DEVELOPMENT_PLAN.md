@@ -238,10 +238,10 @@ Target-environment evidence validation now also requires `Background Runtime` as
 component so the outbox consumer process, publisher evidence, backlog metrics, and shutdown behavior
 cannot be omitted from production proof.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
-catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
-release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
-target-environment dashboards, alert routing, exporter operations, and sustained SLO monitoring as
-production-readiness evidence.
+catalog, alert definition, dashboard/alert-routing catalog coverage, dependency-readiness, metrics
+runtime, health runtime, and release-readiness evidence. It keeps P0-13 visible in the root quality
+gate while leaving target-environment dashboard access proof, alert-routing dry-runs, exporter
+operations, and sustained SLO monitoring as production-readiness evidence.
 The next N11.7 validation slice adds a dedicated `pnpm e2e:check` gate for deterministic vertical
 path evidence. It requires the REST platform regression spec plus the local vertical-slice runtime
 spec that proves Application, durable JSON state, queue, worker, provider fake socket, and EventLog

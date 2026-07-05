@@ -16,6 +16,7 @@ Covered runtime roles:
 - Worker Runtime
 - Provider Runtime
 - Webhook Runtime
+- Background Runtime
 - Metrics Runtime
 - Health Runtime
 
@@ -43,14 +44,18 @@ runtime degraded.
 The approved PR-13 metric catalog is implemented in
 `packages/observability/src/metric-catalog.ts`.
 
-| Metric                           | Runtime  | Purpose                                                   | Alert                                               |
-| -------------------------------- | -------- | --------------------------------------------------------- | --------------------------------------------------- |
-| `api.request.latency`            | API      | API latency and error/availability grouping               | `api_availability_degraded`, `api_latency_degraded` |
-| `queue.work.latency`             | Worker   | Queue work latency and backlog signal                     | `queue_backlog`                                     |
-| `provider.connection.state`      | Provider | Provider connection state without raw account identifiers | `provider_connection_degraded`                      |
-| `webhook.delivery.success.total` | Webhook  | Webhook success/failure signal                            | `webhook_success_degraded`                          |
-| `worker.utilization.ratio`       | Worker   | Worker saturation signal                                  | `worker_utilization_saturated`                      |
-| `event_stream.errors.total`      | API      | SSE/event stream failure signal                           | `event_stream_errors`                               |
+| Metric                            | Runtime  | Purpose                                                   | Alert                                               |
+| --------------------------------- | -------- | --------------------------------------------------------- | --------------------------------------------------- |
+| `api.request.latency`             | API      | API latency and error/availability grouping               | `api_availability_degraded`, `api_latency_degraded` |
+| `queue.work.latency`              | Worker   | Queue work latency and backlog signal                     | `queue_backlog`                                     |
+| `provider.connection.state`       | Provider | Provider connection state without raw account identifiers | `provider_connection_degraded`                      |
+| `webhook.delivery.success.total`  | Webhook  | Webhook success/failure signal                            | `webhook_success_degraded`                          |
+| `worker.utilization.ratio`        | Worker   | Worker saturation signal                                  | `worker_utilization_saturated`                      |
+| `event_stream.errors.total`       | API      | SSE/event stream failure signal                           | `event_stream_errors`                               |
+| `api.rate_limit.bucket.count`     | API      | Aggregate API rate-limit bucket usage                     | Dashboard evidence                                  |
+| `api.rate_limit.bucket.remaining` | API      | Aggregate API rate-limit remaining capacity               | Dashboard evidence                                  |
+| `api.rate_limit.bucket.limit`     | API      | Aggregate API rate-limit configured capacity              | Dashboard evidence                                  |
+| `eventlog.outbox.records`         | Metrics  | EventLog outbox backlog by delivery status                | `queue_backlog`                                     |
 
 Metric labels must use the approved low-cardinality label allowlist from the
 metric catalog. Raw instance IDs, phone numbers, JIDs, message bodies, webhook
@@ -65,7 +70,23 @@ metric recorder is present.
 ## Alerts
 
 Alert definitions are implemented in `packages/observability/src/alerts.ts`.
+Dashboard and alert-routing definitions are implemented in
+`packages/observability/src/dashboard-alert-routing.ts`.
 SLI/SLO/error-budget documentation and alert runbook coverage are validated by `pnpm slo:check`.
+
+### Dashboard And Alert Routing Contract
+
+The local observability gate validates the following before target-environment
+evidence can be reviewed:
+
+- every approved production metric appears in at least one dashboard panel,
+- every approved production alert has an operator route,
+- every route references an approved dashboard and runbook,
+- dashboard and route definitions contain only safe references, not target URLs,
+  raw IDs, JIDs, message text, provider payloads, API keys, or secrets.
+
+The target environment must still prove dashboard access, alert routing, and
+alert/SLO dry-run behavior with operator evidence before `PRODUCTION_READY`.
 
 ### API Availability
 

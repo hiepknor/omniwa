@@ -8,10 +8,12 @@ export const requiredSloEvidenceFiles = Object.freeze([
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
   "packages/observability/src/metric-catalog.ts",
   "packages/observability/src/alerts.ts",
+  "packages/observability/src/dashboard-alert-routing.ts",
 ]);
 
 export const requiredSloEvidenceTests = Object.freeze([
   "packages/observability/src/metric-catalog.spec.ts",
+  "packages/observability/src/dashboard-alert-routing.spec.ts",
   "tooling/observability/check-slo-readiness.spec.ts",
 ]);
 
