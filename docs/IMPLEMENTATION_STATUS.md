@@ -249,6 +249,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   target-environment load evidence and requires the root `target-env:load` script to exist. This
   keeps the production-cut decision gate aligned with the optional deployed API load runner without
   running target-environment traffic in the default local quality gate.
+- N11.7 release readiness now also guards implementation-progress documents against stale current
+  increment references. `pnpm release:check` requires `IMPLEMENTATION_STATUS.md` and
+  `NEXT_DEVELOPMENT_PLAN.md` to agree that production hardening is currently at N11.7 production
+  validation gates.
 - N11.7 target-environment evidence validation now requires both optional operator commands
   (`pnpm target-env:smoke` and `pnpm target-env:load`) plus their sanitized artifact path
   environment variables to be documented in `TARGET_ENVIRONMENT_VALIDATION.md`; the gate runs only

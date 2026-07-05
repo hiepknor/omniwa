@@ -87,6 +87,8 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "tooling/production/check-production-cut.mjs",
   "tooling/performance/check-performance-readiness.mjs",
   "tooling/performance/run-target-environment-load.mjs",
+  "docs/IMPLEMENTATION_STATUS.md",
+  "docs/platform-evolution/NEXT_DEVELOPMENT_PLAN.md",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
@@ -171,6 +173,7 @@ export async function evaluateReleaseReadiness(options = {}) {
   await checkFiles(projectRoot, "release_evidence_test", requiredReleaseEvidenceTests, findings);
   await checkRootPackage(projectRoot, findings);
   await checkWorkspaceManifests(projectRoot, findings);
+  await checkImplementationProgressDocuments(projectRoot, findings);
 
   return freezeReport({
     status: findings.some((finding) => finding.severity === "blocker") ? "failed" : "passed",
@@ -233,7 +236,7 @@ export async function createReadinessFixture(projectRoot) {
     ...requiredReleaseEvidenceFiles,
     ...requiredReleaseEvidenceTests,
   ]) {
-    await writeText(join(projectRoot, file), "fixture\n");
+    await writeText(join(projectRoot, file), releaseEvidenceFixtureContent(file));
   }
 
   for (const app of requiredRuntimeApps) {
@@ -259,6 +262,38 @@ async function checkFiles(projectRoot, category, files, findings) {
       );
     }
   }
+}
+
+function releaseEvidenceFixtureContent(file) {
+  if (file === "docs/IMPLEMENTATION_STATUS.md") {
+    return [
+      "# OmniWA Implementation Status",
+      "",
+      "| Increment | Status | Evidence | Next |",
+      "| --- | --- | --- | --- |",
+      "| N11 - Production Hardening | Active | Fixture evidence. | N11.7 - Production Validation |",
+      "",
+      "N11.7 production validation is active.",
+      "",
+    ].join("\n");
+  }
+
+  if (file === "docs/platform-evolution/NEXT_DEVELOPMENT_PLAN.md") {
+    return [
+      "# Next Development Plan",
+      "",
+      "| Order | Increment | Goal | Status |",
+      "| --- | --- | --- | --- |",
+      "| N11.7 | Production validation gates | Add proof gates. | Current |",
+      "",
+      "```text",
+      "  -> Production hardening (current: N11.7 production validation gates)",
+      "```",
+      "",
+    ].join("\n");
+  }
+
+  return "fixture\n";
 }
 
 async function checkRootPackage(projectRoot, findings) {
@@ -355,6 +390,49 @@ async function checkRootPackage(projectRoot, findings) {
   }
 }
 
+async function checkImplementationProgressDocuments(projectRoot, findings) {
+  const implementationStatus = await readText(
+    join(projectRoot, "docs/IMPLEMENTATION_STATUS.md"),
+    findings,
+    "implementation_status",
+    "docs/IMPLEMENTATION_STATUS.md",
+  );
+  const nextDevelopmentPlan = await readText(
+    join(projectRoot, "docs/platform-evolution/NEXT_DEVELOPMENT_PLAN.md"),
+    findings,
+    "next_development_plan",
+    "docs/platform-evolution/NEXT_DEVELOPMENT_PLAN.md",
+  );
+
+  if (implementationStatus === undefined || nextDevelopmentPlan === undefined) {
+    return;
+  }
+
+  if (!implementationStatus.includes("| N11 - Production Hardening")) {
+    findings.push(createFinding("implementation_status_missing_n11_increment", "blocker"));
+  }
+
+  if (!implementationStatus.includes("N11.7 production validation is active")) {
+    findings.push(createFinding("implementation_status_missing_n117_current_state", "blocker"));
+  }
+
+  if (!nextDevelopmentPlan.includes("| N11.7 | Production validation gates")) {
+    findings.push(createFinding("next_development_plan_missing_n117_execution_row", "blocker"));
+  }
+
+  if (
+    !nextDevelopmentPlan.includes(
+      "-> Production hardening (current: N11.7 production validation gates)",
+    )
+  ) {
+    findings.push(createFinding("next_development_plan_current_increment_drift", "blocker"));
+  }
+
+  if (/current:\s*N11\.(?:[0-6])\b/iu.test(nextDevelopmentPlan)) {
+    findings.push(createFinding("next_development_plan_stale_current_increment", "blocker"));
+  }
+}
+
 async function checkWorkspaceManifests(projectRoot, findings) {
   for (const app of requiredRuntimeApps) {
     const manifest = await readJson(
@@ -432,6 +510,21 @@ function checkWorkspaceManifest(workspacePath, manifest, findings, options) {
         safeDetailCode: "workspace_package_exports_missing",
       }),
     );
+  }
+}
+
+async function readText(path, findings, category, target = path) {
+  try {
+    return await readFile(path, "utf8");
+  } catch {
+    findings.push(
+      createFinding(`${category}_unreadable`, "blocker", {
+        target,
+        safeDetailCode: `${category}_unreadable`,
+      }),
+    );
+
+    return undefined;
   }
 }
 

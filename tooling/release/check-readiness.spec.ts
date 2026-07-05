@@ -84,6 +84,46 @@ describe("release readiness check", () => {
     }
   });
 
+  it("fails when implementation progress documents drift from the current N11 increment", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createReadinessFixture(root);
+      await writeText(
+        join(root, "docs/platform-evolution/NEXT_DEVELOPMENT_PLAN.md"),
+        [
+          "# Next Development Plan",
+          "",
+          "| N11.7 | Production validation gates | Current |",
+          "",
+          "```text",
+          "  -> Production hardening (current: N11.4 secret and API-key hardening)",
+          "```",
+          "",
+        ].join("\n"),
+      );
+
+      const report = await evaluateReleaseReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "next_development_plan_current_increment_drift",
+          }),
+          expect.objectContaining({
+            code: "next_development_plan_stale_current_increment",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails package manifests that are not private ESM workspace units", async () => {
     const root = await createTempProject();
 

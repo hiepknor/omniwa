@@ -345,7 +345,7 @@ Message reads
   -> VS02 real WhatsApp local demo
   -> PostgreSQL repository completion (done)
   -> Controlled mutations
-  -> Production hardening (current: N11.4 secret and API-key hardening)
+  -> Production hardening (current: N11.7 production validation gates)
 ```
 
 This order is intentionally incremental, rollbackable, testable, and compatible with the frozen
