@@ -110,6 +110,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   WorkerJob queue profiles where available, webhook dispatcher production composition, and explicit
   controlled-pilot settings for worker/provider runtimes that are still fail-closed for true
   production profiles.
+- N11 production compose validation now has a dedicated `pnpm docker:production:check` gate wired
+  into `pnpm production:check` and the root `pnpm check` path. The gate renders the checked-in
+  production compose template with `deploy/docker/env/production.env.example` and verifies required
+  services, hash-only API-key posture, Redis API rate limiting, disabled auto-migration, and the
+  intentional worker/provider controlled-pilot profiles without printing rendered secret material.
 - N11 EventLog/outbox hardening now adds a generic `EventOutboxConsumer` foundation that drains
   pending outbox records through an injected publisher, marks successful records as published, keeps
   failed records pending, and returns safe failure summaries without raw provider payload exposure.
@@ -317,6 +322,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 production-cut validation now also requires `target-env:smoke` tooling and a production-cut
   review acknowledgement for deployed API smoke evidence, keeping the production-cut gate aligned
   with all target-environment operator evidence commands.
+- N11.7 production compose validation now also runs as part of `pnpm production:check`. This keeps
+  the expanded production compose template under an automated local release gate while preserving
+  the current `CONDITIONALLY_READY` posture until target-environment startup evidence is supplied.
 
 ## Update Rule
 

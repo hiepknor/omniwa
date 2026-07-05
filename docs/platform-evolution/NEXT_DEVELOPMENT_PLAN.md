@@ -200,6 +200,11 @@ an API-only template to a full runtime template with API, worker, webhook dispat
 runtime, PostgreSQL, and Redis services. It intentionally keeps worker and provider runtime in
 controlled-pilot profiles because true production profiles remain blocked until provider-runtime
 IPC/shared socket ownership and target-environment evidence are complete.
+The production compose validation slice adds `pnpm docker:production:check` and wires it into
+`pnpm production:check`, so the checked-in production template must render successfully with
+`deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key
+posture, Redis rate limiting, disabled auto-migration, and controlled-pilot worker/provider runtime
+profiles before the root quality gate can pass.
 The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer` foundation for
 safe pending-outbox drain loops. It does not yet select the production EventLog backend or wire a
 production outbox runtime loop; those remain N11 follow-up work. `ADR-0009` is Proposed to decide
