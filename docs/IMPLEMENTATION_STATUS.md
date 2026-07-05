@@ -280,6 +280,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 production-cut validation now also requires `target-env:bundle` tooling and a production-cut
   review acknowledgement for sanitized target-environment evidence bundles, keeping
   `PRODUCTION_CUT_REVIEW.md` aligned with the target-environment evidence workflow.
+- N11.7 production-cut validation now also requires `target-env:smoke` tooling and a production-cut
+  review acknowledgement for deployed API smoke evidence, keeping the production-cut gate aligned
+  with all target-environment operator evidence commands.
 
 ## Update Rule
 

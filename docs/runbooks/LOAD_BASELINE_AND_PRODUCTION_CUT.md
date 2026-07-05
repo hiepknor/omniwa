@@ -149,6 +149,7 @@ It verifies:
 - final readiness decision is explicit,
 - Production Ready state is explicit,
 - target environment proof state is explicit,
+- production-cut review acknowledges the target-environment smoke workflow,
 - production load proof state is explicit,
 - SLO evidence proof state is explicit,
 - production-cut review acknowledges the target-environment bundle workflow,

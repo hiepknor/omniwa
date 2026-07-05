@@ -232,8 +232,8 @@ sanitized smoke/load summaries. The generated bundle remains non-proving evidenc
 updates the proof states and component statuses with target-environment evidence.
 When that bundle is supplied back to `pnpm target-env:check`, the gate cross-checks it against
 `TARGET_ENVIRONMENT_VALIDATION.md` so review state and artifact state cannot drift.
-The production-cut gate also requires this bundle workflow to be present in the root scripts and
-acknowledged by `PRODUCTION_CUT_REVIEW.md`.
+The production-cut gate also requires the smoke and bundle workflows to be present in the root
+scripts and acknowledged by `PRODUCTION_CUT_REVIEW.md`.
 
 ## Planned Increments
 
