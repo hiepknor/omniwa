@@ -151,6 +151,7 @@ It verifies:
 - target environment proof state is explicit,
 - production load proof state is explicit,
 - SLO evidence proof state is explicit,
+- production-cut review acknowledges the target-environment bundle workflow,
 - `PRODUCTION_READY` requires target environment, production load, and SLO
   evidence to be proven,
 - load baseline summary exists,

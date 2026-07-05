@@ -277,6 +277,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   against `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`; bundle status, proof booleans, and
   component statuses must match the review document when
   `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` is supplied.
+- N11.7 production-cut validation now also requires `target-env:bundle` tooling and a production-cut
+  review acknowledgement for sanitized target-environment evidence bundles, keeping
+  `PRODUCTION_CUT_REVIEW.md` aligned with the target-environment evidence workflow.
 
 ## Update Rule
 

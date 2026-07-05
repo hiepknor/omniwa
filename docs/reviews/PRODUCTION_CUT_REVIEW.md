@@ -52,6 +52,10 @@ it does not replace the required runtime/dependency, production-load, and SLO pr
 optional `pnpm target-env:load` command can collect bounded deployed-API load evidence against the
 approved public GET endpoint set; it also does not replace sustained production-load duration,
 external dependency capacity notes, or SLO proof.
+The optional `pnpm target-env:bundle` command can create a sanitized evidence bundle from the
+checked-in template and already-sanitized smoke/load summaries. That bundle is validated by
+`pnpm target-env:check`, but it must not claim a readiness state that this review document does not
+claim.
 
 ## Load Baseline
 
