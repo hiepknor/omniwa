@@ -16,6 +16,12 @@ Run the deterministic E2E gate:
 pnpm e2e:check
 ```
 
+Run the deterministic security gate:
+
+```text
+pnpm security:check
+```
+
 Run the targeted production regression gate:
 
 ```text
@@ -28,7 +34,8 @@ Run the full quality gate:
 pnpm check
 ```
 
-`pnpm check` must include `pnpm e2e:check` and `pnpm regression:check` before release readiness.
+`pnpm check` must include `pnpm security:check`, `pnpm e2e:check`, and `pnpm regression:check`
+before release readiness.
 
 ## Coverage
 
@@ -37,6 +44,9 @@ network, external webhook receivers, production databases, or cloud services.
 
 Required coverage:
 
+- Security-control evidence for API auth, API-key lifecycle, rate limiting, security audit
+  evidence, resource ownership, webhook signing/replay, redaction, object-path secrecy, and
+  Baileys auth-state safety.
 - Local vertical slice proof for Application, durable JSON state, queue, worker, provider fake
   socket, and EventLog safety.
 - REST transport to Application adapter regression.
@@ -74,6 +84,8 @@ Regression tests must fail when:
 
 Gate implementation:
 
+- `tooling/security/check-security-readiness.mjs`
+- `tooling/security/check-security-readiness.spec.ts`
 - `tooling/e2e/check-e2e-readiness.mjs`
 - `tooling/e2e/check-e2e-readiness.spec.ts`
 - `tooling/regression/check-production-regression.mjs`
@@ -86,6 +98,7 @@ HTTP E2E/security regression:
 
 Root script:
 
+- `security:check`
 - `e2e:check`
 - `regression:check`
 
@@ -97,6 +110,7 @@ Release gate:
 
 | Failure                          | Operator Response                                                                 |
 | -------------------------------- | --------------------------------------------------------------------------------- |
+| Missing security script          | Block merge; restore `security:check`.                                            |
 | Missing E2E script               | Block merge; restore `e2e:check`.                                                 |
 | Missing regression script        | Block merge; restore `regression:check`.                                          |
 | Missing required test            | Block merge; add or restore the required regression spec.                         |

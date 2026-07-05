@@ -13,7 +13,7 @@
   "scripts": {
     "arch:check": "node tooling/architecture/check-boundaries.mjs",
     "build": "tsc -b tsconfig.references.json",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm client-contract:check && pnpm sdk:check && pnpm sdk:test && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm production:check && pnpm release:check",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm client-contract:check && pnpm sdk:check && pnpm sdk:test && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm production:check && pnpm release:check",
     "client-contract:check": "node tooling/api/check-client-contract.mjs",
     "docker:build": "docker build -f deploy/docker/Dockerfile -t omniwa:local .",
     "docker:local": "docker compose -f deploy/docker/compose.local.yml up --build",
@@ -34,6 +34,7 @@
     "sdk:check": "node tooling/sdk/check-rust-sdk.mjs",
     "sdk:generate": "node tooling/sdk/generate-rust-operations.mjs",
     "sdk:test": "cargo test -p omniwa-sdk",
+    "security:check": "node tooling/security/check-security-readiness.mjs && pnpm exec vitest run apps/api/src/api-key-auth.spec.ts apps/api/src/api-key-lifecycle.spec.ts apps/api/src/api-rate-limiter.spec.ts apps/api/src/api-security-audit.spec.ts apps/api/src/resource-ownership.spec.ts apps/api/src/platform-regression.spec.ts packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/observability/src/redaction.spec.ts packages/infrastructure-object-storage/src/object-storage-media-store.adapter.spec.ts packages/infrastructure-provider-baileys/src/baileys-auth-state-store.spec.ts tooling/security/check-security-readiness.spec.ts",
     "test": "vitest run --passWithNoTests",
     "test:postgres": "node -e \"if (!process.env.OMNIWA_POSTGRES_TEST_DATABASE_URL?.trim()) throw new Error('OMNIWA_POSTGRES_TEST_DATABASE_URL is required for pnpm test:postgres')\" && pnpm typecheck && vitest run packages/infrastructure-persistence/src/postgresql-repositories.spec.ts apps/provider-runtime/src/provider-runtime-ownership-guard.spec.ts apps/webhook-dispatcher/src/runtime-composition.postgresql.spec.ts",
     "typecheck": "tsc -b tsconfig.references.json --pretty false"

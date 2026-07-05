@@ -188,6 +188,9 @@ The next N11.7 validation slice adds a dedicated `pnpm e2e:check` gate for deter
 path evidence. It requires the REST platform regression spec plus the local vertical-slice runtime
 spec that proves Application, durable JSON state, queue, worker, provider fake socket, and EventLog
 safety without calling the real WhatsApp network.
+The security validation slice adds a dedicated `pnpm security:check` gate for API auth, API-key
+lifecycle, rate limiting, security audit evidence, resource ownership, webhook signing/replay,
+redaction, object-path secrecy, and Baileys auth-state safety.
 
 ## Planned Increments
 

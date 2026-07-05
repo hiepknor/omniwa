@@ -2,6 +2,8 @@
 
 Security regression coverage is enforced through:
 
+- `pnpm security:check`
+- `tooling/security/check-security-readiness.mjs`
 - `pnpm regression:check`
 - `tooling/regression/check-production-regression.mjs`
 - `docs/runbooks/PRODUCTION_REGRESSION_GATES.md`

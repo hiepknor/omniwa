@@ -12,8 +12,10 @@ regression gates.
 Implemented capabilities:
 
 - `e2e:check` root script for deterministic E2E readiness evidence.
+- `security:check` root script for deterministic security-control evidence.
 - `regression:check` root script.
 - E2E readiness tooling gate.
+- Security readiness tooling gate.
 - Production regression tooling gate.
 - HTTP E2E/security regression spec for REST -> Interface Adapter ->
   Application dispatcher with in-memory state, queue, and provider stub.
@@ -50,6 +52,7 @@ Implemented capabilities:
 Targeted checks:
 
 ```text
+pnpm security:check
 pnpm e2e:check
 pnpm regression:check
 pnpm release:check

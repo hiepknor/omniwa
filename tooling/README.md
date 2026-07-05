@@ -18,6 +18,8 @@ Current tooling:
 - `release/check-readiness.mjs` checks release-readiness evidence, freeze documents, root gates, and workspace manifests.
 - `regression/check-production-regression.mjs` checks production regression
   gate wiring and required E2E/security regression evidence.
+- `security/check-security-readiness.mjs` checks security-control evidence,
+  required security tests, and root security gate wiring.
 - `sdk/check-rust-sdk.mjs` verifies generated Rust SDK operation metadata stays
   aligned with OpenAPI.
 

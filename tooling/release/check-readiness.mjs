@@ -73,6 +73,8 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "apps/metrics/src/index.ts",
   "apps/health/src/index.ts",
   "docs/runbooks/OBSERVABILITY_AND_DEPENDENCY_READINESS.md",
+  "tooling/security/check-security-readiness.mjs",
+  "tooling/security/README.md",
   "apps/background/src/backup-restore-drill.ts",
   "tooling/recovery/check-recovery-readiness.mjs",
   "docs/runbooks/BACKUP_RESTORE_RECOVERY_DRILL.md",
@@ -107,6 +109,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts",
   "apps/metrics/src/index.spec.ts",
   "apps/health/src/index.spec.ts",
+  "tooling/security/check-security-readiness.spec.ts",
   "apps/background/src/backup-restore-drill.spec.ts",
   "tooling/recovery/check-recovery-readiness.spec.ts",
   "apps/api/src/platform-regression.spec.ts",
@@ -128,6 +131,7 @@ const requiredRootScripts = Object.freeze([
   "openapi:compat",
   "sdk:check",
   "sdk:test",
+  "security:check",
   "e2e:check",
   "regression:check",
   "recovery:check",
@@ -176,6 +180,8 @@ export async function createReadinessFixture(projectRoot) {
       "openapi:compat": "node tooling/api/check-openapi-compatibility.mjs",
       "sdk:check": "node tooling/sdk/check-rust-sdk.mjs",
       "sdk:test": "cargo test -p omniwa-sdk",
+      "security:check":
+        "node tooling/security/check-security-readiness.mjs && pnpm exec vitest run apps/api/src/api-key-auth.spec.ts apps/api/src/api-key-lifecycle.spec.ts apps/api/src/api-rate-limiter.spec.ts apps/api/src/api-security-audit.spec.ts apps/api/src/resource-ownership.spec.ts apps/api/src/platform-regression.spec.ts packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/observability/src/redaction.spec.ts packages/infrastructure-object-storage/src/object-storage-media-store.adapter.spec.ts packages/infrastructure-provider-baileys/src/baileys-auth-state-store.spec.ts tooling/security/check-security-readiness.spec.ts",
       "e2e:check":
         "node tooling/e2e/check-e2e-readiness.mjs && pnpm exec vitest run apps/api/src/platform-regression.spec.ts apps/background/src/local-vertical-slice-demo.spec.ts tooling/e2e/check-e2e-readiness.spec.ts",
       "regression:check":
@@ -185,7 +191,7 @@ export async function createReadinessFixture(projectRoot) {
       "production:check": "node tooling/production/check-production-cut.mjs && pnpm load:check",
       "release:check": "node tooling/release/check-readiness.mjs",
       check:
-        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm production:check && pnpm release:check",
+        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm production:check && pnpm release:check",
     },
   });
 
@@ -277,6 +283,10 @@ async function checkRootPackage(projectRoot, findings) {
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm sdk:test")) {
     findings.push(createFinding("check_script_missing_sdk_test_gate", "blocker"));
+  }
+
+  if (typeof checkScript === "string" && !checkScript.includes("pnpm security:check")) {
+    findings.push(createFinding("check_script_missing_security_gate", "blocker"));
   }
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm e2e:check")) {
