@@ -16,14 +16,15 @@ describe("target environment smoke runner", () => {
       apiKey: "target-secret-api-key",
       checkedAtIso: "2026-07-05T00:00:00.000Z",
       fetch: async (url: URL, init: RequestInit) => {
+        const headers = init.headers as Record<string, string>;
         calls.push(
           Object.freeze({
             url: url.toString(),
-            headers: Object.freeze({ ...(init.headers as Record<string, string>) }),
+            headers: Object.freeze({ ...headers }),
           }),
         );
 
-        return { ok: true, status: 200 };
+        return successResponse(headers);
       },
     });
 
@@ -157,6 +158,72 @@ describe("target environment smoke runner", () => {
     }
   });
 
+  it("fails safely when a successful endpoint does not return the public envelope", async () => {
+    const report = await runTargetEnvironmentSmoke({
+      baseUrl: "https://api.prod.example",
+      apiKey: "target-secret-api-key",
+      checkedAtIso: "2026-07-05T00:00:00.000Z",
+      endpoints: [{ method: "GET", path: "/v1/health" }],
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: "ok", secret: "target-secret-api-key" }),
+      }),
+    });
+
+    expect(report).toEqual({
+      status: "failed",
+      checkedAtIso: "2026-07-05T00:00:00.000Z",
+      endpoints: [
+        {
+          method: "GET",
+          path: "/v1/health",
+          ok: false,
+          statusCode: 200,
+          checkedAtIso: "2026-07-05T00:00:00.000Z",
+          safeErrorCode: "target_response_envelope_invalid",
+        },
+      ],
+      findings: [],
+    });
+    expect(JSON.stringify(report)).not.toContain("target-secret-api-key");
+    expect(JSON.stringify(report)).not.toContain("secret");
+  });
+
+  it("fails safely when a successful endpoint does not echo request metadata", async () => {
+    const report = await runTargetEnvironmentSmoke({
+      baseUrl: "https://api.prod.example",
+      apiKey: "target-secret-api-key",
+      checkedAtIso: "2026-07-05T00:00:00.000Z",
+      endpoints: [{ method: "GET", path: "/v1/health" }],
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: { status: "ok" },
+          meta: {
+            requestId: "wrong-request",
+            correlationId: "wrong-correlation",
+            timestamp: "2026-07-05T00:00:00.000Z",
+          },
+        }),
+      }),
+    });
+
+    expect(report.endpoints).toEqual([
+      {
+        method: "GET",
+        path: "/v1/health",
+        ok: false,
+        statusCode: 200,
+        checkedAtIso: "2026-07-05T00:00:00.000Z",
+        safeErrorCode: "target_response_meta_mismatch",
+      },
+    ]);
+    expect(report.status).toBe("failed");
+    expect(JSON.stringify(report)).not.toContain("target-secret-api-key");
+  });
+
   it("returns a safe write failure when the report path cannot be written", async () => {
     const root = await mkdtemp(join(tmpdir(), "omniwa-target-smoke-report-"));
 
@@ -185,3 +252,18 @@ describe("target environment smoke runner", () => {
     }
   });
 });
+
+function successResponse(headers: Record<string, string>) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      data: {},
+      meta: {
+        requestId: headers["x-request-id"],
+        correlationId: headers["x-correlation-id"],
+        timestamp: "2026-07-05T00:00:00.000Z",
+      },
+    }),
+  };
+}

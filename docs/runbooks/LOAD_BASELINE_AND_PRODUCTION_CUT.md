@@ -99,10 +99,11 @@ The target-environment evidence gate is implemented in
 
 The optional target-environment smoke runner is implemented in
 `tooling/production/run-target-environment-smoke.mjs`. It checks `/v1/health`,
-`/v1/health/readiness`, and `/v1/instances`, then writes a sanitized JSON summary to stdout. When
-`OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` is set, it also writes the same sanitized JSON to that artifact
-path for review evidence. The summary intentionally excludes the base URL, API key, response bodies,
-raw IDs, provider payloads, and secrets.
+`/v1/health/readiness`, and `/v1/instances`, verifies that successful responses preserve the public
+response envelope and request/correlation metadata, then writes a sanitized JSON summary to stdout.
+When `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` is set, it also writes the same sanitized JSON to that
+artifact path for review evidence. The summary intentionally excludes the base URL, API key,
+response bodies, raw IDs, provider payloads, and secrets.
 
 The optional target-environment load runner is implemented in
 `tooling/performance/run-target-environment-load.mjs`. It performs bounded authenticated GET load
@@ -143,6 +144,8 @@ It verifies:
   skeleton,
 - target-environment proof state is explicit,
 - every required runtime/dependency component has an evidence row,
+- optional target-environment smoke artifacts are schema-valid, sanitized, and produced by a runner
+  that validates public response envelope/request metadata on successful responses,
 - optional target-environment evidence bundle artifacts are schema-valid and sanitized,
 - optional target-environment evidence bundle status matches the review document,
 - `docs/reviews/PRODUCTION_CUT_REVIEW.md` exists,

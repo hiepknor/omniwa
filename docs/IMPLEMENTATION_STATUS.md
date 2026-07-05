@@ -262,6 +262,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   supplied to `pnpm target-env:check`. The validator rejects unsafe URL, API key, QR/JID/text,
   provider payload, auth-state, and session-material fields without recording the operator artifact
   path in findings.
+- N11.7 target-environment smoke evidence now validates the deployed API public response envelope and
+  request/correlation metadata for successful `/v1/health`, `/v1/health/readiness`, and
+  `/v1/instances` checks while still excluding response bodies, target URLs, API keys, raw IDs,
+  QR/JID/text payloads, provider payloads, and secrets from the sanitized artifact.
 - N11.7 target-environment evidence validation now also accepts
   `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` for an operator-maintained sanitized evidence bundle
   manifest. The bundle schema ties runtime component statuses to deployment profile, runtime

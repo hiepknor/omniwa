@@ -61,10 +61,12 @@ OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
 pnpm target-env:smoke
 ```
 
-The smoke runner checks only approved public endpoints and prints a sanitized JSON summary. If
-`OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` is configured, it also writes the sanitized summary as a review
-artifact. It must not record the base URL, API key, response bodies, raw IDs, QR payloads, JIDs,
-message text, provider payloads, session material, webhook secrets, or other sensitive values.
+The smoke runner checks only approved public endpoints, verifies that successful responses preserve
+the standard public response envelope and request/correlation metadata, and prints a sanitized JSON
+summary. If `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` is configured, it also writes the sanitized summary
+as a review artifact. It must not record the base URL, API key, response bodies, raw IDs, QR
+payloads, JIDs, message text, provider payloads, session material, webhook secrets, or other
+sensitive values.
 
 Optional target-environment API load command for a deployed API:
 

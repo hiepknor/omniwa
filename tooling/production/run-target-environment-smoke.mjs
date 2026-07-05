@@ -67,23 +67,44 @@ export async function runTargetEnvironmentSmoke(options = {}) {
 async function smokeEndpoint(input) {
   const controller = new globalThis.AbortController();
   const timeout = setTimeout(() => controller.abort(), input.timeoutMilliseconds);
+  const requestId = requestIdForEndpoint(input.endpoint);
+  const correlationId = "target-env-smoke";
 
   try {
     const response = await input.fetcher(new URL(input.endpoint.path, input.baseUrl), {
       method: input.endpoint.method,
       headers: {
         "x-api-key": input.apiKey,
-        "x-request-id": requestIdForEndpoint(input.endpoint),
-        "x-correlation-id": "target-env-smoke",
+        "x-request-id": requestId,
+        "x-correlation-id": correlationId,
       },
       signal: controller.signal,
     });
+    const statusCode = typeof response.status === "number" ? response.status : 0;
+
+    if (response.ok) {
+      const envelopeValidation = await validateSuccessEnvelope(response, {
+        requestId,
+        correlationId,
+      });
+
+      if (!envelopeValidation.ok) {
+        return Object.freeze({
+          method: input.endpoint.method,
+          path: input.endpoint.path,
+          ok: false,
+          statusCode,
+          checkedAtIso: input.checkedAtIso,
+          safeErrorCode: envelopeValidation.safeErrorCode,
+        });
+      }
+    }
 
     return Object.freeze({
       method: input.endpoint.method,
       path: input.endpoint.path,
       ok: Boolean(response.ok),
-      statusCode: typeof response.status === "number" ? response.status : 0,
+      statusCode,
       checkedAtIso: input.checkedAtIso,
     });
   } catch {
@@ -100,6 +121,34 @@ async function smokeEndpoint(input) {
   }
 }
 
+async function validateSuccessEnvelope(response, expectedMeta) {
+  if (typeof response.json !== "function") {
+    return Object.freeze({ ok: false, safeErrorCode: "target_response_envelope_unreadable" });
+  }
+
+  let body;
+
+  try {
+    body = await response.json();
+  } catch {
+    return Object.freeze({ ok: false, safeErrorCode: "target_response_envelope_unreadable" });
+  }
+
+  if (!isRecord(body) || !("data" in body) || !isRecord(body.meta)) {
+    return Object.freeze({ ok: false, safeErrorCode: "target_response_envelope_invalid" });
+  }
+
+  if (
+    body.meta.requestId !== expectedMeta.requestId ||
+    body.meta.correlationId !== expectedMeta.correlationId ||
+    !isNonEmptyString(body.meta.timestamp)
+  ) {
+    return Object.freeze({ ok: false, safeErrorCode: "target_response_meta_mismatch" });
+  }
+
+  return Object.freeze({ ok: true });
+}
+
 function requestIdForEndpoint(endpoint) {
   const normalizedPath = endpoint.path
     .replace(/[^a-z0-9]+/giu, "-")
@@ -107,6 +156,14 @@ function requestIdForEndpoint(endpoint) {
     .toLowerCase();
 
   return `target-env-smoke-${endpoint.method.toLowerCase()}-${normalizedPath}`;
+}
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function readRequiredOption(value, code, findings) {
