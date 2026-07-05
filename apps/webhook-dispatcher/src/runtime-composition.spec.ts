@@ -14,12 +14,14 @@ import {
   validateWebhookSubscription,
 } from "@omniwa/domain";
 import { createDurableJsonRepositorySet } from "@omniwa/infrastructure-persistence";
+import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import type { WebhookFetch, WebhookFetchRequestInit } from "@omniwa/infrastructure-webhook";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createWebhookDispatcherRuntimeComposition,
+  readWebhookDispatcherQueueProfile,
   readWebhookDispatcherRepositoryProfile,
   readWebhookDispatcherRuntimeProfile,
 } from "./runtime-composition.js";
@@ -50,10 +52,28 @@ describe("Webhook Dispatcher runtime composition", () => {
     expect(composition).toMatchObject({
       profile: "test",
       repositoryProfile: "in-memory",
+      queueProfile: "in-memory",
     });
+    expect(composition.queueProvider).toBeInstanceOf(InMemoryQueueProvider);
     await expect(composition.queueProvider.recoverVisibleJobs?.()).resolves.toEqual({
       recovered: 0,
     });
+    await expect(composition.app.runOnce()).resolves.toMatchObject({
+      outcome: "idle",
+    });
+  });
+
+  it("composes durable worker-job queue profile for webhook dispatch", async () => {
+    const directory = createTemporaryDirectory();
+    const composition = createWebhookDispatcherRuntimeComposition({
+      OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "local",
+      OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "durable-json",
+      OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_STATE_DIR: directory,
+      OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE: "durable-worker-job",
+    });
+
+    expect(composition.queueProfile).toBe("durable-worker-job");
+    expect(composition.queueProvider).toBeInstanceOf(DurableWorkerJobQueueProvider);
     await expect(composition.app.runOnce()).resolves.toMatchObject({
       outcome: "idle",
     });
@@ -217,6 +237,12 @@ describe("Webhook Dispatcher runtime composition", () => {
       }),
     ).toBe("production");
     expect(readWebhookDispatcherRepositoryProfile({})).toBe("in-memory");
+    expect(readWebhookDispatcherQueueProfile({})).toBe("in-memory");
+    expect(
+      readWebhookDispatcherQueueProfile({
+        OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE: "durable",
+      }),
+    ).toBe("durable-worker-job");
     expect(
       readWebhookDispatcherRepositoryProfile({
         OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "durable-json",
@@ -227,6 +253,11 @@ describe("Webhook Dispatcher runtime composition", () => {
         OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
       }),
     ).toBe("postgresql");
+    expect(() =>
+      readWebhookDispatcherQueueProfile({
+        OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE: "unknown",
+      }),
+    ).toThrow(/Unsupported OmniWA Webhook Dispatcher queue profile/u);
   });
 });
 

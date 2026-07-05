@@ -160,8 +160,10 @@ deliveries and `POST /v1/webhook-deliveries/{deliveryId}/redrive` is public for 
 dead-lettered deliveries; both are synchronized with client-contract fixtures and the Rust SDK.
 Webhook dispatcher processing now persists `WebhookDelivery` dispatch outcomes for delivered,
 retrying, and dead-lettered deliveries so read surfaces no longer depend only on `WorkerJob` state.
-Production runtime wiring still remains disabled until the remaining production queue, secret, HTTP
-gateway, and observability adapters can be composed together safely.
+The dispatcher can now opt into `OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable-worker-job` for the
+durable `WorkerJob`-backed queue provider. Production runtime wiring still remains disabled until
+the remaining production queue validation, secret, HTTP gateway, and observability adapters can be
+composed together safely.
 
 ## Planned Increments
 

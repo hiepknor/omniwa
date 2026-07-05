@@ -1,8 +1,4 @@
-import {
-  createApplicationPortFailure,
-  type QueueProviderPort,
-  type WebhookTransportPort,
-} from "@omniwa/application";
+import { createApplicationPortFailure, type WebhookTransportPort } from "@omniwa/application";
 import type {
   WebhookDeliveryRepositoryPort,
   WebhookSubscriptionRepositoryPort,
@@ -14,7 +10,7 @@ import {
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
-import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
+import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import { EnvSecretProvider } from "@omniwa/infrastructure-secrets";
 import {
   FetchWebhookHttpGateway,
@@ -42,10 +38,16 @@ export const webhookDispatcherRepositoryProfiles = [
 export type WebhookDispatcherRepositoryProfile =
   (typeof webhookDispatcherRepositoryProfiles)[number];
 
+export const webhookDispatcherQueueProfiles = ["in-memory", "durable-worker-job"] as const;
+
+export type WebhookDispatcherQueueProfile = (typeof webhookDispatcherQueueProfiles)[number];
+
 export type WebhookDispatcherRuntimeComposition = Readonly<{
   profile: WebhookDispatcherRuntimeProfile;
   repositoryProfile: WebhookDispatcherRepositoryProfile;
-  queueProvider: QueueProviderPort & WebhookDispatcherQueueRecoveryCapable;
+  queueProfile: WebhookDispatcherQueueProfile;
+  queueProvider: (InMemoryQueueProvider | DurableWorkerJobQueueProvider) &
+    WebhookDispatcherQueueRecoveryCapable;
   app: WebhookDispatcherApp;
 }>;
 
@@ -69,12 +71,14 @@ export function createWebhookDispatcherRuntimeComposition(
 ): WebhookDispatcherRuntimeComposition {
   const profile = readWebhookDispatcherRuntimeProfile(env);
   const repositoryProfile = readWebhookDispatcherRepositoryProfile(env);
+  const queueProfile = readWebhookDispatcherQueueProfile(env);
   const signingSecretName = readOptionalStringEnv(env, "OMNIWA_WEBHOOK_SIGNING_SECRET_NAME");
 
   assertWebhookDispatcherRuntimeProfileIsComposable(profile);
 
   const repositories = createWebhookDispatcherRepositories(env, repositoryProfile);
-  const queueProvider = new InMemoryQueueProvider({
+  const queueProvider = createWebhookDispatcherQueueProvider({
+    queueProfile,
     workerJobRepository: repositories.workerJobRepository,
   });
   const runtime = createWebhookDispatcherRuntime({
@@ -99,6 +103,7 @@ export function createWebhookDispatcherRuntimeComposition(
   return Object.freeze({
     profile,
     repositoryProfile,
+    queueProfile,
     queueProvider,
     app: new WebhookDispatcherApp({ runtime }),
   });
@@ -188,6 +193,43 @@ export function readWebhookDispatcherRepositoryProfile(
     default:
       throw new Error(`Unsupported OmniWA Webhook Dispatcher repository profile: ${value}`);
   }
+}
+
+export function readWebhookDispatcherQueueProfile(
+  env: NodeJS.ProcessEnv = process.env,
+): WebhookDispatcherQueueProfile {
+  const value = env.OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE?.trim();
+
+  switch (value) {
+    case "durable":
+    case "durable-worker-job":
+      return "durable-worker-job";
+    case "in-memory":
+    case undefined:
+    case "":
+      return "in-memory";
+    default:
+      throw new Error(`Unsupported OmniWA Webhook Dispatcher queue profile: ${value}`);
+  }
+}
+
+function createWebhookDispatcherQueueProvider(
+  input: Readonly<{
+    queueProfile: WebhookDispatcherQueueProfile;
+    workerJobRepository: WorkerJobRepositoryPort;
+  }>,
+): InMemoryQueueProvider | DurableWorkerJobQueueProvider {
+  if (input.queueProfile === "durable-worker-job") {
+    return new DurableWorkerJobQueueProvider({
+      workerJobRepository: input.workerJobRepository,
+      metricRuntimeRole: "webhook",
+    });
+  }
+
+  return new InMemoryQueueProvider({
+    workerJobRepository: input.workerJobRepository,
+    metricRuntimeRole: "webhook",
+  });
 }
 
 function createWebhookDispatcherRepositories(

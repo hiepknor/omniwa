@@ -30,6 +30,8 @@ Implemented capabilities:
 - Dispatcher processing persists `WebhookDelivery` aggregate status for
   delivered, retrying, and dead-letter outcomes instead of relying only on
   `WorkerJob` state.
+- The dispatcher can opt into `OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable-worker-job`
+  to use the durable `WorkerJob`-backed queue provider.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
@@ -68,8 +70,9 @@ in the transport request, metric, audit entry, or test fixture output.
 
 ## Restart Recovery
 
-The current queue provider remains in-memory, but recovery is supported through
-the durable `WorkerJob` repository:
+The default local queue provider remains in-memory for compatibility. Recovery
+is supported through the durable `WorkerJob` repository, and the dispatcher can
+select the durable queue profile for runtime tests and local hardening:
 
 ```text
 enqueue webhook_delivery work
@@ -80,8 +83,8 @@ enqueue webhook_delivery work
   -> dispatch delivery
 ```
 
-This is sufficient for the current incremental slice. A production queue adapter
-is still tracked separately in the production execution plan.
+This is sufficient for the current incremental slice. Final production queue
+validation is still tracked separately in the production execution plan.
 
 ## Remaining Work
 
