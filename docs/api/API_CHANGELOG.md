@@ -25,6 +25,7 @@ Affected contract:
 - `docs/api/client-contract/fixtures/group-member.demoted.json`
 - `docs/api/client-contract/fixtures/group-member.removed.json`
 - `docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json`
+- `docs/api/client-contract/fixtures/webhook-delivery-bulk-redrive.queued.json`
 
 Client impact:
 
@@ -41,6 +42,10 @@ Client impact:
 - Promotes `POST /v1/webhook-deliveries/{deliveryId}/redrive` to
   `implemented_public` for eligible dead-lettered webhook deliveries; it queues
   a new safe delivery instead of mutating the terminal original delivery.
+- Promotes `POST /v1/webhook-deliveries/redrive` to `implemented_public` for
+  selected bulk redrive of dead-lettered webhook deliveries. The request accepts
+  safe delivery ids only and returns an operation envelope without target URL,
+  receiver payload, retry policy internals, or per-delivery raw details.
 - Group member mutations return `operationStatus: "accepted"` because they record
   controlled local intents and audit evidence; they do not imply provider-backed
   WhatsApp completion. Group metadata and local-state mutations remain
@@ -54,6 +59,10 @@ Client impact:
 - Webhook delivery redrive requires `webhooks:redrive` and `idempotency-key`,
   returns `operationStatus: "queued"`, and does not expose target URL, payload,
   retry-policy internals, or domain events.
+- Bulk webhook delivery redrive requires `webhooks:redrive`, an elevated/admin
+  credential when no explicit owner is available, and `idempotency-key`; it
+  records a safe operation intent and does not expose selected target URLs,
+  payloads, retry-policy internals, or domain events.
 - Requires clients to use safe `memberRef` values from the group member list for
   remove/promote/demote actions.
 - Keeps raw JID, text, provider payload, outbound intent refs, guardrail refs,
@@ -64,9 +73,10 @@ SDK impact:
 
 - Rust SDK already exposes generated `sendInstanceTextMessage`, `retryMessage`,
   `cancelMessage`, group mutation operations, `retryWebhookDelivery`, and
-  generated API-key lifecycle operation ids; fixture coverage now validates
-  retry/cancel, group action, webhook delivery retry, and API-key lifecycle
-  contract envelopes.
+  generated API-key lifecycle operation ids; this change adds the generated
+  `bulkRedriveWebhookDeliveries` operation. Fixture coverage now validates
+  retry/cancel, group action, webhook delivery retry/redrive, and API-key
+  lifecycle contract envelopes.
 
 Migration note:
 
@@ -74,8 +84,10 @@ Migration note:
   pass `idempotency-key` for every send, retry, and cancel request.
 - Clients should gate group mutations through the capability manifest and pass
   `idempotency-key` for every metadata/local-state/member action request.
-- Clients should gate webhook delivery retry through the capability manifest and
-  pass `idempotency-key` for every retry request.
+- Clients should gate webhook delivery retry/redrive through the capability
+  manifest and pass `idempotency-key` for every retry or redrive request. Bulk
+  redrive should stay in explicit operator/admin flows because it acts on a
+  selected set of currently dead-lettered deliveries.
 - Clients should keep API-key lifecycle UI disabled unless running in an explicit
   admin/operator mode with an `admin:*` credential.
 

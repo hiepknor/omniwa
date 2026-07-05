@@ -28,11 +28,11 @@ const requestContext = createRequestContext({
 
 describe("application command and query model", () => {
   it("catalogs every frozen application command exactly once", () => {
-    expect(applicationCommandNames).toHaveLength(59);
+    expect(applicationCommandNames).toHaveLength(60);
     expect(new Set(applicationCommandNames).size).toBe(applicationCommandNames.length);
     expect(
       applicationCommandGroups.map((group) => getApplicationCommandsByGroup(group).length),
-    ).toEqual([10, 9, 5, 9, 10, 6, 4, 4, 2]);
+    ).toEqual([10, 9, 5, 9, 11, 6, 4, 4, 2]);
     expect(applicationCommandDefinitions.every((definition) => definition.name.length > 0)).toBe(
       true,
     );

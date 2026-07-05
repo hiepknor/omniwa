@@ -66,6 +66,7 @@ import {
 import type { OutboundMessageIntentStorePort } from "../ports/outbound-message-intent-store.js";
 import type { QueueProviderPort } from "../ports/queue-provider.js";
 import type { MessagingProviderPort } from "../ports/messaging-provider.js";
+import type { WebhookDeliveryOperationIntentStorePort } from "../ports/webhook-delivery-operation-intent-store.js";
 import type { DomainEventPublisher } from "./domain-event-publisher.js";
 import {
   createMinimalMessageGuardrailService,
@@ -112,6 +113,7 @@ export type ApplicationDispatcherOptions = Readonly<{
   activeSessionResolver?: ActiveSessionResolver;
   outboundMessageIntentStore?: OutboundMessageIntentStorePort;
   groupMutationIntentStore?: GroupMutationIntentStorePort;
+  webhookDeliveryOperationIntentStore?: WebhookDeliveryOperationIntentStorePort;
   guardrailService?: MinimalMessageGuardrailService;
   queueProvider?: QueueProviderPort;
   messagingProvider?: MessagingProviderPort;
@@ -138,6 +140,8 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly activeSessionResolver: ActiveSessionResolver | undefined;
   private readonly outboundMessageIntentStore: OutboundMessageIntentStorePort | undefined;
   private readonly groupMutationIntentStore: GroupMutationIntentStorePort | undefined;
+  private readonly webhookDeliveryOperationIntentStore:
+    WebhookDeliveryOperationIntentStorePort | undefined;
   private readonly guardrailService: MinimalMessageGuardrailService | undefined;
   private readonly queueProvider: QueueProviderPort | undefined;
   private readonly messagingProvider: MessagingProviderPort | undefined;
@@ -154,6 +158,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     this.activeSessionResolver = options.activeSessionResolver;
     this.outboundMessageIntentStore = options.outboundMessageIntentStore;
     this.groupMutationIntentStore = options.groupMutationIntentStore;
+    this.webhookDeliveryOperationIntentStore = options.webhookDeliveryOperationIntentStore;
     this.guardrailService = options.guardrailService;
     this.queueProvider = options.queueProvider;
     this.messagingProvider = options.messagingProvider;
@@ -244,6 +249,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     if (retryWebhookDeliveryHandler !== undefined) {
       handlers.set("RetryWebhookDelivery", retryWebhookDeliveryHandler);
       handlers.set("RedriveWebhookDelivery", retryWebhookDeliveryHandler);
+      handlers.set("BulkRedriveWebhookDeliveries", retryWebhookDeliveryHandler);
     }
 
     return handlers;
@@ -387,6 +393,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     return createRetryWebhookDeliveryHandler({
       webhookDeliveryRepository,
       queueProvider: this.queueProvider,
+      ...optional("webhookDeliveryOperationIntentStore", this.webhookDeliveryOperationIntentStore),
     });
   }
 

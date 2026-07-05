@@ -14,6 +14,7 @@ export * from "./ports/outbound-message-intent-store.js";
 export * from "./ports/queue-provider.js";
 export * from "./ports/read-model.js";
 export * from "./ports/session-store.js";
+export * from "./ports/webhook-delivery-operation-intent-store.js";
 export * from "./ports/webhook-transport.js";
 export * from "./queries/query-catalog.js";
 export * from "./queries/query-model.js";

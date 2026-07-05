@@ -11,8 +11,10 @@ import {
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
   createGroupMutationIntentRef,
+  createWebhookDeliveryOperationIntentRef,
   type GroupMutationIntentStorePort,
   type OutboundMessageIntentStorePort,
+  type WebhookDeliveryOperationIntentStorePort,
 } from "@omniwa/application";
 import {
   ApiInterfaceAdapter,
@@ -90,6 +92,7 @@ export type ApiHttpServerOptions = Readonly<{
   eventSource?: RealtimeEventSource;
   outboundMessageIntentStore?: OutboundMessageIntentStorePort;
   groupMutationIntentStore?: GroupMutationIntentStorePort;
+  webhookDeliveryOperationIntentStore?: WebhookDeliveryOperationIntentStorePort;
   sseReplayLimit?: number;
   now?: () => Date;
   requestRefGenerator?: () => string;
@@ -416,6 +419,18 @@ export async function handleApiHttpRequest(
 
   if (groupMutationIntentFailure !== undefined) {
     return createErrorHttpResponse(groupMutationIntentFailure, metaBase);
+  }
+
+  const webhookDeliveryOperationIntentFailure =
+    await storeWebhookDeliveryOperationIntentForAdapterRequest(
+      match,
+      request.body,
+      context,
+      options.webhookDeliveryOperationIntentStore,
+    );
+
+  if (webhookDeliveryOperationIntentFailure !== undefined) {
+    return createErrorHttpResponse(webhookDeliveryOperationIntentFailure, metaBase);
   }
 
   const adapter =
@@ -972,6 +987,15 @@ function matchRoute(
     return adapterQuery("public", "ListWebhookDeliveries", undefined, "retention_bound");
   }
 
+  if (method === "POST" && matches(segments, ["v1", "webhook-deliveries", "redrive"])) {
+    return adapterCommand(
+      "public",
+      "BulkRedriveWebhookDeliveries",
+      undefined,
+      validateBulkWebhookDeliveryRedriveBody,
+    );
+  }
+
   if (
     method === "GET" &&
     matches(segments, ["v1", "webhook-deliveries", ":deliveryId", "history"])
@@ -1343,6 +1367,76 @@ async function storeGroupMutationIntentForAdapterRequest(
       category: "validation",
       code: "group_mutation_intent_ref_invalid",
       message: "Group mutation request could not be mapped to a safe input reference.",
+      statusCode: 400,
+    };
+  }
+}
+
+async function storeWebhookDeliveryOperationIntentForAdapterRequest(
+  match: Extract<RouteMatch, { kind: "adapter" }>,
+  body: unknown,
+  context: RouteContext,
+  webhookDeliveryOperationIntentStore: WebhookDeliveryOperationIntentStorePort | undefined,
+): Promise<HttpFailure | undefined> {
+  if (match.request.kind !== "command" || match.request.name !== "BulkRedriveWebhookDeliveries") {
+    return undefined;
+  }
+
+  if (webhookDeliveryOperationIntentStore === undefined) {
+    return {
+      category: "infrastructure",
+      code: "webhook_delivery_operation_intent_store_not_configured",
+      message: "Webhook delivery operation request could not be accepted.",
+      statusCode: 503,
+    };
+  }
+
+  if (match.request.safeInputRef === undefined) {
+    return {
+      category: "internal",
+      code: "webhook_delivery_operation_intent_ref_missing",
+      message: "Webhook delivery operation request could not be mapped to a safe input reference.",
+      statusCode: 500,
+    };
+  }
+
+  if (!isPlainObject(body) || !isStringArray(body.deliveryIds)) {
+    return validation(
+      "invalid_body",
+      "Webhook delivery bulk redrive request body must contain deliveryIds.",
+    );
+  }
+
+  try {
+    const result = await webhookDeliveryOperationIntentStore.storeWebhookDeliveryOperationIntent(
+      {
+        webhookDeliveryOperationIntentRef: createWebhookDeliveryOperationIntentRef(
+          match.request.safeInputRef,
+        ),
+        kind: "bulk_redrive",
+        deliveryRefs: body.deliveryIds,
+      },
+      createHttpApplicationPortContext(match.request, context),
+    );
+
+    if (!result.ok) {
+      return {
+        category: result.error.category === "unsafe_payload" ? "validation" : "infrastructure",
+        code: result.error.code,
+        message: "Webhook delivery operation request could not be accepted.",
+        statusCode: result.error.category === "unsafe_payload" ? 400 : 503,
+        details: {
+          retryable: result.error.retryable,
+        },
+      };
+    }
+
+    return undefined;
+  } catch {
+    return {
+      category: "validation",
+      code: "webhook_delivery_operation_intent_ref_invalid",
+      message: "Webhook delivery operation request could not be mapped to a safe input reference.",
       statusCode: 400,
     };
   }
@@ -1900,7 +1994,7 @@ function createHttpApplicationPortContext(
         request.traceId === undefined ? undefined : createTraceId(request.traceId),
       ),
     }),
-    actorRef: `api_key:${context.credential.keyId}`,
+    actorRef: `${context.credential.kind}:${context.credential.keyId}`,
     ...optional("idempotencyKey", request.idempotencyKey),
     ...optional("dataClassification", request.dataClassification),
   };
@@ -2304,7 +2398,9 @@ function parseLimit(
 }
 
 function resourceTypeForOperation(name: string): string {
-  if (name.includes("WebhookDelivery")) return "webhookDelivery";
+  if (name.includes("WebhookDelivery") || name.includes("WebhookDeliveries")) {
+    return "webhookDelivery";
+  }
   if (name.includes("Webhook")) return "webhook";
   if (name.includes("GroupMember")) return "groupMember";
   if (name.includes("Group")) return "group";
@@ -3081,6 +3177,48 @@ function validateOptionalObjectBody(body: unknown): HttpFailure | undefined {
   return body === undefined ? undefined : validateObjectBody(body);
 }
 
+function validateBulkWebhookDeliveryRedriveBody(body: unknown): HttpFailure | undefined {
+  const objectFailure = validateObjectBody(body);
+
+  if (objectFailure !== undefined) {
+    return objectFailure;
+  }
+
+  if (!isPlainObject(body)) {
+    return validation("invalid_body", "Request body must be a JSON object.");
+  }
+
+  if (!isStringArray(body.deliveryIds)) {
+    return validation("invalid_body", "Request body field 'deliveryIds' must be an array.");
+  }
+
+  if (body.deliveryIds.length === 0) {
+    return validation("invalid_body", "Request body field 'deliveryIds' must not be empty.");
+  }
+
+  if (body.deliveryIds.length > 50) {
+    return validation("invalid_body", "Request body field 'deliveryIds' exceeds the maximum size.");
+  }
+
+  for (const deliveryId of body.deliveryIds) {
+    if (deliveryId.trim().length === 0 || !isSafePathSegment(deliveryId.trim())) {
+      return validation("invalid_body", "Request body field 'deliveryIds' contains an invalid id.");
+    }
+  }
+
+  if (
+    new Set(body.deliveryIds.map((deliveryId) => deliveryId.trim())).size !==
+    body.deliveryIds.length
+  ) {
+    return validation(
+      "invalid_body",
+      "Request body field 'deliveryIds' must not contain duplicates.",
+    );
+  }
+
+  return undefined;
+}
+
 function validateCreateInstanceBody(body: unknown): HttpFailure | undefined {
   const objectFailure = validateObjectBody(body);
 
@@ -3322,6 +3460,10 @@ function validateApiKeyRotationBody(body: unknown): HttpFailure | undefined {
 
 function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 function requiredStringField(

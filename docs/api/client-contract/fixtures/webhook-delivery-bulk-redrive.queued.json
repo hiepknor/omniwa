@@ -1,0 +1,15 @@
+{
+  "data": {
+    "resourceType": "webhookDelivery",
+    "operationStatus": "queued",
+    "accepted": true,
+    "retryable": false,
+    "async": true,
+    "resultRef": "webhook_delivery_bulk_redrive:http.bulk_redrive_webhook_deliveries.fixture"
+  },
+  "meta": {
+    "requestId": "tui-webhook-delivery-bulk-redrive-fixture",
+    "correlationId": "tui-webhook-delivery-bulk-redrive-correlation",
+    "timestamp": "2026-07-05T00:00:00.000Z"
+  }
+}

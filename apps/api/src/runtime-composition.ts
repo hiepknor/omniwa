@@ -17,8 +17,10 @@ import {
 import {
   DurableJsonGroupMutationIntentStore,
   DurableJsonOutboundMessageIntentStore,
+  DurableJsonWebhookDeliveryOperationIntentStore,
   InMemoryGroupMutationIntentStore,
   InMemoryOutboundMessageIntentStore,
+  InMemoryWebhookDeliveryOperationIntentStore,
   createDurableJsonRepositorySet,
   createDurableJsonEventLogStore,
   createInMemoryEventLogStore,
@@ -148,6 +150,10 @@ export function createApiRuntimeComposition(
     repositoryProfile,
   );
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
+  const webhookDeliveryOperationIntentStore = createRuntimeWebhookDeliveryOperationIntentStore(
+    env,
+    repositoryProfile,
+  );
   const rateLimiter = createRuntimeRateLimiter(env, {
     ...adapters,
     ...optional("redisRateLimitScriptClient", redisRateLimitScriptClient),
@@ -177,6 +183,7 @@ export function createApiRuntimeComposition(
     },
     outboundMessageIntentStore,
     groupMutationIntentStore,
+    webhookDeliveryOperationIntentStore,
     queueProvider,
     domainEventPublisher,
     eventLog,
@@ -189,6 +196,7 @@ export function createApiRuntimeComposition(
       dispatcher,
       outboundMessageIntentStore,
       groupMutationIntentStore,
+      webhookDeliveryOperationIntentStore,
       ...optional("eventSource", eventSource),
       ...optional("rateLimiter", rateLimiter),
       ...optional("securityAuditSink", securityAuditSink),
@@ -532,6 +540,27 @@ function createRuntimeGroupMutationIntentStore(
 
   return new DurableJsonGroupMutationIntentStore(
     join(stateDirectory, "group-mutation-intents.json"),
+  );
+}
+
+function createRuntimeWebhookDeliveryOperationIntentStore(
+  env: NodeJS.ProcessEnv,
+  repositoryProfile: ApiRepositoryProfile,
+): InMemoryWebhookDeliveryOperationIntentStore | DurableJsonWebhookDeliveryOperationIntentStore {
+  if (repositoryProfile !== "durable-json") {
+    return new InMemoryWebhookDeliveryOperationIntentStore();
+  }
+
+  const stateDirectory = env.OMNIWA_API_REPOSITORY_STATE_DIR?.trim();
+
+  if (stateDirectory === undefined || stateDirectory.length === 0) {
+    throw new Error(
+      "OMNIWA_API_REPOSITORY_STATE_DIR is required when OMNIWA_API_REPOSITORY_PROFILE=durable-json.",
+    );
+  }
+
+  return new DurableJsonWebhookDeliveryOperationIntentStore(
+    join(stateDirectory, "webhook-delivery-operation-intents.json"),
   );
 }
 

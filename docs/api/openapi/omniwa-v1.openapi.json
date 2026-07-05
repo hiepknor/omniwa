@@ -1562,6 +1562,48 @@
         }
       }
     },
+    "/v1/webhook-deliveries/redrive": {
+      "post": {
+        "tags": ["Webhooks"],
+        "operationId": "bulkRedriveWebhookDeliveries",
+        "summary": "Bulk redrive dead-lettered webhook deliveries",
+        "description": "Queue controlled redrive operations for explicitly selected dead-lettered webhook deliveries. Requires an elevated key and idempotency-key.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/BulkWebhookDeliveryRedrive"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
     "/v1/webhook-deliveries/{deliveryId}/history": {
       "get": {
         "tags": ["Webhooks"],
@@ -3472,6 +3514,19 @@
           }
         }
       },
+      "BulkWebhookDeliveryRedrive": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BulkWebhookDeliveryRedriveRequest"
+            },
+            "example": {
+              "deliveryIds": ["webhook-delivery:dead-one", "webhook-delivery:dead-two"]
+            }
+          }
+        }
+      },
       "GroupTextMessage": {
         "required": true,
         "content": {
@@ -3819,6 +3874,24 @@
             "items": {
               "type": "string",
               "minLength": 1
+            }
+          }
+        }
+      },
+      "BulkWebhookDeliveryRedriveRequest": {
+        "type": "object",
+        "required": ["deliveryIds"],
+        "additionalProperties": false,
+        "properties": {
+          "deliveryIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
             }
           }
         }

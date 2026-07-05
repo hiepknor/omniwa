@@ -41,6 +41,7 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "GET /v1/webhook-deliveries",
   "GET /v1/webhook-deliveries/{deliveryId}/history",
   "POST /v1/webhook-deliveries/{deliveryId}/retry",
+  "POST /v1/webhook-deliveries/redrive",
   "POST /v1/webhook-deliveries/{deliveryId}/redrive",
   "GET /v1/api-keys",
   "POST /v1/api-keys",

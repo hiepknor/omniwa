@@ -147,6 +147,7 @@ an admin profile.
 | Webhooks  | `GET /v1/webhook-deliveries/{id}/history`    | `implemented_public` | Webhook delivery detail/history panel.                                                                      |
 | Webhooks  | `POST /v1/webhook-deliveries/{id}/retry`     | `implemented_public` | Controlled retry for eligible pending/retrying deliveries; requires `webhooks:retry` and `idempotency-key`. |
 | Webhooks  | `POST /v1/webhook-deliveries/{id}/redrive`   | `implemented_public` | Controlled redrive for eligible dead-lettered deliveries; returns the new queued delivery ref.              |
+| Webhooks  | `POST /v1/webhook-deliveries/redrive`        | `implemented_public` | Controlled bulk redrive for selected dead-lettered deliveries; requires an admin/elevated key.              |
 | API Keys  | `GET /v1/api-keys`                           | `implemented_public` | Admin/operator-only lifecycle list. Requires `admin:*`; never displays plaintext keys or hashes.            |
 | API Keys  | `POST /v1/api-keys`                          | `implemented_public` | Admin/operator-only provision action. Request key is write-only and is not returned.                        |
 | API Keys  | `POST /v1/api-keys/{id}/revoke`              | `implemented_public` | Admin/operator-only revoke action by safe key id.                                                           |
@@ -212,6 +213,7 @@ treat a connected heartbeat-only stream as connected, not as an error.
 ```sh
 BASE=http://127.0.0.1:3000
 KEY=local-dev-secret-change-me
+ADMIN_KEY=local-dev-secret-change-me # replace with an admin/elevated key when the local key is scoped
 
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/health"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/instances"
@@ -252,6 +254,10 @@ curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: retry-webhook-deliver
   "$BASE/v1/webhook-deliveries/webhook_delivery_demo/retry"
 curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: redrive-webhook-delivery-demo" \
   "$BASE/v1/webhook-deliveries/webhook_delivery_demo/redrive"
+curl -sS -X POST -H "x-api-key: $ADMIN_KEY" -H "idempotency-key: bulk-redrive-webhook-delivery-demo" \
+  -H "content-type: application/json" \
+  -d '{"deliveryIds":["webhook_delivery_demo_1","webhook_delivery_demo_2"]}' \
+  "$BASE/v1/webhook-deliveries/redrive"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"
@@ -311,6 +317,7 @@ Required fixture states:
 - Group members list
 - API key lifecycle list
 - API key provision/revoke/rotate operations
+- Webhook delivery retry/redrive operations, including selected bulk redrive
 - SSE heartbeat
 
 `omniwa-tui` should copy or consume these fixtures in its own test suite pinned to a backend

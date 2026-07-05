@@ -671,6 +671,7 @@ function getRequiredScopesForCommand(commandName: ApplicationCommandName): reado
     case "RetryWebhookDelivery":
       return ["webhooks:retry"];
     case "RedriveWebhookDelivery":
+    case "BulkRedriveWebhookDeliveries":
       return ["webhooks:redrive"];
     case "RequestDiagnosticCapture":
     case "MoveWebhookDeliveryToDeadLetter":

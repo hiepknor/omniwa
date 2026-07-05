@@ -19,11 +19,16 @@ import type {
   ApplicationPortResult,
 } from "../../ports/application-port.js";
 import type { QueueProviderPort } from "../../ports/queue-provider.js";
+import {
+  createWebhookDeliveryOperationIntentRef,
+  type WebhookDeliveryOperationIntentStorePort,
+} from "../../ports/webhook-delivery-operation-intent-store.js";
 import type { CommandHandler } from "./command-handler.js";
 
 export type RetryWebhookDeliveryHandlerOptions = Readonly<{
   webhookDeliveryRepository: WebhookDeliveryRepositoryPort;
   queueProvider: QueueProviderPort;
+  webhookDeliveryOperationIntentStore?: WebhookDeliveryOperationIntentStorePort;
 }>;
 
 type RetryWebhookDeliveryInput = Readonly<{
@@ -32,6 +37,14 @@ type RetryWebhookDeliveryInput = Readonly<{
   deliveryId: WebhookDeliveryId;
   idempotencyKey: IdempotencyKey;
   context: ApplicationPortContext;
+}>;
+
+type BulkRedriveWebhookDeliveryInput = Readonly<{
+  ok: true;
+  deliveryRefs: readonly string[];
+  idempotencyKey: IdempotencyKey;
+  context: ApplicationPortContext;
+  resultRef: string;
 }>;
 
 type IdempotencyAwareWebhookDeliveryRepository = WebhookDeliveryRepositoryPort &
@@ -52,13 +65,20 @@ export function createRetryWebhookDeliveryHandler(
 class RetryWebhookDeliveryHandler {
   private readonly webhookDeliveryRepository: IdempotencyAwareWebhookDeliveryRepository;
   private readonly queueProvider: QueueProviderPort;
+  private readonly webhookDeliveryOperationIntentStore:
+    WebhookDeliveryOperationIntentStorePort | undefined;
 
   constructor(options: RetryWebhookDeliveryHandlerOptions) {
     this.webhookDeliveryRepository = options.webhookDeliveryRepository;
     this.queueProvider = options.queueProvider;
+    this.webhookDeliveryOperationIntentStore = options.webhookDeliveryOperationIntentStore;
   }
 
   async handle(envelope: ApplicationCommandEnvelope): Promise<ApplicationCommandOutcome> {
+    if (envelope.name === "BulkRedriveWebhookDeliveries") {
+      return this.handleBulkRedrive(envelope);
+    }
+
     const input = this.resolveInput(envelope);
 
     if (!input.ok) {
@@ -110,6 +130,116 @@ class RetryWebhookDeliveryHandler {
       retryable: false,
       resultRef: queueDelivery.id,
     });
+  }
+
+  private async handleBulkRedrive(
+    envelope: ApplicationCommandEnvelope,
+  ): Promise<ApplicationCommandOutcome> {
+    const input = await this.resolveBulkRedriveInput(envelope);
+
+    if (!input.ok) {
+      return commandOutcome(envelope, "failed", {
+        accepted: false,
+        retryable: false,
+        reasonCode: input.reasonCode,
+      });
+    }
+
+    let queuedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    let retryableFailure = false;
+    let firstFailureCode: string | undefined;
+
+    for (const deliveryRef of input.deliveryRefs) {
+      const result = await this.redriveOneDelivery(deliveryRef, input);
+
+      switch (result.status) {
+        case "queued":
+          queuedCount += 1;
+          break;
+        case "skipped":
+          skippedCount += 1;
+          break;
+        case "failed":
+          failedCount += 1;
+          retryableFailure = retryableFailure || result.retryable;
+          firstFailureCode ??= result.reasonCode;
+          break;
+      }
+    }
+
+    if (queuedCount > 0) {
+      return commandOutcome(envelope, "queued", {
+        accepted: true,
+        retryable: false,
+        resultRef: input.resultRef,
+      });
+    }
+
+    if (failedCount > 0) {
+      return commandOutcome(envelope, "failed", {
+        accepted: false,
+        retryable: retryableFailure,
+        resultRef: input.resultRef,
+        reasonCode: firstFailureCode ?? "webhook_delivery_bulk_redrive_failed",
+      });
+    }
+
+    return commandOutcome(envelope, "rejected", {
+      accepted: false,
+      retryable: false,
+      resultRef: input.resultRef,
+      reasonCode:
+        skippedCount > 0
+          ? "webhook_delivery_bulk_redrive_no_eligible_deliveries"
+          : "webhook_delivery_bulk_redrive_empty",
+    });
+  }
+
+  private async redriveOneDelivery(
+    deliveryRef: string,
+    input: BulkRedriveWebhookDeliveryInput,
+  ): Promise<
+    | Readonly<{ status: "queued" }>
+    | Readonly<{ status: "skipped" }>
+    | Readonly<{ status: "failed"; retryable: boolean; reasonCode: string }>
+  > {
+    let deliveryId: WebhookDeliveryId;
+
+    try {
+      deliveryId = createWebhookDeliveryId(deliveryRef);
+    } catch {
+      return { status: "skipped" };
+    }
+
+    const delivery = await this.webhookDeliveryRepository.load(deliveryId);
+
+    if (delivery === undefined || !isDeliveryStateAllowed(delivery, "redrive")) {
+      return { status: "skipped" };
+    }
+
+    const itemInput: RetryWebhookDeliveryInput = {
+      ok: true,
+      mode: "redrive",
+      deliveryId,
+      idempotencyKey: createIdempotencyKey(
+        `bulk_redrive_webhook_delivery:${input.idempotencyKey}:${deliveryId}`,
+      ),
+      context: input.context,
+    };
+    const queueDelivery = await this.resolveRedriveDelivery(delivery, itemInput);
+    const queueResult = await this.queueWebhookDelivery(queueDelivery, itemInput);
+
+    if (!queueResult.ok) {
+      return {
+        status: "failed",
+        retryable: queueResult.error.retryable,
+        reasonCode: queueResult.error.code,
+      };
+    }
+
+    return { status: "queued" };
   }
 
   private async resolveRedriveDelivery(
@@ -186,6 +316,54 @@ class RetryWebhookDeliveryHandler {
       return { ok: false, reasonCode: `${mode}_webhook_delivery_input_invalid` };
     }
   }
+
+  private async resolveBulkRedriveInput(
+    envelope: ApplicationCommandEnvelope,
+  ): Promise<BulkRedriveWebhookDeliveryInput | Readonly<{ ok: false; reasonCode: string }>> {
+    if (this.webhookDeliveryOperationIntentStore === undefined) {
+      return {
+        ok: false,
+        reasonCode: "webhook_delivery_operation_intent_store_not_configured",
+      };
+    }
+
+    if (envelope.safeInputRef === undefined) {
+      return { ok: false, reasonCode: "bulk_redrive_webhook_delivery_input_required" };
+    }
+
+    if (envelope.idempotencyKey === undefined) {
+      return { ok: false, reasonCode: "bulk_redrive_webhook_delivery_idempotency_required" };
+    }
+
+    try {
+      const operationIntentRef = createWebhookDeliveryOperationIntentRef(envelope.safeInputRef);
+      const intentResult =
+        await this.webhookDeliveryOperationIntentStore.resolveWebhookDeliveryOperationIntent(
+          operationIntentRef,
+          commandContext(envelope),
+        );
+
+      if (!intentResult.ok) {
+        return { ok: false, reasonCode: intentResult.error.code };
+      }
+
+      if (intentResult.value.kind !== "bulk_redrive") {
+        return { ok: false, reasonCode: "bulk_redrive_webhook_delivery_input_invalid" };
+      }
+
+      return {
+        ok: true,
+        deliveryRefs: intentResult.value.deliveryRefs,
+        idempotencyKey: createIdempotencyKey(
+          `bulk_redrive_webhook_deliveries:${envelope.idempotencyKey}`,
+        ),
+        context: commandContext(envelope),
+        resultRef: `webhook_delivery_bulk_redrive:${operationIntentRef}`,
+      };
+    } catch {
+      return { ok: false, reasonCode: "bulk_redrive_webhook_delivery_input_invalid" };
+    }
+  }
 }
 
 function retryModeForCommand(commandName: string): RetryWebhookDeliveryInput["mode"] | undefined {
@@ -194,6 +372,8 @@ function retryModeForCommand(commandName: string): RetryWebhookDeliveryInput["mo
       return "retry";
     case "RedriveWebhookDelivery":
       return "redrive";
+    case "BulkRedriveWebhookDeliveries":
+      return undefined;
     default:
       return undefined;
   }

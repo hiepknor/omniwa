@@ -5,6 +5,7 @@ import {
   createApplicationPortFailure,
   createGroupMutationIntentRef,
   createOutboundMessageIntentRef,
+  createWebhookDeliveryOperationIntentRef,
   type ApplicationCommandEnvelope,
   type ApplicationCommandOutcome,
   type ApplicationPortContext,
@@ -22,6 +23,11 @@ import {
   type OutboundMessageIntentStorePort,
   type StoredTextOutboundMessageIntent,
   type TextOutboundMessageIntentInput,
+  type StoredWebhookDeliveryOperationIntent,
+  type WebhookDeliveryOperationIntentInput,
+  type WebhookDeliveryOperationIntentReceipt,
+  type WebhookDeliveryOperationIntentRef,
+  type WebhookDeliveryOperationIntentStorePort,
 } from "@omniwa/application";
 import type { MessageId } from "@omniwa/domain";
 import {
@@ -2028,6 +2034,7 @@ describe("API HTTP transport", () => {
 
   it("maps message, media, and webhook resource routes to existing commands and queries", async () => {
     const dispatcher = new CapturingDispatcher();
+    const webhookDeliveryOperationIntentStore = new CapturingWebhookDeliveryOperationIntentStore();
 
     await request(dispatcher, "GET", "/v1/instances/inst_allowed/messages");
     await request(dispatcher, "GET", "/v1/instances/inst_allowed/sessions");
@@ -2059,6 +2066,12 @@ describe("API HTTP transport", () => {
     await request(dispatcher, "POST", "/v1/webhook-deliveries/whd_1/redrive", {
       headers: { "idempotency-key": "redrive-webhook-delivery-1" },
     });
+    await request(dispatcher, "POST", "/v1/webhook-deliveries/redrive", {
+      apiKey: "admin-secret",
+      body: { deliveryIds: ["whd_dead_1", "whd_dead_2"] },
+      headers: { "idempotency-key": "bulk-redrive-webhook-deliveries-1" },
+      webhookDeliveryOperationIntentStore,
+    });
     await request(dispatcher, "GET", "/v1/webhook-deliveries", { apiKey: "admin-secret" });
     await request(dispatcher, "GET", "/v1/webhook-deliveries/whd_1/history");
 
@@ -2081,7 +2094,54 @@ describe("API HTTP transport", () => {
       "ActivateWebhookSubscription",
       "RetryWebhookDelivery",
       "RedriveWebhookDelivery",
+      "BulkRedriveWebhookDeliveries",
     ]);
+  });
+
+  it("maps bulk webhook delivery redrive to a safe operation intent", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const webhookDeliveryOperationIntentStore = new CapturingWebhookDeliveryOperationIntentStore();
+    const response = await request(dispatcher, "POST", "/v1/webhook-deliveries/redrive", {
+      apiKey: "admin-secret",
+      body: { deliveryIds: ["webhook-delivery:dead-one", "webhook-delivery:dead-two"] },
+      headers: { "idempotency-key": "bulk-redrive-webhook-deliveries-2" },
+      webhookDeliveryOperationIntentStore,
+    });
+    const serialized = JSON.stringify(response.body);
+
+    expect(response.statusCode).toBe(202);
+    expect("data" in response.body ? response.body.data : undefined).toMatchObject({
+      resourceType: "webhookDelivery",
+      operationStatus: "queued",
+      accepted: true,
+      retryable: false,
+    });
+    expect(webhookDeliveryOperationIntentStore.intents).toEqual([
+      {
+        webhookDeliveryOperationIntentRef: expect.stringMatching(
+          /^http\.bulk_redrive_webhook_deliveries\.[a-f0-9]{24}$/u,
+        ),
+        kind: "bulk_redrive",
+        deliveryRefs: ["webhook-delivery:dead-one", "webhook-delivery:dead-two"],
+      },
+    ]);
+    expect(webhookDeliveryOperationIntentStore.contexts).toEqual([
+      expect.objectContaining({
+        actorRef: "admin_key:test-admin-key",
+        idempotencyKey: "bulk-redrive-webhook-deliveries-2",
+        dataClassification: "confidential",
+      }),
+    ]);
+    expect(dispatcher.commandEnvelopes).toEqual([
+      expect.objectContaining({
+        name: "BulkRedriveWebhookDeliveries",
+        idempotencyKey: "bulk-redrive-webhook-deliveries-2",
+        safeInputRef:
+          webhookDeliveryOperationIntentStore.intents[0]?.webhookDeliveryOperationIntentRef,
+      }),
+    ]);
+    expect(serialized).not.toContain("targetUrl");
+    expect(serialized).not.toContain("payload");
   });
 
   it("maps chat, contact, and label resources to navigation queries", async () => {
@@ -2601,6 +2661,7 @@ function request(
     headers?: Readonly<Record<string, string>>;
     outboundMessageIntentStore?: OutboundMessageIntentStorePort;
     groupMutationIntentStore?: GroupMutationIntentStorePort;
+    webhookDeliveryOperationIntentStore?: WebhookDeliveryOperationIntentStorePort;
     securityAuditSink?: InMemoryApiSecurityAuditSink;
   }> = {},
 ): Promise<ApiHttpResponse> {
@@ -2624,6 +2685,7 @@ function request(
       ...optional("apiKeyLifecycleService", input.apiKeyLifecycleService),
       ...optional("outboundMessageIntentStore", input.outboundMessageIntentStore),
       ...optional("groupMutationIntentStore", input.groupMutationIntentStore),
+      ...optional("webhookDeliveryOperationIntentStore", input.webhookDeliveryOperationIntentStore),
       ...optional("securityAuditSink", input.securityAuditSink),
     },
   );
@@ -2707,7 +2769,7 @@ class CapturingDispatcher implements ApplicationInterfaceDispatcher {
 }
 
 function outcomeForCapturedCommand(name: string): ApplicationCommandOutcome["outcome"] {
-  if (name === "SendTextMessage") {
+  if (name === "SendTextMessage" || name === "BulkRedriveWebhookDeliveries") {
     return "queued";
   }
 
@@ -2831,6 +2893,43 @@ class CapturingGroupMutationIntentStore implements GroupMutationIntentStorePort 
         groupMutationIntentRef,
         kind: "metadata",
         subject: "stored group mutation",
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+}
+
+class CapturingWebhookDeliveryOperationIntentStore implements WebhookDeliveryOperationIntentStorePort {
+  readonly intents: WebhookDeliveryOperationIntentInput[] = [];
+  readonly contexts: ApplicationPortContext[] = [];
+
+  storeWebhookDeliveryOperationIntent(
+    intent: WebhookDeliveryOperationIntentInput,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<WebhookDeliveryOperationIntentReceipt>> {
+    this.intents.push(intent);
+    this.contexts.push(context);
+
+    return Promise.resolve(
+      ok({
+        webhookDeliveryOperationIntentRef:
+          intent.webhookDeliveryOperationIntentRef ??
+          createWebhookDeliveryOperationIntentRef("webhook_operation_intent_generated"),
+        kind: intent.kind,
+        deliveryCount: intent.kind === "bulk_redrive" ? intent.deliveryRefs.length : 0,
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+
+  resolveWebhookDeliveryOperationIntent(
+    webhookDeliveryOperationIntentRef: WebhookDeliveryOperationIntentRef,
+  ): Promise<ApplicationPortResult<StoredWebhookDeliveryOperationIntent>> {
+    return Promise.resolve(
+      ok({
+        webhookDeliveryOperationIntentRef,
+        kind: "bulk_redrive",
+        deliveryRefs: ["webhook-delivery:stored"],
         createdAtEpochMilliseconds: 1,
       }),
     );

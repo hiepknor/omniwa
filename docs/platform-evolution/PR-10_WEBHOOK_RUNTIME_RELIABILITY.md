@@ -27,6 +27,8 @@ Implemented capabilities:
 - `POST /v1/webhook-deliveries/{deliveryId}/redrive` queues a new controlled
   delivery for eligible dead-lettered deliveries without mutating the terminal
   original delivery.
+- `POST /v1/webhook-deliveries/redrive` queues controlled redrive work for a
+  selected set of dead-lettered deliveries through a safe operation intent.
 - Dispatcher processing persists `WebhookDelivery` aggregate status for
   delivered, retrying, and dead-letter outcomes instead of relying only on
   `WorkerJob` state.
@@ -100,8 +102,9 @@ validation is still tracked separately in the production execution plan.
 
 ## Remaining Work
 
-- Add richer operational management for webhook dead letters, such as bulk
-  redrive, filtered operator dashboards, and remediation notes.
+- Add richer operational management for webhook dead letters, such as filtered
+  operator dashboards, remediation notes, and higher-level campaign-style
+  recovery workflows.
 - Expand production end-to-end validation beyond the webhook dispatcher path and
   run it in the target deployment environment.
 - Validate the JSONL observability sink configuration in the target deployment

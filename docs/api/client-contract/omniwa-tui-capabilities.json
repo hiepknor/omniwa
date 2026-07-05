@@ -649,6 +649,16 @@
     {
       "feature": "webhooks",
       "method": "POST",
+      "path": "/v1/webhook-deliveries/redrive",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Queues controlled redrive operations for explicitly selected dead-lettered webhook deliveries. Requires admin or elevated key, idempotency-key, and webhooks:redrive. Request body uses deliveryIds; retryPolicy, targetUrl, payload, and domainEvents are not exposed."
+    },
+    {
+      "feature": "webhooks",
+      "method": "POST",
       "path": "/v1/webhook-deliveries/{deliveryId}/redrive",
       "status": "implemented_public",
       "authRequired": true,
@@ -980,6 +990,7 @@
     "webhookDeliveryHistory": "docs/api/client-contract/fixtures/webhook-delivery.history.json",
     "webhookDeliveryRetryQueued": "docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json",
     "webhookDeliveryRedriveQueued": "docs/api/client-contract/fixtures/webhook-delivery-redrive.queued.json",
+    "webhookDeliveryBulkRedriveQueued": "docs/api/client-contract/fixtures/webhook-delivery-bulk-redrive.queued.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse",
     "apiKeysList": "docs/api/client-contract/fixtures/api-keys.list.json",
     "apiKeyProvisioned": "docs/api/client-contract/fixtures/api-key.provisioned.json",

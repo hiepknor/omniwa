@@ -110,6 +110,7 @@ export const applicationCommandDefinitions = [
   command("DeliverWebhookWork", "webhook", "worker", true, true, true, false),
   command("RetryWebhookDelivery", "webhook", "product", true, true, true, false),
   command("RedriveWebhookDelivery", "webhook", "product", true, true, true, false),
+  command("BulkRedriveWebhookDeliveries", "webhook", "product", true, true, true, false),
   command("MoveWebhookDeliveryToDeadLetter", "webhook", "worker", true, false, false, false),
 
   command("EvaluateProviderCompatibility", "provider", "scheduler", false, false, false, false),

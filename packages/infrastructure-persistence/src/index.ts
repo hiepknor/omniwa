@@ -11,3 +11,4 @@ export * from "./postgresql-adapter-foundation.js";
 export * from "./postgresql-repositories.js";
 export * from "./read-projection-store.js";
 export * from "./repository-adapter-plan.js";
+export * from "./webhook-delivery-operation-intent-store.js";

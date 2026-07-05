@@ -151,6 +151,7 @@ export const applicationWorkflowDefinitions = [
   workflow("WF-WEB-003", "Webhook Retry And Dead Letter", "webhook", true, true, false, "strong", [
     "RetryWebhookDelivery",
     "RedriveWebhookDelivery",
+    "BulkRedriveWebhookDeliveries",
     "MoveWebhookDeliveryToDeadLetter",
   ]),
 

@@ -160,6 +160,7 @@ function implementedPublicEndpoints() {
     implementedEndpoint("GET", "/v1/webhook-deliveries"),
     implementedEndpoint("GET", "/v1/webhook-deliveries/{deliveryId}/history"),
     implementedEndpoint("POST", "/v1/webhook-deliveries/{deliveryId}/retry"),
+    implementedEndpoint("POST", "/v1/webhook-deliveries/redrive"),
     implementedEndpoint("POST", "/v1/webhook-deliveries/{deliveryId}/redrive"),
     implementedEndpoint("GET", "/v1/api-keys"),
     implementedEndpoint("POST", "/v1/api-keys"),
@@ -193,6 +194,8 @@ function requiredFixtureMap() {
     webhookDeliveriesList: "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
     webhookDeliveryRetryQueued:
       "docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json",
+    webhookDeliveryBulkRedriveQueued:
+      "docs/api/client-contract/fixtures/webhook-delivery-bulk-redrive.queued.json",
     webhookDeliveryRedriveQueued:
       "docs/api/client-contract/fixtures/webhook-delivery-redrive.queued.json",
     apiKeysList: "docs/api/client-contract/fixtures/api-keys.list.json",

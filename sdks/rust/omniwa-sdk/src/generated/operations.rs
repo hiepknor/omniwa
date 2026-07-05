@@ -26,6 +26,12 @@ pub const ADD_GROUP_MEMBER: Operation = Operation {
     path: "/v1/groups/{groupId}/members",
 };
 
+pub const BULK_REDRIVE_WEBHOOK_DELIVERIES: Operation = Operation {
+    operation_id: "bulkRedriveWebhookDeliveries",
+    method: "POST",
+    path: "/v1/webhook-deliveries/redrive",
+};
+
 pub const CANCEL_MESSAGE: Operation = Operation {
     operation_id: "cancelMessage",
     method: "POST",
@@ -468,6 +474,7 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     ACTIVATE_SETTINGS,
     ACTIVATE_WEBHOOK,
     ADD_GROUP_MEMBER,
+    BULK_REDRIVE_WEBHOOK_DELIVERIES,
     CANCEL_MESSAGE,
     CONNECT_INSTANCE,
     CREATE_INSTANCE,
@@ -548,6 +555,7 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "activateSettings" => Some(ACTIVATE_SETTINGS),
         "activateWebhook" => Some(ACTIVATE_WEBHOOK),
         "addGroupMember" => Some(ADD_GROUP_MEMBER),
+        "bulkRedriveWebhookDeliveries" => Some(BULK_REDRIVE_WEBHOOK_DELIVERIES),
         "cancelMessage" => Some(CANCEL_MESSAGE),
         "connectInstance" => Some(CONNECT_INSTANCE),
         "createInstance" => Some(CREATE_INSTANCE),

@@ -74,25 +74,26 @@ Error:
 
 ## Implemented P0 Routes
 
-| Method | Path                                         | Status      | Notes                                               |
-| ------ | -------------------------------------------- | ----------- | --------------------------------------------------- |
-| GET    | `/v1/health`                                 | Implemented | Reads safe health status                            |
-| GET    | `/v1/instances`                              | Implemented | Lists instances through current query boundary      |
-| GET    | `/v1/instances/:instanceId`                  | Implemented | Reads one instance status                           |
-| POST   | `/v1/instances`                              | Implemented | Creates instance intent                             |
-| POST   | `/v1/instances/:instanceId/connect`          | Implemented | Async connection intent                             |
-| POST   | `/v1/instances/:instanceId/disconnect`       | Implemented | Disconnect intent                                   |
-| POST   | `/v1/instances/:instanceId/qr/refresh`       | Implemented | QR refresh intent                                   |
-| POST   | `/v1/instances/:instanceId/messages/text`    | Implemented | Text-message send intent                            |
-| POST   | `/v1/instances/:instanceId/messages/media`   | Implemented | Media-message send intent                           |
-| GET    | `/v1/jobs`                                   | Implemented | Lists worker jobs through monitoring boundary       |
-| GET    | `/v1/jobs/:jobId`                            | Implemented | Reads worker job status through monitoring boundary |
-| GET    | `/v1/webhooks`                               | Implemented | Lists safe webhook subscription rows                |
-| GET    | `/v1/webhook-deliveries`                     | Implemented | Lists safe webhook delivery rows                    |
-| GET    | `/v1/webhook-deliveries/:deliveryId/history` | Implemented | Reads one safe webhook delivery history/status      |
-| POST   | `/v1/webhook-deliveries/:deliveryId/retry`   | Implemented | Queues controlled retry for eligible delivery       |
-| POST   | `/v1/webhook-deliveries/:deliveryId/redrive` | Implemented | Queues controlled redrive for dead-letter delivery  |
-| POST   | `/v1/webhooks`                               | Implemented | Registers webhook subscription intent               |
+| Method | Path                                         | Status      | Notes                                                              |
+| ------ | -------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| GET    | `/v1/health`                                 | Implemented | Reads safe health status                                           |
+| GET    | `/v1/instances`                              | Implemented | Lists instances through current query boundary                     |
+| GET    | `/v1/instances/:instanceId`                  | Implemented | Reads one instance status                                          |
+| POST   | `/v1/instances`                              | Implemented | Creates instance intent                                            |
+| POST   | `/v1/instances/:instanceId/connect`          | Implemented | Async connection intent                                            |
+| POST   | `/v1/instances/:instanceId/disconnect`       | Implemented | Disconnect intent                                                  |
+| POST   | `/v1/instances/:instanceId/qr/refresh`       | Implemented | QR refresh intent                                                  |
+| POST   | `/v1/instances/:instanceId/messages/text`    | Implemented | Text-message send intent                                           |
+| POST   | `/v1/instances/:instanceId/messages/media`   | Implemented | Media-message send intent                                          |
+| GET    | `/v1/jobs`                                   | Implemented | Lists worker jobs through monitoring boundary                      |
+| GET    | `/v1/jobs/:jobId`                            | Implemented | Reads worker job status through monitoring boundary                |
+| GET    | `/v1/webhooks`                               | Implemented | Lists safe webhook subscription rows                               |
+| GET    | `/v1/webhook-deliveries`                     | Implemented | Lists safe webhook delivery rows                                   |
+| GET    | `/v1/webhook-deliveries/:deliveryId/history` | Implemented | Reads one safe webhook delivery history/status                     |
+| POST   | `/v1/webhook-deliveries/:deliveryId/retry`   | Implemented | Queues controlled retry for eligible delivery                      |
+| POST   | `/v1/webhook-deliveries/:deliveryId/redrive` | Implemented | Queues controlled redrive for dead-letter delivery                 |
+| POST   | `/v1/webhook-deliveries/redrive`             | Implemented | Queues controlled bulk redrive for selected dead-letter deliveries |
+| POST   | `/v1/webhooks`                               | Implemented | Registers webhook subscription intent                              |
 
 ## Minimal Request Body Validation
 
@@ -104,13 +105,15 @@ Error:
 | `POST /v1/instances/:id/qr/refresh`     | JSON object                                                 |
 | `POST /v1/instances/:id/messages/text`  | JSON object with non-empty `to` and `text`                  |
 | `POST /v1/instances/:id/messages/media` | JSON object with non-empty `to` and `mediaId` or `mediaRef` |
+| `POST /v1/webhook-deliveries/redrive`   | JSON object with unique non-empty `deliveryIds`, max 50     |
 | `POST /v1/webhooks`                     | JSON object with non-empty `url`                            |
 
 ## Phase A Limitations
 
 - Phase C now provides the OpenAPI contract at
   `docs/api/openapi/omniwa-v1.openapi.json`.
-- No SDK exists yet.
+- The generated Rust SDK exists under `sdks/rust/omniwa-sdk`; current public API changes must keep
+  OpenAPI, client-contract fixtures, and SDK checks synchronized.
 - Request body fields are validated at transport level but are not yet modeled as
   detailed DTO contracts.
 - The internal Application command envelope accepts `safeInputRef`, so Phase A

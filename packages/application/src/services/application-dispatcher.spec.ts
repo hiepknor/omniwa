@@ -91,6 +91,14 @@ import { describe, expect, it } from "vitest";
 
 import { createApplicationCommandEnvelope } from "../commands/command-model.js";
 import type { ApplicationPortContext, ApplicationPortResult } from "../ports/application-port.js";
+import {
+  createWebhookDeliveryOperationIntentRef,
+  type StoredWebhookDeliveryOperationIntent,
+  type WebhookDeliveryOperationIntentInput,
+  type WebhookDeliveryOperationIntentReceipt,
+  type WebhookDeliveryOperationIntentRef,
+  type WebhookDeliveryOperationIntentStorePort,
+} from "../ports/webhook-delivery-operation-intent-store.js";
 import type {
   EventLogReplayPort,
   EventLogReplayResult,
@@ -1617,6 +1625,94 @@ describe("application dispatcher", () => {
     expect(queueProvider.enqueued).toHaveLength(1);
   });
 
+  it("executes BulkRedriveWebhookDeliveries for eligible dead-letter deliveries", async () => {
+    const firstOriginal = deadLetterWebhookDelivery(
+      startWebhookDelivery(
+        scheduleWebhookDelivery(
+          createWebhookDeliveryId("webhook-delivery:bulk-redrive-one"),
+          createWebhookId("webhook:bulk-redrive"),
+          "message.failed.v1",
+          retryPolicy,
+        ),
+        createAttemptNumber(1, retryPolicy),
+      ),
+      createDeadLetterReason({
+        code: "receiver_terminal_failure",
+        category: "webhook",
+      }),
+    );
+    const secondOriginal = deadLetterWebhookDelivery(
+      startWebhookDelivery(
+        scheduleWebhookDelivery(
+          createWebhookDeliveryId("webhook-delivery:bulk-redrive-two"),
+          createWebhookId("webhook:bulk-redrive"),
+          "message.failed.v1",
+          retryPolicy,
+        ),
+        createAttemptNumber(1, retryPolicy),
+      ),
+      createDeadLetterReason({
+        code: "receiver_terminal_failure",
+        category: "webhook",
+      }),
+    );
+    const ineligible = scheduleWebhookDelivery(
+      createWebhookDeliveryId("webhook-delivery:bulk-redrive-pending"),
+      createWebhookId("webhook:bulk-redrive"),
+      "message.pending.v1",
+      retryPolicy,
+    );
+    const repository = new FakeWebhookDeliveryRepository([
+      firstOriginal,
+      secondOriginal,
+      ineligible,
+    ]);
+    const queueProvider = new FakeQueueProvider();
+    const operationIntentStore = new FakeWebhookDeliveryOperationIntentStore([
+      "webhook-delivery:bulk-redrive-one",
+      "webhook-delivery:bulk-redrive-two",
+      "webhook-delivery:bulk-redrive-pending",
+    ]);
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: repository,
+      },
+      queueProvider,
+      webhookDeliveryOperationIntentStore: operationIntentStore,
+      clock: fixedClock,
+    });
+    const envelope = createApplicationCommandEnvelope({
+      name: "BulkRedriveWebhookDeliveries",
+      commandRef: "cmd-bulk-redrive-webhook-deliveries",
+      requestContext,
+      actorRef: "api_key:test",
+      safeInputRef: "webhook_bulk_redrive_intent_1",
+      idempotencyKey: "idem-bulk-redrive-webhooks",
+    });
+
+    const first = await dispatcher.executeCommand(envelope);
+    const second = await dispatcher.executeCommand(envelope);
+
+    expect(first).toMatchObject({
+      kind: "command_outcome",
+      commandRef: "cmd-bulk-redrive-webhook-deliveries",
+      outcome: "queued",
+      accepted: true,
+      retryable: false,
+      resultRef: "webhook_delivery_bulk_redrive:webhook_bulk_redrive_intent_1",
+    });
+    expect(second.outcome).toBe("queued");
+    expect(second.resultRef).toBe(first.resultRef);
+    expect(queueProvider.enqueued).toHaveLength(2);
+    expect(queueProvider.enqueued.map((work) => work.ownerRef).sort()).toEqual([
+      "webhook-delivery:bulk-redrive-one:redrive:bulk_redrive_webhook_delivery:bulk_redrive_webhook_deliveries:idem-bulk-redrive-webhooks:webhook-delivery:bulk-redrive-one",
+      "webhook-delivery:bulk-redrive-two:redrive:bulk_redrive_webhook_delivery:bulk_redrive_webhook_deliveries:idem-bulk-redrive-webhooks:webhook-delivery:bulk-redrive-two",
+    ]);
+    expect(JSON.stringify(first)).not.toContain("targetUrl");
+    expect(JSON.stringify(first)).not.toContain("retryPolicy");
+  });
+
   it("rejects RedriveWebhookDelivery unless the delivery is dead-lettered", async () => {
     const delivery = scheduleWebhookDelivery(
       createWebhookDeliveryId("webhook-delivery:redrive-not-allowed"),
@@ -2236,6 +2332,48 @@ class FakeWebhookDeliveryRepository implements WebhookDeliveryRepositoryPort {
 
   private list(): readonly WebhookDelivery[] {
     return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeWebhookDeliveryOperationIntentStore implements WebhookDeliveryOperationIntentStorePort {
+  private readonly deliveryRefs: readonly string[];
+
+  constructor(deliveryRefs: readonly string[]) {
+    this.deliveryRefs = Object.freeze([...deliveryRefs]);
+  }
+
+  storeWebhookDeliveryOperationIntent(
+    intent: WebhookDeliveryOperationIntentInput,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<WebhookDeliveryOperationIntentReceipt>> {
+    void context;
+
+    return Promise.resolve(
+      ok({
+        webhookDeliveryOperationIntentRef:
+          intent.webhookDeliveryOperationIntentRef ??
+          createWebhookDeliveryOperationIntentRef("webhook_operation_intent_generated"),
+        kind: intent.kind,
+        deliveryCount: intent.kind === "bulk_redrive" ? intent.deliveryRefs.length : 0,
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+
+  resolveWebhookDeliveryOperationIntent(
+    webhookDeliveryOperationIntentRef: WebhookDeliveryOperationIntentRef,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<StoredWebhookDeliveryOperationIntent>> {
+    void context;
+
+    return Promise.resolve(
+      ok({
+        webhookDeliveryOperationIntentRef,
+        kind: "bulk_redrive",
+        deliveryRefs: this.deliveryRefs,
+        createdAtEpochMilliseconds: 1,
+      }),
+    );
   }
 }
 
