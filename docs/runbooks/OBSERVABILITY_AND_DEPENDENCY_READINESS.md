@@ -170,7 +170,7 @@ Operator response:
 Run:
 
 ```text
-pnpm exec vitest run packages/observability/src/metric-catalog.spec.ts packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts apps/metrics/src/index.spec.ts apps/health/src/index.spec.ts
+pnpm observability:check
 pnpm release:check
 ```
 

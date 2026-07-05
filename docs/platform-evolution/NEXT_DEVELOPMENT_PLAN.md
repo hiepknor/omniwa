@@ -184,6 +184,11 @@ The first N11.7 validation slice adds a dedicated `pnpm recovery:check` gate for
 drill evidence, deterministic recovery validation tests, and release-readiness wiring. This proves
 the local deterministic recovery contract, while target-environment backup automation and restore
 drills remain required before any broad production-ready claim.
+The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
+catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
+release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
+target-environment dashboards, alert routing, exporter operations, and sustained SLO monitoring as
+production-readiness evidence.
 The next N11.7 validation slice adds a dedicated `pnpm e2e:check` gate for deterministic vertical
 path evidence. It requires the REST platform regression spec plus the local vertical-slice runtime
 spec that proves Application, durable JSON state, queue, worker, provider fake socket, and EventLog

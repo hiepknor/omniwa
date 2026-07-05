@@ -13,7 +13,7 @@
   "scripts": {
     "arch:check": "node tooling/architecture/check-boundaries.mjs",
     "build": "tsc -b tsconfig.references.json",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm client-contract:check && pnpm sdk:check && pnpm sdk:test && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm performance:check && pnpm production:check && pnpm release:check",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm client-contract:check && pnpm sdk:check && pnpm sdk:test && pnpm observability:check && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm performance:check && pnpm production:check && pnpm release:check",
     "client-contract:check": "node tooling/api/check-client-contract.mjs",
     "docker:build": "docker build -f deploy/docker/Dockerfile -t omniwa:local .",
     "docker:local": "docker compose -f deploy/docker/compose.local.yml up --build",
@@ -24,6 +24,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint \"{apps,packages,tooling}/**/*.{ts,mjs}\"",
     "load:check": "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
+    "observability:check": "node tooling/observability/check-observability-readiness.mjs && pnpm exec vitest run packages/observability/src/metric-catalog.spec.ts packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts apps/metrics/src/index.spec.ts apps/health/src/index.spec.ts tooling/observability/check-observability-readiness.spec.ts",
     "openapi:check": "node tooling/api/check-openapi.mjs",
     "openapi:compat": "node tooling/api/check-openapi-compatibility.mjs",
     "performance:check": "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/check-performance-readiness.spec.ts",

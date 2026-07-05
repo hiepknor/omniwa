@@ -66,6 +66,7 @@ describe("release readiness check", () => {
           "check_script_missing_release_gate",
           "check_script_missing_openapi_compat_gate",
           "check_script_missing_sdk_test_gate",
+          "check_script_missing_observability_gate",
           "check_script_missing_security_gate",
           "check_script_missing_e2e_gate",
           "check_script_missing_regression_gate",
