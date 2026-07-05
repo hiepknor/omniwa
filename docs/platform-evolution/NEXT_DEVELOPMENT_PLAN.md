@@ -200,6 +200,9 @@ an API-only template to a full runtime template with API, worker, webhook dispat
 runtime, PostgreSQL, and Redis services. It intentionally keeps worker and provider runtime in
 controlled-pilot profiles because true production profiles remain blocked until provider-runtime
 IPC/shared socket ownership and target-environment evidence are complete.
+The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer` foundation for
+safe pending-outbox drain loops. It does not yet select the production EventLog backend or wire a
+production outbox runtime loop; those remain N11 follow-up work.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
