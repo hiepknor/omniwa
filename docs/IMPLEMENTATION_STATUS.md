@@ -125,6 +125,13 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - The generic `EventOutboxConsumer` can now drain through either the existing synchronous outbox port
   or the new async outbox port, so future PostgreSQL EventLog/outbox stores can plug into the same
   consumer without a second drain loop.
+- The PostgreSQL EventLog backend foundation now exists behind `AsyncEventLogPort`, with versioned
+  SQL migrations for `omniwa_event_log` and `omniwa_event_outbox`. Local
+  `pnpm test:postgres` with
+  `OMNIWA_POSTGRES_TEST_DATABASE_URL=postgresql://omniwa:omniwa-local-password@127.0.0.1:55432/omniwa`
+  passed 48 tests covering PostgreSQL EventLog append idempotency, monotonic cursor replay,
+  not-found/expired cursor semantics, durable outbox state, generic outbox consumer drain, and safe
+  failure summaries.
 
 ## Known Gaps
 
@@ -140,8 +147,8 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   unless that queue profile is selected. This closes the API enqueue-side queue-profile gap, while
   cross-process worker/provider runtime proof remains target-environment validation work.
 - N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic async-compatible outbox
-  consumer and async EventLog compatibility boundary exist, but the PostgreSQL EventLog backend,
-  production runtime wiring, and EventLog backlog metrics remain open hardening work.
+  consumer, async EventLog compatibility boundary, and PostgreSQL EventLog backend foundation now
+  exist, but production runtime wiring and EventLog backlog metrics remain open hardening work.
 - Production Docker template coverage is broader than the API service now, but it is still a
   deployment template and controlled-pilot profile. Target-environment startup, production load, SLO
   evidence, worker/provider true production profiles, and the provider-runtime IPC/shared socket

@@ -196,6 +196,10 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260705_0015_worker_job_queue_visibility",
         description: expect.stringContaining("WorkerJobRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260705_0016_event_log_store",
+        description: expect.stringContaining("AsyncEventLogPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -242,6 +246,12 @@ describe("PostgreSQL migration runner", () => {
     expect(postgresqlInstanceRepositoryMigrations[14]?.statements.join("\n")).toContain(
       "queue_visible_at_epoch_ms",
     );
+    expect(postgresqlInstanceRepositoryMigrations[15]?.statements.join("\n")).toContain(
+      "omniwa_event_log",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[15]?.statements.join("\n")).toContain(
+      "omniwa_event_outbox",
+    );
   });
 });
 
@@ -260,7 +270,7 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     beforeEach(async () => {
       await runPostgresqlSqlMigrations(connection);
       await connection.query(
-        "TRUNCATE TABLE omniwa_media_assets, omniwa_labels, omniwa_audit_records, omniwa_health_statuses, omniwa_guardrail_decisions, omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances",
+        "TRUNCATE TABLE omniwa_event_outbox, omniwa_event_log, omniwa_media_assets, omniwa_labels, omniwa_audit_records, omniwa_health_statuses, omniwa_guardrail_decisions, omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances RESTART IDENTITY",
       );
     });
 

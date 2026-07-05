@@ -10,6 +10,7 @@ export * from "./in-memory-repositories.js";
 export * from "./outbound-message-intent-store.js";
 export * from "./postgresql-aggregate-repository.js";
 export * from "./postgresql-adapter-foundation.js";
+export * from "./postgresql-event-log-store.js";
 export * from "./postgresql-repositories.js";
 export * from "./read-projection-store.js";
 export * from "./repository-adapter-plan.js";

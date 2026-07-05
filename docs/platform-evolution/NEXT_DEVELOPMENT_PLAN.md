@@ -216,6 +216,11 @@ metrics.
 The follow-up EventLog migration slice makes the generic outbox consumer async-compatible while
 retaining sync-store compatibility, so the same consumer can drain future PostgreSQL-backed outbox
 records without introducing a parallel runtime loop.
+The PostgreSQL EventLog backend slice adds versioned SQL migrations and a
+`PostgresqlEventLogStore` behind `AsyncEventLogPort`, with `pnpm test:postgres` proving append
+idempotency, monotonic replay cursors, not-found/expired cursor semantics, durable outbox records,
+generic outbox consumer drain, and safe failure summaries. Remaining EventLog hardening is now
+production runtime wiring plus backlog metrics.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
