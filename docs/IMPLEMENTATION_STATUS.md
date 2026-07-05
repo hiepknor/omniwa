@@ -118,6 +118,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11 EventLog/outbox hardening now adds a generic `EventOutboxConsumer` foundation that drains
   pending outbox records through an injected publisher, marks successful records as published, keeps
   failed records pending, and returns safe failure summaries without raw provider payload exposure.
+- N11 EventLog production-backend migration has started after `ADR-0009` was accepted. Application
+  now exposes async EventLog/outbox port types, and infrastructure provides a sync-to-async
+  compatibility adapter so existing in-memory and durable JSON stores can keep local/dev behavior
+  while PostgreSQL EventLog work proceeds behind the new async boundary.
 
 ## Known Gaps
 
@@ -132,10 +136,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `OMNIWA_API_QUEUE_PROFILE=durable-worker-job`, and production API runtime validation fails closed
   unless that queue profile is selected. This closes the API enqueue-side queue-profile gap, while
   cross-process worker/provider runtime proof remains target-environment validation work.
-- N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic outbox consumer exists,
-  but production runtime wiring, selected production EventLog backend, and EventLog backlog metrics
-  remain open hardening work. `docs/adr/ADR-0009-eventlog-production-backend.md` is now Accepted,
-  allowing the async PostgreSQL EventLog backend migration to proceed in small reviewed slices.
+- N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic outbox consumer and
+  async EventLog compatibility boundary exist, but the PostgreSQL EventLog backend, production
+  runtime wiring, and EventLog backlog metrics remain open hardening work.
 - Production Docker template coverage is broader than the API service now, but it is still a
   deployment template and controlled-pilot profile. Target-environment startup, production load, SLO
   evidence, worker/provider true production profiles, and the provider-runtime IPC/shared socket

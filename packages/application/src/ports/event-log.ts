@@ -67,8 +67,18 @@ export interface EventLogAppendPort {
   appendEvent(input: PlatformEventAppendInput): ApplicationPortResult<PlatformEventRecord>;
 }
 
+export interface AsyncEventLogAppendPort {
+  appendEvent(input: PlatformEventAppendInput): Promise<ApplicationPortResult<PlatformEventRecord>>;
+}
+
 export interface EventLogReplayPort {
   replayEvents(request: EventLogReplayRequest): ApplicationPortResult<EventLogReplayResult>;
+}
+
+export interface AsyncEventLogReplayPort {
+  replayEvents(
+    request: EventLogReplayRequest,
+  ): Promise<ApplicationPortResult<EventLogReplayResult>>;
 }
 
 export interface EventOutboxPort {
@@ -79,7 +89,20 @@ export interface EventOutboxPort {
   ): ApplicationPortResult<EventOutboxPublishResult>;
 }
 
+export interface AsyncEventOutboxPort {
+  listOutbox(
+    query?: EventOutboxQuery,
+  ): Promise<ApplicationPortResult<readonly EventOutboxRecord[]>>;
+  markOutboxPublished(
+    eventId: string,
+    publishedAt: string,
+  ): Promise<ApplicationPortResult<EventOutboxPublishResult>>;
+}
+
 export interface EventLogPort extends EventLogAppendPort, EventLogReplayPort, EventOutboxPort {}
+
+export interface AsyncEventLogPort
+  extends AsyncEventLogAppendPort, AsyncEventLogReplayPort, AsyncEventOutboxPort {}
 
 const safeTokenPattern = /^[A-Za-z0-9_.:-]+$/u;
 

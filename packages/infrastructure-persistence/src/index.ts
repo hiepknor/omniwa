@@ -1,3 +1,4 @@
+export * from "./async-event-log-port-adapter.js";
 export * from "./durable-json-read-projection-store.js";
 export * from "./durable-json-repositories.js";
 export * from "./durable-json-state-store.js";

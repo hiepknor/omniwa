@@ -209,6 +209,10 @@ The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer
 safe pending-outbox drain loops. It does not yet select the production EventLog backend or wire a
 production outbox runtime loop; those remain N11 follow-up work. `ADR-0009` is Accepted, so the
 async PostgreSQL EventLog backend migration can proceed in small reviewed slices.
+The first EventLog migration slice adds async EventLog/outbox port types plus a sync-to-async
+compatibility adapter for the existing in-memory and durable JSON stores. This preserves local/dev
+behavior while later slices add PostgreSQL EventLog storage, production runtime wiring, and backlog
+metrics.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
