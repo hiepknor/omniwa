@@ -32,6 +32,10 @@ Implemented capabilities:
   `WorkerJob` state.
 - The dispatcher can opt into `OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable-worker-job`
   to use the durable `WorkerJob`-backed queue provider.
+- Webhook dispatcher production profile composition is fail-closed and requires
+  PostgreSQL repositories, the durable worker-job queue profile, fetch HTTP
+  gateway, a configured signing secret value, metric recorder, and webhook
+  dispatch audit sink before composition is allowed.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
@@ -88,11 +92,12 @@ validation is still tracked separately in the production execution plan.
 
 ## Remaining Work
 
-- Replace in-memory queue recovery with the future production queue adapter.
 - Add richer operational management for webhook dead letters, such as bulk
   redrive, filtered operator dashboards, and remediation notes.
-- Enable the production dispatcher profile once production queue, secret, HTTP
-  gateway, and observability adapters are composed together.
+- Add production end-to-end validation for the guarded production dispatcher
+  profile in the target deployment environment.
+- Wire concrete deployment observability adapters for production runtime
+  startup rather than relying on test-injected adapters.
 - Add circuit-breaker behavior if production receiver failure rates require it.
 - Add full end-to-end tests once the production Application dispatcher,
   persistence adapter, and queue adapter are wired together.

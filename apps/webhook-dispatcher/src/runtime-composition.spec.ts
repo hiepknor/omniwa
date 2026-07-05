@@ -16,9 +16,14 @@ import {
 import { createDurableJsonRepositorySet } from "@omniwa/infrastructure-persistence";
 import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import type { WebhookFetch, WebhookFetchRequestInit } from "@omniwa/infrastructure-webhook";
+import type { MetricPoint, MetricRecorder } from "@omniwa/observability";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type {
+  WebhookDispatchAuditEntry,
+  WebhookDispatchAuditSink,
+} from "./webhook-dispatcher-app.js";
 import {
   createWebhookDispatcherRuntimeComposition,
   readWebhookDispatcherQueueProfile,
@@ -184,12 +189,64 @@ describe("Webhook Dispatcher runtime composition", () => {
     ).toThrow(/OMNIWA_WEBHOOK_SIGNING_SECRET_NAME/u);
   });
 
-  it("keeps production runtime blocked until remaining production adapters are complete", () => {
+  it("fails closed for production runtime when required production adapters are missing", () => {
     expect(() =>
       createWebhookDispatcherRuntimeComposition({
         OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "production",
       }),
-    ).toThrow(/production queue, webhook HTTP gateway, secret, and observability adapters/u);
+    ).toThrow(
+      /OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql.*OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable-worker-job.*OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch.*OMNIWA_WEBHOOK_SIGNING_SECRET_NAME.*metric recorder adapter.*webhook dispatch audit sink/u,
+    );
+  });
+
+  it("requires the configured webhook signing secret value for production composition", () => {
+    const telemetry = new RecordingWebhookDispatcherTelemetry();
+
+    expect(() =>
+      createWebhookDispatcherRuntimeComposition(
+        {
+          OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "production",
+          OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
+          OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE: "durable-worker-job",
+          OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY: "fetch",
+          OMNIWA_WEBHOOK_SIGNING_SECRET_NAME: "OMNIWA_WEBHOOK_SIGNING_SECRET",
+          OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+        },
+        {
+          webhookFetch: new RecordingWebhookFetch().fetch,
+          metricRecorder: telemetry,
+          auditSink: telemetry,
+        },
+      ),
+    ).toThrow(/configured webhook signing secret value/u);
+  });
+
+  it("composes production runtime when durable queue, gateway, secret, and observability are present", () => {
+    const telemetry = new RecordingWebhookDispatcherTelemetry();
+    const composition = createWebhookDispatcherRuntimeComposition(
+      {
+        OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "production",
+        OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE: "durable-worker-job",
+        OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY: "fetch",
+        OMNIWA_WEBHOOK_SIGNING_SECRET_NAME: "OMNIWA_WEBHOOK_SIGNING_SECRET",
+        OMNIWA_WEBHOOK_SIGNING_SECRET: "webhook-production-runtime-secret",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+        OMNIWA_POSTGRES_AUTO_MIGRATE: "true",
+      },
+      {
+        webhookFetch: new RecordingWebhookFetch().fetch,
+        metricRecorder: telemetry,
+        auditSink: telemetry,
+      },
+    );
+
+    expect(composition).toMatchObject({
+      profile: "production",
+      repositoryProfile: "postgresql",
+      queueProfile: "durable-worker-job",
+    });
+    expect(composition.queueProvider).toBeInstanceOf(DurableWorkerJobQueueProvider);
   });
 
   it("supports PostgreSQL repository profile once webhook repositories are implemented", () => {
@@ -277,4 +334,17 @@ class RecordingWebhookFetch {
       status: 202,
     };
   };
+}
+
+class RecordingWebhookDispatcherTelemetry implements MetricRecorder, WebhookDispatchAuditSink {
+  readonly metrics: MetricPoint[] = [];
+  readonly auditEntries: WebhookDispatchAuditEntry[] = [];
+
+  recordMetric(point: MetricPoint): void {
+    this.metrics.push(point);
+  }
+
+  recordWebhookDispatch(entry: WebhookDispatchAuditEntry): void {
+    this.auditEntries.push(entry);
+  }
 }

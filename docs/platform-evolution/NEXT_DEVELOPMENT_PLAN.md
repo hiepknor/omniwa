@@ -161,9 +161,12 @@ dead-lettered deliveries; both are synchronized with client-contract fixtures an
 Webhook dispatcher processing now persists `WebhookDelivery` dispatch outcomes for delivered,
 retrying, and dead-lettered deliveries so read surfaces no longer depend only on `WorkerJob` state.
 The dispatcher can now opt into `OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable-worker-job` for the
-durable `WorkerJob`-backed queue provider. Production runtime wiring still remains disabled until
-the remaining production queue validation, secret, HTTP gateway, and observability adapters can be
-composed together safely.
+durable `WorkerJob`-backed queue provider. Webhook dispatcher production profile composition is now
+guarded by fail-closed validation and requires PostgreSQL repositories, the durable worker-job queue
+profile, fetch HTTP gateway, a configured signing secret value, metric recorder, and webhook dispatch
+audit sink before composition is allowed. Remaining hardening is focused on production E2E
+validation, concrete deployment observability wiring, richer dead-letter operations, and any
+circuit-breaker policy required by receiver failure rates.
 
 ## Planned Increments
 

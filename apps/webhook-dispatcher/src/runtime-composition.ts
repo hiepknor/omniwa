@@ -18,11 +18,13 @@ import {
   WebhookHmacSignatureProvider,
   type WebhookFetch,
 } from "@omniwa/infrastructure-webhook";
+import type { MetricRecorder } from "@omniwa/observability";
 
 import {
   RepositoryWebhookDeliveryEnvelopeResolver,
   WebhookDispatcherApp,
   createWebhookDispatcherRuntime,
+  type WebhookDispatchAuditSink,
 } from "./webhook-dispatcher-app.js";
 
 export const webhookDispatcherRuntimeProfiles = ["local", "test", "production"] as const;
@@ -53,6 +55,8 @@ export type WebhookDispatcherRuntimeComposition = Readonly<{
 
 export type WebhookDispatcherRuntimeCompositionAdapterOptions = Readonly<{
   webhookFetch?: WebhookFetch;
+  metricRecorder?: MetricRecorder;
+  auditSink?: WebhookDispatchAuditSink;
 }>;
 
 export type WebhookDispatcherQueueRecoveryCapable = Readonly<{
@@ -65,6 +69,8 @@ type WebhookDispatcherRepositories = Readonly<{
   webhookSubscriptionRepository: WebhookSubscriptionRepositoryPort;
 }>;
 
+type WebhookDispatcherHttpGateway = "disabled" | "fetch";
+
 export function createWebhookDispatcherRuntimeComposition(
   env: NodeJS.ProcessEnv = process.env,
   adapters: WebhookDispatcherRuntimeCompositionAdapterOptions = {},
@@ -73,13 +79,23 @@ export function createWebhookDispatcherRuntimeComposition(
   const repositoryProfile = readWebhookDispatcherRepositoryProfile(env);
   const queueProfile = readWebhookDispatcherQueueProfile(env);
   const signingSecretName = readOptionalStringEnv(env, "OMNIWA_WEBHOOK_SIGNING_SECRET_NAME");
+  const httpGateway = readWebhookDispatcherHttpGateway(env);
 
-  assertWebhookDispatcherRuntimeProfileIsComposable(profile);
+  assertWebhookDispatcherRuntimeProfileIsComposable({
+    profile,
+    repositoryProfile,
+    queueProfile,
+    httpGateway,
+    signingSecretName,
+    env,
+    adapters,
+  });
 
   const repositories = createWebhookDispatcherRepositories(env, repositoryProfile);
   const queueProvider = createWebhookDispatcherQueueProvider({
     queueProfile,
     workerJobRepository: repositories.workerJobRepository,
+    ...optional("metricRecorder", adapters.metricRecorder),
   });
   const runtime = createWebhookDispatcherRuntime({
     queueProvider,
@@ -92,12 +108,14 @@ export function createWebhookDispatcherRuntimeComposition(
         signingSecretName === undefined ? undefined : () => signingSecretName,
       ),
     }),
-    transport: createWebhookDispatcherTransport(env, adapters, signingSecretName),
+    transport: createWebhookDispatcherTransport(env, adapters, signingSecretName, httpGateway),
     retryDelayMilliseconds: readNonNegativeIntegerEnv(
       env.OMNIWA_WEBHOOK_DISPATCHER_RETRY_DELAY_MS,
       1_000,
       "OMNIWA_WEBHOOK_DISPATCHER_RETRY_DELAY_MS",
     ),
+    ...optional("metricRecorder", adapters.metricRecorder),
+    ...optional("auditSink", adapters.auditSink),
   });
 
   return Object.freeze({
@@ -113,9 +131,8 @@ function createWebhookDispatcherTransport(
   env: NodeJS.ProcessEnv,
   adapters: WebhookDispatcherRuntimeCompositionAdapterOptions,
   signingSecretName: string | undefined,
+  gateway: WebhookDispatcherHttpGateway,
 ): WebhookTransportPort {
-  const gateway = readWebhookDispatcherHttpGateway(env);
-
   if (gateway === "disabled") {
     return new DisabledWebhookTransport();
   }
@@ -141,7 +158,7 @@ function createWebhookDispatcherTransport(
   });
 }
 
-function readWebhookDispatcherHttpGateway(env: NodeJS.ProcessEnv): "disabled" | "fetch" {
+function readWebhookDispatcherHttpGateway(env: NodeJS.ProcessEnv): WebhookDispatcherHttpGateway {
   const value = env.OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY?.trim();
 
   switch (value) {
@@ -217,18 +234,21 @@ function createWebhookDispatcherQueueProvider(
   input: Readonly<{
     queueProfile: WebhookDispatcherQueueProfile;
     workerJobRepository: WorkerJobRepositoryPort;
+    metricRecorder?: MetricRecorder;
   }>,
 ): InMemoryQueueProvider | DurableWorkerJobQueueProvider {
   if (input.queueProfile === "durable-worker-job") {
     return new DurableWorkerJobQueueProvider({
       workerJobRepository: input.workerJobRepository,
       metricRuntimeRole: "webhook",
+      ...optional("metricRecorder", input.metricRecorder),
     });
   }
 
   return new InMemoryQueueProvider({
     workerJobRepository: input.workerJobRepository,
     metricRuntimeRole: "webhook",
+    ...optional("metricRecorder", input.metricRecorder),
   });
 }
 
@@ -277,11 +297,51 @@ function createWebhookDispatcherRepositories(
 }
 
 function assertWebhookDispatcherRuntimeProfileIsComposable(
-  profile: WebhookDispatcherRuntimeProfile,
+  input: Readonly<{
+    profile: WebhookDispatcherRuntimeProfile;
+    repositoryProfile: WebhookDispatcherRepositoryProfile;
+    queueProfile: WebhookDispatcherQueueProfile;
+    httpGateway: WebhookDispatcherHttpGateway;
+    signingSecretName: string | undefined;
+    env: NodeJS.ProcessEnv;
+    adapters: WebhookDispatcherRuntimeCompositionAdapterOptions;
+  }>,
 ): void {
-  if (profile === "production") {
+  if (input.profile !== "production") {
+    return;
+  }
+
+  const missing: string[] = [];
+
+  if (input.repositoryProfile !== "postgresql") {
+    missing.push("OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE=postgresql");
+  }
+
+  if (input.queueProfile !== "durable-worker-job") {
+    missing.push("OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable-worker-job");
+  }
+
+  if (input.httpGateway !== "fetch") {
+    missing.push("OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch");
+  }
+
+  if (input.signingSecretName === undefined) {
+    missing.push("OMNIWA_WEBHOOK_SIGNING_SECRET_NAME");
+  } else if (readOptionalStringEnv(input.env, input.signingSecretName) === undefined) {
+    missing.push("configured webhook signing secret value");
+  }
+
+  if (input.adapters.metricRecorder === undefined) {
+    missing.push("metric recorder adapter");
+  }
+
+  if (input.adapters.auditSink === undefined) {
+    missing.push("webhook dispatch audit sink");
+  }
+
+  if (missing.length > 0) {
     throw new Error(
-      "OmniWA Webhook Dispatcher production profile requires production queue, webhook HTTP gateway, secret, and observability adapters before runtime composition is allowed.",
+      `OmniWA Webhook Dispatcher production profile is not composable. Missing: ${missing.join(", ")}.`,
     );
   }
 }
