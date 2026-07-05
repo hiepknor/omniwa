@@ -172,12 +172,13 @@ audit sink before composition is allowed. Runtime composition can satisfy the me
 observability requirement from JSONL sinks configured with
 `OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH` and
 `OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH`, and production composition rejects
-a shared metric/audit JSONL target path. `pnpm test:postgres` now includes a
-production-profile webhook dispatcher validation path that dispatches through PostgreSQL-backed
-repositories, the durable worker-job queue profile, fetch gateway, signing, and JSONL observability
-when `OMNIWA_POSTGRES_TEST_DATABASE_URL` is configured. Remaining hardening is focused on broader
-production E2E validation, target-environment JSONL writability/rotation validation, richer
-dead-letter operations, and any circuit-breaker policy required by receiver failure rates.
+a shared metric/audit JSONL target path or a configured JSONL target that cannot be opened for
+append. `pnpm test:postgres` now includes a production-profile webhook dispatcher validation path
+that dispatches through PostgreSQL-backed repositories, the durable worker-job queue profile, fetch
+gateway, signing, and JSONL observability when `OMNIWA_POSTGRES_TEST_DATABASE_URL` is configured.
+Remaining hardening is focused on broader production E2E validation, target-environment JSONL
+rotation validation, richer dead-letter operations, and any circuit-breaker policy required by
+receiver failure rates.
 
 ## Planned Increments
 

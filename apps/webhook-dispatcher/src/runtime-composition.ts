@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { closeSync, mkdirSync, openSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 import { createApplicationPortFailure, type WebhookTransportPort } from "@omniwa/application";
 import type {
@@ -402,10 +403,40 @@ function assertWebhookDispatcherRuntimeProfileIsComposable(
     missing.push("distinct webhook dispatcher metric and audit JSONL paths");
   }
 
+  if (metricsJsonlPath !== undefined) {
+    assertJsonLineTargetPathWritable(
+      metricsJsonlPath,
+      "writable webhook dispatcher metric JSONL path",
+      missing,
+    );
+  }
+
+  if (auditJsonlPath !== undefined) {
+    assertJsonLineTargetPathWritable(
+      auditJsonlPath,
+      "writable webhook dispatcher audit JSONL path",
+      missing,
+    );
+  }
+
   if (missing.length > 0) {
     throw new Error(
       `OmniWA Webhook Dispatcher production profile is not composable. Missing: ${missing.join(", ")}.`,
     );
+  }
+}
+
+function assertJsonLineTargetPathWritable(
+  filePath: string,
+  safeRequirementLabel: string,
+  missing: string[],
+): void {
+  try {
+    mkdirSync(dirname(filePath), { recursive: true });
+    const descriptor = openSync(filePath, "a");
+    closeSync(descriptor);
+  } catch {
+    missing.push(safeRequirementLabel);
   }
 }
 

@@ -46,7 +46,8 @@ Implemented capabilities:
   `OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH` when deployment code does not
   inject observability adapters directly. Production composition rejects a
   shared metric/audit JSONL target path so operational signals remain separable
-  in target environments.
+  in target environments, and fails fast when a configured JSONL target cannot
+  be opened for append.
 - `pnpm test:postgres` includes a production-profile dispatcher validation path
   that persists webhook delivery and worker-job state through PostgreSQL,
   dispatches through the durable worker-job queue profile and fetch gateway,
@@ -112,8 +113,8 @@ validation is still tracked separately in the production execution plan.
   recovery workflows.
 - Expand production end-to-end validation beyond the webhook dispatcher path and
   run it in the target deployment environment.
-- Validate JSONL observability sink writability/rotation in the target
-  deployment environment and replace it with richer exporters when P0-13
+- Validate JSONL observability sink rotation in the target deployment
+  environment and replace JSONL sinks with richer exporters when P0-13
   introduces them.
 - Add circuit-breaker behavior if production receiver failure rates require it.
 - Add full end-to-end tests once the production Application dispatcher,

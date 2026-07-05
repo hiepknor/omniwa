@@ -324,6 +324,30 @@ describe("Webhook Dispatcher runtime composition", () => {
     ).toThrow(/distinct webhook dispatcher metric and audit JSONL paths/u);
   });
 
+  it("rejects non-writable JSONL observability target paths for production composition", () => {
+    const directory = createTemporaryDirectory();
+
+    expect(() =>
+      createWebhookDispatcherRuntimeComposition(
+        {
+          OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "production",
+          OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
+          OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE: "durable-worker-job",
+          OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY: "fetch",
+          OMNIWA_WEBHOOK_SIGNING_SECRET_NAME: "OMNIWA_WEBHOOK_SIGNING_SECRET",
+          OMNIWA_WEBHOOK_SIGNING_SECRET: "webhook-production-runtime-secret",
+          OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+          OMNIWA_POSTGRES_AUTO_MIGRATE: "true",
+          OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH: directory,
+          OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH: join(directory, "audit.jsonl"),
+        },
+        {
+          webhookFetch: new RecordingWebhookFetch().fetch,
+        },
+      ),
+    ).toThrow(/writable webhook dispatcher metric JSONL path/u);
+  });
+
   it("supports PostgreSQL repository profile once webhook repositories are implemented", () => {
     expect(
       readWebhookDispatcherRepositoryProfile({
