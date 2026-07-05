@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import {
   createTargetEnvironmentEvidenceBundleTemplate,
   findUnsafeArtifactContent,
+  validateTargetEnvironmentAlertSloDryRunArtifact,
   validateTargetEnvironmentEvidenceBundleArtifact,
   validateTargetEnvironmentLoadArtifact,
   validateTargetEnvironmentSmokeArtifact,
@@ -69,6 +70,22 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
     findings,
   });
 
+  await attachOptionalArtifact({
+    projectRoot,
+    bundle,
+    kind: "alert_slo_dry_run",
+    artifactKey: "alertSloDryRun",
+    artifactPath:
+      options.alertSloDryRunReportPath ??
+      process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH,
+    artifactRef:
+      options.alertSloDryRunArtifactRef ??
+      process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_ARTIFACT_REF ??
+      "target-env-alert-slo-dry-run-report",
+    validator: validateTargetEnvironmentAlertSloDryRunArtifact,
+    findings,
+  });
+
   if (!validateTargetEnvironmentEvidenceBundleArtifact(bundle)) {
     findings.push(createBundleFinding("target_environment_bundle_generated_invalid_schema"));
   }
@@ -111,6 +128,7 @@ async function attachOptionalArtifact({
   projectRoot,
   bundle,
   kind,
+  artifactKey = kind,
   artifactPath,
   artifactRef,
   validator,
@@ -144,7 +162,7 @@ async function attachOptionalArtifact({
   }
 
   if (!findings.some((finding) => finding.severity === "blocker")) {
-    bundle.artifacts[kind] = {
+    bundle.artifacts[artifactKey] = {
       artifactRef,
       status: artifact.status,
       summary: artifact,

@@ -275,10 +275,15 @@ executed by the default local quality gate. Operators can set
 `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` to persist the sanitized load summary as target-environment
 review evidence, but sustained SLO observation and external dependency capacity proof remain
 required before a `PRODUCTION_READY` claim.
+It also validates an optional sanitized alert/SLO dry-run artifact through
+`OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`, covering dashboard access checks, alert-route
+dry-runs, and SLO window/error-budget policy checks without storing dashboard URLs, notification
+destinations, raw IDs, JIDs, message text, provider payloads, API keys, or secrets.
 It also provides the optional `pnpm target-env:bundle` command for creating a sanitized
 operator-maintained evidence bundle from the checked-in `NOT_PROVEN` template and any already
-sanitized smoke/load summaries. The generated bundle remains non-proving evidence until an operator
-updates the proof states and component statuses with target-environment evidence.
+sanitized smoke, load, and alert/SLO dry-run summaries. The generated bundle remains non-proving
+evidence until an operator updates the proof states and component statuses with target-environment
+evidence.
 When that bundle is supplied back to `pnpm target-env:check`, the gate cross-checks it against
 `TARGET_ENVIRONMENT_VALIDATION.md` so review state and artifact state cannot drift.
 The required component set includes `Background Runtime`, matching the production compose service

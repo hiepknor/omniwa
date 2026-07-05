@@ -27,6 +27,11 @@ type GeneratedBundle = Readonly<{
       status?: string;
       summary?: Readonly<Record<string, unknown>>;
     }>;
+    alertSloDryRun: Readonly<{
+      artifactRef: string;
+      status?: string;
+      summary?: Readonly<Record<string, unknown>>;
+    }>;
   }>;
 }>;
 
@@ -74,21 +79,27 @@ describe("target environment evidence bundle generator", () => {
     }
   });
 
-  it("embeds validated smoke and load summaries without raw target details", async () => {
+  it("embeds validated smoke, load, and alert/SLO summaries without raw target details", async () => {
     const root = await createTempProject();
 
     try {
       await createTargetEnvironmentFixture(root, "NOT_PROVEN");
       await writeJson(join(root, "artifacts/target-env/smoke-report.json"), validSmokeArtifact());
       await writeJson(join(root, "artifacts/target-env/load-report.json"), validLoadArtifact());
+      await writeJson(
+        join(root, "artifacts/target-env/alert-slo-dry-run.json"),
+        validAlertSloDryRunArtifact(),
+      );
 
       const report = await createTargetEnvironmentEvidenceBundle({
         projectRoot: root,
         outputPath: "artifacts/target-env/evidence-bundle.json",
         smokeReportPath: "artifacts/target-env/smoke-report.json",
         loadReportPath: "artifacts/target-env/load-report.json",
+        alertSloDryRunReportPath: "artifacts/target-env/alert-slo-dry-run.json",
         smokeArtifactRef: "operator-smoke-artifact-ref",
         loadArtifactRef: "operator-load-artifact-ref",
+        alertSloDryRunArtifactRef: "operator-alert-slo-artifact-ref",
         checkedAtIso: "2026-07-05T00:00:00.000Z",
       });
 
@@ -101,6 +112,10 @@ describe("target environment evidence bundle generator", () => {
       });
       expect(bundle.artifacts.load).toMatchObject({
         artifactRef: "operator-load-artifact-ref",
+        status: "passed",
+      });
+      expect(bundle.artifacts.alertSloDryRun).toMatchObject({
+        artifactRef: "operator-alert-slo-artifact-ref",
         status: "passed",
       });
       expect(bundle.artifacts.smoke.summary).toMatchObject({
@@ -117,6 +132,14 @@ describe("target environment evidence bundle generator", () => {
           totalRequests: 60,
           successes: 60,
         },
+      });
+      expect(bundle.artifacts.alertSloDryRun.summary).toMatchObject({
+        dashboards: [
+          {
+            dashboardId: "api_runtime_overview",
+            accessible: true,
+          },
+        ],
       });
       expect(JSON.stringify(bundle)).not.toContain("x-api-key");
       expect(JSON.stringify(bundle)).not.toContain("@s.whatsapp.net");
@@ -270,6 +293,36 @@ function validLoadArtifact(): unknown {
           "200": 60,
         },
         safeErrorCodeCounts: {},
+      },
+    ],
+    findings: [],
+  };
+}
+
+function validAlertSloDryRunArtifact(): unknown {
+  return {
+    status: "passed",
+    checkedAtIso: "2026-07-05T00:00:00.000Z",
+    dashboards: [
+      {
+        dashboardId: "api_runtime_overview",
+        accessible: true,
+        panelCount: 5,
+      },
+    ],
+    alertRoutes: [
+      {
+        alertId: "api_availability_degraded",
+        routeChecked: true,
+        notificationDryRun: true,
+        receiverClass: "primary_oncall",
+      },
+    ],
+    sloWindows: [
+      {
+        area: "API availability",
+        windowChecked: true,
+        budgetPolicyChecked: true,
       },
     ],
     findings: [],

@@ -61,6 +61,9 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "target_environment_smoke_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_load_command_missing" }),
           expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_artifact_path_missing",
+          }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
@@ -307,6 +310,9 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "target_environment_smoke_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_load_command_missing" }),
           expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_artifact_path_missing",
+          }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
@@ -317,13 +323,17 @@ describe("target environment evidence gate", () => {
     }
   });
 
-  it("validates optional sanitized smoke, load, and evidence bundle artifacts when paths are provided", async () => {
+  it("validates optional sanitized smoke, load, alert/SLO, and evidence bundle artifacts when paths are provided", async () => {
     const root = await createTempProject();
 
     try {
       await createTargetEnvironmentFixture(root, "NOT_PROVEN");
       await writeJson(join(root, "artifacts/target-env/smoke-report.json"), validSmokeArtifact());
       await writeJson(join(root, "artifacts/target-env/load-report.json"), validLoadArtifact());
+      await writeJson(
+        join(root, "artifacts/target-env/alert-slo-dry-run.json"),
+        validAlertSloDryRunArtifact(),
+      );
       await writeJson(
         join(root, "artifacts/target-env/evidence-bundle.json"),
         validEvidenceBundleArtifact(),
@@ -334,6 +344,7 @@ describe("target environment evidence gate", () => {
         checkedAtEpochMilliseconds: 1_800_000_000_000,
         smokeReportPath: "artifacts/target-env/smoke-report.json",
         loadReportPath: "artifacts/target-env/load-report.json",
+        alertSloDryRunReportPath: "artifacts/target-env/alert-slo-dry-run.json",
         evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
       });
 
@@ -504,6 +515,35 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails safe when optional alert/SLO dry-run artifact schema is invalid", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/alert-slo-dry-run.json"), {
+        ...validAlertSloDryRunArtifact(),
+        dashboards: undefined,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        alertSloDryRunReportPath: "artifacts/target-env/alert-slo-dry-run.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails safe when optional artifacts contain unsafe deployment details", async () => {
     const root = await createTempProject();
 
@@ -531,6 +571,36 @@ describe("target environment evidence gate", () => {
       );
       expect(JSON.stringify(report)).not.toContain("target.example");
       expect(JSON.stringify(report)).not.toContain("local-dev-secret");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safe when optional alert/SLO dry-run artifact contains unsafe deployment details", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/alert-slo-dry-run.json"), {
+        ...validAlertSloDryRunArtifact(),
+        dashboardUrl: "https://target.example.invalid/dashboards/api",
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        alertSloDryRunReportPath: "artifacts/target-env/alert-slo-dry-run.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_artifact_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(report)).not.toContain("target.example");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -631,6 +701,7 @@ function targetEnvironmentReviewWithComponentStatus(
     "- `pnpm check`",
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",
@@ -671,6 +742,7 @@ function targetEnvironmentReviewWithoutComponent(
     "- `pnpm check`",
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",
@@ -743,6 +815,36 @@ function validLoadArtifact(): unknown {
   };
 }
 
+function validAlertSloDryRunArtifact(): unknown {
+  return {
+    status: "passed",
+    checkedAtIso: "2026-07-05T00:00:00.000Z",
+    dashboards: [
+      {
+        dashboardId: "api_runtime_overview",
+        accessible: true,
+        panelCount: 5,
+      },
+    ],
+    alertRoutes: [
+      {
+        alertId: "api_availability_degraded",
+        routeChecked: true,
+        notificationDryRun: true,
+        receiverClass: "primary_oncall",
+      },
+    ],
+    sloWindows: [
+      {
+        area: "API availability",
+        windowChecked: true,
+        budgetPolicyChecked: true,
+      },
+    ],
+    findings: [],
+  };
+}
+
 function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROVEN"): unknown {
   const proven = status === "PROVEN";
 
@@ -778,6 +880,10 @@ function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROV
       },
       load: {
         artifactRef: "load-report-reviewed",
+        status: "passed",
+      },
+      alertSloDryRun: {
+        artifactRef: "alert-slo-dry-run-reviewed",
         status: "passed",
       },
     },

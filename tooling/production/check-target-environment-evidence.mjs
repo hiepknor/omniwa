@@ -90,6 +90,12 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
   );
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
+    "alert_slo_dry_run",
+    options.alertSloDryRunReportPath ?? process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH,
+    findings,
+  );
+  await checkOptionalTargetEnvironmentArtifact(
+    projectRoot,
     "bundle",
     options.evidenceBundlePath ?? process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH,
     findings,
@@ -230,6 +236,12 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
 
   if (!content.includes("OMNIWA_TARGET_ENV_LOAD_REPORT_PATH")) {
     findings.push(createFinding("target_environment_load_artifact_path_missing", "blocker"));
+  }
+
+  if (!content.includes("OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH")) {
+    findings.push(
+      createFinding("target_environment_alert_slo_dry_run_artifact_path_missing", "blocker"),
+    );
   }
 
   if (!content.includes("OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH")) {
@@ -446,7 +458,9 @@ async function checkOptionalTargetEnvironmentArtifact(
       ? validateTargetEnvironmentSmokeArtifact(artifact)
       : artifactKind === "load"
         ? validateTargetEnvironmentLoadArtifact(artifact)
-        : validateTargetEnvironmentEvidenceBundleArtifact(artifact);
+        : artifactKind === "alert_slo_dry_run"
+          ? validateTargetEnvironmentAlertSloDryRunArtifact(artifact)
+          : validateTargetEnvironmentEvidenceBundleArtifact(artifact);
 
   if (!schemaValid) {
     findings.push(
@@ -490,6 +504,22 @@ export function validateTargetEnvironmentLoadArtifact(artifact) {
     isLoadSummaryArtifact(artifact.summary) &&
     Array.isArray(artifact.endpoints) &&
     artifact.endpoints.every(isLoadEndpointArtifact) &&
+    Array.isArray(artifact.findings) &&
+    artifact.findings.every(isFindingArtifact)
+  );
+}
+
+export function validateTargetEnvironmentAlertSloDryRunArtifact(artifact) {
+  return (
+    isRecord(artifact) &&
+    isArtifactStatus(artifact.status) &&
+    isNonEmptyString(artifact.checkedAtIso) &&
+    Array.isArray(artifact.dashboards) &&
+    artifact.dashboards.every(isDashboardDryRunArtifact) &&
+    Array.isArray(artifact.alertRoutes) &&
+    artifact.alertRoutes.every(isAlertRouteDryRunArtifact) &&
+    Array.isArray(artifact.sloWindows) &&
+    artifact.sloWindows.every(isSloWindowDryRunArtifact) &&
     Array.isArray(artifact.findings) &&
     artifact.findings.every(isFindingArtifact)
   );
@@ -549,6 +579,9 @@ export function createTargetEnvironmentEvidenceBundleTemplate() {
       }),
       load: Object.freeze({
         artifactRef: "operator-evidence-load-report-pending",
+      }),
+      alertSloDryRun: Object.freeze({
+        artifactRef: "operator-evidence-alert-slo-dry-run-pending",
       }),
     }),
     findings: Object.freeze([
@@ -610,6 +643,37 @@ function isLoadSummaryArtifact(value) {
   );
 }
 
+function isDashboardDryRunArtifact(value) {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.dashboardId) &&
+    typeof value.accessible === "boolean" &&
+    isNonNegativeInteger(value.panelCount) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isAlertRouteDryRunArtifact(value) {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.alertId) &&
+    typeof value.routeChecked === "boolean" &&
+    typeof value.notificationDryRun === "boolean" &&
+    (value.receiverClass === undefined || isNonEmptyString(value.receiverClass)) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isSloWindowDryRunArtifact(value) {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.area) &&
+    typeof value.windowChecked === "boolean" &&
+    typeof value.budgetPolicyChecked === "boolean" &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
 function isTargetEnvironmentProofStates(value) {
   return (
     isRecord(value) &&
@@ -660,7 +724,11 @@ function isTargetEnvironmentBundleArtifacts(value) {
   return (
     isRecord(value) &&
     isOptionalBundleArtifactRef(value.smoke, validateTargetEnvironmentSmokeArtifact) &&
-    isOptionalBundleArtifactRef(value.load, validateTargetEnvironmentLoadArtifact)
+    isOptionalBundleArtifactRef(value.load, validateTargetEnvironmentLoadArtifact) &&
+    isOptionalBundleArtifactRef(
+      value.alertSloDryRun,
+      validateTargetEnvironmentAlertSloDryRunArtifact,
+    )
   );
 }
 
@@ -958,6 +1026,7 @@ function fixtureReview(status) {
     "- `pnpm check`",
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",
