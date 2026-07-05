@@ -225,15 +225,27 @@ describe("DurableWorkerJobQueueProvider", () => {
 
   it("recovers interrupted reserved jobs into retry-visible state after restart", async () => {
     const workerJobs = new TestWorkerJobRepository();
-    const queue = new DurableWorkerJobQueueProvider({ workerJobRepository: workerJobs });
+    const clock = new ManualClock(1000);
+    const queue = new DurableWorkerJobQueueProvider({
+      workerJobRepository: workerJobs,
+      clock,
+      visibilityTimeoutMilliseconds: 500,
+    });
     const jobId = createJobId("durable-queue-job-recovery");
     const reservation = await enqueueAndReserve(queue, jobId);
     void reservation;
 
-    const restartedQueue = new DurableWorkerJobQueueProvider({ workerJobRepository: workerJobs });
+    const restartedQueue = new DurableWorkerJobQueueProvider({
+      workerJobRepository: workerJobs,
+      clock,
+      visibilityTimeoutMilliseconds: 500,
+    });
+    const unexpiredRecovery = await restartedQueue.recoverVisibleJobs();
+    clock.advance(500);
     const recovery = await restartedQueue.recoverVisibleJobs();
     const nextReservation = await restartedQueue.reserve("outbound_message", context);
 
+    expect(unexpiredRecovery).toEqual({ recovered: 0 });
     expect(recovery).toEqual({ recovered: 1 });
     expectOk(nextReservation);
     expect(nextReservation.value?.attempt).toBe(2);
@@ -400,6 +412,7 @@ class TestWorkerJobRepository implements WorkerJobRepositoryPort {
   async reserveNextVisibleWorkerJob(input: {
     workType: string;
     visibleAtEpochMilliseconds: number;
+    reservedVisibleAtEpochMilliseconds: number;
     reserve: (workerJob: WorkerJob) => WorkerJob;
   }): Promise<WorkerJob | undefined> {
     const candidate = [...this.records.values()].find(
@@ -417,9 +430,41 @@ class TestWorkerJobRepository implements WorkerJobRepositoryPort {
 
     const reserved = input.reserve(candidate);
     await this.save(reserved);
-    this.clearWorkerJobVisibleAt(reserved.id);
+    this.setWorkerJobVisibleAt(reserved.id, input.reservedVisibleAtEpochMilliseconds);
 
     return reserved;
+  }
+
+  async recoverExpiredWorkerJobLeases(input: {
+    workTypes: readonly string[];
+    visibleAtEpochMilliseconds: number;
+    recover: (workerJob: WorkerJob) => WorkerJob;
+  }): Promise<readonly WorkerJob[]> {
+    const recovered: WorkerJob[] = [];
+
+    for (const candidate of this.records.values()) {
+      if (
+        !input.workTypes.includes(candidate.workType) ||
+        (candidate.status !== "reserved" && candidate.status !== "running") ||
+        ((this.visibleAtByJobId.get(String(candidate.id)) ?? 0) >
+          input.visibleAtEpochMilliseconds)
+      ) {
+        continue;
+      }
+
+      const recoveredJob = input.recover(candidate);
+      await this.save(recoveredJob);
+
+      if (recoveredJob.status === "retrying") {
+        this.setWorkerJobVisibleAt(recoveredJob.id, input.visibleAtEpochMilliseconds);
+      } else {
+        this.clearWorkerJobVisibleAt(recoveredJob.id);
+      }
+
+      recovered.push(recoveredJob);
+    }
+
+    return Object.freeze(recovered);
   }
 
   recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): void {

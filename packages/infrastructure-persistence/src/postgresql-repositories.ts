@@ -1416,14 +1416,84 @@ export class PostgresqlWorkerJobRepository
         `UPDATE omniwa_worker_jobs
          SET status = $1,
              aggregate = $2::jsonb,
-             queue_visible_at_epoch_ms = NULL,
+             queue_visible_at_epoch_ms = $3,
              updated_at = now()
-         WHERE id = $3`,
-        [reserved.status, JSON.stringify(reserved), keyOf(reserved.id)],
+         WHERE id = $4`,
+        [
+          reserved.status,
+          JSON.stringify(reserved),
+          input.reservedVisibleAtEpochMilliseconds,
+          keyOf(reserved.id),
+        ],
       );
       await client.query("COMMIT");
 
       return reserved;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async recoverExpiredWorkerJobLeases(
+    input: PostgresqlWorkerJobLeaseRecoveryInput,
+  ): Promise<readonly WorkerJob[]> {
+    await this.ensureReady();
+
+    if (this.transactionConnection === undefined) {
+      throw new TypeError("PostgreSQL WorkerJob lease recovery requires a transaction connection.");
+    }
+
+    const client = await this.transactionConnection.connect();
+    const recovered: WorkerJob[] = [];
+
+    try {
+      await client.query("BEGIN");
+
+      const candidates = await client.query<WorkerJobRow>(
+        `SELECT aggregate
+         FROM omniwa_worker_jobs
+         WHERE work_type = ANY($1::text[])
+           AND status IN ($2, $3)
+           AND COALESCE(queue_visible_at_epoch_ms, 0) <= $4
+         ORDER BY id ASC
+         FOR UPDATE SKIP LOCKED`,
+        [
+          [...input.workTypes],
+          createJobStatus("reserved"),
+          createJobStatus("running"),
+          input.visibleAtEpochMilliseconds,
+        ],
+      );
+
+      for (const row of candidates.rows) {
+        const workerJob = decodeWorkerJobAggregate(row.aggregate);
+        const recoveredWorkerJob = input.recover(workerJob);
+        const visibleAt =
+          recoveredWorkerJob.status === "retrying" ? input.visibleAtEpochMilliseconds : null;
+
+        await client.query(
+          `UPDATE omniwa_worker_jobs
+           SET status = $1,
+               aggregate = $2::jsonb,
+               queue_visible_at_epoch_ms = $3,
+               updated_at = now()
+           WHERE id = $4`,
+          [
+            recoveredWorkerJob.status,
+            JSON.stringify(recoveredWorkerJob),
+            visibleAt,
+            keyOf(recoveredWorkerJob.id),
+          ],
+        );
+        recovered.push(recoveredWorkerJob);
+      }
+
+      await client.query("COMMIT");
+
+      return Object.freeze(recovered);
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -1476,7 +1546,14 @@ type WorkerJobVisibilityRow = QueryResultRow & {
 type PostgresqlWorkerJobReserveInput = Readonly<{
   workType: string;
   visibleAtEpochMilliseconds: number;
+  reservedVisibleAtEpochMilliseconds: number;
   reserve(workerJob: WorkerJob): WorkerJob;
+}>;
+
+type PostgresqlWorkerJobLeaseRecoveryInput = Readonly<{
+  workTypes: readonly string[];
+  visibleAtEpochMilliseconds: number;
+  recover(workerJob: WorkerJob): WorkerJob;
 }>;
 
 type MessageRow = QueryResultRow & {
