@@ -14,6 +14,7 @@ import type {
 } from "@omniwa/domain";
 import { createWebhookDeliveryId } from "@omniwa/domain";
 import {
+  RepositoryWebhookDeliveryWorkHandler,
   WebhookDispatcherRuntime,
   WebhookTransportDeliveryHandler,
   type WebhookDeliveryEnvelopeResolver,
@@ -37,6 +38,7 @@ export type WebhookDispatcherAppOptions = Readonly<{
 
 export type WebhookDispatcherRuntimeFactoryOptions = Readonly<{
   queueProvider: QueueProviderPort;
+  webhookDeliveryRepository: WebhookDeliveryRepositoryPort;
   transport: WebhookTransportPort;
   envelopeResolver: WebhookDeliveryEnvelopeResolver;
   defaultRetryDelayMilliseconds?: number;
@@ -129,12 +131,17 @@ export class RepositoryWebhookDeliveryEnvelopeResolver implements WebhookDeliver
 export function createWebhookDispatcherRuntime(
   options: WebhookDispatcherRuntimeFactoryOptions,
 ): WebhookDispatcherRuntime {
+  const transportHandler = new WebhookTransportDeliveryHandler({
+    envelopeResolver: options.envelopeResolver,
+    transport: options.transport,
+    ...optional("retryDelayMilliseconds", options.retryDelayMilliseconds),
+  });
+
   return new WebhookDispatcherRuntime({
     queueProvider: options.queueProvider,
-    handler: new WebhookTransportDeliveryHandler({
-      envelopeResolver: options.envelopeResolver,
-      transport: options.transport,
-      ...optional("retryDelayMilliseconds", options.retryDelayMilliseconds),
+    handler: new RepositoryWebhookDeliveryWorkHandler({
+      webhookDeliveryRepository: options.webhookDeliveryRepository,
+      innerHandler: transportHandler,
     }),
     ...optional("defaultRetryDelayMilliseconds", options.defaultRetryDelayMilliseconds),
     ...optional("metricRecorder", options.metricRecorder),

@@ -99,6 +99,7 @@ describe("WebhookDispatcherApp", () => {
     const app = new WebhookDispatcherApp({
       runtime: createWebhookDispatcherRuntime({
         queueProvider: recoveredQueue,
+        webhookDeliveryRepository: restartedRepositories.webhookDeliveryRepository,
         envelopeResolver: createResolver(restartedRepositories),
         transport: createSignedTransport(gateway),
         retryDelayMilliseconds: 0,
@@ -133,6 +134,10 @@ describe("WebhookDispatcherApp", () => {
       await restartedRepositories.workerJobRepository.load(createJobId(String(deliveryId))),
     ).toMatchObject({
       status: "completed",
+    });
+    expect(await restartedRepositories.webhookDeliveryRepository.load(deliveryId)).toMatchObject({
+      status: "delivered",
+      attemptNumber: 1,
     });
     expect(telemetry.metrics).toEqual([
       expect.objectContaining({
@@ -175,6 +180,7 @@ describe("WebhookDispatcherApp", () => {
     const app = new WebhookDispatcherApp({
       runtime: createWebhookDispatcherRuntime({
         queueProvider: queue,
+        webhookDeliveryRepository: repositories.webhookDeliveryRepository,
         envelopeResolver: createResolver(repositories),
         transport: createSignedTransport(gateway),
         retryDelayMilliseconds: 0,
@@ -183,12 +189,19 @@ describe("WebhookDispatcherApp", () => {
     });
 
     const retry = await app.runOnce();
-    const deadLetter = await app.runOnce();
 
     expect(retry).toMatchObject({
       outcome: "retry_scheduled",
       reasonCode: "receiver_retryable_failure",
     });
+    expect(await repositories.webhookDeliveryRepository.load(deliveryId)).toMatchObject({
+      status: "retrying",
+      attemptNumber: 2,
+      failureCategory: "webhook",
+    });
+
+    const deadLetter = await app.runOnce();
+
     expect(deadLetter).toMatchObject({
       outcome: "dead_lettered",
       reasonCode: "receiver_subscription_missing",
@@ -199,6 +212,13 @@ describe("WebhookDispatcherApp", () => {
       status: "dead",
       deadLetterReason: expect.objectContaining({
         code: "receiver_subscription_missing",
+      }),
+    });
+    expect(await repositories.webhookDeliveryRepository.load(deliveryId)).toMatchObject({
+      status: "dead_letter",
+      deadLetterReason: expect.objectContaining({
+        code: "receiver_subscription_missing",
+        category: "webhook",
       }),
     });
   });

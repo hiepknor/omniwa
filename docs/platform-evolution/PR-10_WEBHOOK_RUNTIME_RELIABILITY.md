@@ -24,10 +24,14 @@ Implemented capabilities:
   `OMNIWA_WEBHOOK_SIGNING_SECRET_NAME` so outbound deliveries are signed.
 - `POST /v1/webhook-deliveries/{deliveryId}/retry` queues a controlled retry for
   eligible pending/retrying deliveries through the Application queue boundary.
+- Dispatcher processing persists `WebhookDelivery` aggregate status for
+  delivered, retrying, and dead-letter outcomes instead of relying only on
+  `WorkerJob` state.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
-- Dispatcher tests cover retry followed by terminal dead-letter handling.
+- Dispatcher tests cover retry followed by terminal dead-letter handling and
+  the corresponding persisted `WebhookDelivery` status transitions.
 
 ## Runtime Boundary
 

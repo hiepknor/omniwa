@@ -79,6 +79,7 @@ export function createWebhookDispatcherRuntimeComposition(
   });
   const runtime = createWebhookDispatcherRuntime({
     queueProvider,
+    webhookDeliveryRepository: repositories.webhookDeliveryRepository,
     envelopeResolver: new RepositoryWebhookDeliveryEnvelopeResolver({
       webhookDeliveryRepository: repositories.webhookDeliveryRepository,
       webhookSubscriptionRepository: repositories.webhookSubscriptionRepository,
