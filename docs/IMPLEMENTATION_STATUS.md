@@ -214,6 +214,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   evidence. The gate verifies the performance readiness checker, delegates to `pnpm load:check`, and
   requires the load baseline and production cut checker tests. It does not replace
   target-environment load tests, sustained SLO observation, or external dependency capacity testing.
+- N11.7 production cut validation now requires explicit `Target Environment Proven`,
+  `Production Load Proven`, and `SLO Evidence Proven` states in the production cut review. The
+  current values remain `NO`, so `PRODUCTION_READY` cannot be claimed until target-environment
+  runtime startup, production-like load, and SLO/alert evidence are recorded.
 
 ## Update Rule
 

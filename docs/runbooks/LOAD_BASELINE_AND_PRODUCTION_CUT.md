@@ -73,6 +73,11 @@ It verifies:
 - `docs/reviews/PRODUCTION_CUT_REVIEW.md` exists,
 - final readiness decision is explicit,
 - Production Ready state is explicit,
+- target environment proof state is explicit,
+- production load proof state is explicit,
+- SLO evidence proof state is explicit,
+- `PRODUCTION_READY` requires target environment, production load, and SLO
+  evidence to be proven,
 - load baseline summary exists,
 - known constraints are documented,
 - `performance:check` is wired through the root quality gate,

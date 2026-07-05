@@ -52,6 +52,9 @@ describe("production cut gate check", () => {
           expect.objectContaining({ code: "production_cut_decision_missing_or_invalid" }),
           expect.objectContaining({ code: "production_ready_state_missing" }),
           expect.objectContaining({ code: "enterprise_ready_state_missing" }),
+          expect.objectContaining({ code: "target_environment_proof_state_missing" }),
+          expect.objectContaining({ code: "production_load_proof_state_missing" }),
+          expect.objectContaining({ code: "slo_evidence_proof_state_missing" }),
           expect.objectContaining({ code: "load_baseline_summary_missing" }),
           expect.objectContaining({ code: "gate_2_review_missing" }),
           expect.objectContaining({ code: "known_constraints_missing" }),
@@ -124,6 +127,61 @@ describe("production cut gate check", () => {
       expect(report.findings).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ code: "production_ready_state_inconsistent" }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when production ready is claimed without target-environment evidence", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createProductionCutFixture(root);
+      await writeText(
+        join(root, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
+        [
+          "# Production Cut Review",
+          "",
+          "Final readiness decision: PRODUCTION_READY",
+          "",
+          "Production Ready: YES",
+          "",
+          "Enterprise Ready: NO",
+          "",
+          "Target Environment Proven: NO",
+          "",
+          "Production Load Proven: NO",
+          "",
+          "SLO Evidence Proven: NO",
+          "",
+          "## Load baseline",
+          "",
+          "Recorded.",
+          "",
+          "## Gate 2 Review",
+          "",
+          "Recorded.",
+          "",
+          "## Known Constraints",
+          "",
+          "Recorded.",
+          "",
+        ].join("\n"),
+      );
+
+      const report = await evaluateProductionCutReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "production_ready_target_environment_not_proven" }),
+          expect.objectContaining({ code: "production_ready_load_not_proven" }),
+          expect.objectContaining({ code: "production_ready_slo_evidence_not_proven" }),
         ]),
       );
     } finally {

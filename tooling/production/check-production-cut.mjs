@@ -66,7 +66,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
 
   await writeText(
     join(projectRoot, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
-    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\n## Load baseline\n\nRecorded.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
+    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
   );
 }
 
@@ -107,11 +107,40 @@ async function checkProductionCutReview(projectRoot, findings) {
     findings.push(createFinding("enterprise_ready_state_missing", "blocker"));
   }
 
+  const targetEnvironmentProven = content.match(/Target Environment Proven:\s*(YES|NO)/u)?.[1];
+  if (targetEnvironmentProven === undefined) {
+    findings.push(createFinding("target_environment_proof_state_missing", "blocker"));
+  }
+
+  const productionLoadProven = content.match(/Production Load Proven:\s*(YES|NO)/u)?.[1];
+  if (productionLoadProven === undefined) {
+    findings.push(createFinding("production_load_proof_state_missing", "blocker"));
+  }
+
+  const sloEvidenceProven = content.match(/SLO Evidence Proven:\s*(YES|NO)/u)?.[1];
+  if (sloEvidenceProven === undefined) {
+    findings.push(createFinding("slo_evidence_proof_state_missing", "blocker"));
+  }
+
   if (decision !== undefined && productionReady !== undefined) {
     const expectedProductionReady = decision === "PRODUCTION_READY" ? "YES" : "NO";
 
     if (productionReady !== expectedProductionReady) {
       findings.push(createFinding("production_ready_state_inconsistent", "blocker"));
+    }
+  }
+
+  if (decision === "PRODUCTION_READY") {
+    if (targetEnvironmentProven !== "YES") {
+      findings.push(createFinding("production_ready_target_environment_not_proven", "blocker"));
+    }
+
+    if (productionLoadProven !== "YES") {
+      findings.push(createFinding("production_ready_load_not_proven", "blocker"));
+    }
+
+    if (sloEvidenceProven !== "YES") {
+      findings.push(createFinding("production_ready_slo_evidence_not_proven", "blocker"));
     }
   }
 

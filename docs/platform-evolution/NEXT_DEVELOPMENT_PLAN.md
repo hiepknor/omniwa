@@ -207,6 +207,10 @@ The performance validation slice adds a dedicated `pnpm performance:check` gate 
 load baseline and production-cut load evidence. It keeps the deterministic performance floor in the
 root quality gate while leaving target-environment load tests and sustained SLO observation as
 production-readiness evidence.
+The production-cut validation slice now requires explicit target-environment, production-load, and
+SLO-evidence proof states. The current review keeps all three as `NO`, which preserves
+`CONDITIONALLY_READY` and prevents a future `PRODUCTION_READY` claim until the target environment is
+actually exercised.
 
 ## Planned Increments
 

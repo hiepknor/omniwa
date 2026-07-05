@@ -12,6 +12,12 @@ Production Ready: `NO`.
 
 Enterprise Ready: `NO`.
 
+Target Environment Proven: `NO`.
+
+Production Load Proven: `NO`.
+
+SLO Evidence Proven: `NO`.
+
 ## Scope
 
 PR-19 reviews the current repository state after PR-17 public DTO stabilization
@@ -47,16 +53,16 @@ platform.
 
 ## Gate 2 Condition Review
 
-| Gate 2 Condition                                                  | Status  | Reason                                                                                                                                      |
-| ----------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| All P0 blockers are closed                                        | FAIL    | The production profile still fails fast until production persistence, secret, queue, and observability adapters are supplied and exercised. |
-| `P1-01` typed public DTOs                                         | PASS    | Public data is mapped through resource DTO allowlists and OpenAPI typed union schemas.                                                      |
-| `P1-02` runtime pagination/filter/search/sort                     | PASS    | Collection runtime semantics now operate on sanitized public DTO fields and scoped opaque cursors.                                          |
-| `P1-03` OpenAPI diff gate                                         | PASS    | Compatibility and deprecation metadata checks are active.                                                                                   |
-| E2E/security/load/release/architecture/OpenAPI/SDK/recovery gates | PASS    | `pnpm check` passes locally.                                                                                                                |
-| SLOs, dashboards, alerts, runbooks, incident response             | PARTIAL | Runbooks and alert definitions exist; deployed dashboards, sustained SLO observation, and incident dry-run evidence are not proven.         |
-| No critical security or reliability findings remain open          | FAIL    | Production adapter/runtime evidence remains an explicit reliability blocker.                                                                |
-| Public contract compatibility and deprecation policy              | PASS    | Compatibility policy and OpenAPI baseline are enforced locally.                                                                             |
+| Gate 2 Condition                                                  | Status  | Reason                                                                                                                                       |
+| ----------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| All P0 blockers are closed                                        | FAIL    | API production composition can start when required adapters are supplied, but target-environment proof across all runtimes is still missing. |
+| `P1-01` typed public DTOs                                         | PASS    | Public data is mapped through resource DTO allowlists and OpenAPI typed union schemas.                                                       |
+| `P1-02` runtime pagination/filter/search/sort                     | PASS    | Collection runtime semantics now operate on sanitized public DTO fields and scoped opaque cursors.                                           |
+| `P1-03` OpenAPI diff gate                                         | PASS    | Compatibility and deprecation metadata checks are active.                                                                                    |
+| E2E/security/load/release/architecture/OpenAPI/SDK/recovery gates | PASS    | `pnpm check` passes locally.                                                                                                                 |
+| SLOs, dashboards, alerts, runbooks, incident response             | PARTIAL | Runbooks and alert definitions exist; deployed dashboards, sustained SLO observation, and incident dry-run evidence are not proven.          |
+| No critical security or reliability findings remain open          | FAIL    | Production adapter/runtime evidence remains an explicit reliability blocker.                                                                 |
+| Public contract compatibility and deprecation policy              | PASS    | Compatibility policy and OpenAPI baseline are enforced locally.                                                                              |
 
 ## Production Gate Changes
 
@@ -65,6 +71,10 @@ The production cut gate now requires:
 - explicit final readiness decision,
 - explicit `Production Ready: YES|NO`,
 - explicit `Enterprise Ready: YES|NO`,
+- explicit `Target Environment Proven: YES|NO`,
+- explicit `Production Load Proven: YES|NO`,
+- explicit `SLO Evidence Proven: YES|NO`,
+- `PRODUCTION_READY` cannot be claimed until the target environment, production load, and SLO evidence fields are all `YES`,
 - consistency between final readiness decision and production-ready state,
 - load baseline evidence,
 - Gate 2 review evidence,
@@ -77,7 +87,7 @@ recording `Production Ready: NO`, or vice versa.
 
 | Blocker                                               | Required Next Evidence                                                                                                                                 |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Production profile guardrail remains active           | Production runtime composition starts with approved production adapters and fails only on invalid config, not missing implementation.                  |
+| Target-environment startup is not proven              | API, worker, provider runtime, webhook dispatcher, persistence, queue, secrets, and observability start together with production config.               |
 | Production adapters are not target-environment proven | PostgreSQL, queue, secret provider, provider runtime, webhook dispatcher, and observability exporters run together in the intended target environment. |
 | Load baseline is local/in-process                     | Production-like load test includes network, persistence, queue, webhook, and provider-path bottleneck evidence.                                        |
 | Operational dashboard/SLO evidence is incomplete      | SLO dashboards and alert routes are exercised with at least one incident/recovery dry run.                                                             |
