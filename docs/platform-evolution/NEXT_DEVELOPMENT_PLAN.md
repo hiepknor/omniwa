@@ -213,6 +213,9 @@ The first EventLog migration slice adds async EventLog/outbox port types plus a 
 compatibility adapter for the existing in-memory and durable JSON stores. This preserves local/dev
 behavior while later slices add PostgreSQL EventLog storage, production runtime wiring, and backlog
 metrics.
+The follow-up EventLog migration slice makes the generic outbox consumer async-compatible while
+retaining sync-store compatibility, so the same consumer can drain future PostgreSQL-backed outbox
+records without introducing a parallel runtime loop.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving

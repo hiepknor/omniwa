@@ -20,6 +20,7 @@ import {
   type EventOutboxPublisher,
 } from "./event-outbox-consumer.js";
 import { createInMemoryEventLogStore } from "./event-log-store.js";
+import { createAsyncEventLogPortFromSync } from "./async-event-log-port-adapter.js";
 
 const timestamp = "2026-07-05T00:00:00.000Z";
 const context: ApplicationPortContext = Object.freeze({
@@ -180,6 +181,39 @@ describe("EventOutboxConsumer", () => {
     expect(publisher.publishedEventIds()).toEqual(["evt_outbox_1", "evt_outbox_2"]);
   });
 
+  it("drains through the async EventLog outbox port boundary", async () => {
+    const syncEventLog = createInMemoryEventLogStore();
+    syncEventLog.appendEvent(event("evt_outbox_async_1", "message.accepted.v1"));
+    const eventLog = createAsyncEventLogPortFromSync(syncEventLog);
+    const publisher = new AsyncRecordingPublisher();
+    const consumer = new EventOutboxConsumer({
+      eventLog,
+      publisher,
+      clock: fixedClock,
+    });
+
+    const result = await consumer.drainPending(context);
+    const pending = await eventLog.listOutbox({ status: "pending" });
+    const published = await eventLog.listOutbox({ status: "published" });
+
+    expect(result.ok ? result.value : undefined).toEqual({
+      attempted: 1,
+      published: [
+        {
+          eventId: "evt_outbox_async_1",
+          cursor: "eventlog:1",
+          publishedAt: timestamp,
+        },
+      ],
+      failed: [],
+    });
+    expect(publisher.publishedEventIds()).toEqual(["evt_outbox_async_1"]);
+    expect(pending.ok ? pending.value : []).toEqual([]);
+    expect(published.ok ? published.value.map((record) => record.eventId) : []).toEqual([
+      "evt_outbox_async_1",
+    ]);
+  });
+
   it("provides a no-op publisher for local acknowledgement loops", async () => {
     const eventLog = createInMemoryEventLogStore();
     eventLog.appendEvent(event("evt_outbox_noop", "message.accepted.v1"));
@@ -230,6 +264,24 @@ class FailingPublisher implements EventOutboxPublisher {
         },
       }),
     );
+  }
+}
+
+class AsyncRecordingPublisher implements EventOutboxPublisher {
+  private readonly records: EventOutboxRecord[] = [];
+
+  async publish(
+    record: EventOutboxRecord,
+  ): Promise<ApplicationPortResult<{ eventId: string; accepted: true }>> {
+    this.records.push(record);
+    return ok({
+      eventId: record.eventId,
+      accepted: true,
+    });
+  }
+
+  publishedEventIds(): readonly string[] {
+    return Object.freeze(this.records.map((record) => record.eventId));
   }
 }
 

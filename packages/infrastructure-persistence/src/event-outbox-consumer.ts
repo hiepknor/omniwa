@@ -3,6 +3,7 @@ import {
   type ApplicationPortContext,
   type ApplicationPortFailure,
   type ApplicationPortResult,
+  type AsyncEventOutboxPort,
   type EventOutboxPort,
   type EventOutboxRecord,
 } from "@omniwa/application";
@@ -24,7 +25,7 @@ export interface EventOutboxPublisher {
 }
 
 export type EventOutboxConsumerOptions = Readonly<{
-  eventLog: EventOutboxPort;
+  eventLog: EventOutboxPort | AsyncEventOutboxPort;
   publisher: EventOutboxPublisher;
   clock?: Clock;
   batchSize?: number;
@@ -52,7 +53,7 @@ export type EventOutboxConsumerRunResult = Readonly<{
 const defaultBatchSize = 100;
 
 export class EventOutboxConsumer {
-  private readonly eventLog: EventOutboxPort;
+  private readonly eventLog: EventOutboxPort | AsyncEventOutboxPort;
   private readonly publisher: EventOutboxPublisher;
   private readonly clock: Clock;
   private readonly batchSize: number;
@@ -67,7 +68,7 @@ export class EventOutboxConsumer {
   async drainPending(
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<EventOutboxConsumerRunResult>> {
-    const pending = this.eventLog.listOutbox({ status: "pending" });
+    const pending = await this.eventLog.listOutbox({ status: "pending" });
 
     if (!pending.ok) {
       return err(pending.error);
@@ -86,7 +87,7 @@ export class EventOutboxConsumer {
       }
 
       const publishedAt = publishResult.value.publishedAt ?? this.clock.isoNow();
-      const markResult = this.eventLog.markOutboxPublished(record.eventId, publishedAt);
+      const markResult = await this.eventLog.markOutboxPublished(record.eventId, publishedAt);
 
       if (!markResult.ok) {
         failed.push(failedRecord(record, markResult.error));

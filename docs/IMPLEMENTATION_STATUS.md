@@ -122,6 +122,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   now exposes async EventLog/outbox port types, and infrastructure provides a sync-to-async
   compatibility adapter so existing in-memory and durable JSON stores can keep local/dev behavior
   while PostgreSQL EventLog work proceeds behind the new async boundary.
+- The generic `EventOutboxConsumer` can now drain through either the existing synchronous outbox port
+  or the new async outbox port, so future PostgreSQL EventLog/outbox stores can plug into the same
+  consumer without a second drain loop.
 
 ## Known Gaps
 
@@ -136,9 +139,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `OMNIWA_API_QUEUE_PROFILE=durable-worker-job`, and production API runtime validation fails closed
   unless that queue profile is selected. This closes the API enqueue-side queue-profile gap, while
   cross-process worker/provider runtime proof remains target-environment validation work.
-- N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic outbox consumer and
-  async EventLog compatibility boundary exist, but the PostgreSQL EventLog backend, production
-  runtime wiring, and EventLog backlog metrics remain open hardening work.
+- N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic async-compatible outbox
+  consumer and async EventLog compatibility boundary exist, but the PostgreSQL EventLog backend,
+  production runtime wiring, and EventLog backlog metrics remain open hardening work.
 - Production Docker template coverage is broader than the API service now, but it is still a
   deployment template and controlled-pilot profile. Target-environment startup, production load, SLO
   evidence, worker/provider true production profiles, and the provider-runtime IPC/shared socket
