@@ -108,6 +108,9 @@ validation is still tracked separately in the production execution plan.
 
 ## Remaining Work
 
+These items are no longer blockers for the N11.6 webhook reliability closure; they are tracked by
+N11.7, P0-13, or P1 follow-up work as noted.
+
 - Add richer operational management for webhook dead letters, such as filtered
   operator dashboards, remediation notes, and higher-level campaign-style
   recovery workflows.

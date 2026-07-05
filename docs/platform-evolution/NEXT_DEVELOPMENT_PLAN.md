@@ -113,8 +113,8 @@ Rollback:
 | N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Done    |
 | N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Done    |
 | N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Done    |
-| N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Current |
-| N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Planned |
+| N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Done    |
+| N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Current |
 
 N11.3 is done with durable local and PostgreSQL provider-runtime lease guards, active lease renewal
 during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`. N11.4
@@ -150,8 +150,8 @@ enabled. The Redis adapter remains governed by accepted
 `docs/adr/ADR-0008-redis-rate-limit-client.md`.
 Production external secret-provider selection and final production-profile validation remain later
 hardening work.
-N11.6 is current. The dispatcher runtime already has durable restart recovery, retry/dead-letter,
-HMAC/timestamp signing, replay verification, metrics, and audit evidence. The current slice adds a
+N11.6 is done for the current production-hardening scope. The dispatcher runtime has durable restart recovery, retry/dead-letter,
+HMAC/timestamp signing, replay verification, metrics, and audit evidence. The completed slice adds a
 real `FetchWebhookHttpGateway` foundation with safe timeout/network failure mapping and opt-in local
 dispatcher runtime wiring through `OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch` plus
 `OMNIWA_WEBHOOK_SIGNING_SECRET_NAME`. Controlled
@@ -176,9 +176,10 @@ a shared metric/audit JSONL target path or a configured JSONL target that cannot
 append. `pnpm test:postgres` now includes a production-profile webhook dispatcher validation path
 that dispatches through PostgreSQL-backed repositories, the durable worker-job queue profile, fetch
 gateway, signing, and JSONL observability when `OMNIWA_POSTGRES_TEST_DATABASE_URL` is configured.
-Remaining hardening is focused on broader production E2E validation, target-environment JSONL
-rotation validation, richer dead-letter operations, and any circuit-breaker policy required by
-receiver failure rates.
+Remaining N11 hardening now moves to N11.7 production validation gates. Richer dead-letter
+workflows, target-environment JSONL rotation, richer exporters, and any future receiver-failure
+circuit breaker stay as follow-up capabilities unless target-environment evidence makes them
+production blockers.
 
 ## Planned Increments
 
