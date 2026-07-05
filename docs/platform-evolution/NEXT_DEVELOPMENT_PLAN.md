@@ -217,7 +217,9 @@ source. The current status is `NOT_PROVEN`; future production promotion must cha
 real runtime, load, and SLO evidence.
 It also provides the optional `pnpm target-env:smoke` command for deployed API smoke evidence against
 `/v1/health`, `/v1/health/readiness`, and `/v1/instances`; the command is operator-run only and is
-not executed by the default local quality gate.
+not executed by the default local quality gate. Operators can set
+`OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` to persist the sanitized smoke summary as target-environment
+review evidence.
 
 ## Planned Increments
 

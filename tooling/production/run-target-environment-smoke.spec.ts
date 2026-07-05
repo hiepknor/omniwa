@@ -1,6 +1,12 @@
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { runTargetEnvironmentSmoke } from "./run-target-environment-smoke.mjs";
+import {
+  runTargetEnvironmentSmoke,
+  writeTargetEnvironmentSmokeReport,
+} from "./run-target-environment-smoke.mjs";
 
 describe("target environment smoke runner", () => {
   it("checks approved endpoints with API key auth without exposing secrets", async () => {
@@ -122,5 +128,60 @@ describe("target environment smoke runner", () => {
     expect(JSON.stringify(report)).not.toContain("target-secret-api-key");
     expect(JSON.stringify(report)).not.toContain("api.prod.example");
     expect(JSON.stringify(report)).not.toContain("ECONNREFUSED");
+  });
+
+  it("writes a sanitized smoke report artifact when a report path is provided", async () => {
+    const root = await mkdtemp(join(tmpdir(), "omniwa-target-smoke-report-"));
+
+    try {
+      const report = await runTargetEnvironmentSmoke({
+        baseUrl: "https://api.prod.example",
+        apiKey: "target-secret-api-key",
+        checkedAtIso: "2026-07-05T00:00:00.000Z",
+        endpoints: [{ method: "GET", path: "/v1/instances" }],
+        fetch: async () => ({ ok: false, status: 503, body: "secret downstream body" }),
+      });
+      const reportPath = join(root, "nested", "smoke-report.json");
+
+      await expect(writeTargetEnvironmentSmokeReport(report, reportPath)).resolves.toEqual({
+        ok: true,
+      });
+
+      const artifact = await readFile(reportPath, "utf8");
+      expect(JSON.parse(artifact)).toEqual(report);
+      expect(artifact).not.toContain("target-secret-api-key");
+      expect(artifact).not.toContain("api.prod.example");
+      expect(artifact).not.toContain("secret downstream body");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns a safe write failure when the report path cannot be written", async () => {
+    const root = await mkdtemp(join(tmpdir(), "omniwa-target-smoke-report-"));
+
+    try {
+      const blockedFile = join(root, "existing-file");
+      await writeFile(blockedFile, "not a directory", "utf8");
+
+      const result = await writeTargetEnvironmentSmokeReport(
+        {
+          status: "passed",
+          checkedAtIso: "2026-07-05T00:00:00.000Z",
+          endpoints: [],
+          findings: [],
+        },
+        join(blockedFile, "smoke-report.json"),
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        safeErrorCode: "target_smoke_report_write_failed",
+      });
+      expect(JSON.stringify(result)).not.toContain(root);
+      expect(JSON.stringify(result)).not.toContain("existing-file");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

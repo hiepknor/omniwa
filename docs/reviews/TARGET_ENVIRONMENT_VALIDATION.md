@@ -57,12 +57,14 @@ Optional target-environment API smoke command for a deployed API:
 ```text
 OMNIWA_TARGET_ENV_BASE_URL=https://api.example.invalid \
 OMNIWA_TARGET_ENV_API_KEY=redacted \
+OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
 pnpm target-env:smoke
 ```
 
-The smoke runner checks only approved public endpoints and prints a sanitized JSON summary. It must
-not record the base URL, API key, response bodies, raw IDs, QR payloads, JIDs, message text, provider
-payloads, session material, webhook secrets, or other sensitive values.
+The smoke runner checks only approved public endpoints and prints a sanitized JSON summary. If
+`OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` is configured, it also writes the sanitized summary as a review
+artifact. It must not record the base URL, API key, response bodies, raw IDs, QR payloads, JIDs,
+message text, provider payloads, session material, webhook secrets, or other sensitive values.
 
 Target-environment evidence must additionally record:
 

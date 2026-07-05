@@ -229,6 +229,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   against `/v1/health`, `/v1/health/readiness`, and `/v1/instances`. The runner is intentionally not
   part of the default `pnpm check` path because it needs a target deployment and API key; its unit
   tests and release evidence remain covered by `pnpm target-env:check` and `pnpm release:check`.
+  Operators can set `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` to write the sanitized smoke summary as a
+  review artifact without storing the target URL, API key, response bodies, raw IDs, QR/JID/text
+  payloads, provider payloads, or secrets.
 
 ## Update Rule
 

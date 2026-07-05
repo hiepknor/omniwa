@@ -39,6 +39,7 @@ Run the optional target-environment API smoke against a deployed API:
 ```text
 OMNIWA_TARGET_ENV_BASE_URL=https://api.example.invalid \
 OMNIWA_TARGET_ENV_API_KEY=redacted \
+OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
 pnpm target-env:smoke
 ```
 
@@ -87,9 +88,10 @@ The target-environment evidence gate is implemented in
 
 The optional target-environment smoke runner is implemented in
 `tooling/production/run-target-environment-smoke.mjs`. It checks `/v1/health`,
-`/v1/health/readiness`, and `/v1/instances`, then writes a sanitized JSON summary to stdout. The
-summary intentionally excludes the base URL, API key, response bodies, raw IDs, provider payloads,
-and secrets.
+`/v1/health/readiness`, and `/v1/instances`, then writes a sanitized JSON summary to stdout. When
+`OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` is set, it also writes the same sanitized JSON to that artifact
+path for review evidence. The summary intentionally excludes the base URL, API key, response bodies,
+raw IDs, provider payloads, and secrets.
 
 It verifies:
 

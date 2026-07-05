@@ -17,6 +17,8 @@ Current tooling:
   root load gate wiring, and root performance gate wiring.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
+- `production/run-target-environment-smoke.mjs` performs optional deployed API
+  smoke checks and can write a sanitized target-environment evidence artifact.
 - `recovery/check-recovery-readiness.mjs` checks recovery drill evidence,
   backup/restore validation tests, and root recovery gate wiring.
 - `release/check-readiness.mjs` checks release-readiness evidence, freeze documents, root gates, and workspace manifests.

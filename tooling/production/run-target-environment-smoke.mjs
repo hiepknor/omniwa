@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const targetEnvironmentSmokeEndpoints = Object.freeze([
@@ -140,11 +142,39 @@ async function main() {
     apiKey: process.env.OMNIWA_TARGET_ENV_API_KEY,
     timeoutMilliseconds: readPositiveIntegerEnv(process.env.OMNIWA_TARGET_ENV_TIMEOUT_MS, 10_000),
   });
+  const writeResult = await writeTargetEnvironmentSmokeReport(
+    report,
+    process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH,
+  );
 
   console.log(JSON.stringify(report, null, 2));
 
-  if (report.status !== "passed") {
+  if (!writeResult.ok) {
+    console.error(JSON.stringify(writeResult, null, 2));
+  }
+
+  if (report.status !== "passed" || !writeResult.ok) {
     process.exitCode = 1;
+  }
+}
+
+export async function writeTargetEnvironmentSmokeReport(report, reportPath) {
+  const normalizedPath = typeof reportPath === "string" ? reportPath.trim() : "";
+
+  if (normalizedPath.length === 0) {
+    return Object.freeze({ ok: true });
+  }
+
+  try {
+    await mkdir(dirname(normalizedPath), { recursive: true });
+    await writeFile(normalizedPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+    return Object.freeze({ ok: true });
+  } catch {
+    return Object.freeze({
+      ok: false,
+      safeErrorCode: "target_smoke_report_write_failed",
+    });
   }
 }
 
