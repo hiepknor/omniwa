@@ -9,6 +9,8 @@ Current tooling:
 - `api/check-openapi-compatibility.mjs` compares the current OpenAPI document
   against the compatibility baseline to block breaking public `/v1` drift.
 - `architecture/check-boundaries.mjs` checks high-level package boundary violations.
+- `e2e/check-e2e-readiness.mjs` checks deterministic E2E evidence for the
+  REST regression and local vertical-slice runtime path.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
 - `recovery/check-recovery-readiness.mjs` checks recovery drill evidence,

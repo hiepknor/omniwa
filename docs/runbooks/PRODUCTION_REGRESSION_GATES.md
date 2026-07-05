@@ -10,6 +10,12 @@ It supports Sprint PR-15 from
 
 ## Gate Command
 
+Run the deterministic E2E gate:
+
+```text
+pnpm e2e:check
+```
+
 Run the targeted production regression gate:
 
 ```text
@@ -22,7 +28,7 @@ Run the full quality gate:
 pnpm check
 ```
 
-`pnpm check` must include `pnpm regression:check` before release readiness.
+`pnpm check` must include `pnpm e2e:check` and `pnpm regression:check` before release readiness.
 
 ## Coverage
 
@@ -31,6 +37,8 @@ network, external webhook receivers, production databases, or cloud services.
 
 Required coverage:
 
+- Local vertical slice proof for Application, durable JSON state, queue, worker, provider fake
+  socket, and EventLog safety.
 - REST transport to Application adapter regression.
 - Public response and error envelopes.
 - API key authentication.
@@ -66,15 +74,19 @@ Regression tests must fail when:
 
 Gate implementation:
 
+- `tooling/e2e/check-e2e-readiness.mjs`
+- `tooling/e2e/check-e2e-readiness.spec.ts`
 - `tooling/regression/check-production-regression.mjs`
 - `tooling/regression/check-production-regression.spec.ts`
 
 HTTP E2E/security regression:
 
 - `apps/api/src/platform-regression.spec.ts`
+- `apps/background/src/local-vertical-slice-demo.spec.ts`
 
 Root script:
 
+- `e2e:check`
 - `regression:check`
 
 Release gate:
@@ -85,6 +97,7 @@ Release gate:
 
 | Failure                          | Operator Response                                                                 |
 | -------------------------------- | --------------------------------------------------------------------------------- |
+| Missing E2E script               | Block merge; restore `e2e:check`.                                                 |
 | Missing regression script        | Block merge; restore `regression:check`.                                          |
 | Missing required test            | Block merge; add or restore the required regression spec.                         |
 | `--passWithNoTests` in gate      | Block merge; regression gate must require real tests.                             |

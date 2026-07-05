@@ -73,7 +73,9 @@ pnpm check
 - OpenAPI check,
 - OpenAPI compatibility check,
 - Rust SDK checks,
+- E2E gate,
 - production regression gate,
+- recovery gate,
 - production cut gate,
 - release readiness gate.
 

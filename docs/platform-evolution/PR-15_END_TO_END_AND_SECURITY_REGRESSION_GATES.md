@@ -11,10 +11,14 @@ regression gates.
 
 Implemented capabilities:
 
+- `e2e:check` root script for deterministic E2E readiness evidence.
 - `regression:check` root script.
+- E2E readiness tooling gate.
 - Production regression tooling gate.
 - HTTP E2E/security regression spec for REST -> Interface Adapter ->
   Application dispatcher with in-memory state, queue, and provider stub.
+- Local vertical-slice runtime spec for Application -> durable JSON state -> queue -> worker ->
+  provider fake socket -> EventLog safety.
 - Gate wiring into `pnpm check`.
 - Release readiness evidence for regression gate implementation, tests, and
   runbook.
@@ -25,6 +29,7 @@ Implemented capabilities:
 | Area                         | Evidence                                                                                                                                                                                                                                                                       |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | REST -> Application boundary | `apps/api/src/platform-regression.spec.ts`                                                                                                                                                                                                                                     |
+| Local vertical runtime path  | `apps/background/src/local-vertical-slice-demo.spec.ts`                                                                                                                                                                                                                        |
 | Public envelope stability    | `apps/api/src/platform-regression.spec.ts`, `apps/api/src/http-server.spec.ts`                                                                                                                                                                                                 |
 | Authentication               | `apps/api/src/api-key-auth.spec.ts`, `apps/api/src/platform-regression.spec.ts`                                                                                                                                                                                                |
 | Authorization                | `apps/api/src/resource-ownership.spec.ts`, `apps/api/src/platform-regression.spec.ts`                                                                                                                                                                                          |
@@ -45,6 +50,7 @@ Implemented capabilities:
 Targeted checks:
 
 ```text
+pnpm e2e:check
 pnpm regression:check
 pnpm release:check
 ```
