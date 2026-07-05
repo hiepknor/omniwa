@@ -52,6 +52,18 @@ pnpm test:postgres
 pnpm production:check
 ```
 
+Optional target-environment API smoke command for a deployed API:
+
+```text
+OMNIWA_TARGET_ENV_BASE_URL=https://api.example.invalid \
+OMNIWA_TARGET_ENV_API_KEY=redacted \
+pnpm target-env:smoke
+```
+
+The smoke runner checks only approved public endpoints and prints a sanitized JSON summary. It must
+not record the base URL, API key, response bodies, raw IDs, QR payloads, JIDs, message text, provider
+payloads, session material, webhook secrets, or other sensitive values.
+
 Target-environment evidence must additionally record:
 
 - deployment profile and runtime versions,

@@ -47,6 +47,8 @@ The repository now has automated gates for:
 
 Target-environment proof is tracked separately in
 `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` and is validated by `pnpm target-env:check`.
+The optional `pnpm target-env:smoke` command can collect sanitized deployed-API smoke evidence, but
+it does not replace the required runtime/dependency, production-load, and SLO proof states.
 
 ## Load Baseline
 
@@ -129,6 +131,7 @@ The production gate verifies:
 | Collection query runtime | PASS   | `PR-18_RUNTIME_COLLECTION_QUERY_SEMANTICS.md` |
 | Load baseline            | PASS   | `pnpm load:check`                             |
 | Target environment proof | PASS   | `pnpm target-env:check`                       |
+| Target environment smoke | PASS   | `pnpm target-env:smoke` tooling present       |
 | Release readiness        | PASS   | `pnpm release:check`                          |
 | Full local gate          | PASS   | `pnpm check`                                  |
 

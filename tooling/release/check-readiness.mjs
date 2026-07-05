@@ -82,6 +82,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "tooling/regression/check-production-regression.mjs",
   "docs/runbooks/PRODUCTION_REGRESSION_GATES.md",
   "tooling/production/check-target-environment-evidence.mjs",
+  "tooling/production/run-target-environment-smoke.mjs",
   "tooling/production/check-production-cut.mjs",
   "tooling/performance/check-performance-readiness.mjs",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
@@ -123,6 +124,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "tooling/regression/check-production-regression.spec.ts",
   "apps/api/src/load-baseline.spec.ts",
   "tooling/production/check-target-environment-evidence.spec.ts",
+  "tooling/production/run-target-environment-smoke.spec.ts",
   "tooling/production/check-production-cut.spec.ts",
   "tooling/performance/check-performance-readiness.spec.ts",
 ]);
@@ -145,6 +147,7 @@ const requiredRootScripts = Object.freeze([
   "recovery:check",
   "performance:check",
   "target-env:check",
+  "target-env:smoke",
   "production:check",
   "release:check",
   "check",
@@ -203,7 +206,8 @@ export async function createReadinessFixture(projectRoot) {
       "performance:check":
         "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/check-performance-readiness.spec.ts",
       "target-env:check":
-        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts",
+        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/run-target-environment-smoke.spec.ts",
+      "target-env:smoke": "node tooling/production/run-target-environment-smoke.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
       "release:check": "node tooling/release/check-readiness.mjs",

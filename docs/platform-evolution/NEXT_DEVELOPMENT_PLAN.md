@@ -215,6 +215,9 @@ The target-environment evidence slice adds `pnpm target-env:check` and
 `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` so the remaining proof has a single structured
 source. The current status is `NOT_PROVEN`; future production promotion must change that file with
 real runtime, load, and SLO evidence.
+It also provides the optional `pnpm target-env:smoke` command for deployed API smoke evidence against
+`/v1/health`, `/v1/health/readiness`, and `/v1/instances`; the command is operator-run only and is
+not executed by the default local quality gate.
 
 ## Planned Increments
 

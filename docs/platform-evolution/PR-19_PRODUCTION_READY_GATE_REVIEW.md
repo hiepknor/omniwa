@@ -46,6 +46,7 @@ platform.
 | Regression                 | `pnpm regression:check`                       | PASS   |
 | Load baseline              | `pnpm load:check`                             | PASS   |
 | Target environment proof   | `pnpm target-env:check`                       | PASS   |
+| Target environment smoke   | `pnpm target-env:smoke` tooling present       | PASS   |
 | Production gate            | `pnpm production:check`                       | PASS   |
 | Release readiness          | `pnpm release:check`                          | PASS   |
 | Full local gate            | `pnpm check`                                  | PASS   |
@@ -115,6 +116,14 @@ Targeted checks:
 pnpm target-env:check
 pnpm production:check
 pnpm release:check
+```
+
+Optional deployed API smoke command:
+
+```text
+OMNIWA_TARGET_ENV_BASE_URL=https://api.example.invalid \
+OMNIWA_TARGET_ENV_API_KEY=redacted \
+pnpm target-env:smoke
 ```
 
 Full gate:

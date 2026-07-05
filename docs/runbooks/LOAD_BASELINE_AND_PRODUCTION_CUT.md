@@ -34,6 +34,14 @@ Run the target-environment evidence gate:
 pnpm target-env:check
 ```
 
+Run the optional target-environment API smoke against a deployed API:
+
+```text
+OMNIWA_TARGET_ENV_BASE_URL=https://api.example.invalid \
+OMNIWA_TARGET_ENV_API_KEY=redacted \
+pnpm target-env:smoke
+```
+
 Run the full quality gate:
 
 ```text
@@ -76,6 +84,12 @@ The production cut gate is implemented in
 
 The target-environment evidence gate is implemented in
 `tooling/production/check-target-environment-evidence.mjs`.
+
+The optional target-environment smoke runner is implemented in
+`tooling/production/run-target-environment-smoke.mjs`. It checks `/v1/health`,
+`/v1/health/readiness`, and `/v1/instances`, then writes a sanitized JSON summary to stdout. The
+summary intentionally excludes the base URL, API key, response bodies, raw IDs, provider payloads,
+and secrets.
 
 It verifies:
 

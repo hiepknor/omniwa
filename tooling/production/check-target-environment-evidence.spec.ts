@@ -131,6 +131,10 @@ describe("target environment evidence gate", () => {
             code: "root_target_environment_script_missing_test",
             target: missingTest,
           }),
+          expect.objectContaining({
+            code: "root_target_environment_smoke_script_missing",
+            target: "target-env:smoke",
+          }),
           expect.objectContaining({ code: "production_script_missing_target_environment_gate" }),
           expect.objectContaining({ code: "check_script_missing_target_environment_gate" }),
         ]),

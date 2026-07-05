@@ -6,12 +6,14 @@ export const targetEnvironmentEvidenceStatuses = Object.freeze(["NOT_PROVEN", "P
 
 export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/production/check-target-environment-evidence.mjs",
+  "tooling/production/run-target-environment-smoke.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
 ]);
 
 export const requiredTargetEnvironmentEvidenceTests = Object.freeze([
   "tooling/production/check-target-environment-evidence.spec.ts",
+  "tooling/production/run-target-environment-smoke.spec.ts",
 ]);
 
 export const requiredTargetEnvironmentComponents = Object.freeze([
@@ -28,6 +30,7 @@ export const requiredTargetEnvironmentComponents = Object.freeze([
 ]);
 
 export const requiredTargetEnvironmentScriptName = "target-env:check";
+export const targetEnvironmentSmokeScriptName = "target-env:smoke";
 
 export async function evaluateTargetEnvironmentEvidence(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
@@ -64,6 +67,8 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
     packageManager: "pnpm@11.5.2",
     scripts: {
       [requiredTargetEnvironmentScriptName]: targetEnvironmentScript(),
+      [targetEnvironmentSmokeScriptName]:
+        "node tooling/production/run-target-environment-smoke.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs",
       check: "pnpm lint && pnpm target-env:check && pnpm production:check",
@@ -231,6 +236,19 @@ async function checkRootPackage(projectRoot, findings) {
         }),
       );
     }
+  }
+
+  const targetEnvironmentSmoke = scripts[targetEnvironmentSmokeScriptName];
+  if (
+    typeof targetEnvironmentSmoke !== "string" ||
+    !targetEnvironmentSmoke.includes("node tooling/production/run-target-environment-smoke.mjs")
+  ) {
+    findings.push(
+      createFinding("root_target_environment_smoke_script_missing", "blocker", {
+        target: targetEnvironmentSmokeScriptName,
+        safeDetailCode: "root_target_environment_smoke_script_missing",
+      }),
+    );
   }
 
   const productionCheck = scripts["production:check"];

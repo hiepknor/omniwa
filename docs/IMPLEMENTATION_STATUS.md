@@ -222,6 +222,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` evidence file. The gate keeps the current
   `NOT_PROVEN` status explicit while requiring a runtime/dependency evidence matrix before any
   future `PROVEN` claim.
+- N11.7 also provides an optional `pnpm target-env:smoke` runner for deployed API smoke evidence
+  against `/v1/health`, `/v1/health/readiness`, and `/v1/instances`. The runner is intentionally not
+  part of the default `pnpm check` path because it needs a target deployment and API key; its unit
+  tests and release evidence remain covered by `pnpm target-env:check` and `pnpm release:check`.
 
 ## Update Rule
 
