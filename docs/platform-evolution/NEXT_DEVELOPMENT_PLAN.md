@@ -180,6 +180,10 @@ Remaining N11 hardening now moves to N11.7 production validation gates. Richer d
 workflows, target-environment JSONL rotation, richer exporters, and any future receiver-failure
 circuit breaker stay as follow-up capabilities unless target-environment evidence makes them
 production blockers.
+The first N11.7 validation slice adds a dedicated `pnpm recovery:check` gate for backup/restore
+drill evidence, deterministic recovery validation tests, and release-readiness wiring. This proves
+the local deterministic recovery contract, while target-environment backup automation and restore
+drills remain required before any broad production-ready claim.
 
 ## Planned Increments
 

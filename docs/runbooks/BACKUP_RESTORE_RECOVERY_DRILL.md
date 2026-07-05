@@ -83,7 +83,7 @@ payloads.
 Run the targeted checks:
 
 ```text
-pnpm exec vitest run apps/background/src/backup-restore-drill.spec.ts apps/background/src/recovery-validation.spec.ts
+pnpm recovery:check
 pnpm release:check
 ```
 

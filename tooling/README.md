@@ -11,6 +11,8 @@ Current tooling:
 - `architecture/check-boundaries.mjs` checks high-level package boundary violations.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
+- `recovery/check-recovery-readiness.mjs` checks recovery drill evidence,
+  backup/restore validation tests, and root recovery gate wiring.
 - `release/check-readiness.mjs` checks release-readiness evidence, freeze documents, root gates, and workspace manifests.
 - `regression/check-production-regression.mjs` checks production regression
   gate wiring and required E2E/security regression evidence.

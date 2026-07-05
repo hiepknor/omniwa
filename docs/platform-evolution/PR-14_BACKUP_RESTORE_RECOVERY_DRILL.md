@@ -53,15 +53,20 @@ The targets align with DEC-006 and DEC-008.
 Release readiness now requires:
 
 - `apps/background/src/backup-restore-drill.ts`
+- `apps/background/src/recovery-validation.ts`
+- `tooling/recovery/check-recovery-readiness.mjs`
 - `apps/background/src/backup-restore-drill.spec.ts`
+- `apps/background/src/recovery-validation.spec.ts`
+- `tooling/recovery/check-recovery-readiness.spec.ts`
 - `docs/runbooks/BACKUP_RESTORE_RECOVERY_DRILL.md`
+- `pnpm recovery:check` in the root quality gate.
 
 ## Validation
 
 Targeted checks:
 
 ```text
-pnpm exec vitest run apps/background/src/backup-restore-drill.spec.ts apps/background/src/recovery-validation.spec.ts tooling/release/check-readiness.spec.ts
+pnpm recovery:check
 pnpm release:check
 ```
 
