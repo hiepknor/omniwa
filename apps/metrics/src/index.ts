@@ -94,6 +94,14 @@ export function createMetricsRuntimeSmokeSnapshot(): MetricsRuntimeSmokeSnapshot
       }),
     }),
   );
+  runtime.recordMetric(
+    createCatalogMetricPoint("eventlog.outbox.records", {
+      value: 0,
+      labels: toSafeLogFields({
+        status: classifyValue("pending", "public"),
+      }),
+    }),
+  );
 
   const exported = exportMetricsText(runtime.snapshot().metrics);
 

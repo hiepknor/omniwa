@@ -6,7 +6,7 @@ describe("metrics runtime smoke", () => {
   it("exports PR-13 required production metrics without unsafe identifiers", () => {
     const snapshot = createMetricsRuntimeSmokeSnapshot();
 
-    expect(snapshot.metricCount).toBe(9);
+    expect(snapshot.metricCount).toBe(10);
     expect(snapshot.contentType).toBe("text/plain; version=0.0.4; charset=utf-8");
     expect(snapshot.body).toContain("api_request_latency");
     expect(snapshot.body).toContain("queue_work_latency");
@@ -17,6 +17,7 @@ describe("metrics runtime smoke", () => {
     expect(snapshot.body).toContain("api_rate_limit_bucket_count");
     expect(snapshot.body).toContain("api_rate_limit_bucket_remaining");
     expect(snapshot.body).toContain("api_rate_limit_bucket_limit");
+    expect(snapshot.body).toContain("eventlog_outbox_records");
     expect(snapshot.body).not.toContain("synthetic-secret");
     expect(snapshot.body).not.toContain("inst_");
   });

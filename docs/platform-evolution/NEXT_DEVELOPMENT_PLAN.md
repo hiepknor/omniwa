@@ -242,6 +242,9 @@ catalog, alert definition, dashboard/alert-routing catalog coverage, dependency-
 runtime, health runtime, and release-readiness evidence. It keeps P0-13 visible in the root quality
 gate while leaving target-environment dashboard access proof, alert-routing dry-runs, exporter
 operations, and sustained SLO monitoring as production-readiness evidence.
+The metrics runtime smoke path now exports every approved production catalog metric, including
+`eventlog.outbox.records`, through the Prometheus text exporter so local exporter coverage matches
+the current metric catalog.
 The next N11.7 validation slice adds a dedicated `pnpm e2e:check` gate for deterministic vertical
 path evidence. It requires the REST platform regression spec plus the local vertical-slice runtime
 spec that proves Application, durable JSON state, queue, worker, provider fake socket, and EventLog

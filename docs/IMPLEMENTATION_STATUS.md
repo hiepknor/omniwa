@@ -270,6 +270,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   runbook coverage, dashboard/alert-routing catalog coverage, production-cut SLO proof state, and
   root gate wiring. These gates do not replace target-environment dashboard access proof,
   alert-routing dry-runs, exporter operations, or sustained SLO monitoring.
+- The metrics runtime smoke path now exports all approved production catalog metrics, including
+  `eventlog.outbox.records`, through the Prometheus text exporter without raw event ids, target
+  identifiers, JIDs, message text, provider payloads, API keys, or secrets.
 - N11.7 now wires API request latency metrics into the HTTP transport through the approved
   `MetricRecorder` port. Local and production API runtimes can use
   `OMNIWA_API_METRICS_JSONL_PATH` for a JSONL metric sink, and production API composition fails
