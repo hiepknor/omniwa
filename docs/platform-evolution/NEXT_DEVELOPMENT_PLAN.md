@@ -180,6 +180,10 @@ Remaining N11 hardening now moves to N11.7 production validation gates. Richer d
 workflows, target-environment JSONL rotation, richer exporters, and any future receiver-failure
 circuit breaker stay as follow-up capabilities unless target-environment evidence makes them
 production blockers.
+The API runtime production composition path now has an explicit
+`OMNIWA_API_QUEUE_PROFILE=durable-worker-job` guard and can route enqueue-side work through the
+durable `WorkerJob` queue provider. Production composition still remains fail-closed until the
+remaining observability adapter/runtime proof is supplied and target-environment validation is run.
 The first N11.7 validation slice adds a dedicated `pnpm recovery:check` gate for backup/restore
 drill evidence, deterministic recovery validation tests, and release-readiness wiring. This proves
 the local deterministic recovery contract, while target-environment backup automation and restore

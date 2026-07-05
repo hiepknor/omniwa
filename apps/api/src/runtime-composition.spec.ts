@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createApiRuntimeComposition,
   createApiRuntimeCompositionFromSecrets,
+  readApiQueueProfile,
   readRepositoryProfile,
   readRuntimeProfile,
 } from "./runtime-composition.js";
@@ -76,9 +77,31 @@ describe("API runtime composition", () => {
 
     expect(composition.profile).toBe("test");
     expect(composition.repositoryProfile).toBe("in-memory");
+    expect(composition.queueProfile).toBe("in-memory");
     expect(composition.options.apiKeys).toEqual([]);
     expect(composition.options.dispatcher).toBeDefined();
     expect(composition.options.outboundMessageIntentStore).toBeDefined();
+  });
+
+  it("keeps local API runtime on the in-memory queue by default", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+    });
+
+    expect(composition.queueProfile).toBe("in-memory");
+    expect(composition.options.dispatcher).toBeDefined();
+  });
+
+  it("wires durable WorkerJob queue profile for API runtime when requested", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
+    });
+
+    expect(composition.queueProfile).toBe("durable-worker-job");
+    expect(composition.options.dispatcher).toBeDefined();
   });
 
   it("composes local runtime from a hashed API key without keeping plaintext config", () => {
@@ -853,7 +876,7 @@ describe("API runtime composition", () => {
     ).toThrow(/requires OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true/u);
   });
 
-  it("still blocks production runtime composition after safe database, rate-limit, audit, and ownership validation", () => {
+  it("requires durable queue profile for production runtime composition", () => {
     expect(() =>
       createApiRuntimeComposition({
         OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
@@ -868,7 +891,26 @@ describe("API runtime composition", () => {
         OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
         OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
       }),
-    ).toThrow(/production profile remains disabled/u);
+    ).toThrow(/requires OMNIWA_API_QUEUE_PROFILE=durable/u);
+  });
+
+  it("still blocks production runtime composition after safe database, rate-limit, audit, ownership, and queue validation", () => {
+    expect(() =>
+      createApiRuntimeComposition({
+        OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+        OMNIWA_API_RUNTIME_PROFILE: "production",
+        OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_POSTGRES_DATABASE_URL:
+          "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+        OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
+        OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+        OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+        OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+        OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
+        OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
+      }),
+    ).toThrow(/production profile remains disabled until production observability adapters/u);
   });
 
   it("requires an API key for local runtime composition", () => {
@@ -926,6 +968,18 @@ describe("API runtime composition", () => {
     );
     expect(readRepositoryProfile({ OMNIWA_API_REPOSITORY_PROFILE: "postgresql" })).toBe(
       "postgresql",
+    );
+  });
+
+  it("normalizes API queue profile names", () => {
+    expect(readApiQueueProfile({})).toBe("in-memory");
+    expect(readApiQueueProfile({ OMNIWA_API_QUEUE_PROFILE: "in-memory" })).toBe("in-memory");
+    expect(readApiQueueProfile({ OMNIWA_API_QUEUE_PROFILE: "durable" })).toBe("durable-worker-job");
+    expect(readApiQueueProfile({ OMNIWA_API_QUEUE_PROFILE: "durable-worker-job" })).toBe(
+      "durable-worker-job",
+    );
+    expect(() => readApiQueueProfile({ OMNIWA_API_QUEUE_PROFILE: "invalid" })).toThrow(
+      /Unsupported OmniWA API queue profile/u,
     );
   });
 });

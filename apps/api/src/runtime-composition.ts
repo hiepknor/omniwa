@@ -28,7 +28,7 @@ import {
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
-import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
+import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 
 import {
   createApiKeyVerifierFromPlaintext,
@@ -70,9 +70,14 @@ export const apiRepositoryProfiles = ["in-memory", "durable-json", "postgresql"]
 
 export type ApiRepositoryProfile = (typeof apiRepositoryProfiles)[number];
 
+export const apiQueueProfiles = ["in-memory", "durable-worker-job"] as const;
+
+export type ApiQueueProfile = (typeof apiQueueProfiles)[number];
+
 export type ApiRuntimeComposition = Readonly<{
   profile: ApiRuntimeProfile;
   repositoryProfile: ApiRepositoryProfile;
+  queueProfile: ApiQueueProfile;
   options: ApiHttpServerOptions;
 }>;
 
@@ -101,6 +106,7 @@ export function createApiRuntimeComposition(
 ): ApiRuntimeComposition {
   const profile = readRuntimeProfile(env);
   const repositoryProfile = readRepositoryProfile(env);
+  const queueProfile = readApiQueueProfile(env);
   const apiKeys = readApiKeysFromEnv(env);
   const hashedApiKeys = readHashedApiKeysFromEnv(env);
   const apiKeyLifecycleStorePath = readApiKeyLifecycleStorePath(env);
@@ -133,6 +139,7 @@ export function createApiRuntimeComposition(
     hasRedisRateLimitScriptClient: redisRateLimitScriptClient !== undefined,
     securityAuditSinkKind: readSecurityAuditSinkKind(env),
     repositoryOwnershipResolutionEnabled,
+    queueProfile,
   });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
@@ -160,7 +167,8 @@ export function createApiRuntimeComposition(
   });
   const securityAuditSink = createRuntimeSecurityAuditSink(env, repositories);
   const resourceOwnershipResolver = createRuntimeResourceOwnershipResolver(env, repositories);
-  const queueProvider = new InMemoryQueueProvider({
+  const queueProvider = createRuntimeQueueProvider({
+    queueProfile,
     workerJobRepository: repositories.workerJobRepository,
   });
   const domainEventPublisher = createDomainEventPublisher({
@@ -192,6 +200,7 @@ export function createApiRuntimeComposition(
   return Object.freeze({
     profile,
     repositoryProfile,
+    queueProfile,
     options: Object.freeze({
       dispatcher,
       outboundMessageIntentStore,
@@ -450,6 +459,21 @@ function createRuntimeResourceOwnershipResolver(
     : undefined;
 }
 
+function createRuntimeQueueProvider(input: {
+  queueProfile: ApiQueueProfile;
+  workerJobRepository: WorkerJobRepositoryPort;
+}): InMemoryQueueProvider | DurableWorkerJobQueueProvider {
+  if (input.queueProfile === "durable-worker-job") {
+    return new DurableWorkerJobQueueProvider({
+      workerJobRepository: input.workerJobRepository,
+    });
+  }
+
+  return new InMemoryQueueProvider({
+    workerJobRepository: input.workerJobRepository,
+  });
+}
+
 function readEndpointClassRateLimitEnv(
   env: NodeJS.ProcessEnv,
 ): Partial<Record<ApiRateLimitEndpointClass, number>> {
@@ -627,6 +651,22 @@ export function readRepositoryProfile(env: NodeJS.ProcessEnv = process.env): Api
   }
 }
 
+export function readApiQueueProfile(env: NodeJS.ProcessEnv = process.env): ApiQueueProfile {
+  const value = env.OMNIWA_API_QUEUE_PROFILE?.trim();
+
+  switch (value) {
+    case "durable-worker-job":
+    case "durable":
+      return "durable-worker-job";
+    case "in-memory":
+    case undefined:
+    case "":
+      return "in-memory";
+    default:
+      throw new Error("Unsupported OmniWA API queue profile.");
+  }
+}
+
 function createRuntimeRepositories(
   env: NodeJS.ProcessEnv,
   repositoryProfile: ApiRepositoryProfile,
@@ -720,6 +760,7 @@ function assertRuntimeProfileIsComposable(
     hasRedisRateLimitScriptClient: boolean;
     securityAuditSinkKind: ApiSecurityAuditSinkKind;
     repositoryOwnershipResolutionEnabled: boolean;
+    queueProfile: ApiQueueProfile;
   }>,
 ): void {
   if (profile === "production") {
@@ -733,9 +774,10 @@ function assertRuntimeProfileIsComposable(
     assertProductionRateLimitConfiguration(options);
     assertProductionSecurityAuditConfiguration(options.securityAuditSinkKind);
     assertProductionResourceOwnershipConfiguration(options.repositoryOwnershipResolutionEnabled);
+    assertProductionQueueConfiguration(options.queueProfile);
 
     throw new Error(
-      "OmniWA API production profile remains disabled until production queue and observability adapters are implemented.",
+      "OmniWA API production profile remains disabled until production observability adapters are implemented.",
     );
   }
 
@@ -759,6 +801,12 @@ function assertProductionResourceOwnershipConfiguration(enabled: boolean): void 
     throw new Error(
       "OmniWA API production profile requires OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true.",
     );
+  }
+}
+
+function assertProductionQueueConfiguration(queueProfile: ApiQueueProfile): void {
+  if (queueProfile !== "durable-worker-job") {
+    throw new Error("OmniWA API production profile requires OMNIWA_API_QUEUE_PROFILE=durable.");
   }
 }
 
