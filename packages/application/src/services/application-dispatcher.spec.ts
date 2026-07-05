@@ -5,6 +5,7 @@ import {
   createContact,
   createContactDisplayName,
   createContactId,
+  createDeadLetterReason,
   createGroup,
   createGroupId,
   createGroupMember,
@@ -25,6 +26,7 @@ import {
   createWebhookId,
   createWebhookSubscription,
   createWebhookUrl,
+  deadLetterWebhookDelivery,
   queueWorkerJob,
   scheduleWebhookDelivery,
   startWebhookDelivery,
@@ -46,6 +48,7 @@ import {
   type HealthStatus,
   type HealthStatusId,
   type HealthStatusRepositoryPort,
+  type IdempotencyKey,
   type Instance,
   type InstanceId,
   type InstanceRepositoryPort,
@@ -1504,6 +1507,156 @@ describe("application dispatcher", () => {
     expect(queueProvider.enqueued).toHaveLength(0);
   });
 
+  it("executes RedriveWebhookDelivery by creating a new delivery from a dead letter", async () => {
+    const original = deadLetterWebhookDelivery(
+      startWebhookDelivery(
+        scheduleWebhookDelivery(
+          createWebhookDeliveryId("webhook-delivery:redrive-source"),
+          createWebhookId("webhook:redrive-source"),
+          "message.failed.v1",
+          retryPolicy,
+        ),
+        createAttemptNumber(1, retryPolicy),
+      ),
+      createDeadLetterReason({
+        code: "receiver_terminal_failure",
+        category: "webhook",
+      }),
+    );
+    const repository = new FakeWebhookDeliveryRepository([original]);
+    const queueProvider = new FakeQueueProvider();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: repository,
+      },
+      queueProvider,
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "RedriveWebhookDelivery",
+        commandRef: "cmd-redrive-webhook-delivery",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "webhook-delivery:redrive-source",
+        idempotencyKey: "idem-redrive-webhook-delivery",
+      }),
+    );
+
+    expect(outcome).toMatchObject({
+      kind: "command_outcome",
+      commandRef: "cmd-redrive-webhook-delivery",
+      outcome: "queued",
+      accepted: true,
+      retryable: false,
+    });
+    expect(outcome.resultRef).not.toBe(original.id);
+    expect(await repository.load(original.id)).toMatchObject({ status: "dead_letter" });
+    expect(await repository.load(createWebhookDeliveryId(String(outcome.resultRef)))).toMatchObject(
+      {
+        webhookId: original.webhookId,
+        sourceSignalRef: original.sourceSignalRef,
+        status: "pending",
+      },
+    );
+    expect(queueProvider.enqueued).toHaveLength(1);
+    expect(queueProvider.enqueued[0]).toMatchObject({
+      jobId: outcome.resultRef,
+      ownerContext: "webhook_delivery",
+      ownerRef: outcome.resultRef,
+      workType: "webhook_delivery",
+      idempotencyKey: "redrive_webhook_delivery:idem-redrive-webhook-delivery",
+    });
+    expect(JSON.stringify(outcome)).not.toContain("targetUrl");
+    expect(JSON.stringify(outcome)).not.toContain("retryPolicy");
+  });
+
+  it("keeps RedriveWebhookDelivery idempotent through the delivery and queue boundaries", async () => {
+    const original = deadLetterWebhookDelivery(
+      startWebhookDelivery(
+        scheduleWebhookDelivery(
+          createWebhookDeliveryId("webhook-delivery:redrive-idem"),
+          createWebhookId("webhook:redrive-idem"),
+          "message.failed.v1",
+          retryPolicy,
+        ),
+        createAttemptNumber(1, retryPolicy),
+      ),
+      createDeadLetterReason({
+        code: "receiver_terminal_failure",
+        category: "webhook",
+      }),
+    );
+    const repository = new FakeWebhookDeliveryRepository([original]);
+    const queueProvider = new FakeQueueProvider();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: repository,
+      },
+      queueProvider,
+      clock: fixedClock,
+    });
+    const envelope = createApplicationCommandEnvelope({
+      name: "RedriveWebhookDelivery",
+      commandRef: "cmd-redrive-webhook-idem",
+      requestContext,
+      actorRef: "api_key:test",
+      targetRef: "webhook-delivery:redrive-idem",
+      idempotencyKey: "idem-redrive-webhook-idem",
+    });
+
+    const first = await dispatcher.executeCommand(envelope);
+    const second = await dispatcher.executeCommand(envelope);
+
+    expect(first.outcome).toBe("queued");
+    expect(second.outcome).toBe("queued");
+    expect(second.resultRef).toBe(first.resultRef);
+    expect(queueProvider.enqueued).toHaveLength(1);
+  });
+
+  it("rejects RedriveWebhookDelivery unless the delivery is dead-lettered", async () => {
+    const delivery = scheduleWebhookDelivery(
+      createWebhookDeliveryId("webhook-delivery:redrive-not-allowed"),
+      createWebhookId("webhook:redrive-not-allowed"),
+      "message.failed.v1",
+      retryPolicy,
+    );
+    const queueProvider = new FakeQueueProvider();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: new FakeWebhookDeliveryRepository([delivery]),
+      },
+      queueProvider,
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "RedriveWebhookDelivery",
+        commandRef: "cmd-redrive-webhook-not-allowed",
+        requestContext,
+        actorRef: "api_key:test",
+        targetRef: "webhook-delivery:redrive-not-allowed",
+        idempotencyKey: "idem-redrive-webhook-not-allowed",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-redrive-webhook-not-allowed",
+      outcome: "rejected",
+      accepted: false,
+      retryable: false,
+      resultRef: "webhook-delivery:redrive-not-allowed",
+      reasonCode: "webhook_delivery_redrive_not_allowed",
+    });
+    expect(queueProvider.enqueued).toHaveLength(0);
+  });
+
   it("executes GetHealthStatus through the Health repository", async () => {
     const healthStatus = classifyHealthy(
       createHealthStatus(createHealthStatusId("health-platform"), "platform"),
@@ -2039,6 +2192,7 @@ class FakeWebhookSubscriptionRepository implements WebhookSubscriptionRepository
 
 class FakeWebhookDeliveryRepository implements WebhookDeliveryRepositoryPort {
   private readonly records = new Map<string, WebhookDelivery>();
+  private readonly deliveryIdByIdempotencyKey = new Map<string, WebhookDeliveryId>();
 
   constructor(initialRecords: readonly WebhookDelivery[] = []) {
     for (const record of initialRecords) {
@@ -2069,8 +2223,15 @@ class FakeWebhookDeliveryRepository implements WebhookDeliveryRepositoryPort {
     );
   }
 
-  findByIdempotencyKey(): Promise<WebhookDelivery | undefined> {
-    return Promise.resolve(undefined);
+  findByIdempotencyKey(idempotencyKey: IdempotencyKey): Promise<WebhookDelivery | undefined> {
+    const deliveryId = this.deliveryIdByIdempotencyKey.get(String(idempotencyKey));
+    return Promise.resolve(
+      deliveryId === undefined ? undefined : this.records.get(String(deliveryId)),
+    );
+  }
+
+  recordIdempotencyKey(idempotencyKey: IdempotencyKey, deliveryId: WebhookDeliveryId): void {
+    this.deliveryIdByIdempotencyKey.set(String(idempotencyKey), deliveryId);
   }
 
   private list(): readonly WebhookDelivery[] {

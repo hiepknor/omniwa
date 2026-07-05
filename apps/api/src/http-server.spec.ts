@@ -73,6 +73,7 @@ const publicCredential: ApiCredential = {
     "webhooks:write",
     "webhooks:read",
     "webhooks:retry",
+    "webhooks:redrive",
     "health:read",
     "events:read",
   ],
@@ -2055,6 +2056,9 @@ describe("API HTTP transport", () => {
     await request(dispatcher, "POST", "/v1/webhook-deliveries/whd_1/retry", {
       headers: { "idempotency-key": "retry-webhook-delivery-1" },
     });
+    await request(dispatcher, "POST", "/v1/webhook-deliveries/whd_1/redrive", {
+      headers: { "idempotency-key": "redrive-webhook-delivery-1" },
+    });
     await request(dispatcher, "GET", "/v1/webhook-deliveries", { apiKey: "admin-secret" });
     await request(dispatcher, "GET", "/v1/webhook-deliveries/whd_1/history");
 
@@ -2076,6 +2080,7 @@ describe("API HTTP transport", () => {
       "UpdateWebhookSubscription",
       "ActivateWebhookSubscription",
       "RetryWebhookDelivery",
+      "RedriveWebhookDelivery",
     ]);
   });
 

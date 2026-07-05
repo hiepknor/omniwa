@@ -156,11 +156,12 @@ real `FetchWebhookHttpGateway` foundation with safe timeout/network failure mapp
 dispatcher runtime wiring through `OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch` plus
 `OMNIWA_WEBHOOK_SIGNING_SECRET_NAME`. Controlled
 `POST /v1/webhook-deliveries/{deliveryId}/retry` is now public for eligible pending/retrying
-deliveries and synchronized with client-contract fixtures and the Rust SDK. Webhook dispatcher
-processing now persists `WebhookDelivery` dispatch outcomes for delivered, retrying, and
-dead-lettered deliveries so read surfaces no longer depend only on `WorkerJob` state. Production
-runtime wiring still remains disabled until the remaining production queue, secret, HTTP gateway, and
-observability adapters can be composed together safely.
+deliveries and `POST /v1/webhook-deliveries/{deliveryId}/redrive` is public for eligible
+dead-lettered deliveries; both are synchronized with client-contract fixtures and the Rust SDK.
+Webhook dispatcher processing now persists `WebhookDelivery` dispatch outcomes for delivered,
+retrying, and dead-lettered deliveries so read surfaces no longer depend only on `WorkerJob` state.
+Production runtime wiring still remains disabled until the remaining production queue, secret, HTTP
+gateway, and observability adapters can be composed together safely.
 
 ## Planned Increments
 

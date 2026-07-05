@@ -314,6 +314,12 @@ pub const PROVISION_API_KEY: Operation = Operation {
     path: "/v1/api-keys",
 };
 
+pub const REDRIVE_WEBHOOK_DELIVERY: Operation = Operation {
+    operation_id: "redriveWebhookDelivery",
+    method: "POST",
+    path: "/v1/webhook-deliveries/{deliveryId}/redrive",
+};
+
 pub const REFRESH_GROUP_INVITE_LINK: Operation = Operation {
     operation_id: "refreshGroupInviteLink",
     method: "POST",
@@ -510,6 +516,7 @@ pub const ALL_OPERATIONS: &[Operation] = &[
     LIST_WEBHOOKS,
     PROMOTE_GROUP_MEMBER,
     PROVISION_API_KEY,
+    REDRIVE_WEBHOOK_DELIVERY,
     REFRESH_GROUP_INVITE_LINK,
     REFRESH_INSTANCE_GROUPS,
     REFRESH_INSTANCE_QR,
@@ -589,6 +596,7 @@ pub fn operation_by_id(operation_id: &str) -> Option<Operation> {
         "listWebhooks" => Some(LIST_WEBHOOKS),
         "promoteGroupMember" => Some(PROMOTE_GROUP_MEMBER),
         "provisionApiKey" => Some(PROVISION_API_KEY),
+        "redriveWebhookDelivery" => Some(REDRIVE_WEBHOOK_DELIVERY),
         "refreshGroupInviteLink" => Some(REFRESH_GROUP_INVITE_LINK),
         "refreshInstanceGroups" => Some(REFRESH_INSTANCE_GROUPS),
         "refreshInstanceQr" => Some(REFRESH_INSTANCE_QR),

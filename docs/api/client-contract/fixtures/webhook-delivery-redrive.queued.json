@@ -1,0 +1,16 @@
+{
+  "data": {
+    "resourceType": "webhookDelivery",
+    "resourceId": "webhook_delivery_demo",
+    "operationStatus": "queued",
+    "accepted": true,
+    "retryable": false,
+    "async": true,
+    "resultRef": "webhook_delivery_demo_redrive_01"
+  },
+  "meta": {
+    "requestId": "tui-webhook-delivery-redrive-fixture",
+    "correlationId": "tui-webhook-delivery-redrive-correlation",
+    "timestamp": "2026-07-05T00:00:00.000Z"
+  }
+}

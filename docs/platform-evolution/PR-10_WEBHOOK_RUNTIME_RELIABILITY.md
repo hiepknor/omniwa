@@ -24,6 +24,9 @@ Implemented capabilities:
   `OMNIWA_WEBHOOK_SIGNING_SECRET_NAME` so outbound deliveries are signed.
 - `POST /v1/webhook-deliveries/{deliveryId}/retry` queues a controlled retry for
   eligible pending/retrying deliveries through the Application queue boundary.
+- `POST /v1/webhook-deliveries/{deliveryId}/redrive` queues a new controlled
+  delivery for eligible dead-lettered deliveries without mutating the terminal
+  original delivery.
 - Dispatcher processing persists `WebhookDelivery` aggregate status for
   delivered, retrying, and dead-letter outcomes instead of relying only on
   `WorkerJob` state.
@@ -83,8 +86,8 @@ is still tracked separately in the production execution plan.
 ## Remaining Work
 
 - Replace in-memory queue recovery with the future production queue adapter.
-- Add operational API/read model for webhook dead-letter redrive and management
-  beyond the current retryable delivery states.
+- Add richer operational management for webhook dead letters, such as bulk
+  redrive, filtered operator dashboards, and remediation notes.
 - Enable the production dispatcher profile once production queue, secret, HTTP
   gateway, and observability adapters are composed together.
 - Add circuit-breaker behavior if production receiver failure rates require it.

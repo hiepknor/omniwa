@@ -72,6 +72,7 @@ export const apiScopes = [
   "webhooks:write",
   "webhooks:read",
   "webhooks:retry",
+  "webhooks:redrive",
   "health:read",
   "events:read",
   "metrics:read",
@@ -669,6 +670,8 @@ function getRequiredScopesForCommand(commandName: ApplicationCommandName): reado
       return ["webhooks:write"];
     case "RetryWebhookDelivery":
       return ["webhooks:retry"];
+    case "RedriveWebhookDelivery":
+      return ["webhooks:redrive"];
     case "RequestDiagnosticCapture":
     case "MoveWebhookDeliveryToDeadLetter":
       return ["admin:*"];

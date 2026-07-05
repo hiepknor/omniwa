@@ -1641,6 +1641,50 @@
         }
       }
     },
+    "/v1/webhook-deliveries/{deliveryId}/redrive": {
+      "post": {
+        "tags": ["Webhooks"],
+        "operationId": "redriveWebhookDelivery",
+        "summary": "Redrive dead-lettered webhook delivery",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryId"
+          },
+          {
+            "$ref": "#/components/parameters/XRequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XCorrelationIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/XTraceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
     "/v1/provider/capabilities": {
       "get": {
         "tags": ["Provider"],

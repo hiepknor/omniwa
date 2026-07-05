@@ -91,6 +91,7 @@ Error:
 | GET    | `/v1/webhook-deliveries`                     | Implemented | Lists safe webhook delivery rows                    |
 | GET    | `/v1/webhook-deliveries/:deliveryId/history` | Implemented | Reads one safe webhook delivery history/status      |
 | POST   | `/v1/webhook-deliveries/:deliveryId/retry`   | Implemented | Queues controlled retry for eligible delivery       |
+| POST   | `/v1/webhook-deliveries/:deliveryId/redrive` | Implemented | Queues controlled redrive for dead-letter delivery  |
 | POST   | `/v1/webhooks`                               | Implemented | Registers webhook subscription intent               |
 
 ## Minimal Request Body Validation

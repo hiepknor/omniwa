@@ -647,6 +647,16 @@
       "notes": "Queues a controlled retry for eligible pending/retrying webhook deliveries. Requires idempotency-key and webhooks:retry. retryPolicy, targetUrl, payload, and domainEvents are not exposed."
     },
     {
+      "feature": "webhooks",
+      "method": "POST",
+      "path": "/v1/webhook-deliveries/{deliveryId}/redrive",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Queues a new controlled delivery from an eligible dead-lettered webhook delivery. Requires idempotency-key and webhooks:redrive. retryPolicy, targetUrl, payload, and domainEvents are not exposed."
+    },
+    {
       "feature": "events",
       "method": "GET",
       "path": "/v1/events",
@@ -969,6 +979,7 @@
     "webhookDeliveriesList": "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
     "webhookDeliveryHistory": "docs/api/client-contract/fixtures/webhook-delivery.history.json",
     "webhookDeliveryRetryQueued": "docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json",
+    "webhookDeliveryRedriveQueued": "docs/api/client-contract/fixtures/webhook-delivery-redrive.queued.json",
     "sseHeartbeat": "docs/api/client-contract/fixtures/events-stream.heartbeat.sse",
     "apiKeysList": "docs/api/client-contract/fixtures/api-keys.list.json",
     "apiKeyProvisioned": "docs/api/client-contract/fixtures/api-key.provisioned.json",

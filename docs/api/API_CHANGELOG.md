@@ -38,6 +38,9 @@ Client impact:
   `POST /v1/api-keys/{keyId}/rotate`.
 - Promotes `POST /v1/webhook-deliveries/{deliveryId}/retry` to
   `implemented_public` for eligible pending/retrying webhook deliveries.
+- Promotes `POST /v1/webhook-deliveries/{deliveryId}/redrive` to
+  `implemented_public` for eligible dead-lettered webhook deliveries; it queues
+  a new safe delivery instead of mutating the terminal original delivery.
 - Group member mutations return `operationStatus: "accepted"` because they record
   controlled local intents and audit evidence; they do not imply provider-backed
   WhatsApp completion. Group metadata and local-state mutations remain
@@ -47,6 +50,9 @@ Client impact:
   and `sha256:` hashes are not returned in public DTOs or fixtures.
 - Webhook delivery retry requires `webhooks:retry` and `idempotency-key`, returns
   `operationStatus: "queued"`, and does not expose target URL, payload,
+  retry-policy internals, or domain events.
+- Webhook delivery redrive requires `webhooks:redrive` and `idempotency-key`,
+  returns `operationStatus: "queued"`, and does not expose target URL, payload,
   retry-policy internals, or domain events.
 - Requires clients to use safe `memberRef` values from the group member list for
   remove/promote/demote actions.

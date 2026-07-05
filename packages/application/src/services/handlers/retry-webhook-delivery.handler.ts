@@ -2,6 +2,7 @@ import {
   createIdempotencyKey,
   createJobId,
   createWebhookDeliveryId,
+  scheduleWebhookDelivery,
   type IdempotencyKey,
   type WebhookDelivery,
   type WebhookDeliveryId,
@@ -27,10 +28,19 @@ export type RetryWebhookDeliveryHandlerOptions = Readonly<{
 
 type RetryWebhookDeliveryInput = Readonly<{
   ok: true;
+  mode: "retry" | "redrive";
   deliveryId: WebhookDeliveryId;
   idempotencyKey: IdempotencyKey;
   context: ApplicationPortContext;
 }>;
+
+type IdempotencyAwareWebhookDeliveryRepository = WebhookDeliveryRepositoryPort &
+  Partial<{
+    recordIdempotencyKey(
+      idempotencyKey: IdempotencyKey,
+      deliveryId: WebhookDeliveryId,
+    ): Promise<void> | void;
+  }>;
 
 export function createRetryWebhookDeliveryHandler(
   options: RetryWebhookDeliveryHandlerOptions,
@@ -40,7 +50,7 @@ export function createRetryWebhookDeliveryHandler(
 }
 
 class RetryWebhookDeliveryHandler {
-  private readonly webhookDeliveryRepository: WebhookDeliveryRepositoryPort;
+  private readonly webhookDeliveryRepository: IdempotencyAwareWebhookDeliveryRepository;
   private readonly queueProvider: QueueProviderPort;
 
   constructor(options: RetryWebhookDeliveryHandlerOptions) {
@@ -69,22 +79,28 @@ class RetryWebhookDeliveryHandler {
       });
     }
 
-    if (!isRetryableDeliveryState(delivery)) {
+    if (!isDeliveryStateAllowed(delivery, input.mode)) {
       return commandOutcome(envelope, "rejected", {
         accepted: false,
         retryable: false,
         resultRef: delivery.id,
-        reasonCode: "webhook_delivery_retry_not_allowed",
+        reasonCode:
+          input.mode === "retry"
+            ? "webhook_delivery_retry_not_allowed"
+            : "webhook_delivery_redrive_not_allowed",
       });
     }
 
-    const queueResult = await this.queueWebhookDelivery(delivery, input);
+    const queueDelivery =
+      input.mode === "redrive" ? await this.resolveRedriveDelivery(delivery, input) : delivery;
+
+    const queueResult = await this.queueWebhookDelivery(queueDelivery, input);
 
     if (!queueResult.ok) {
       return commandOutcome(envelope, "failed", {
         accepted: false,
         retryable: queueResult.error.retryable,
-        resultRef: delivery.id,
+        resultRef: queueDelivery.id,
         reasonCode: queueResult.error.code,
       });
     }
@@ -92,8 +108,36 @@ class RetryWebhookDeliveryHandler {
     return commandOutcome(envelope, "queued", {
       accepted: true,
       retryable: false,
-      resultRef: delivery.id,
+      resultRef: queueDelivery.id,
     });
+  }
+
+  private async resolveRedriveDelivery(
+    delivery: WebhookDelivery,
+    input: RetryWebhookDeliveryInput,
+  ): Promise<WebhookDelivery> {
+    const existing = await this.webhookDeliveryRepository.findByIdempotencyKey(
+      input.idempotencyKey,
+    );
+
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const redriveDelivery = scheduleWebhookDelivery(
+      createWebhookDeliveryId(`${delivery.id}:redrive:${input.idempotencyKey}`),
+      delivery.webhookId,
+      delivery.sourceSignalRef,
+      delivery.retryPolicy,
+    );
+
+    await this.webhookDeliveryRepository.save(redriveDelivery);
+    await this.webhookDeliveryRepository.recordIdempotencyKey?.(
+      input.idempotencyKey,
+      redriveDelivery.id,
+    );
+
+    return redriveDelivery;
   }
 
   private queueWebhookDelivery(
@@ -116,32 +160,53 @@ class RetryWebhookDeliveryHandler {
   private resolveInput(
     envelope: ApplicationCommandEnvelope,
   ): RetryWebhookDeliveryInput | Readonly<{ ok: false; reasonCode: string }> {
-    if (envelope.name !== "RetryWebhookDelivery") {
-      return { ok: false, reasonCode: "retry_webhook_delivery_wrong_command" };
+    const mode = retryModeForCommand(envelope.name);
+
+    if (mode === undefined) {
+      return { ok: false, reasonCode: "webhook_delivery_operation_wrong_command" };
     }
 
     if (envelope.targetRef === undefined) {
-      return { ok: false, reasonCode: "retry_webhook_delivery_target_required" };
+      return { ok: false, reasonCode: `${mode}_webhook_delivery_target_required` };
     }
 
     if (envelope.idempotencyKey === undefined) {
-      return { ok: false, reasonCode: "retry_webhook_delivery_idempotency_required" };
+      return { ok: false, reasonCode: `${mode}_webhook_delivery_idempotency_required` };
     }
 
     try {
       return {
         ok: true,
+        mode,
         deliveryId: createWebhookDeliveryId(envelope.targetRef),
-        idempotencyKey: createIdempotencyKey(`retry_webhook_delivery:${envelope.idempotencyKey}`),
+        idempotencyKey: createIdempotencyKey(`${mode}_webhook_delivery:${envelope.idempotencyKey}`),
         context: commandContext(envelope),
       };
     } catch {
-      return { ok: false, reasonCode: "retry_webhook_delivery_input_invalid" };
+      return { ok: false, reasonCode: `${mode}_webhook_delivery_input_invalid` };
     }
   }
 }
 
-function isRetryableDeliveryState(delivery: WebhookDelivery): boolean {
+function retryModeForCommand(commandName: string): RetryWebhookDeliveryInput["mode"] | undefined {
+  switch (commandName) {
+    case "RetryWebhookDelivery":
+      return "retry";
+    case "RedriveWebhookDelivery":
+      return "redrive";
+    default:
+      return undefined;
+  }
+}
+
+function isDeliveryStateAllowed(
+  delivery: WebhookDelivery,
+  mode: RetryWebhookDeliveryInput["mode"],
+): boolean {
+  if (mode === "redrive") {
+    return delivery.status === "dead_letter";
+  }
+
   return delivery.status === "pending" || delivery.status === "retrying";
 }
 

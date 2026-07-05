@@ -146,6 +146,7 @@ an admin profile.
 | Webhooks  | `GET /v1/webhook-deliveries`                 | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                                      |
 | Webhooks  | `GET /v1/webhook-deliveries/{id}/history`    | `implemented_public` | Webhook delivery detail/history panel.                                                                      |
 | Webhooks  | `POST /v1/webhook-deliveries/{id}/retry`     | `implemented_public` | Controlled retry for eligible pending/retrying deliveries; requires `webhooks:retry` and `idempotency-key`. |
+| Webhooks  | `POST /v1/webhook-deliveries/{id}/redrive`   | `implemented_public` | Controlled redrive for eligible dead-lettered deliveries; returns the new queued delivery ref.              |
 | API Keys  | `GET /v1/api-keys`                           | `implemented_public` | Admin/operator-only lifecycle list. Requires `admin:*`; never displays plaintext keys or hashes.            |
 | API Keys  | `POST /v1/api-keys`                          | `implemented_public` | Admin/operator-only provision action. Request key is write-only and is not returned.                        |
 | API Keys  | `POST /v1/api-keys/{id}/revoke`              | `implemented_public` | Admin/operator-only revoke action by safe key id.                                                           |
@@ -249,6 +250,8 @@ curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries/webhook_delivery_demo/history"
 curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: retry-webhook-delivery-demo" \
   "$BASE/v1/webhook-deliveries/webhook_delivery_demo/retry"
+curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: redrive-webhook-delivery-demo" \
+  "$BASE/v1/webhook-deliveries/webhook_delivery_demo/redrive"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"

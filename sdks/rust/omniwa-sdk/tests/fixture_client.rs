@@ -202,6 +202,40 @@ fn projection_read_clients_use_generated_operations() {
 }
 
 #[test]
+fn webhooks_client_exposes_delivery_redrive_mutation() {
+    let api_key = ApiKey::new("test-api-key").expect("valid API key");
+    let config = OmniwaClientConfig::new("http://localhost:3000", api_key).expect("valid config");
+    let transport = FixtureTransport::new().with_response(
+        "redriveWebhookDelivery",
+        SdkResponse::json(
+            202,
+            r#"{"data":{"resourceType":"webhookDelivery","resourceId":"webhook_delivery_demo","operationStatus":"queued","accepted":true,"retryable":false,"async":true,"resultRef":"webhook_delivery_demo_redrive_01"},"meta":{"requestId":"req_webhook_redrive","correlationId":"corr_webhook_redrive","timestamp":"2026-07-05T00:00:00.000Z"}}"#,
+        ),
+    );
+    let client = OmniwaClient::new(config, transport);
+    let options = RequestOptions {
+        idempotency_key: Some(
+            IdempotencyKey::new("idem-webhook-redrive-demo")
+                .expect("valid webhook redrive idempotency key"),
+        ),
+        ..RequestOptions::default()
+    };
+
+    let redrive = client
+        .webhooks()
+        .redrive_delivery_json("webhook_delivery_demo", "{}", options)
+        .expect("webhook delivery redrive fixture response")
+        .success_envelope::<PublicOperationData>()
+        .expect("webhook delivery redrive operation envelope");
+
+    assert_eq!(redrive.data.operation_status, "queued");
+    assert_eq!(
+        redrive.data.result_ref.as_deref(),
+        Some("webhook_delivery_demo_redrive_01")
+    );
+}
+
+#[test]
 fn events_client_streams_sse_fixture() {
     let client = client_with_fixture(
         "streamEvents",

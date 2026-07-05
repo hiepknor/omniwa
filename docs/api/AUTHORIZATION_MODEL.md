@@ -10,41 +10,42 @@
 
 ## Authorization Layers
 
-| Layer | Responsibility | Must Not Do |
-|---|---|---|
-| API Layer | Authenticate caller, parse scopes, attach request identity, reject clearly unauthorized boundary access | Own product authorization policy |
-| Application Layer | Evaluate access decision for use case, command, query, and resource boundary | Know HTTP transport details |
-| Domain Layer | Enforce business invariants and policies unrelated to caller credentials | Check API keys or scopes |
-| Infrastructure Layer | Enforce storage/provider/transport protections | Decide product access |
+| Layer                | Responsibility                                                                                          | Must Not Do                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| API Layer            | Authenticate caller, parse scopes, attach request identity, reject clearly unauthorized boundary access | Own product authorization policy |
+| Application Layer    | Evaluate access decision for use case, command, query, and resource boundary                            | Know HTTP transport details      |
+| Domain Layer         | Enforce business invariants and policies unrelated to caller credentials                                | Check API keys or scopes         |
+| Infrastructure Layer | Enforce storage/provider/transport protections                                                          | Decide product access            |
 
 ## Scope Model
 
 MVP authorization uses scopes attached to API keys or admin keys.
 
-| Scope | Allows | Boundary |
-|---|---|---|
-| `instances:read` | List and inspect instances | Public API |
-| `instances:write` | Create/update instance metadata | Public API |
-| `instances:connect` | Connect, disconnect, reconnect, QR pairing | Public API |
-| `instances:destroy` | Destroy instance | Admin or explicitly elevated key |
-| `messages:send` | Submit outbound text/media messages | Public API |
-| `messages:read` | Read message status/history | Public API |
-| `messages:retry` | Retry eligible message send | Public or Admin depending instance scope |
-| `messages:cancel` | Cancel eligible message | Public or Admin depending instance scope |
-| `media:write` | Register media | Public API |
-| `media:read` | Read media status | Public API |
-| `webhooks:write` | Manage webhook subscriptions | Public API |
-| `webhooks:read` | Read webhook status/history | Public API |
-| `webhooks:retry` | Retry webhook delivery | Admin or elevated public key |
-| `health:read` | Read detailed health | Health API |
-| `metrics:read` | Read metrics snapshots | Monitoring API |
-| `config:read` | Read configuration status | Admin API |
-| `config:write` | Validate and activate configuration | Admin API |
-| `audit:read` | Query audit records | Admin API |
-| `provider:read` | Read provider capability status | Admin API |
-| `provider:refresh` | Refresh provider capability | Admin API |
-| `jobs:read` | Read worker/job status | Monitoring or Admin API |
-| `admin:*` | Administrative override within product constraints | Admin API |
+| Scope               | Allows                                             | Boundary                                 |
+| ------------------- | -------------------------------------------------- | ---------------------------------------- |
+| `instances:read`    | List and inspect instances                         | Public API                               |
+| `instances:write`   | Create/update instance metadata                    | Public API                               |
+| `instances:connect` | Connect, disconnect, reconnect, QR pairing         | Public API                               |
+| `instances:destroy` | Destroy instance                                   | Admin or explicitly elevated key         |
+| `messages:send`     | Submit outbound text/media messages                | Public API                               |
+| `messages:read`     | Read message status/history                        | Public API                               |
+| `messages:retry`    | Retry eligible message send                        | Public or Admin depending instance scope |
+| `messages:cancel`   | Cancel eligible message                            | Public or Admin depending instance scope |
+| `media:write`       | Register media                                     | Public API                               |
+| `media:read`        | Read media status                                  | Public API                               |
+| `webhooks:write`    | Manage webhook subscriptions                       | Public API                               |
+| `webhooks:read`     | Read webhook status/history                        | Public API                               |
+| `webhooks:retry`    | Retry webhook delivery                             | Admin or elevated public key             |
+| `webhooks:redrive`  | Redrive dead-lettered webhook delivery             | Admin or elevated public key             |
+| `health:read`       | Read detailed health                               | Health API                               |
+| `metrics:read`      | Read metrics snapshots                             | Monitoring API                           |
+| `config:read`       | Read configuration status                          | Admin API                                |
+| `config:write`      | Validate and activate configuration                | Admin API                                |
+| `audit:read`        | Query audit records                                | Admin API                                |
+| `provider:read`     | Read provider capability status                    | Admin API                                |
+| `provider:refresh`  | Refresh provider capability                        | Admin API                                |
+| `jobs:read`         | Read worker/job status                             | Monitoring or Admin API                  |
+| `admin:*`           | Administrative override within product constraints | Admin API                                |
 
 ## Instance-Level Boundary
 
@@ -59,17 +60,17 @@ Rules:
 
 ## Operation-Level Access
 
-| Operation Category | Required Access |
-|---|---|
-| Read safe status | Resource read scope plus instance access |
-| Submit command | Resource write/send scope plus instance access |
-| Retry command | Retry scope plus eligibility from Application workflow |
-| Cancel command | Cancel scope plus workflow eligibility |
-| Destructive operation | Admin Key or explicit elevated scope |
-| Configuration activation | Admin Key |
-| Audit query | Admin Key |
-| Provider capability refresh | Admin Key |
-| Detailed metrics | Monitoring scope or Admin Key |
+| Operation Category          | Required Access                                        |
+| --------------------------- | ------------------------------------------------------ |
+| Read safe status            | Resource read scope plus instance access               |
+| Submit command              | Resource write/send scope plus instance access         |
+| Retry command               | Retry scope plus eligibility from Application workflow |
+| Cancel command              | Cancel scope plus workflow eligibility                 |
+| Destructive operation       | Admin Key or explicit elevated scope                   |
+| Configuration activation    | Admin Key                                              |
+| Audit query                 | Admin Key                                              |
+| Provider capability refresh | Admin Key                                              |
+| Detailed metrics            | Monitoring scope or Admin Key                          |
 
 ## Admin-Only Operations
 

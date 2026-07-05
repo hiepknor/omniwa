@@ -81,6 +81,7 @@ The API key kind and scopes determine boundary access:
 | DELETE | `/v1/webhooks/:webhookId`                    |
 | GET    | `/v1/webhook-deliveries/:deliveryId/history` |
 | POST   | `/v1/webhook-deliveries/:deliveryId/retry`   |
+| POST   | `/v1/webhook-deliveries/:deliveryId/redrive` |
 
 ### Admin
 

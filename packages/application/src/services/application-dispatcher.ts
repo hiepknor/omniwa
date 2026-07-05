@@ -243,6 +243,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
 
     if (retryWebhookDeliveryHandler !== undefined) {
       handlers.set("RetryWebhookDelivery", retryWebhookDeliveryHandler);
+      handlers.set("RedriveWebhookDelivery", retryWebhookDeliveryHandler);
     }
 
     return handlers;

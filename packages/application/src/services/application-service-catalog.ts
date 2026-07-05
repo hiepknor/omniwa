@@ -134,6 +134,7 @@ export const applicationServiceDefinitions = [
       "ScheduleWebhookDelivery",
       "DeliverWebhookWork",
       "RetryWebhookDelivery",
+      "RedriveWebhookDelivery",
       "MoveWebhookDeliveryToDeadLetter",
     ],
     [

@@ -991,6 +991,18 @@ function matchRoute(
     );
   }
 
+  if (
+    method === "POST" &&
+    matches(segments, ["v1", "webhook-deliveries", ":deliveryId", "redrive"])
+  ) {
+    return adapterCommand(
+      "public",
+      "RedriveWebhookDelivery",
+      segments[2],
+      validateOptionalObjectBody,
+    );
+  }
+
   if (method === "GET" && matches(segments, ["v1", "provider", "capabilities"])) {
     return adapterQuery("admin", "GetProviderCapabilityStatus", undefined, "strong_owner");
   }
@@ -2960,6 +2972,7 @@ function parseScopes(value: string | undefined): readonly ApiScope[] {
       "webhooks:write",
       "webhooks:read",
       "webhooks:retry",
+      "webhooks:redrive",
       "health:read",
       "events:read",
     ]);
@@ -2990,6 +3003,7 @@ function isApiScope(value: string): value is ApiScope {
     "webhooks:write",
     "webhooks:read",
     "webhooks:retry",
+    "webhooks:redrive",
     "health:read",
     "events:read",
     "metrics:read",

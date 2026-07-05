@@ -3381,6 +3381,58 @@
     },
     {
       "deprecated": false,
+      "key": "POST /v1/webhook-deliveries/{deliveryId}/redrive",
+      "method": "post",
+      "operationId": "redriveWebhookDelivery",
+      "parameters": [
+        {
+          "id": "#/components/parameters/DeliveryId",
+          "in": "path",
+          "name": "deliveryId",
+          "ref": "#/components/parameters/DeliveryId",
+          "required": true
+        },
+        {
+          "id": "#/components/parameters/IdempotencyKeyHeader",
+          "in": "header",
+          "name": "idempotency-key",
+          "ref": "#/components/parameters/IdempotencyKeyHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XCorrelationIdHeader",
+          "in": "header",
+          "name": "x-correlation-id",
+          "ref": "#/components/parameters/XCorrelationIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XRequestIdHeader",
+          "in": "header",
+          "name": "x-request-id",
+          "ref": "#/components/parameters/XRequestIdHeader",
+          "required": false
+        },
+        {
+          "id": "#/components/parameters/XTraceIdHeader",
+          "in": "header",
+          "name": "x-trace-id",
+          "ref": "#/components/parameters/XTraceIdHeader",
+          "required": false
+        }
+      ],
+      "path": "/v1/webhook-deliveries/{deliveryId}/redrive",
+      "responses": {
+        "202": "#/components/responses/Accepted",
+        "401": "#/components/responses/Unauthorized",
+        "404": "#/components/responses/NotFound",
+        "409": "#/components/responses/Conflict",
+        "422": "#/components/responses/Unprocessable",
+        "503": "#/components/responses/ServiceUnavailable"
+      }
+    },
+    {
+      "deprecated": false,
       "key": "POST /v1/webhooks",
       "method": "post",
       "operationId": "registerWebhook",
