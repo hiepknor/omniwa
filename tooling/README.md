@@ -13,6 +13,9 @@ Current tooling:
   REST regression and local vertical-slice runtime path.
 - `observability/check-observability-readiness.mjs` checks metric catalog,
   alert, dependency readiness, metrics runtime, and health runtime evidence.
+- `observability/check-slo-readiness.mjs` checks SLI/SLO/error-budget
+  documentation, alert runbook coverage, production-cut SLO proof state, and
+  root SLO gate wiring.
 - `performance/check-performance-readiness.mjs` checks load baseline evidence,
   root load gate wiring, and root performance gate wiring.
 - `performance/run-target-environment-load.mjs` performs optional bounded

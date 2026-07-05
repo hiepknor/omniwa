@@ -193,11 +193,13 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   backup/restore drill tests, recovery validation tests, and release-readiness wiring. The gate
   proves the deterministic recovery contract; target-environment backup automation and restore
   drills are still required before a broad production-ready claim.
-- N11.7 also has a dedicated `pnpm observability:check` root gate for deterministic observability
-  and dependency-readiness evidence. The gate verifies the observability readiness checker, metric
-  catalog, alert definitions, dependency readiness behavior, metrics runtime smoke, health runtime
-  smoke, and release-readiness wiring. It does not replace target-environment dashboards, alert
-  routing, exporter operations, or sustained SLO monitoring.
+- N11.7 also has dedicated `pnpm observability:check` and `pnpm slo:check` root gates for
+  deterministic observability, dependency-readiness, and SLO evidence. The observability gate
+  verifies the readiness checker, metric catalog, alert definitions, dependency readiness behavior,
+  metrics runtime smoke, health runtime smoke, and release-readiness wiring. The SLO gate verifies
+  the approved SLI/SLO/error-budget table, alert runbook coverage, production-cut SLO proof state,
+  and root gate wiring. These gates do not replace target-environment dashboards, alert routing,
+  exporter operations, or sustained SLO monitoring.
 - N11.7 now wires API request latency metrics into the HTTP transport through the approved
   `MetricRecorder` port. Local and production API runtimes can use
   `OMNIWA_API_METRICS_JSONL_PATH` for a JSONL metric sink, and production API composition fails

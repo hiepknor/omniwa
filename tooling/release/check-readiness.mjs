@@ -66,6 +66,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "packages/infrastructure-observability/src/metrics-exporter.ts",
   "packages/infrastructure-observability/src/structured-log-backend.ts",
   "tooling/observability/check-observability-readiness.mjs",
+  "tooling/observability/check-slo-readiness.mjs",
   "apps/worker/src/worker-loop.ts",
   "apps/webhook-dispatcher/src/webhook-dispatcher-loop.ts",
   "apps/webhook-dispatcher/src/runtime-composition.ts",
@@ -116,6 +117,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "apps/metrics/src/index.spec.ts",
   "apps/health/src/index.spec.ts",
   "tooling/observability/check-observability-readiness.spec.ts",
+  "tooling/observability/check-slo-readiness.spec.ts",
   "tooling/security/check-security-readiness.spec.ts",
   "apps/background/src/backup-restore-drill.spec.ts",
   "tooling/recovery/check-recovery-readiness.spec.ts",
@@ -143,6 +145,7 @@ const requiredRootScripts = Object.freeze([
   "sdk:check",
   "sdk:test",
   "observability:check",
+  "slo:check",
   "security:check",
   "e2e:check",
   "regression:check",
@@ -198,6 +201,8 @@ export async function createReadinessFixture(projectRoot) {
       "sdk:test": "cargo test -p omniwa-sdk",
       "observability:check":
         "node tooling/observability/check-observability-readiness.mjs && pnpm exec vitest run packages/observability/src/metric-catalog.spec.ts packages/infrastructure-observability/src/observability-runtime-readiness.spec.ts apps/metrics/src/index.spec.ts apps/health/src/index.spec.ts tooling/observability/check-observability-readiness.spec.ts",
+      "slo:check":
+        "node tooling/observability/check-slo-readiness.mjs && pnpm exec vitest run packages/observability/src/metric-catalog.spec.ts tooling/observability/check-slo-readiness.spec.ts",
       "security:check":
         "node tooling/security/check-security-readiness.mjs && pnpm exec vitest run apps/api/src/api-key-auth.spec.ts apps/api/src/api-key-lifecycle.spec.ts apps/api/src/api-rate-limiter.spec.ts apps/api/src/api-security-audit.spec.ts apps/api/src/resource-ownership.spec.ts apps/api/src/platform-regression.spec.ts packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/observability/src/redaction.spec.ts packages/infrastructure-object-storage/src/object-storage-media-store.adapter.spec.ts packages/infrastructure-provider-baileys/src/baileys-auth-state-store.spec.ts tooling/security/check-security-readiness.spec.ts",
       "e2e:check":
@@ -213,10 +218,10 @@ export async function createReadinessFixture(projectRoot) {
       "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
       "target-env:smoke": "node tooling/production/run-target-environment-smoke.mjs",
       "production:check":
-        "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
+        "pnpm target-env:check && pnpm slo:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
       "release:check": "node tooling/release/check-readiness.mjs",
       check:
-        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm observability:check && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm performance:check && pnpm target-env:check && pnpm production:check && pnpm release:check",
+        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm observability:check && pnpm slo:check && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm performance:check && pnpm target-env:check && pnpm production:check && pnpm release:check",
     },
   });
 
@@ -312,6 +317,10 @@ async function checkRootPackage(projectRoot, findings) {
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm observability:check")) {
     findings.push(createFinding("check_script_missing_observability_gate", "blocker"));
+  }
+
+  if (typeof checkScript === "string" && !checkScript.includes("pnpm slo:check")) {
+    findings.push(createFinding("check_script_missing_slo_gate", "blocker"));
   }
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm security:check")) {

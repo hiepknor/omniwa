@@ -96,6 +96,7 @@ pnpm production:check
 The production gate verifies:
 
 - production cut review evidence exists,
+- SLI/SLO/error-budget documentation and alert runbook coverage exist,
 - load baseline evidence exists,
 - root scripts wire load and production gates,
 - load tests cannot pass with no tests,

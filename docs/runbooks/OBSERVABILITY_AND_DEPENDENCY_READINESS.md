@@ -65,6 +65,7 @@ metric recorder is present.
 ## Alerts
 
 Alert definitions are implemented in `packages/observability/src/alerts.ts`.
+SLI/SLO/error-budget documentation and alert runbook coverage are validated by `pnpm slo:check`.
 
 ### API Availability
 
