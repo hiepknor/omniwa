@@ -7,6 +7,7 @@ export const targetEnvironmentEvidenceStatuses = Object.freeze(["NOT_PROVEN", "P
 export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/production/check-target-environment-evidence.mjs",
   "tooling/production/run-target-environment-smoke.mjs",
+  "tooling/performance/run-target-environment-load.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
 ]);
@@ -14,6 +15,7 @@ export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
 export const requiredTargetEnvironmentEvidenceTests = Object.freeze([
   "tooling/production/check-target-environment-evidence.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
+  "tooling/performance/run-target-environment-load.spec.ts",
 ]);
 
 export const requiredTargetEnvironmentComponents = Object.freeze([
@@ -31,6 +33,7 @@ export const requiredTargetEnvironmentComponents = Object.freeze([
 
 export const requiredTargetEnvironmentScriptName = "target-env:check";
 export const targetEnvironmentSmokeScriptName = "target-env:smoke";
+export const targetEnvironmentLoadScriptName = "target-env:load";
 
 export async function evaluateTargetEnvironmentEvidence(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
@@ -69,6 +72,7 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
       [requiredTargetEnvironmentScriptName]: targetEnvironmentScript(),
       [targetEnvironmentSmokeScriptName]:
         "node tooling/production/run-target-environment-smoke.mjs",
+      [targetEnvironmentLoadScriptName]: "node tooling/performance/run-target-environment-load.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs",
       check: "pnpm lint && pnpm target-env:check && pnpm production:check",
@@ -160,6 +164,22 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
     findings.push(createFinding("target_environment_validation_commands_missing", "blocker"));
   }
 
+  if (!content.includes("pnpm target-env:smoke")) {
+    findings.push(createFinding("target_environment_smoke_command_missing", "blocker"));
+  }
+
+  if (!content.includes("OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH")) {
+    findings.push(createFinding("target_environment_smoke_artifact_path_missing", "blocker"));
+  }
+
+  if (!content.includes("pnpm target-env:load")) {
+    findings.push(createFinding("target_environment_load_command_missing", "blocker"));
+  }
+
+  if (!content.includes("OMNIWA_TARGET_ENV_LOAD_REPORT_PATH")) {
+    findings.push(createFinding("target_environment_load_artifact_path_missing", "blocker"));
+  }
+
   if (!content.includes("## Known Constraints")) {
     findings.push(createFinding("target_environment_known_constraints_missing", "blocker"));
   }
@@ -247,6 +267,19 @@ async function checkRootPackage(projectRoot, findings) {
       createFinding("root_target_environment_smoke_script_missing", "blocker", {
         target: targetEnvironmentSmokeScriptName,
         safeDetailCode: "root_target_environment_smoke_script_missing",
+      }),
+    );
+  }
+
+  const targetEnvironmentLoad = scripts[targetEnvironmentLoadScriptName];
+  if (
+    typeof targetEnvironmentLoad !== "string" ||
+    !targetEnvironmentLoad.includes("node tooling/performance/run-target-environment-load.mjs")
+  ) {
+    findings.push(
+      createFinding("root_target_environment_load_script_missing", "blocker", {
+        target: targetEnvironmentLoadScriptName,
+        safeDetailCode: "root_target_environment_load_script_missing",
       }),
     );
   }
@@ -364,6 +397,8 @@ function fixtureReview(status) {
     "## Validation Commands",
     "",
     "- `pnpm check`",
+    "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
+    "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "",
     "## Known Constraints",
     "",

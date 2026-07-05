@@ -56,6 +56,10 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "slo_evidence_proof_state_missing" }),
           expect.objectContaining({ code: "target_environment_component_missing" }),
           expect.objectContaining({ code: "target_environment_validation_commands_missing" }),
+          expect.objectContaining({ code: "target_environment_smoke_command_missing" }),
+          expect.objectContaining({ code: "target_environment_smoke_artifact_path_missing" }),
+          expect.objectContaining({ code: "target_environment_load_command_missing" }),
+          expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_known_constraints_missing" }),
         ]),
       );
@@ -135,8 +139,68 @@ describe("target environment evidence gate", () => {
             code: "root_target_environment_smoke_script_missing",
             target: "target-env:smoke",
           }),
+          expect.objectContaining({
+            code: "root_target_environment_load_script_missing",
+            target: "target-env:load",
+          }),
           expect.objectContaining({ code: "production_script_missing_target_environment_gate" }),
           expect.objectContaining({ code: "check_script_missing_target_environment_gate" }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when operator smoke/load artifact instructions are missing from the review", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeText(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md"),
+        [
+          "# Target Environment Validation",
+          "",
+          "Target Environment Validation Status: NOT_PROVEN",
+          "",
+          "Target Environment Proven: NO",
+          "",
+          "Production Load Proven: NO",
+          "",
+          "SLO Evidence Proven: NO",
+          "",
+          "## Runtime Evidence Matrix",
+          "",
+          "| Component | Status | Evidence |",
+          "| --- | --- | --- |",
+          ...requiredTargetEnvironmentComponents.map(
+            (component) => `| ${component} | PENDING | Fixture evidence. |`,
+          ),
+          "",
+          "## Validation Commands",
+          "",
+          "- `pnpm check`",
+          "",
+          "## Known Constraints",
+          "",
+          "- Fixture constraints recorded.",
+          "",
+        ].join("\n"),
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "target_environment_smoke_command_missing" }),
+          expect.objectContaining({ code: "target_environment_smoke_artifact_path_missing" }),
+          expect.objectContaining({ code: "target_environment_load_command_missing" }),
+          expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
         ]),
       );
     } finally {
@@ -176,6 +240,8 @@ function targetEnvironmentReviewWithComponentStatus(
     "## Validation Commands",
     "",
     "- `pnpm check`",
+    "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
+    "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "",
     "## Known Constraints",
     "",
