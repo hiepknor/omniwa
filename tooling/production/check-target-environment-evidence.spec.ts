@@ -60,6 +60,7 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "target_environment_smoke_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_load_command_missing" }),
           expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
+          expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_known_constraints_missing" }),
         ]),
       );
@@ -201,6 +202,7 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "target_environment_smoke_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_load_command_missing" }),
           expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
+          expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
         ]),
       );
     } finally {
@@ -208,19 +210,24 @@ describe("target environment evidence gate", () => {
     }
   });
 
-  it("validates optional sanitized smoke and load artifacts when paths are provided", async () => {
+  it("validates optional sanitized smoke, load, and evidence bundle artifacts when paths are provided", async () => {
     const root = await createTempProject();
 
     try {
       await createTargetEnvironmentFixture(root, "NOT_PROVEN");
       await writeJson(join(root, "artifacts/target-env/smoke-report.json"), validSmokeArtifact());
       await writeJson(join(root, "artifacts/target-env/load-report.json"), validLoadArtifact());
+      await writeJson(
+        join(root, "artifacts/target-env/evidence-bundle.json"),
+        validEvidenceBundleArtifact(),
+      );
 
       const report = await evaluateTargetEnvironmentEvidence({
         projectRoot: root,
         checkedAtEpochMilliseconds: 1_800_000_000_000,
         smokeReportPath: "artifacts/target-env/smoke-report.json",
         loadReportPath: "artifacts/target-env/load-report.json",
+        evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
       });
 
       expect(report).toEqual({
@@ -345,6 +352,67 @@ describe("target environment evidence gate", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("fails safe when optional evidence bundle schema is invalid", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/evidence-bundle.json"), {
+        ...validEvidenceBundleArtifact(),
+        components: [],
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_bundle_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safe when optional evidence bundle contains unsafe content", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/evidence-bundle.json"), {
+        ...validEvidenceBundleArtifact(),
+        apiKey: "local-dev-secret-change-me",
+        startupSummaryUrl: "https://target.example.invalid/startup",
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_bundle_artifact_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(report)).not.toContain("target.example");
+      expect(JSON.stringify(report)).not.toContain("local-dev-secret");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 function targetEnvironmentReviewWithComponentStatus(
@@ -380,6 +448,7 @@ function targetEnvironmentReviewWithComponentStatus(
     "- `pnpm check`",
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "",
     "## Known Constraints",
     "",
@@ -446,6 +515,46 @@ function validLoadArtifact(): unknown {
         safeErrorCodeCounts: {},
       },
     ],
+    findings: [],
+  };
+}
+
+function validEvidenceBundleArtifact(): unknown {
+  return {
+    version: 1,
+    status: "NOT_PROVEN",
+    checkedAtIso: "2026-07-05T00:00:00.000Z",
+    proofStates: {
+      targetEnvironmentProven: false,
+      productionLoadProven: false,
+      sloEvidenceProven: false,
+    },
+    evidence: {
+      deploymentProfileRef: "deployment-profile-reviewed",
+      runtimeVersionsRef: "runtime-versions-reviewed",
+      startupSummaryRef: "startup-summary-reviewed",
+      healthReadinessRef: "health-readiness-reviewed",
+      dependencyConnectivityRef: "dependency-connectivity-reviewed",
+      backupRestoreDrillRef: "backup-restore-drill-reviewed",
+      productionLoadSummaryRef: "production-load-summary-reviewed",
+      alertSloDryRunRef: "alert-slo-dry-run-reviewed",
+      rollbackOrForwardFixNotesRef: "rollback-forward-fix-reviewed",
+    },
+    components: requiredTargetEnvironmentComponents.map((component) => ({
+      component,
+      status: "PENDING",
+      evidenceRef: `${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-pending`,
+    })),
+    artifacts: {
+      smoke: {
+        artifactRef: "smoke-report-reviewed",
+        status: "passed",
+      },
+      load: {
+        artifactRef: "load-report-reviewed",
+        status: "passed",
+      },
+    },
     findings: [],
   };
 }

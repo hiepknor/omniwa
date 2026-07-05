@@ -116,11 +116,18 @@ also validates the referenced smoke/load artifact JSON shape and rejects unsafe 
 API keys, raw payloads, QR values, JIDs, text, auth state, and session material. This validation is
 local-only; it does not run target-environment traffic.
 
+Operators can also provide `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` to validate a sanitized evidence
+bundle manifest. The bundle records references to deployment profile, runtime versions, startup
+summary, health/readiness, dependency connectivity, backup/restore drill, production-load summary,
+alert/SLO dry-run, rollback or forward-fix notes, and smoke/load artifacts without storing raw
+environment values.
+
 It verifies:
 
 - `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` exists,
 - target-environment proof state is explicit,
 - every required runtime/dependency component has an evidence row,
+- optional target-environment evidence bundle artifacts are schema-valid and sanitized,
 - `docs/reviews/PRODUCTION_CUT_REVIEW.md` exists,
 - final readiness decision is explicit,
 - Production Ready state is explicit,

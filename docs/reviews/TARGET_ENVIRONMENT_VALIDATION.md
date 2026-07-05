@@ -88,6 +88,18 @@ running `pnpm target-env:check`, the local evidence gate validates the reference
 artifact schema and blocks unsafe fields. The gate still does not contact a target deployment or
 claim production readiness by itself.
 
+Optional target-environment evidence bundle validation:
+
+```text
+OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH=artifacts/target-env/evidence-bundle.json \
+pnpm target-env:check
+```
+
+The evidence bundle is an operator-maintained sanitized JSON manifest that references the runtime
+evidence matrix, smoke/load artifacts, deployment profile, dependency checks, backup/restore drill,
+alert/SLO dry-run, and rollback or forward-fix notes. The checker validates its schema and rejects
+unsafe fields, but it does not create target-environment evidence.
+
 Target-environment evidence must additionally record:
 
 - deployment profile and runtime versions,
