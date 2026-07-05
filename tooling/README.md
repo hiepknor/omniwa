@@ -18,6 +18,9 @@ Current tooling:
 - `performance/run-target-environment-load.mjs` performs optional bounded
   deployed API load checks and can write a sanitized target-environment evidence
   artifact.
+- `production/check-target-environment-evidence.mjs` checks target-environment
+  evidence wiring and validates optional sanitized smoke/load artifact schemas
+  when their report path environment variables are supplied.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
 - `production/run-target-environment-smoke.mjs` performs optional deployed API

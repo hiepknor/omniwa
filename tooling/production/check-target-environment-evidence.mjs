@@ -1,5 +1,5 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const targetEnvironmentEvidenceStatuses = Object.freeze(["NOT_PROVEN", "PARTIAL", "PROVEN"]);
@@ -35,6 +35,22 @@ export const requiredTargetEnvironmentScriptName = "target-env:check";
 export const targetEnvironmentSmokeScriptName = "target-env:smoke";
 export const targetEnvironmentLoadScriptName = "target-env:load";
 
+const allowedTargetEnvironmentEndpointPaths = Object.freeze([
+  "/v1/health",
+  "/v1/health/readiness",
+  "/v1/instances",
+]);
+
+const unsafeArtifactKeyPattern =
+  /(^|[_-])(api[_-]?key|authorization|bearer|token|secret|password|base[_-]?url|url|jid|phone|text|payload|qr|auth[_-]?state|session[_-]?material|response[_-]?body|body|raw)([_-]|$)/iu;
+const unsafeArtifactStringPatterns = Object.freeze([
+  /\bhttps?:\/\//iu,
+  /@s\.whatsapp\.net\b/iu,
+  /@g\.us\b/iu,
+  /\bbearer\s+[a-z0-9._-]+/iu,
+  /\bx-api-key\b/iu,
+]);
+
 export async function evaluateTargetEnvironmentEvidence(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
   const checkedAtEpochMilliseconds = options.checkedAtEpochMilliseconds ?? Date.now();
@@ -54,6 +70,18 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
   );
   await checkTargetEnvironmentReview(projectRoot, findings);
   await checkRootPackage(projectRoot, findings);
+  await checkOptionalTargetEnvironmentArtifact(
+    projectRoot,
+    "smoke",
+    options.smokeReportPath ?? process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH,
+    findings,
+  );
+  await checkOptionalTargetEnvironmentArtifact(
+    projectRoot,
+    "load",
+    options.loadReportPath ?? process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH,
+    findings,
+  );
 
   return freezeReport({
     status: findings.some((finding) => finding.severity === "blocker") ? "failed" : "passed",
@@ -293,6 +321,223 @@ async function checkRootPackage(projectRoot, findings) {
   if (typeof checkScript !== "string" || !checkScript.includes("pnpm target-env:check")) {
     findings.push(createFinding("check_script_missing_target_environment_gate", "blocker"));
   }
+}
+
+async function checkOptionalTargetEnvironmentArtifact(
+  projectRoot,
+  artifactKind,
+  artifactPath,
+  findings,
+) {
+  const normalizedPath = typeof artifactPath === "string" ? artifactPath.trim() : "";
+
+  if (normalizedPath.length === 0) {
+    return;
+  }
+
+  let content;
+
+  try {
+    content = await readFile(resolveArtifactPath(projectRoot, normalizedPath), "utf8");
+  } catch {
+    findings.push(
+      createFinding(`target_environment_${artifactKind}_artifact_unreadable`, "blocker"),
+    );
+    return;
+  }
+
+  let artifact;
+
+  try {
+    artifact = JSON.parse(content);
+  } catch {
+    findings.push(
+      createFinding(`target_environment_${artifactKind}_artifact_invalid_json`, "blocker"),
+    );
+    return;
+  }
+
+  const schemaValid =
+    artifactKind === "smoke"
+      ? validateTargetEnvironmentSmokeArtifact(artifact)
+      : validateTargetEnvironmentLoadArtifact(artifact);
+
+  if (!schemaValid) {
+    findings.push(
+      createFinding(`target_environment_${artifactKind}_artifact_invalid_schema`, "blocker"),
+    );
+  }
+
+  if (findUnsafeArtifactContent(artifact) !== undefined) {
+    findings.push(
+      createFinding(`target_environment_${artifactKind}_artifact_unsafe_content`, "blocker"),
+    );
+  }
+}
+
+function resolveArtifactPath(projectRoot, artifactPath) {
+  return isAbsolute(artifactPath) ? artifactPath : join(projectRoot, artifactPath);
+}
+
+export function validateTargetEnvironmentSmokeArtifact(artifact) {
+  return (
+    isRecord(artifact) &&
+    isArtifactStatus(artifact.status) &&
+    isNonEmptyString(artifact.checkedAtIso) &&
+    Array.isArray(artifact.endpoints) &&
+    artifact.endpoints.every(isSmokeEndpointArtifact) &&
+    Array.isArray(artifact.findings) &&
+    artifact.findings.every(isFindingArtifact)
+  );
+}
+
+export function validateTargetEnvironmentLoadArtifact(artifact) {
+  return (
+    isRecord(artifact) &&
+    isArtifactStatus(artifact.status) &&
+    isNonEmptyString(artifact.checkedAtIso) &&
+    isLoadBudgetsArtifact(artifact.budgets) &&
+    isLoadSummaryArtifact(artifact.summary) &&
+    Array.isArray(artifact.endpoints) &&
+    artifact.endpoints.every(isLoadEndpointArtifact) &&
+    Array.isArray(artifact.findings) &&
+    artifact.findings.every(isFindingArtifact)
+  );
+}
+
+function isSmokeEndpointArtifact(value) {
+  return (
+    isRecord(value) &&
+    value.method === "GET" &&
+    isAllowedEndpointPath(value.path) &&
+    typeof value.ok === "boolean" &&
+    isHttpStatusCode(value.statusCode) &&
+    isNonEmptyString(value.checkedAtIso) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isLoadEndpointArtifact(value) {
+  return (
+    isRecord(value) &&
+    value.method === "GET" &&
+    isAllowedEndpointPath(value.path) &&
+    isNonNegativeInteger(value.requests) &&
+    isNonNegativeInteger(value.successes) &&
+    isNonNegativeInteger(value.failures) &&
+    isCountRecord(value.statusCodeCounts) &&
+    isCountRecord(value.safeErrorCodeCounts)
+  );
+}
+
+function isLoadBudgetsArtifact(value) {
+  return (
+    isRecord(value) &&
+    isPositiveInteger(value.requestCount) &&
+    isPositiveInteger(value.concurrency) &&
+    isPositiveInteger(value.timeoutMilliseconds) &&
+    isPositiveInteger(value.maxP95LatencyMilliseconds) &&
+    isPercent(value.minSuccessRatePercent)
+  );
+}
+
+function isLoadSummaryArtifact(value) {
+  return (
+    isRecord(value) &&
+    isNonNegativeInteger(value.totalRequests) &&
+    isNonNegativeInteger(value.successes) &&
+    isNonNegativeInteger(value.failures) &&
+    isPercent(value.successRatePercent) &&
+    isNonNegativeNumber(value.durationMilliseconds) &&
+    isNonNegativeNumber(value.p95LatencyMilliseconds) &&
+    isNonNegativeNumber(value.maxLatencyMilliseconds)
+  );
+}
+
+function isFindingArtifact(value) {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.code) &&
+    (value.severity === "blocker" || value.severity === "warning") &&
+    isNonEmptyString(value.safeDetailCode)
+  );
+}
+
+function isCountRecord(value) {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([key, count]) => isNonEmptyString(key) && isNonNegativeInteger(count),
+    )
+  );
+}
+
+function isArtifactStatus(value) {
+  return value === "passed" || value === "failed";
+}
+
+function isAllowedEndpointPath(value) {
+  return typeof value === "string" && allowedTargetEnvironmentEndpointPaths.includes(value);
+}
+
+function isHttpStatusCode(value) {
+  return Number.isInteger(value) && value >= 0 && value <= 599;
+}
+
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function isNonNegativeInteger(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function isNonNegativeNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isPercent(value) {
+  return isNonNegativeNumber(value) && value <= 100;
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+export function findUnsafeArtifactContent(value) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const unsafe = findUnsafeArtifactContent(item);
+
+      if (unsafe !== undefined) {
+        return unsafe;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (isRecord(value)) {
+    for (const [key, nestedValue] of Object.entries(value)) {
+      if (unsafeArtifactKeyPattern.test(key)) {
+        return key;
+      }
+
+      const unsafe = findUnsafeArtifactContent(nestedValue);
+
+      if (unsafe !== undefined) {
+        return unsafe;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return unsafeArtifactStringPatterns.some((pattern) => pattern.test(value)) ? value : undefined;
+  }
+
+  return undefined;
 }
 
 function readYesNo(content, label, missingCode, findings) {

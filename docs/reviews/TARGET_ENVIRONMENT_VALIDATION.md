@@ -83,6 +83,11 @@ summary as a review artifact. The artifact must not include the base URL, API ke
 raw IDs, QR payloads, JIDs, message text, provider payloads, session material, webhook secrets, or
 other sensitive values. This command is operator-run and does not replace sustained SLO observation.
 
+When `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` or `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` is set while
+running `pnpm target-env:check`, the local evidence gate validates the referenced sanitized JSON
+artifact schema and blocks unsafe fields. The gate still does not contact a target deployment or
+claim production readiness by itself.
+
 Target-environment evidence must additionally record:
 
 - deployment profile and runtime versions,

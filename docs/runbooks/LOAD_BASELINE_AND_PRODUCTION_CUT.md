@@ -111,6 +111,11 @@ against the same approved public endpoint set and writes a sanitized summary to 
 for review evidence. The summary includes aggregate counts and latency budgets only; it excludes the
 base URL, API key, response bodies, raw IDs, query strings, provider payloads, and secrets.
 
+When either target-environment artifact path environment variable is present, `pnpm target-env:check`
+also validates the referenced smoke/load artifact JSON shape and rejects unsafe fields such as URLs,
+API keys, raw payloads, QR values, JIDs, text, auth state, and session material. This validation is
+local-only; it does not run target-environment traffic.
+
 It verifies:
 
 - `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` exists,

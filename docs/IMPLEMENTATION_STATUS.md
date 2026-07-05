@@ -248,6 +248,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   (`pnpm target-env:smoke` and `pnpm target-env:load`) plus their sanitized artifact path
   environment variables to be documented in `TARGET_ENVIRONMENT_VALIDATION.md`; the gate runs only
   local checker/unit tests and still does not contact a target deployment.
+- N11.7 target-environment evidence validation now also validates optional smoke/load artifact JSON
+  schemas when `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` or `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` is
+  supplied to `pnpm target-env:check`. The validator rejects unsafe URL, API key, QR/JID/text,
+  provider payload, auth-state, and session-material fields without recording the operator artifact
+  path in findings.
 
 ## Update Rule
 

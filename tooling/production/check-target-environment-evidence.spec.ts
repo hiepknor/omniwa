@@ -207,6 +207,144 @@ describe("target environment evidence gate", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("validates optional sanitized smoke and load artifacts when paths are provided", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/smoke-report.json"), validSmokeArtifact());
+      await writeJson(join(root, "artifacts/target-env/load-report.json"), validLoadArtifact());
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        smokeReportPath: "artifacts/target-env/smoke-report.json",
+        loadReportPath: "artifacts/target-env/load-report.json",
+      });
+
+      expect(report).toEqual({
+        status: "passed",
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        findings: [],
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safe when an optional artifact path is provided but unreadable", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        smokeReportPath: "artifacts/target-env/missing-smoke-report.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_smoke_artifact_unreadable",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(report)).not.toContain("missing-smoke-report");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safe when an optional artifact is invalid JSON", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeText(join(root, "artifacts/target-env/smoke-report.json"), "{not-json");
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        smokeReportPath: "artifacts/target-env/smoke-report.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_smoke_artifact_invalid_json",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safe when optional artifact schema is invalid", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/load-report.json"), {
+        ...validLoadArtifact(),
+        summary: undefined,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        loadReportPath: "artifacts/target-env/load-report.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_load_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safe when optional artifacts contain unsafe deployment details", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/smoke-report.json"), {
+        ...validSmokeArtifact(),
+        baseUrl: "https://target.example.invalid",
+        apiKey: "local-dev-secret-change-me",
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        smokeReportPath: "artifacts/target-env/smoke-report.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_smoke_artifact_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(report)).not.toContain("target.example");
+      expect(JSON.stringify(report)).not.toContain("local-dev-secret");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 function targetEnvironmentReviewWithComponentStatus(
@@ -256,6 +394,60 @@ async function createTempProject(): Promise<string> {
 
 async function writeJson(path: string, data: unknown): Promise<void> {
   await writeText(path, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+function validSmokeArtifact(): unknown {
+  return {
+    status: "passed",
+    checkedAtIso: "2026-07-05T00:00:00.000Z",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/v1/health",
+        ok: true,
+        statusCode: 200,
+        checkedAtIso: "2026-07-05T00:00:00.000Z",
+      },
+    ],
+    findings: [],
+  };
+}
+
+function validLoadArtifact(): unknown {
+  return {
+    status: "passed",
+    checkedAtIso: "2026-07-05T00:00:00.000Z",
+    budgets: {
+      requestCount: 60,
+      concurrency: 5,
+      timeoutMilliseconds: 10_000,
+      maxP95LatencyMilliseconds: 2_000,
+      minSuccessRatePercent: 100,
+    },
+    summary: {
+      totalRequests: 60,
+      successes: 60,
+      failures: 0,
+      successRatePercent: 100,
+      durationMilliseconds: 500,
+      p95LatencyMilliseconds: 50,
+      maxLatencyMilliseconds: 80,
+    },
+    endpoints: [
+      {
+        method: "GET",
+        path: "/v1/health",
+        requests: 60,
+        successes: 60,
+        failures: 0,
+        statusCodeCounts: {
+          "200": 60,
+        },
+        safeErrorCodeCounts: {},
+      },
+    ],
+    findings: [],
+  };
 }
 
 async function writeText(path: string, content: string): Promise<void> {
