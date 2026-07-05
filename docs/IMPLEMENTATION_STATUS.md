@@ -134,8 +134,8 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   cross-process worker/provider runtime proof remains target-environment validation work.
 - N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic outbox consumer exists,
   but production runtime wiring, selected production EventLog backend, and EventLog backlog metrics
-  remain open hardening work. `docs/adr/ADR-0009-eventlog-production-backend.md` is Proposed and
-  must be accepted before implementing the async PostgreSQL EventLog backend.
+  remain open hardening work. `docs/adr/ADR-0009-eventlog-production-backend.md` is now Accepted,
+  allowing the async PostgreSQL EventLog backend migration to proceed in small reviewed slices.
 - Production Docker template coverage is broader than the API service now, but it is still a
   deployment template and controlled-pilot profile. Target-environment startup, production load, SLO
   evidence, worker/provider true production profiles, and the provider-runtime IPC/shared socket

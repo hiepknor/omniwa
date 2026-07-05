@@ -207,8 +207,8 @@ posture, Redis rate limiting, disabled auto-migration, and controlled-pilot work
 profiles before the root quality gate can pass.
 The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer` foundation for
 safe pending-outbox drain loops. It does not yet select the production EventLog backend or wire a
-production outbox runtime loop; those remain N11 follow-up work. `ADR-0009` is Proposed to decide
-the async PostgreSQL EventLog backend before implementation continues in that area.
+production outbox runtime loop; those remain N11 follow-up work. `ADR-0009` is Accepted, so the
+async PostgreSQL EventLog backend migration can proceed in small reviewed slices.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
