@@ -29,6 +29,12 @@ import {
   type ApplicationInterfaceDispatcher,
 } from "@omniwa/interface-api";
 import {
+  classifyValue,
+  createCatalogMetricPoint,
+  toSafeLogFields,
+  type MetricRecorder,
+} from "@omniwa/observability";
+import {
   createCorrelationId,
   createRequestContext,
   createRequestId,
@@ -88,6 +94,7 @@ export type ApiHttpServerOptions = Readonly<{
   rateLimiter?: ApiRateLimiter;
   resourceOwnershipResolver?: ApiResourceOwnershipResolver;
   securityAuditSink?: ApiSecurityAuditSink;
+  metricRecorder?: MetricRecorder;
   apiKeyLifecycleService?: ApiKeyLifecycleService;
   eventSource?: RealtimeEventSource;
   outboundMessageIntentStore?: OutboundMessageIntentStorePort;
@@ -236,6 +243,25 @@ export async function handleApiHttpRequest(
   options: ApiHttpServerOptions = {},
 ): Promise<ApiHttpResponse> {
   const now = options.now ?? (() => new Date());
+  const startedAtEpochMilliseconds = now().getTime();
+
+  const response = await handleApiHttpRequestInternal(request, options, now);
+
+  recordApiRequestMetric(options.metricRecorder, {
+    method: request.method,
+    url: request.url,
+    statusCode: response.statusCode,
+    durationMilliseconds: Math.max(0, now().getTime() - startedAtEpochMilliseconds),
+  });
+
+  return response;
+}
+
+async function handleApiHttpRequestInternal(
+  request: ApiHttpRequest,
+  options: ApiHttpServerOptions,
+  now: () => Date,
+): Promise<ApiHttpResponse> {
   const timestamp = now().toISOString();
   const requestRef = options.requestRefGenerator?.() ?? `http:${randomUUID()}`;
   const headers = normalizeHeaders(request.headers ?? {});
@@ -3587,6 +3613,108 @@ function createUnavailableDispatcher(): ApplicationInterfaceDispatcher {
       });
     },
   };
+}
+
+function recordApiRequestMetric(
+  metricRecorder: MetricRecorder | undefined,
+  input: Readonly<{
+    method: string;
+    url: string;
+    statusCode: number;
+    durationMilliseconds: number;
+  }>,
+): void {
+  if (metricRecorder === undefined) {
+    return;
+  }
+
+  metricRecorder.recordMetric(
+    createCatalogMetricPoint("api.request.latency", {
+      value: input.durationMilliseconds,
+      labels: toSafeLogFields({
+        method: classifyValue(input.method.toUpperCase(), "public"),
+        route: classifyValue(normalizeMetricRoute(input.url), "public"),
+        outcome: classifyValue(outcomeForStatusCode(input.statusCode), "public"),
+      }),
+    }),
+  );
+}
+
+function normalizeMetricRoute(urlInput: string): string {
+  const parsedUrl = parseUrl(urlInput);
+
+  if (parsedUrl === undefined) {
+    return "/invalid";
+  }
+
+  const segments = splitPath(parsedUrl.pathname);
+
+  if (segments === undefined) {
+    return "/";
+  }
+
+  return `/${segments.map(normalizeMetricRouteSegment).join("/")}`;
+}
+
+const metricStaticPathSegments = new Set([
+  "v1",
+  "action-required",
+  "api-keys",
+  "archive",
+  "audit",
+  "cancel",
+  "chats",
+  "connect",
+  "contacts",
+  "dashboard",
+  "delivery-history",
+  "demote",
+  "disconnect",
+  "events",
+  "groups",
+  "health",
+  "instances",
+  "jobs",
+  "labels",
+  "local-state",
+  "media",
+  "members",
+  "messages",
+  "metadata",
+  "metrics",
+  "mute",
+  "pin",
+  "provider",
+  "qr",
+  "queue",
+  "readiness",
+  "redrive",
+  "refresh",
+  "retry",
+  "revoke",
+  "rotate",
+  "sessions",
+  "settings",
+  "stream",
+  "text",
+  "webhook-deliveries",
+  "webhooks",
+]);
+
+function normalizeMetricRouteSegment(segment: string): string {
+  return metricStaticPathSegments.has(segment) ? segment : ":ref";
+}
+
+function outcomeForStatusCode(statusCode: number): "success" | "client_error" | "server_error" {
+  if (statusCode >= 500) {
+    return "server_error";
+  }
+
+  if (statusCode >= 400) {
+    return "client_error";
+  }
+
+  return "success";
 }
 
 function optional<TKey extends string, TValue>(

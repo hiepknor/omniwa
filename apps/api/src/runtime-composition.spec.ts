@@ -1,9 +1,10 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { SecretValue, type SecretDescriptor, type SecretProvider } from "@omniwa/config";
 import type { ApiCredential } from "@omniwa/interface-api";
+import type { MetricPoint, MetricRecorder } from "@omniwa/observability";
 import { createCorrelationId, createRequestContext, createRequestId, ok } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -352,6 +353,48 @@ describe("API runtime composition", () => {
     ).toMatchObject({
       status: "not_found",
     });
+  });
+
+  it("wires env-configured API request metrics into a safe JSONL recorder", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-metrics-runtime-"));
+    temporaryDirectories.push(directory);
+    const metricsPath = join(directory, "api-metrics.jsonl");
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_API_METRICS_JSONL_PATH: metricsPath,
+    });
+
+    expect(composition.options.metricRecorder).toBeDefined();
+
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-metrics-request",
+          "x-correlation-id": "runtime-metrics-correlation",
+        },
+      },
+      composition.options,
+    );
+    const metricLines = readFileSync(metricsPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+
+    expect(response.statusCode).toBe(200);
+    expect(metricLines).toEqual([
+      expect.objectContaining({
+        name: "api.request.latency",
+        labels: {
+          method: "GET",
+          route: "/v1/instances",
+          outcome: "success",
+        },
+      }),
+    ]);
   });
 
   it("wires an env-configured API rate limiter into the HTTP runtime", async () => {
@@ -894,23 +937,55 @@ describe("API runtime composition", () => {
     ).toThrow(/requires OMNIWA_API_QUEUE_PROFILE=durable/u);
   });
 
-  it("still blocks production runtime composition after safe database, rate-limit, audit, ownership, and queue validation", () => {
+  it("requires API request metrics for production runtime composition", () => {
     expect(() =>
-      createApiRuntimeComposition({
+      createApiRuntimeComposition(
+        {
+          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+          OMNIWA_API_RUNTIME_PROFILE: "production",
+          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+          OMNIWA_POSTGRES_DATABASE_URL:
+            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+          OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+          OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
+          OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
+        },
+        {
+          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
+        },
+      ),
+    ).toThrow(/requires OMNIWA_API_METRICS_JSONL_PATH or an injected metric recorder/u);
+  });
+
+  it("composes production runtime when required production adapters are configured", () => {
+    const metricRecorder = new CapturingMetricRecorder();
+    const composition = createApiRuntimeComposition(
+      {
         OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
         OMNIWA_API_RUNTIME_PROFILE: "production",
         OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
         OMNIWA_POSTGRES_DATABASE_URL:
           "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
         OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
-        OMNIWA_API_RATE_LIMIT_REDIS_URL: "redis://redis.prod.example:6379/0",
         OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
         OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
         OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
         OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
         OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
-      }),
-    ).toThrow(/production profile remains disabled until production observability adapters/u);
+      },
+      {
+        redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
+        metricRecorder,
+      },
+    );
+
+    expect(composition.profile).toBe("production");
+    expect(composition.repositoryProfile).toBe("postgresql");
+    expect(composition.queueProfile).toBe("durable-worker-job");
+    expect(composition.options.metricRecorder).toBe(metricRecorder);
   });
 
   it("requires an API key for local runtime composition", () => {
@@ -1031,6 +1106,14 @@ class FakeRedisRateLimitScriptClient implements RedisRateLimitScriptClient {
     bucket.count += 1;
 
     return Promise.resolve([1, bucket.count, resetAtEpochMilliseconds]);
+  }
+}
+
+class CapturingMetricRecorder implements MetricRecorder {
+  readonly points: MetricPoint[] = [];
+
+  recordMetric(point: MetricPoint): void {
+    this.points.push(point);
   }
 }
 

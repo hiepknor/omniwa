@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { closeSync, mkdirSync, openSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import type {
   AuditRecordRepositoryPort,
@@ -28,7 +29,9 @@ import {
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
+import { JsonLineFileSink, JsonLineMetricRecorder } from "@omniwa/infrastructure-observability";
 import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
+import type { MetricRecorder } from "@omniwa/observability";
 
 import {
   createApiKeyVerifierFromPlaintext,
@@ -83,6 +86,7 @@ export type ApiRuntimeComposition = Readonly<{
 
 export type ApiRuntimeCompositionAdapterOptions = Readonly<{
   redisRateLimitScriptClient?: RedisRateLimitScriptClient;
+  metricRecorder?: MetricRecorder;
 }>;
 
 export type ApiRuntimeSecretCompositionOptions = Readonly<{
@@ -124,6 +128,7 @@ export function createApiRuntimeComposition(
     adapters,
     rateLimitBackend,
   );
+  const metricRecorder = createRuntimeMetricRecorder(env, adapters);
 
   assertRuntimeProfileIsComposable(profile, {
     hasConfiguredApiKey:
@@ -140,6 +145,8 @@ export function createApiRuntimeComposition(
     securityAuditSinkKind: readSecurityAuditSinkKind(env),
     repositoryOwnershipResolutionEnabled,
     queueProfile,
+    hasMetricRecorder: metricRecorder !== undefined,
+    metricsJsonlPath: readOptionalStringEnv(env, "OMNIWA_API_METRICS_JSONL_PATH"),
   });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
@@ -208,6 +215,7 @@ export function createApiRuntimeComposition(
       webhookDeliveryOperationIntentStore,
       ...optional("eventSource", eventSource),
       ...optional("rateLimiter", rateLimiter),
+      ...optional("metricRecorder", metricRecorder),
       ...optional("securityAuditSink", securityAuditSink),
       ...optional("resourceOwnershipResolver", resourceOwnershipResolver),
       ...optional(
@@ -336,6 +344,23 @@ function createRuntimeRateLimiter(
     windowMilliseconds,
     endpointClassLimits,
   });
+}
+
+function createRuntimeMetricRecorder(
+  env: NodeJS.ProcessEnv,
+  adapters: ApiRuntimeCompositionAdapterOptions,
+): MetricRecorder | undefined {
+  return adapters.metricRecorder ?? createJsonLineMetricRecorderFromEnv(env);
+}
+
+function createJsonLineMetricRecorderFromEnv(env: NodeJS.ProcessEnv): MetricRecorder | undefined {
+  const filePath = readOptionalStringEnv(env, "OMNIWA_API_METRICS_JSONL_PATH");
+
+  return filePath === undefined
+    ? undefined
+    : new JsonLineMetricRecorder({
+        sink: new JsonLineFileSink({ filePath }),
+      });
 }
 
 function createRuntimeRedisRateLimitScriptClient(
@@ -761,6 +786,8 @@ function assertRuntimeProfileIsComposable(
     securityAuditSinkKind: ApiSecurityAuditSinkKind;
     repositoryOwnershipResolutionEnabled: boolean;
     queueProfile: ApiQueueProfile;
+    hasMetricRecorder: boolean;
+    metricsJsonlPath: string | undefined;
   }>,
 ): void {
   if (profile === "production") {
@@ -775,10 +802,7 @@ function assertRuntimeProfileIsComposable(
     assertProductionSecurityAuditConfiguration(options.securityAuditSinkKind);
     assertProductionResourceOwnershipConfiguration(options.repositoryOwnershipResolutionEnabled);
     assertProductionQueueConfiguration(options.queueProfile);
-
-    throw new Error(
-      "OmniWA API production profile remains disabled until production observability adapters are implemented.",
-    );
+    assertProductionObservabilityConfiguration(options);
   }
 
   if (profile !== "test" && !options.hasConfiguredApiKey) {
@@ -807,6 +831,31 @@ function assertProductionResourceOwnershipConfiguration(enabled: boolean): void 
 function assertProductionQueueConfiguration(queueProfile: ApiQueueProfile): void {
   if (queueProfile !== "durable-worker-job") {
     throw new Error("OmniWA API production profile requires OMNIWA_API_QUEUE_PROFILE=durable.");
+  }
+}
+
+function assertProductionObservabilityConfiguration(options: {
+  hasMetricRecorder: boolean;
+  metricsJsonlPath: string | undefined;
+}): void {
+  if (!options.hasMetricRecorder) {
+    throw new Error(
+      "OmniWA API production profile requires OMNIWA_API_METRICS_JSONL_PATH or an injected metric recorder.",
+    );
+  }
+
+  if (options.metricsJsonlPath !== undefined) {
+    assertJsonLineTargetPathWritable(options.metricsJsonlPath, "writable API metric JSONL path");
+  }
+}
+
+function assertJsonLineTargetPathWritable(filePath: string, safeRequirementLabel: string): void {
+  try {
+    mkdirSync(dirname(filePath), { recursive: true });
+    const descriptor = openSync(filePath, "a");
+    closeSync(descriptor);
+  } catch {
+    throw new Error(`OmniWA API production profile requires ${safeRequirementLabel}.`);
   }
 }
 

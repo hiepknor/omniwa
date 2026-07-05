@@ -36,6 +36,7 @@ import {
 } from "@omniwa/infrastructure-persistence";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
+import type { MetricPoint, MetricRecorder } from "@omniwa/observability";
 import { err, ok } from "@omniwa/shared";
 import { describe, expect, it } from "vitest";
 
@@ -127,6 +128,76 @@ describe("API HTTP transport", () => {
         kind: "query",
       }),
     ]);
+  });
+
+  it("records safe API request latency metrics for successful requests", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const metrics = new CapturingMetricRecorder();
+    const response = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances/inst_allowed/messages",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-metric-success",
+          "x-correlation-id": "corr-metric-success",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        metricRecorder: metrics,
+        now: fixedNow,
+      },
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(metrics.points).toEqual([
+      expect.objectContaining({
+        name: "api.request.latency",
+        value: 0,
+        labels: {
+          method: "GET",
+          route: "/v1/instances/:ref/messages",
+          outcome: "success",
+        },
+      }),
+    ]);
+    expect(JSON.stringify(metrics.points)).not.toContain("inst_allowed");
+  });
+
+  it("records safe API request latency metrics for rejected requests", async () => {
+    const dispatcher = new CapturingDispatcher();
+    const metrics = new CapturingMetricRecorder();
+    const response = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: "/v1/messages/msg_secret/retry",
+        headers: {
+          "x-request-id": "req-metric-rejected",
+          "x-correlation-id": "corr-metric-rejected",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        metricRecorder: metrics,
+        now: fixedNow,
+      },
+    );
+
+    expect(response.statusCode).toBe(401);
+    expect(metrics.points).toEqual([
+      expect.objectContaining({
+        name: "api.request.latency",
+        labels: {
+          method: "POST",
+          route: "/v1/messages/:ref/retry",
+          outcome: "client_error",
+        },
+      }),
+    ]);
+    expect(JSON.stringify(metrics.points)).not.toContain("msg_secret");
   });
 
   it("rejects requests with a missing API key", async () => {
@@ -3011,6 +3082,14 @@ class CapturingWebhookDeliveryOperationIntentStore implements WebhookDeliveryOpe
         createdAtEpochMilliseconds: 1,
       }),
     );
+  }
+}
+
+class CapturingMetricRecorder implements MetricRecorder {
+  readonly points: MetricPoint[] = [];
+
+  recordMetric(point: MetricPoint): void {
+    this.points.push(point);
   }
 }
 

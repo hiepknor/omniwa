@@ -57,6 +57,11 @@ metric catalog. Raw instance IDs, phone numbers, JIDs, message bodies, webhook
 URLs, provider payload IDs, session material, API keys, and secrets are not
 valid metric labels.
 
+API Runtime request metrics are emitted through the `MetricRecorder` port. For
+local or production JSONL evidence, configure `OMNIWA_API_METRICS_JSONL_PATH`.
+The API production profile fails closed unless a writable JSONL path or injected
+metric recorder is present.
+
 ## Alerts
 
 Alert definitions are implemented in `packages/observability/src/alerts.ts`.

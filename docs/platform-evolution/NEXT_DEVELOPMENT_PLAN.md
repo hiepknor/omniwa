@@ -182,8 +182,11 @@ circuit breaker stay as follow-up capabilities unless target-environment evidenc
 production blockers.
 The API runtime production composition path now has an explicit
 `OMNIWA_API_QUEUE_PROFILE=durable-worker-job` guard and can route enqueue-side work through the
-durable `WorkerJob` queue provider. Production composition still remains fail-closed until the
-remaining observability adapter/runtime proof is supplied and target-environment validation is run.
+durable `WorkerJob` queue provider. API request latency is now recorded through the approved
+`MetricRecorder` port, and runtime composition can satisfy the API observability adapter requirement
+with `OMNIWA_API_METRICS_JSONL_PATH` or an injected recorder. Production composition still fails
+closed when the metric recorder is missing; target-environment validation remains required before a
+broad production-ready claim.
 The first N11.7 validation slice adds a dedicated `pnpm recovery:check` gate for backup/restore
 drill evidence, deterministic recovery validation tests, and release-readiness wiring. This proves
 the local deterministic recovery contract, while target-environment backup automation and restore

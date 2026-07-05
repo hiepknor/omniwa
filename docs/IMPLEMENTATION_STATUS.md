@@ -137,10 +137,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   production runtime composition now validates that PostgreSQL configuration does not use local
   hosts or known development credentials and rejects production profiles that do not configure
   `OMNIWA_API_RATE_LIMIT_BACKEND=redis` with either `OMNIWA_API_RATE_LIMIT_REDIS_URL` or an injected
-  Redis script client and
-  `OMNIWA_API_SECURITY_AUDIT_RECORDS=true`, and
-  `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true` before it reaches the remaining
-  production-adapter fail-safe. The rate-limit boundary is now
+  Redis script client,
+  `OMNIWA_API_SECURITY_AUDIT_RECORDS=true`,
+  `OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY=true`,
+  `OMNIWA_API_QUEUE_PROFILE=durable-worker-job`, and
+  `OMNIWA_API_METRICS_JSONL_PATH` or an injected API metric recorder. The rate-limit boundary is now
   async-compatible and includes a shared counter-store limiter plus a Redis script store that hashes
   cache keys instead of writing key ids or instance refs into Redis keys. API runtime composition can
   select `OMNIWA_API_RATE_LIMIT_BACKEND=redis` from explicit Redis URL configuration or an injected
@@ -194,6 +195,12 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   catalog, alert definitions, dependency readiness behavior, metrics runtime smoke, health runtime
   smoke, and release-readiness wiring. It does not replace target-environment dashboards, alert
   routing, exporter operations, or sustained SLO monitoring.
+- N11.7 now wires API request latency metrics into the HTTP transport through the approved
+  `MetricRecorder` port. Local and production API runtimes can use
+  `OMNIWA_API_METRICS_JSONL_PATH` for a JSONL metric sink, and production API composition fails
+  closed unless a writable metrics path or injected recorder is present. The recorded labels are
+  method, normalized route, and outcome only; raw ids, query strings, request bodies, JIDs, and
+  provider payloads are not metric labels.
 - N11.7 also has a dedicated `pnpm e2e:check` root gate for deterministic E2E evidence. The gate
   requires the REST platform regression spec and the local vertical-slice runtime spec that proves
   Application, durable JSON state, queue, worker, provider fake socket, and EventLog safety. It does

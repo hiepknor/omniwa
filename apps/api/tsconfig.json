@@ -10,6 +10,7 @@
     { "path": "../../packages/shared" },
     { "path": "../../packages/config" },
     { "path": "../../packages/application" },
+    { "path": "../../packages/infrastructure-observability" },
     { "path": "../../packages/infrastructure-persistence" },
     { "path": "../../packages/infrastructure-queue" },
     { "path": "../../packages/infrastructure-secrets" },
