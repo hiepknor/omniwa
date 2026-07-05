@@ -61,6 +61,11 @@ describe("target environment evidence bundle generator", () => {
           sloEvidenceProven: false,
         },
       });
+      expect(bundle.components).toContainEqual({
+        component: "Background Runtime",
+        status: "PENDING",
+        evidenceRef: "operator-evidence-background-runtime-pending",
+      });
       expect(JSON.stringify(bundle)).not.toContain("http://");
       expect(JSON.stringify(bundle)).not.toContain("https://");
       expect(JSON.stringify(bundle)).not.toContain("local-dev-secret");

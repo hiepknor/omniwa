@@ -35,6 +35,11 @@
       "evidenceRef": "operator-evidence-provider-runtime-pending"
     },
     {
+      "component": "Background Runtime",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-background-runtime-pending"
+    },
+    {
       "component": "Webhook Dispatcher",
       "status": "PENDING",
       "evidenceRef": "operator-evidence-webhook-dispatcher-pending"

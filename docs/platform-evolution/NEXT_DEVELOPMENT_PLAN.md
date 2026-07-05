@@ -234,6 +234,9 @@ Docker template now declares a background service that wires the PostgreSQL Even
 JSONL EventLog outbox publisher and JSONL backlog metrics, and the compose checker verifies that
 wiring. Remaining EventLog hardening is now target-environment wiring evidence, dashboards, and
 alerting.
+Target-environment evidence validation now also requires `Background Runtime` as a first-class
+component so the outbox consumer process, publisher evidence, backlog metrics, and shutdown behavior
+cannot be omitted from production proof.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
@@ -275,6 +278,8 @@ sanitized smoke/load summaries. The generated bundle remains non-proving evidenc
 updates the proof states and component statuses with target-environment evidence.
 When that bundle is supplied back to `pnpm target-env:check`, the gate cross-checks it against
 `TARGET_ENVIRONMENT_VALIDATION.md` so review state and artifact state cannot drift.
+The required component set includes `Background Runtime`, matching the production compose service
+that drains the PostgreSQL EventLog outbox and records backlog metrics.
 The production-cut gate also requires the smoke and bundle workflows to be present in the root
 scripts and acknowledged by `PRODUCTION_CUT_REVIEW.md`.
 

@@ -25,6 +25,7 @@ export const requiredTargetEnvironmentComponents = Object.freeze([
   "API Runtime",
   "Worker Runtime",
   "Provider Runtime",
+  "Background Runtime",
   "Webhook Dispatcher",
   "PostgreSQL",
   "Redis",

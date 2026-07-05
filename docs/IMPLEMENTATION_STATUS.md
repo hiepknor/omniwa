@@ -148,6 +148,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   PostgreSQL EventLog backend plus JSONL outbox publication evidence and JSONL backlog metrics. The
   production Docker template declares the background service and the compose checker verifies the
   EventLog outbox publisher/metrics wiring.
+- Target-environment evidence validation now treats `Background Runtime` as a required runtime
+  component, so production proof must explicitly cover EventLog outbox drain, outbox publication
+  evidence, backlog metrics, and shutdown behavior before any future production-ready claim.
 
 ## Known Gaps
 
@@ -348,6 +351,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   against `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`; bundle status, proof booleans, and
   component statuses must match the review document when
   `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` is supplied.
+- N11.7 target-environment evidence validation now also requires `Background Runtime` in both
+  `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` and sanitized evidence bundles. This prevents the
+  EventLog outbox runtime from being skipped during production evidence collection.
 - N11.7 production-cut validation now also requires `target-env:bundle` tooling and a production-cut
   review acknowledgement for sanitized target-environment evidence bundles, keeping
   `PRODUCTION_CUT_REVIEW.md` aligned with the target-environment evidence workflow.

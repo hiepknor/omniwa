@@ -101,6 +101,35 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("requires target-environment proof for the background runtime", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeText(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md"),
+        targetEnvironmentReviewWithoutComponent("NOT_PROVEN", "Background Runtime"),
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_component_missing",
+            target: "Background Runtime",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails when root scripts do not run the target-environment gate", async () => {
     const root = await createTempProject();
     const missingTest = requiredTargetEnvironmentEvidenceTests[0];
@@ -596,6 +625,46 @@ function targetEnvironmentReviewWithComponentStatus(
 
       return `| ${component} | ${rowStatus} | Fixture evidence. |`;
     }),
+    "",
+    "## Validation Commands",
+    "",
+    "- `pnpm check`",
+    "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
+    "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
+    "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
+    "",
+    "## Known Constraints",
+    "",
+    "- Fixture constraints recorded.",
+    "",
+  ].join("\n");
+}
+
+function targetEnvironmentReviewWithoutComponent(
+  status: "NOT_PROVEN" | "PARTIAL" | "PROVEN",
+  componentToOmit: string,
+): string {
+  const proofValue = status === "PROVEN" ? "YES" : "NO";
+
+  return [
+    "# Target Environment Validation",
+    "",
+    `Target Environment Validation Status: ${status}`,
+    "",
+    `Target Environment Proven: ${proofValue}`,
+    "",
+    `Production Load Proven: ${proofValue}`,
+    "",
+    `SLO Evidence Proven: ${proofValue}`,
+    "",
+    "## Runtime Evidence Matrix",
+    "",
+    "| Component | Status | Evidence |",
+    "| --- | --- | --- |",
+    ...requiredTargetEnvironmentComponents
+      .filter((component) => component !== componentToOmit)
+      .map((component) => `| ${component} | PENDING | Fixture evidence. |`),
     "",
     "## Validation Commands",
     "",
