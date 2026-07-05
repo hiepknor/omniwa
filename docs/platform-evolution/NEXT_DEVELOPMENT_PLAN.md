@@ -105,16 +105,16 @@ Rollback:
 
 ### N11 Execution Order
 
-| Order | Increment                          | Goal                                                                 | Status  |
-| ----- | ---------------------------------- | -------------------------------------------------------------------- | ------- |
-| N11.0 | Production plan reconciliation     | Align execution docs with N8/N9/N10 implementation evidence          | Done    |
+| Order | Increment                          | Goal                                                                 | Status                                                                                        |
+| ----- | ---------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| N11.0 | Production plan reconciliation     | Align execution docs with N8/N9/N10 implementation evidence          | Done                                                                                          |
 | N11.1 | Production queue foundation        | Replace in-memory-only queue semantics behind `QueueProviderPort`    | Done; PostgreSQL atomic reserve, durable retry visibility, and lease recovery covered locally |
-| N11.2 | Durable EventLog / outbox / replay | Make event visibility and SSE replay survive restart                 | Done    |
-| N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Done    |
-| N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Done    |
-| N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Done    |
-| N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Done    |
-| N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Current |
+| N11.2 | Durable EventLog / outbox / replay | Make event visibility and SSE replay survive restart                 | Done                                                                                          |
+| N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Done                                                                                          |
+| N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Done                                                                                          |
+| N11.5 | Authorization and rate limits      | Harden ownership checks, throttling, and denied-decision evidence    | Done                                                                                          |
+| N11.6 | Webhook reliability hardening      | Complete durable retry, dead-letter, signing, and replay protection  | Done                                                                                          |
+| N11.7 | Production validation gates        | Add backup/restore, E2E, security, load, and release-readiness proof | Current                                                                                       |
 
 N11.3 is done with durable local and PostgreSQL provider-runtime lease guards, active lease renewal
 during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`. N11.4
@@ -202,7 +202,8 @@ controlled-pilot profiles because true production profiles remain blocked until 
 IPC/shared socket ownership and target-environment evidence are complete.
 The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer` foundation for
 safe pending-outbox drain loops. It does not yet select the production EventLog backend or wire a
-production outbox runtime loop; those remain N11 follow-up work.
+production outbox runtime loop; those remain N11 follow-up work. `ADR-0009` is Proposed to decide
+the async PostgreSQL EventLog backend before implementation continues in that area.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
