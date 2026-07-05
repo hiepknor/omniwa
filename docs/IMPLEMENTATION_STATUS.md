@@ -173,11 +173,12 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   the runtime can be composed. Runtime composition can now create JSONL metric and webhook dispatch
   audit adapters from `OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH` and
   `OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH`, so production composition no longer depends only on
-  test-injected observability adapters. The PostgreSQL test gate now includes a production-profile
-  webhook dispatcher dispatch path that persists `WebhookDelivery` and `WorkerJob` outcomes through
-  PostgreSQL and records JSONL metric/audit evidence when `OMNIWA_POSTGRES_TEST_DATABASE_URL` is
-  configured. Richer dead-letter remediation, broader production E2E validation, and
-  target-environment observability validation remain follow-up operational capabilities.
+  test-injected observability adapters, and production composition now rejects a shared metric/audit
+  JSONL target path. The PostgreSQL test gate now includes a production-profile webhook dispatcher
+  dispatch path that persists `WebhookDelivery` and `WorkerJob` outcomes through PostgreSQL and
+  records JSONL metric/audit evidence when `OMNIWA_POSTGRES_TEST_DATABASE_URL` is configured. Richer
+  dead-letter remediation, broader production E2E validation, and target-environment JSONL
+  writability/rotation validation remain follow-up operational capabilities.
 
 ## Update Rule
 

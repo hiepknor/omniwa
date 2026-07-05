@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { createApplicationPortFailure, type WebhookTransportPort } from "@omniwa/application";
 import type {
   WebhookDeliveryRepositoryPort,
@@ -381,6 +383,23 @@ function assertWebhookDispatcherRuntimeProfileIsComposable(
 
   if (input.observability.auditSink === undefined) {
     missing.push("webhook dispatch audit sink");
+  }
+
+  const metricsJsonlPath = readOptionalStringEnv(
+    input.env,
+    "OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH",
+  );
+  const auditJsonlPath = readOptionalStringEnv(
+    input.env,
+    "OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH",
+  );
+
+  if (
+    metricsJsonlPath !== undefined &&
+    auditJsonlPath !== undefined &&
+    resolve(metricsJsonlPath) === resolve(auditJsonlPath)
+  ) {
+    missing.push("distinct webhook dispatcher metric and audit JSONL paths");
   }
 
   if (missing.length > 0) {
