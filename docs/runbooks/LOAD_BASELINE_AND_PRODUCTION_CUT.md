@@ -16,6 +16,12 @@ Run the load baseline:
 pnpm load:check
 ```
 
+Run the performance readiness gate:
+
+```text
+pnpm performance:check
+```
+
 Run the production cut gate:
 
 ```text
@@ -27,6 +33,8 @@ Run the full quality gate:
 ```text
 pnpm check
 ```
+
+`pnpm check` must include `pnpm performance:check` before production and release readiness.
 
 ## Load Baseline
 
@@ -67,6 +75,7 @@ It verifies:
 - Production Ready state is explicit,
 - load baseline summary exists,
 - known constraints are documented,
+- `performance:check` is wired through the root quality gate,
 - `load:check` and `production:check` are wired in `package.json`,
 - load tests cannot pass with no tests.
 

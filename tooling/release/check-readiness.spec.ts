@@ -70,6 +70,7 @@ describe("release readiness check", () => {
           "check_script_missing_e2e_gate",
           "check_script_missing_regression_gate",
           "check_script_missing_recovery_gate",
+          "check_script_missing_performance_gate",
           "check_script_missing_production_gate",
           "app_package_unreadable",
           "workspace_package_unreadable",

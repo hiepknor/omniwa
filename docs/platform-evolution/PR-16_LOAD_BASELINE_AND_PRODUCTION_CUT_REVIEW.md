@@ -12,8 +12,10 @@ implementation sequence.
 Implemented capabilities:
 
 - `load:check` root script.
+- `performance:check` root script.
 - `production:check` root script.
 - Deterministic API load baseline.
+- Performance readiness tooling gate.
 - Production cut checker.
 - Production cut checker tests.
 - Production cut review.
@@ -55,6 +57,7 @@ Baseline scope:
 Production gate command:
 
 ```text
+pnpm performance:check
 pnpm production:check
 ```
 
@@ -77,19 +80,22 @@ pnpm check
 - E2E gate,
 - production regression gate,
 - recovery gate,
+- performance gate,
 - production cut gate,
 - release readiness gate.
 
 ## Evidence
 
-| Area                         | Evidence                                            |
-| ---------------------------- | --------------------------------------------------- |
-| Load baseline                | `apps/api/src/load-baseline.spec.ts`                |
-| Production cut checker       | `tooling/production/check-production-cut.mjs`       |
-| Production cut checker tests | `tooling/production/check-production-cut.spec.ts`   |
-| Runbook                      | `docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md` |
-| Final review                 | `docs/reviews/PRODUCTION_CUT_REVIEW.md`             |
-| Release readiness            | `tooling/release/check-readiness.mjs`               |
+| Area                         | Evidence                                                  |
+| ---------------------------- | --------------------------------------------------------- |
+| Load baseline                | `apps/api/src/load-baseline.spec.ts`                      |
+| Performance checker          | `tooling/performance/check-performance-readiness.mjs`     |
+| Performance checker tests    | `tooling/performance/check-performance-readiness.spec.ts` |
+| Production cut checker       | `tooling/production/check-production-cut.mjs`             |
+| Production cut checker tests | `tooling/production/check-production-cut.spec.ts`         |
+| Runbook                      | `docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md`       |
+| Final review                 | `docs/reviews/PRODUCTION_CUT_REVIEW.md`                   |
+| Release readiness            | `tooling/release/check-readiness.mjs`                     |
 
 ## Known Constraints
 
@@ -105,6 +111,7 @@ pnpm check
 Targeted checks:
 
 ```text
+pnpm performance:check
 pnpm production:check
 pnpm release:check
 ```

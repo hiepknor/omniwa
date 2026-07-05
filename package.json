@@ -13,7 +13,7 @@
   "scripts": {
     "arch:check": "node tooling/architecture/check-boundaries.mjs",
     "build": "tsc -b tsconfig.references.json",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm client-contract:check && pnpm sdk:check && pnpm sdk:test && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm production:check && pnpm release:check",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm client-contract:check && pnpm sdk:check && pnpm sdk:test && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm performance:check && pnpm production:check && pnpm release:check",
     "client-contract:check": "node tooling/api/check-client-contract.mjs",
     "docker:build": "docker build -f deploy/docker/Dockerfile -t omniwa:local .",
     "docker:local": "docker compose -f deploy/docker/compose.local.yml up --build",
@@ -26,6 +26,7 @@
     "load:check": "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
     "openapi:check": "node tooling/api/check-openapi.mjs",
     "openapi:compat": "node tooling/api/check-openapi-compatibility.mjs",
+    "performance:check": "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/check-performance-readiness.spec.ts",
     "provider-runtime:local-live": "pnpm --filter @omniwa/app-provider-runtime build && OMNIWA_PROVIDER_RUNTIME_PROFILE=local OMNIWA_LIVE_DEMO_MODE=1 OMNIWA_LOCAL_QR_OUTPUT=file node apps/provider-runtime/dist/index.js",
     "release:check": "node tooling/release/check-readiness.mjs",
     "recovery:check": "node tooling/recovery/check-recovery-readiness.mjs && pnpm exec vitest run apps/background/src/backup-restore-drill.spec.ts apps/background/src/recovery-validation.spec.ts tooling/recovery/check-recovery-readiness.spec.ts",

@@ -11,6 +11,8 @@ Current tooling:
 - `architecture/check-boundaries.mjs` checks high-level package boundary violations.
 - `e2e/check-e2e-readiness.mjs` checks deterministic E2E evidence for the
   REST regression and local vertical-slice runtime path.
+- `performance/check-performance-readiness.mjs` checks load baseline evidence,
+  root load gate wiring, and root performance gate wiring.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
 - `recovery/check-recovery-readiness.mjs` checks recovery drill evidence,

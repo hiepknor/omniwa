@@ -191,6 +191,10 @@ safety without calling the real WhatsApp network.
 The security validation slice adds a dedicated `pnpm security:check` gate for API auth, API-key
 lifecycle, rate limiting, security audit evidence, resource ownership, webhook signing/replay,
 redaction, object-path secrecy, and Baileys auth-state safety.
+The performance validation slice adds a dedicated `pnpm performance:check` gate that wraps the local
+load baseline and production-cut load evidence. It keeps the deterministic performance floor in the
+root quality gate while leaving target-environment load tests and sustained SLO observation as
+production-readiness evidence.
 
 ## Planned Increments
 
