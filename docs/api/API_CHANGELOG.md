@@ -24,6 +24,7 @@ Affected contract:
 - `docs/api/client-contract/fixtures/group-member.promoted.json`
 - `docs/api/client-contract/fixtures/group-member.demoted.json`
 - `docs/api/client-contract/fixtures/group-member.removed.json`
+- `docs/api/client-contract/fixtures/webhook-deliveries.dead-letter.list.json`
 - `docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json`
 - `docs/api/client-contract/fixtures/webhook-delivery-bulk-redrive.queued.json`
 
@@ -46,6 +47,10 @@ Client impact:
   selected bulk redrive of dead-lettered webhook deliveries. The request accepts
   safe delivery ids only and returns an operation envelope without target URL,
   receiver payload, retry policy internals, or per-delivery raw details.
+- Adds a required dead-letter delivery list fixture for
+  `GET /v1/webhook-deliveries?status=dead_letter`, so operator clients can
+  render remediation views and selected bulk redrive without guessing filter
+  semantics.
 - Group member mutations return `operationStatus: "accepted"` because they record
   controlled local intents and audit evidence; they do not imply provider-backed
   WhatsApp completion. Group metadata and local-state mutations remain
@@ -74,9 +79,10 @@ SDK impact:
 - Rust SDK already exposes generated `sendInstanceTextMessage`, `retryMessage`,
   `cancelMessage`, group mutation operations, `retryWebhookDelivery`, and
   generated API-key lifecycle operation ids; this change adds the generated
-  `bulkRedriveWebhookDeliveries` operation. Fixture coverage now validates
-  retry/cancel, group action, webhook delivery retry/redrive, and API-key
-  lifecycle contract envelopes.
+  `bulkRedriveWebhookDeliveries` operation and WebhooksClient helpers for
+  dead-letter delivery listing and selected bulk redrive. Fixture coverage now
+  validates retry/cancel, group action, webhook delivery retry/redrive, and
+  API-key lifecycle contract envelopes.
 
 Migration note:
 

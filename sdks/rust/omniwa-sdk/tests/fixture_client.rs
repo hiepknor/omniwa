@@ -1,7 +1,7 @@
 use omniwa_sdk::{
     generated::operations::ALL_OPERATIONS, parse_sse_events, ApiKey, FixtureTransport,
     GroupMemberResource, IdempotencyKey, InstanceResource, OmniwaClient, OmniwaClientConfig,
-    PublicData, PublicOperationData, RequestOptions, SdkError, SdkResponse,
+    PublicData, PublicOperationData, RequestOptions, SdkError, SdkRequest, SdkResponse, Transport,
 };
 
 fn client_with_fixture(
@@ -233,6 +233,109 @@ fn webhooks_client_exposes_delivery_redrive_mutation() {
         redrive.data.result_ref.as_deref(),
         Some("webhook_delivery_demo_redrive_01")
     );
+}
+
+#[test]
+fn webhooks_client_exposes_dead_letter_filter_and_bulk_redrive() {
+    let api_key = ApiKey::new("test-api-key").expect("valid API key");
+    let list_config =
+        OmniwaClientConfig::new("http://localhost:3000", api_key.clone()).expect("valid config");
+    let list_client = OmniwaClient::new(
+        list_config,
+        AssertRequestTransport {
+            expected_operation_id: "listWebhookDeliveries",
+            expected_url_contains: "status=dead_letter",
+            expected_body_contains: None,
+            expected_idempotency_key: None,
+            response: SdkResponse::json(
+                200,
+                r#"{"data":[{"resourceType":"webhookDelivery","id":"webhook_delivery_dead_1","webhookId":"webhook_demo","status":"dead_letter","eventType":"message.failed.v1","attemptCount":3}],"meta":{"requestId":"req_dead_letter","correlationId":"corr_dead_letter","timestamp":"2026-07-05T00:00:00.000Z","pagination":{"nextCursor":null,"previousCursor":null,"hasMore":false,"limit":50,"filters":{"status":"dead_letter"}}}}"#,
+            ),
+        },
+    );
+    let bulk_config =
+        OmniwaClientConfig::new("http://localhost:3000", api_key).expect("valid config");
+    let bulk_client = OmniwaClient::new(
+        bulk_config,
+        AssertRequestTransport {
+            expected_operation_id: "bulkRedriveWebhookDeliveries",
+            expected_url_contains: "/v1/webhook-deliveries/redrive",
+            expected_body_contains: Some("webhook_delivery_dead_1"),
+            expected_idempotency_key: Some("idem-webhook-bulk-redrive-demo"),
+            response: SdkResponse::json(
+                202,
+                r#"{"data":{"resourceType":"webhookDelivery","operationStatus":"queued","accepted":true,"retryable":false,"async":true,"resultRef":"webhook_delivery_bulk_redrive:http.bulk_redrive_webhook_deliveries.fixture"},"meta":{"requestId":"req_bulk_redrive","correlationId":"corr_bulk_redrive","timestamp":"2026-07-05T00:00:00.000Z"}}"#,
+            ),
+        },
+    );
+    let options = RequestOptions {
+        idempotency_key: Some(
+            IdempotencyKey::new("idem-webhook-bulk-redrive-demo")
+                .expect("valid webhook bulk redrive idempotency key"),
+        ),
+        ..RequestOptions::default()
+    };
+
+    let dead_letters = list_client
+        .webhooks()
+        .list_dead_letter_deliveries()
+        .expect("dead-letter delivery fixture response")
+        .collection_envelope::<PublicData>()
+        .expect("dead-letter delivery collection envelope");
+    let redrive = bulk_client
+        .webhooks()
+        .redrive_deliveries_json(r#"{"deliveryIds":["webhook_delivery_dead_1"]}"#, options)
+        .expect("bulk redrive fixture response")
+        .success_envelope::<PublicOperationData>()
+        .expect("bulk redrive operation envelope");
+
+    assert_eq!(dead_letters.data[0]["status"], "dead_letter");
+    assert_eq!(
+        dead_letters.meta.pagination.expect("pagination").filters["status"],
+        "dead_letter",
+    );
+    assert_eq!(redrive.data.operation_status, "queued");
+    assert_eq!(
+        redrive.data.result_ref.as_deref(),
+        Some("webhook_delivery_bulk_redrive:http.bulk_redrive_webhook_deliveries.fixture")
+    );
+}
+
+struct AssertRequestTransport {
+    expected_operation_id: &'static str,
+    expected_url_contains: &'static str,
+    expected_body_contains: Option<&'static str>,
+    expected_idempotency_key: Option<&'static str>,
+    response: SdkResponse,
+}
+
+impl Transport for AssertRequestTransport {
+    fn send(&self, request: SdkRequest) -> Result<SdkResponse, SdkError> {
+        assert_eq!(request.operation_id, self.expected_operation_id);
+        assert!(
+            request.url.contains(self.expected_url_contains),
+            "expected URL '{}' to contain '{}'",
+            request.url,
+            self.expected_url_contains,
+        );
+
+        if let Some(expected_body) = self.expected_body_contains {
+            let body = request.body.as_deref().expect("request body");
+            assert!(
+                body.contains(expected_body),
+                "expected body '{body}' to contain '{expected_body}'",
+            );
+        }
+
+        if let Some(expected_idempotency_key) = self.expected_idempotency_key {
+            assert_eq!(
+                request.header("idempotency-key"),
+                Some(expected_idempotency_key),
+            );
+        }
+
+        Ok(self.response.clone())
+    }
 }
 
 #[test]

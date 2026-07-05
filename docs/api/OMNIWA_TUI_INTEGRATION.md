@@ -143,7 +143,7 @@ an admin profile.
 | Groups    | `POST /v1/groups/{id}/members/{ref}/demote`  | `implemented_public` | Records a local demote-member intent by safe `memberRef`; returns `accepted`.                               |
 | Webhooks  | `GET /v1/webhooks`                           | `implemented_public` | Webhook subscription list; target URLs are not exposed in public DTOs.                                      |
 | Webhooks  | `GET /v1/webhooks/{id}`                      | `implemented_public` | Webhook subscription detail/status panel.                                                                   |
-| Webhooks  | `GET /v1/webhook-deliveries`                 | `implemented_public` | Webhook delivery history list; retry policy internals are not exposed.                                      |
+| Webhooks  | `GET /v1/webhook-deliveries`                 | `implemented_public` | Webhook delivery history list; use `status=dead_letter` for operator remediation views.                     |
 | Webhooks  | `GET /v1/webhook-deliveries/{id}/history`    | `implemented_public` | Webhook delivery detail/history panel.                                                                      |
 | Webhooks  | `POST /v1/webhook-deliveries/{id}/retry`     | `implemented_public` | Controlled retry for eligible pending/retrying deliveries; requires `webhooks:retry` and `idempotency-key`. |
 | Webhooks  | `POST /v1/webhook-deliveries/{id}/redrive`   | `implemented_public` | Controlled redrive for eligible dead-lettered deliveries; returns the new queued delivery ref.              |
@@ -249,6 +249,7 @@ curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: promote-group-member-
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhooks/webhook_demo"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries"
+curl -sS -H "x-api-key: $ADMIN_KEY" "$BASE/v1/webhook-deliveries?status=dead_letter"
 curl -sS -H "x-api-key: $KEY" "$BASE/v1/webhook-deliveries/webhook_delivery_demo/history"
 curl -sS -X POST -H "x-api-key: $KEY" -H "idempotency-key: retry-webhook-delivery-demo" \
   "$BASE/v1/webhook-deliveries/webhook_delivery_demo/retry"
@@ -318,6 +319,7 @@ Required fixture states:
 - API key lifecycle list
 - API key provision/revoke/rotate operations
 - Webhook delivery retry/redrive operations, including selected bulk redrive
+- Webhook delivery dead-letter list filtered by `status=dead_letter`
 - SSE heartbeat
 
 `omniwa-tui` should copy or consume these fixtures in its own test suite pinned to a backend

@@ -350,6 +350,7 @@ async function checkRequiredFixtureFiles(projectRoot, contract, findings) {
     "groupsList",
     "groupDetail",
     "groupMembersList",
+    "webhookDeliveriesDeadLetterList",
     "queueSummary",
     "sseHeartbeat",
   ];

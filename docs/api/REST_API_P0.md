@@ -88,7 +88,7 @@ Error:
 | GET    | `/v1/jobs`                                   | Implemented | Lists worker jobs through monitoring boundary                      |
 | GET    | `/v1/jobs/:jobId`                            | Implemented | Reads worker job status through monitoring boundary                |
 | GET    | `/v1/webhooks`                               | Implemented | Lists safe webhook subscription rows                               |
-| GET    | `/v1/webhook-deliveries`                     | Implemented | Lists safe webhook delivery rows                                   |
+| GET    | `/v1/webhook-deliveries`                     | Implemented | Lists safe webhook delivery rows; supports `status=dead_letter`    |
 | GET    | `/v1/webhook-deliveries/:deliveryId/history` | Implemented | Reads one safe webhook delivery history/status                     |
 | POST   | `/v1/webhook-deliveries/:deliveryId/retry`   | Implemented | Queues controlled retry for eligible delivery                      |
 | POST   | `/v1/webhook-deliveries/:deliveryId/redrive` | Implemented | Queues controlled redrive for dead-letter delivery                 |

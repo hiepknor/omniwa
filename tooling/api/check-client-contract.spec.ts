@@ -192,6 +192,8 @@ function requiredFixtureMap() {
     jobsList: "docs/api/client-contract/fixtures/jobs.list.json",
     webhooksList: "docs/api/client-contract/fixtures/webhooks.list.json",
     webhookDeliveriesList: "docs/api/client-contract/fixtures/webhook-deliveries.list.json",
+    webhookDeliveriesDeadLetterList:
+      "docs/api/client-contract/fixtures/webhook-deliveries.dead-letter.list.json",
     webhookDeliveryRetryQueued:
       "docs/api/client-contract/fixtures/webhook-delivery-retry.queued.json",
     webhookDeliveryBulkRedriveQueued:

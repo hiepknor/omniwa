@@ -600,6 +600,62 @@ describe("API HTTP transport", () => {
     expect(secondMeta?.pagination.previousCursor).toMatch(/^omniwa_cursor_v1:/u);
   });
 
+  it("filters webhook delivery collections for dead-letter operator views", async () => {
+    const dispatcher = new CapturingDispatcher({
+      ListWebhookDeliveries: {
+        items: [
+          {
+            deliveryId: "webhook_delivery_pending",
+            webhookId: "webhook_demo",
+            status: "pending",
+            eventType: "message.accepted.v1",
+            attemptCount: 1,
+            targetUrl: "https://receiver.example.test/private",
+            payload: { secret: "receiver-payload" },
+          },
+          {
+            deliveryId: "webhook_delivery_dead",
+            webhookId: "webhook_demo",
+            status: "dead_letter",
+            eventType: "message.failed.v1",
+            attemptCount: 3,
+            targetUrl: "https://receiver.example.test/private",
+            payload: { secret: "receiver-payload" },
+          },
+        ],
+      },
+    });
+
+    const response = await request(dispatcher, "GET", "/v1/webhook-deliveries?status=dead_letter", {
+      apiKey: "admin-secret",
+    });
+    const serialized = JSON.stringify(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect("data" in response.body ? response.body.data : undefined).toEqual([
+      {
+        resourceType: "webhookDelivery",
+        id: "webhook_delivery_dead",
+        webhookId: "webhook_demo",
+        status: "dead_letter",
+        eventType: "message.failed.v1",
+        attemptCount: 3,
+      },
+    ]);
+    expect(getCollectionMeta(response).pagination).toMatchObject({
+      limit: 50,
+      filters: {
+        status: "dead_letter",
+      },
+    });
+    expect(dispatcher.queryEnvelopes[0]).toMatchObject({
+      name: "ListWebhookDeliveries",
+      safeCriteriaRef: "http:ListWebhookDeliveries:limit=50;status=dead_letter",
+    });
+    expect(serialized).not.toContain("targetUrl");
+    expect(serialized).not.toContain("receiver-payload");
+  });
+
   it("rejects cursors from a different collection query context before dispatch", async () => {
     const dispatcher = new CapturingDispatcher({
       ListInstances: {

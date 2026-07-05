@@ -158,8 +158,10 @@ dispatcher runtime wiring through `OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY=fetch`
 `POST /v1/webhook-deliveries/{deliveryId}/retry` is now public for eligible pending/retrying
 deliveries and `POST /v1/webhook-deliveries/{deliveryId}/redrive` is public for eligible
 dead-lettered deliveries. `POST /v1/webhook-deliveries/redrive` is also public for selected bulk
-redrive of dead-lettered deliveries through a safe operation intent. These operations are
-synchronized with client-contract fixtures and the Rust SDK.
+redrive of dead-lettered deliveries through a safe operation intent, and
+`GET /v1/webhook-deliveries?status=dead_letter` is now covered by a required client-contract
+fixture plus Rust SDK helper. These operations are synchronized with client-contract fixtures and
+the Rust SDK.
 Webhook dispatcher processing now persists `WebhookDelivery` dispatch outcomes for delivered,
 retrying, and dead-lettered deliveries so read surfaces no longer depend only on `WorkerJob` state.
 The dispatcher can now opt into `OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable-worker-job` for the

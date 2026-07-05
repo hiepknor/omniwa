@@ -1,0 +1,37 @@
+{
+  "data": [
+    {
+      "resourceType": "webhookDelivery",
+      "id": "webhook_delivery_dead_1",
+      "webhookId": "webhook_demo",
+      "status": "dead_letter",
+      "eventType": "message.failed.v1",
+      "attemptCount": 3,
+      "updatedAt": "2026-07-05T00:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "requestId": "tui-webhook-deliveries-dead-letter-fixture",
+    "correlationId": "tui-webhook-deliveries-dead-letter-correlation",
+    "timestamp": "2026-07-05T00:00:00.000Z",
+    "query": {
+      "resourceType": "webhookDelivery",
+      "readStatus": "result",
+      "consistency": "retention_bound",
+      "freshness": {
+        "stale": false,
+        "refreshedAtEpochMilliseconds": 1783209600000
+      },
+      "resultRef": "webhook-deliveries:list:dead-letter"
+    },
+    "pagination": {
+      "nextCursor": null,
+      "previousCursor": null,
+      "hasMore": false,
+      "limit": 50,
+      "filters": {
+        "status": "dead_letter"
+      }
+    }
+  }
+}
