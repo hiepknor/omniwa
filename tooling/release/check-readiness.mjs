@@ -85,6 +85,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "tooling/production/run-target-environment-smoke.mjs",
   "tooling/production/check-production-cut.mjs",
   "tooling/performance/check-performance-readiness.mjs",
+  "tooling/performance/run-target-environment-load.mjs",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
@@ -126,6 +127,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "tooling/production/check-target-environment-evidence.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
   "tooling/production/check-production-cut.spec.ts",
+  "tooling/performance/run-target-environment-load.spec.ts",
   "tooling/performance/check-performance-readiness.spec.ts",
 ]);
 
@@ -147,6 +149,7 @@ const requiredRootScripts = Object.freeze([
   "recovery:check",
   "performance:check",
   "target-env:check",
+  "target-env:load",
   "target-env:smoke",
   "production:check",
   "release:check",
@@ -204,9 +207,10 @@ export async function createReadinessFixture(projectRoot) {
       "recovery:check":
         "node tooling/recovery/check-recovery-readiness.mjs && pnpm exec vitest run apps/background/src/backup-restore-drill.spec.ts apps/background/src/recovery-validation.spec.ts tooling/recovery/check-recovery-readiness.spec.ts",
       "performance:check":
-        "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/check-performance-readiness.spec.ts",
+        "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/run-target-environment-load.spec.ts tooling/performance/check-performance-readiness.spec.ts",
       "target-env:check":
         "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/run-target-environment-smoke.spec.ts",
+      "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
       "target-env:smoke": "node tooling/production/run-target-environment-smoke.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",

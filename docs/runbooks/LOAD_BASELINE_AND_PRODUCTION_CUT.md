@@ -43,6 +43,17 @@ OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
 pnpm target-env:smoke
 ```
 
+Run the optional target-environment API load probe against a deployed API:
+
+```text
+OMNIWA_TARGET_ENV_BASE_URL=https://api.example.invalid \
+OMNIWA_TARGET_ENV_API_KEY=redacted \
+OMNIWA_TARGET_ENV_LOAD_REQUESTS=120 \
+OMNIWA_TARGET_ENV_LOAD_CONCURRENCY=10 \
+OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
+pnpm target-env:load
+```
+
 Run the full quality gate:
 
 ```text
@@ -92,6 +103,13 @@ The optional target-environment smoke runner is implemented in
 `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` is set, it also writes the same sanitized JSON to that artifact
 path for review evidence. The summary intentionally excludes the base URL, API key, response bodies,
 raw IDs, provider payloads, and secrets.
+
+The optional target-environment load runner is implemented in
+`tooling/performance/run-target-environment-load.mjs`. It performs bounded authenticated GET load
+against the same approved public endpoint set and writes a sanitized summary to stdout. When
+`OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` is set, it writes the same sanitized JSON to that artifact path
+for review evidence. The summary includes aggregate counts and latency budgets only; it excludes the
+base URL, API key, response bodies, raw IDs, query strings, provider payloads, and secrets.
 
 It verifies:
 
@@ -163,3 +181,8 @@ Before promoting beyond the current conditional state:
 The baseline is local and deterministic. It does not replace deployment load
 testing, chaos testing, provider account health validation, external database
 capacity testing, or sustained SLO observation.
+
+The optional target-environment load runner also does not replace sustained SLO
+observation. It provides a bounded operator-run evidence artifact for a selected
+deployment; operators still need production-like load duration, capacity notes,
+alert evidence, and rollback readiness before claiming `PRODUCTION_READY`.

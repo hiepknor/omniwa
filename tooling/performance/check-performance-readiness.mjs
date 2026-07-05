@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 export const requiredPerformanceEvidenceFiles = Object.freeze([
   "apps/api/src/load-baseline.spec.ts",
   "tooling/production/check-production-cut.mjs",
+  "tooling/performance/run-target-environment-load.mjs",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
 ]);
@@ -12,10 +13,12 @@ export const requiredPerformanceEvidenceFiles = Object.freeze([
 export const requiredPerformanceEvidenceTests = Object.freeze([
   "apps/api/src/load-baseline.spec.ts",
   "tooling/production/check-production-cut.spec.ts",
+  "tooling/performance/run-target-environment-load.spec.ts",
   "tooling/performance/check-performance-readiness.spec.ts",
 ]);
 
 export const requiredPerformanceScriptName = "performance:check";
+export const targetEnvironmentLoadScriptName = "target-env:load";
 
 export async function evaluatePerformanceReadiness(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
@@ -46,6 +49,7 @@ export async function createPerformanceFixture(projectRoot) {
     packageManager: "pnpm@11.5.2",
     scripts: {
       [requiredPerformanceScriptName]: performanceScript(),
+      [targetEnvironmentLoadScriptName]: "node tooling/performance/run-target-environment-load.mjs",
       "load:check":
         "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
       check: "pnpm lint && pnpm test && pnpm performance:check && pnpm release:check",
@@ -58,11 +62,14 @@ export async function createPerformanceFixture(projectRoot) {
 }
 
 export function performanceScript() {
+  const performanceEvidenceTests = requiredPerformanceEvidenceTests.filter((testFile) =>
+    testFile.startsWith("tooling/performance/"),
+  );
+
   return [
     "node tooling/performance/check-performance-readiness.mjs",
     "pnpm load:check",
-    "pnpm exec vitest run",
-    "tooling/performance/check-performance-readiness.spec.ts",
+    `pnpm exec vitest run ${performanceEvidenceTests.join(" ")}`,
   ].join(" && ");
 }
 
@@ -108,6 +115,20 @@ async function checkRootPackage(projectRoot, findings) {
 
   if (!performanceCheck.includes("pnpm load:check")) {
     findings.push(createFinding("root_performance_script_missing_load_gate", "blocker"));
+  }
+
+  const targetEnvironmentLoadScript = scripts[targetEnvironmentLoadScriptName];
+  if (
+    typeof targetEnvironmentLoadScript !== "string" ||
+    !targetEnvironmentLoadScript.includes(
+      "node tooling/performance/run-target-environment-load.mjs",
+    )
+  ) {
+    findings.push(
+      createFinding("root_target_environment_load_script_missing", "blocker", {
+        target: targetEnvironmentLoadScriptName,
+      }),
+    );
   }
 
   if (performanceCheck.includes("--passWithNoTests")) {

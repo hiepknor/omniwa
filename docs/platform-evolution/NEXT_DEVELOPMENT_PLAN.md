@@ -220,6 +220,12 @@ It also provides the optional `pnpm target-env:smoke` command for deployed API s
 not executed by the default local quality gate. Operators can set
 `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` to persist the sanitized smoke summary as target-environment
 review evidence.
+It also provides the optional `pnpm target-env:load` command for bounded deployed API load evidence
+against the same approved public GET endpoint set; the command is operator-run only and is not
+executed by the default local quality gate. Operators can set
+`OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` to persist the sanitized load summary as target-environment
+review evidence, but sustained SLO observation and external dependency capacity proof remain
+required before a `PRODUCTION_READY` claim.
 
 ## Planned Increments
 

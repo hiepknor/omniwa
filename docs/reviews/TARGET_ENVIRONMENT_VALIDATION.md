@@ -66,6 +66,23 @@ The smoke runner checks only approved public endpoints and prints a sanitized JS
 artifact. It must not record the base URL, API key, response bodies, raw IDs, QR payloads, JIDs,
 message text, provider payloads, session material, webhook secrets, or other sensitive values.
 
+Optional target-environment API load command for a deployed API:
+
+```text
+OMNIWA_TARGET_ENV_BASE_URL=https://api.example.invalid \
+OMNIWA_TARGET_ENV_API_KEY=redacted \
+OMNIWA_TARGET_ENV_LOAD_REQUESTS=120 \
+OMNIWA_TARGET_ENV_LOAD_CONCURRENCY=10 \
+OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
+pnpm target-env:load
+```
+
+The load runner performs bounded authenticated GET load against approved public endpoints and prints
+a sanitized JSON summary. If `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` is configured, it also writes that
+summary as a review artifact. The artifact must not include the base URL, API key, response bodies,
+raw IDs, QR payloads, JIDs, message text, provider payloads, session material, webhook secrets, or
+other sensitive values. This command is operator-run and does not replace sustained SLO observation.
+
 Target-environment evidence must additionally record:
 
 - deployment profile and runtime versions,

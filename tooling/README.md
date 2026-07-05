@@ -15,6 +15,9 @@ Current tooling:
   alert, dependency readiness, metrics runtime, and health runtime evidence.
 - `performance/check-performance-readiness.mjs` checks load baseline evidence,
   root load gate wiring, and root performance gate wiring.
+- `performance/run-target-environment-load.mjs` performs optional bounded
+  deployed API load checks and can write a sanitized target-environment evidence
+  artifact.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
 - `production/run-target-environment-smoke.mjs` performs optional deployed API

@@ -232,6 +232,14 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   Operators can set `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH` to write the sanitized smoke summary as a
   review artifact without storing the target URL, API key, response bodies, raw IDs, QR/JID/text
   payloads, provider payloads, or secrets.
+- N11.7 also provides an optional `pnpm target-env:load` runner for bounded deployed API load
+  evidence against approved public GET endpoints. The runner is intentionally not part of the
+  default `pnpm check` path because it needs a target deployment and API key; its unit tests and
+  release/performance evidence are covered by `pnpm performance:check` and `pnpm release:check`.
+  Operators can set `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` to write the sanitized load summary as a
+  review artifact without storing the target URL, API key, response bodies, raw IDs, query strings,
+  QR/JID/text payloads, provider payloads, or secrets. This still does not prove sustained SLOs or
+  external dependency capacity.
 
 ## Update Rule
 

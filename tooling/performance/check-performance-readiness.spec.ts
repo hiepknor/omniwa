@@ -43,6 +43,7 @@ describe("performance readiness gate check", () => {
         type: "module",
         scripts: {
           "performance:check": performanceScript(),
+          "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
           "load:check":
             "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
           check: "pnpm lint && pnpm test && pnpm release:check",
@@ -79,6 +80,7 @@ describe("performance readiness gate check", () => {
         scripts: {
           "performance:check":
             "node tooling/performance/check-performance-readiness.mjs && pnpm exec vitest run tooling/performance/check-performance-readiness.spec.ts",
+          "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
           "load:check":
             "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
           check: "pnpm performance:check && pnpm release:check",
@@ -116,6 +118,7 @@ describe("performance readiness gate check", () => {
         scripts: {
           "performance:check":
             "node tooling/performance/check-performance-readiness.mjs && vitest run --passWithNoTests apps/api/src/load-baseline.spec.ts",
+          "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
           "load:check": "pnpm exec vitest run apps/api/src/load-baseline.spec.ts",
           check: "pnpm performance:check && pnpm release:check",
         },
@@ -143,6 +146,42 @@ describe("performance readiness gate check", () => {
           expect.objectContaining({
             code: "performance_evidence_test_missing",
             target: missingTest,
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the operator-run target environment load script is missing", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createPerformanceFixture(root);
+      await writeJson(join(root, "package.json"), {
+        name: "omniwa-performance-fixture",
+        private: true,
+        type: "module",
+        scripts: {
+          "performance:check": performanceScript(),
+          "load:check":
+            "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
+          check: "pnpm performance:check && pnpm release:check",
+        },
+      });
+
+      const report = await evaluatePerformanceReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "root_target_environment_load_script_missing",
+            target: "target-env:load",
           }),
         ]),
       );
