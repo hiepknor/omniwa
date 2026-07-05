@@ -24,6 +24,7 @@ describe("production Docker compose template check", () => {
       "api_production_profile_declared",
       "plaintext_api_key_not_declared",
       "redis_rate_limit_declared",
+      "postgresql_eventlog_declared",
       "postgres_auto_migrate_disabled",
       "controlled_pilot_profiles_declared",
     ]);
@@ -98,6 +99,29 @@ describe("production Docker compose template check", () => {
     );
   });
 
+  it("fails when PostgreSQL EventLog backend is not declared for the API runtime", async () => {
+    const report = await runProductionComposeTemplateCheck({
+      commandRunner: async () => ({
+        stdout: renderedProductionComposeConfig().replace(
+          "      OMNIWA_EVENT_LOG_BACKEND: postgresql\n",
+          "",
+        ),
+        stderr: "",
+      }),
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "postgresql_eventlog_declared",
+          status: "failed",
+          error: "Missing rendered assignment for OMNIWA_EVENT_LOG_BACKEND.",
+        }),
+      ]),
+    );
+  });
+
   it("builds defaults from the checked-in production template paths", () => {
     const config = createProductionComposeTemplateConfig({
       now: () => 1_800_000_000_000,
@@ -146,6 +170,7 @@ function renderedProductionComposeConfig(): string {
     "      OMNIWA_API_RUNTIME_PROFILE: production",
     "      OMNIWA_API_REPOSITORY_PROFILE: postgresql",
     "      OMNIWA_API_QUEUE_PROFILE: durable-worker-job",
+    "      OMNIWA_EVENT_LOG_BACKEND: postgresql",
     "      OMNIWA_API_KEY_HASH: sha256:replace-with-api-key-sha256-hex",
     "      OMNIWA_API_RATE_LIMIT_BACKEND: redis",
     "      OMNIWA_API_RATE_LIMIT_REDIS_URL: redis://:replace-with-redis-secret@redis:6379/0",

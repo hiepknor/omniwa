@@ -1,4 +1,5 @@
 import type {
+  AsyncEventLogReplayPort,
   EventLogCursorStatus,
   EventLogReplayPort,
   PlatformEventRecord,
@@ -47,8 +48,12 @@ export type RealtimeCursorInspection = Readonly<{
 }>;
 
 export type RealtimeEventSource = Readonly<{
-  replay(request: RealtimeReplayRequest): readonly RealtimeEventEnvelope[];
-  inspectCursor?(request: RealtimeReplayRequest): RealtimeCursorInspection;
+  replay(
+    request: RealtimeReplayRequest,
+  ): readonly RealtimeEventEnvelope[] | Promise<readonly RealtimeEventEnvelope[]>;
+  inspectCursor?(
+    request: RealtimeReplayRequest,
+  ): RealtimeCursorInspection | Promise<RealtimeCursorInspection>;
 }>;
 
 export type SseEncodingInput = Readonly<{
@@ -127,11 +132,11 @@ export function createStaticRealtimeEventSource(
 }
 
 export function createEventLogRealtimeEventSource(
-  eventLog: EventLogReplayPort,
+  eventLog: EventLogReplayPort | AsyncEventLogReplayPort,
 ): RealtimeEventSource {
   return Object.freeze({
-    replay: (request) => {
-      const result = eventLog.replayEvents(request);
+    replay: async (request) => {
+      const result = await eventLog.replayEvents(request);
 
       if (!result.ok) {
         return Object.freeze([]);
@@ -139,8 +144,8 @@ export function createEventLogRealtimeEventSource(
 
       return Object.freeze(result.value.events.map(eventLogRecordToRealtimeEnvelope));
     },
-    inspectCursor: (request) => {
-      const result = eventLog.replayEvents(request);
+    inspectCursor: async (request) => {
+      const result = await eventLog.replayEvents(request);
 
       if (!result.ok) {
         return Object.freeze({

@@ -51,7 +51,11 @@ import {
   type ApplicationQueryOutcome,
   createApplicationQueryOutcome,
 } from "../queries/query-model.js";
-import type { EventLogReplayPort, PlatformEventRecord } from "../ports/event-log.js";
+import type {
+  AsyncEventLogReplayPort,
+  EventLogReplayPort,
+  PlatformEventRecord,
+} from "../ports/event-log.js";
 import type { GroupMutationIntentStorePort } from "../ports/group-mutation-intent-store.js";
 import type {
   CommandHandler,
@@ -118,7 +122,7 @@ export type ApplicationDispatcherOptions = Readonly<{
   queueProvider?: QueueProviderPort;
   messagingProvider?: MessagingProviderPort;
   domainEventPublisher?: DomainEventPublisher;
-  eventLog?: EventLogReplayPort;
+  eventLog?: EventLogReplayPort | AsyncEventLogReplayPort;
 }>;
 
 export type ApplicationDispatcher = Readonly<{
@@ -146,7 +150,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly queueProvider: QueueProviderPort | undefined;
   private readonly messagingProvider: MessagingProviderPort | undefined;
   private readonly domainEventPublisher: DomainEventPublisher | undefined;
-  private readonly eventLog: EventLogReplayPort | undefined;
+  private readonly eventLog: EventLogReplayPort | AsyncEventLogReplayPort | undefined;
   private readonly commandHandlers: CommandHandlerRegistry;
   private readonly queryHandlers: QueryHandlerRegistry;
 
@@ -844,7 +848,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       });
     }
 
-    const replay = this.eventLog.replayEvents({ limit: 1_000 });
+    const replay = await this.eventLog.replayEvents({ limit: 1_000 });
 
     if (!replay.ok) {
       return queryOutcome(envelope, this.clock, "unavailable", {

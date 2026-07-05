@@ -594,8 +594,8 @@ export async function handleApiEventStreamRequest(
       : { cursor: cursor.trim() }),
     limit: options.sseReplayLimit ?? defaultSseReplayLimit,
   };
-  const events = eventSource.replay(replayRequest);
-  const cursorInspection = eventSource.inspectCursor?.(replayRequest);
+  const events = await eventSource.replay(replayRequest);
+  const cursorInspection = await eventSource.inspectCursor?.(replayRequest);
 
   return Object.freeze({
     statusCode: 200,

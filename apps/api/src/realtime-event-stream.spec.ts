@@ -24,29 +24,28 @@ afterEach(() => {
 });
 
 describe("realtime event stream", () => {
-  it("replays retained events after the provided cursor", () => {
+  it("replays retained events after the provided cursor", async () => {
     const source = createStaticRealtimeEventSource([
       event("evt_1", "cursor_1"),
       event("evt_2", "cursor_2"),
       event("evt_3", "cursor_3"),
     ]);
 
-    expect(source.replay({ cursor: "cursor_1", limit: 10 }).map((entry) => entry.cursor)).toEqual([
-      "cursor_2",
-      "cursor_3",
-    ]);
+    const replay = await source.replay({ cursor: "cursor_1", limit: 10 });
+
+    expect(replay.map((entry) => entry.cursor)).toEqual(["cursor_2", "cursor_3"]);
   });
 
-  it("does not replay expired or unknown cursors", () => {
+  it("does not replay expired or unknown cursors", async () => {
     const source = createStaticRealtimeEventSource([event("evt_1", "cursor_1")]);
 
-    expect(source.replay({ cursor: "expired_cursor", limit: 10 })).toEqual([]);
-    expect(source.inspectCursor?.({ cursor: "expired_cursor", limit: 10 })).toMatchObject({
+    expect(await source.replay({ cursor: "expired_cursor", limit: 10 })).toEqual([]);
+    expect(await source.inspectCursor?.({ cursor: "expired_cursor", limit: 10 })).toMatchObject({
       status: "not_found",
     });
   });
 
-  it("replays durable event log records and exposes retention-aware cursor inspection", () => {
+  it("replays durable event log records and exposes retention-aware cursor inspection", async () => {
     const eventLog = createInMemoryEventLogStore({ retentionLimit: 2 });
     eventLog.appendEvent(eventLogInput("evt_1", "message.accepted.v1"));
     eventLog.appendEvent(eventLogInput("evt_2", "message.delivered.v1"));
@@ -54,17 +53,18 @@ describe("realtime event stream", () => {
 
     const source = createEventLogRealtimeEventSource(eventLog);
 
-    expect(source.replay({ cursor: "eventlog:2", limit: 10 }).map((entry) => entry.cursor)).toEqual(
-      ["eventlog:3"],
-    );
-    expect(source.inspectCursor?.({ cursor: "eventlog:1", limit: 10 })).toMatchObject({
+    const replay = await source.replay({ cursor: "eventlog:2", limit: 10 });
+    const cursor = await source.inspectCursor?.({ cursor: "eventlog:1", limit: 10 });
+
+    expect(replay.map((entry) => entry.cursor)).toEqual(["eventlog:3"]);
+    expect(cursor).toMatchObject({
       status: "expired",
       oldestCursor: "eventlog:2",
       latestCursor: "eventlog:3",
     });
   });
 
-  it("resumes SSE replay from a durable EventLog after store restart", () => {
+  it("resumes SSE replay from a durable EventLog after store restart", async () => {
     const filePath = join(createTemporaryDirectory(), "event-log.json");
     const firstStore = createDurableJsonEventLogStore(filePath);
     firstStore.appendEvent(eventLogInput("evt_1", "message.accepted.v1"));
@@ -72,7 +72,8 @@ describe("realtime event stream", () => {
 
     const restartedStore = createDurableJsonEventLogStore(filePath);
     const source = createEventLogRealtimeEventSource(restartedStore);
-    const replay = source.replay({ cursor: "eventlog:1", limit: 10 });
+    const replay = await source.replay({ cursor: "eventlog:1", limit: 10 });
+    const cursor = await source.inspectCursor?.({ cursor: "eventlog:1", limit: 10 });
 
     expect(replay).toEqual([
       expect.objectContaining({
@@ -81,7 +82,7 @@ describe("realtime event stream", () => {
         type: "message.delivered.v1",
       }),
     ]);
-    expect(source.inspectCursor?.({ cursor: "eventlog:1", limit: 10 })).toMatchObject({
+    expect(cursor).toMatchObject({
       status: "ok",
       oldestCursor: "eventlog:1",
       latestCursor: "eventlog:2",
@@ -102,7 +103,7 @@ describe("realtime event stream", () => {
     expect(encoded).toContain(": heartbeat");
   });
 
-  it("streams QR lifecycle events from EventLog without leaking raw QR payloads", () => {
+  it("streams QR lifecycle events from EventLog without leaking raw QR payloads", async () => {
     const rawQr = "raw-qr-secret-token";
     const eventLog = createInMemoryEventLogStore({ retentionLimit: 10 });
     eventLog.appendEvent({
@@ -127,7 +128,7 @@ describe("realtime event stream", () => {
 
     const source = createEventLogRealtimeEventSource(eventLog);
     const encoded = encodeServerSentEvents({
-      events: source.replay({ limit: 10 }),
+      events: await source.replay({ limit: 10 }),
       requestId: "req_qr",
       correlationId: "corr_qr",
       timestamp: "2026-06-30T00:00:01.000Z",
@@ -139,7 +140,7 @@ describe("realtime event stream", () => {
     expect(encoded).not.toContain(rawQr);
   });
 
-  it("streams provider inbound and status events without leaking raw provider payloads", () => {
+  it("streams provider inbound and status events without leaking raw provider payloads", async () => {
     const rawJid = "12025550123@s.whatsapp.net";
     const rawText = "private inbound body";
     const rawProviderMessageId = "BAILEYS_RAW_PROVIDER_MESSAGE_ID";
@@ -189,7 +190,7 @@ describe("realtime event stream", () => {
 
     const source = createEventLogRealtimeEventSource(eventLog);
     const encoded = encodeServerSentEvents({
-      events: source.replay({ limit: 10 }),
+      events: await source.replay({ limit: 10 }),
       requestId: "req_provider_events",
       correlationId: "corr_provider_events",
       timestamp: "2026-06-30T00:00:02.000Z",

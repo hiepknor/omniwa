@@ -25,7 +25,7 @@ services:
       OMNIWA_API_SECURITY_AUDIT_RECORDS: "true"
       OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true"
       OMNIWA_API_METRICS_JSONL_PATH: /var/lib/omniwa/observability/api-metrics.jsonl
-      OMNIWA_EVENT_LOG_PATH: /var/lib/omniwa/event-log.json
+      OMNIWA_EVENT_LOG_BACKEND: postgresql
     ports:
       - "127.0.0.1:${OMNIWA_API_PUBLIC_PORT:-3000}:3000"
     volumes:

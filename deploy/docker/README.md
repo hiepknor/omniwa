@@ -111,6 +111,8 @@ Production template rules:
 - Keep PostgreSQL, Redis, Object Storage, and backup storage private.
 - Run `pnpm db:migrate:status` and `pnpm db:migrate` against the target PostgreSQL database before
   starting production-profile services. Keep `OMNIWA_POSTGRES_AUTO_MIGRATE=false`.
+- Keep API EventLog on `OMNIWA_EVENT_LOG_BACKEND=postgresql`; do not use the JSON EventLog path for
+  the production API profile.
 - Use `OMNIWA_API_KEY_HASH` or a lifecycle store. Do not configure plaintext `OMNIWA_API_KEY` in the
   production template.
 - Do not treat `OMNIWA_API_REPOSITORY_PROFILE=durable-json` as a production database substitute.
@@ -122,6 +124,7 @@ Production template rules:
 ## Expected Next Hardening
 
 - Add provider-runtime IPC/shared socket ownership so the worker can run a true production profile.
-- Add a production EventLog/outbox backend and consumer loop beyond the JSON pilot store.
+- Add the production EventLog outbox consumer loop and backlog metrics beyond the API PostgreSQL
+  EventLog backend.
 - Add target-environment migration, backup, restore, load, and SLO evidence.
 - Add image signing/SBOM/security scanning in CI.

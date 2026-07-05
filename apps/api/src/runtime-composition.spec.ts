@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createApiRuntimeComposition,
   createApiRuntimeCompositionFromSecrets,
+  readApiEventLogBackend,
   readApiQueueProfile,
   readRepositoryProfile,
   readRuntimeProfile,
@@ -338,7 +339,7 @@ describe("API runtime composition", () => {
     );
   });
 
-  it("composes an EventLog-backed realtime source when configured", () => {
+  it("composes an EventLog-backed realtime source when configured", async () => {
     const directory = mkdtempSync(join(tmpdir(), "omniwa-api-event-log-"));
     temporaryDirectories.push(directory);
 
@@ -347,12 +348,26 @@ describe("API runtime composition", () => {
       OMNIWA_EVENT_LOG_PATH: join(directory, "event-log.json"),
     });
 
-    expect(composition.options.eventSource?.replay({ limit: 10 })).toEqual([]);
+    expect(composition.eventLogBackend).toBe("durable-json");
+    await expect(composition.options.eventSource?.replay({ limit: 10 })).resolves.toEqual([]);
     expect(
-      composition.options.eventSource?.inspectCursor?.({ cursor: "eventlog:1", limit: 10 }),
+      await composition.options.eventSource?.inspectCursor?.({ cursor: "eventlog:1", limit: 10 }),
     ).toMatchObject({
       status: "not_found",
     });
+  });
+
+  it("wires PostgreSQL EventLog backend when requested", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_EVENT_LOG_BACKEND: "postgresql",
+      OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+    });
+
+    expect(composition.eventLogBackend).toBe("postgresql");
+    expect(composition.options.eventSource).toBeDefined();
+    expect(composition.options.dispatcher).toBeDefined();
   });
 
   it("wires env-configured API request metrics into a safe JSONL recorder", async () => {
@@ -937,6 +952,30 @@ describe("API runtime composition", () => {
     ).toThrow(/requires OMNIWA_API_QUEUE_PROFILE=durable/u);
   });
 
+  it("requires PostgreSQL EventLog backend for production runtime composition", () => {
+    expect(() =>
+      createApiRuntimeComposition(
+        {
+          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+          OMNIWA_API_RUNTIME_PROFILE: "production",
+          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+          OMNIWA_POSTGRES_DATABASE_URL:
+            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+          OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+          OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
+          OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
+        },
+        {
+          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
+          metricRecorder: new CapturingMetricRecorder(),
+        },
+      ),
+    ).toThrow(/requires OMNIWA_EVENT_LOG_BACKEND=postgresql/u);
+  });
+
   it("requires API request metrics for production runtime composition", () => {
     expect(() =>
       createApiRuntimeComposition(
@@ -952,6 +991,7 @@ describe("API runtime composition", () => {
           OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
           OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
           OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
+          OMNIWA_EVENT_LOG_BACKEND: "postgresql",
         },
         {
           redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
@@ -975,6 +1015,7 @@ describe("API runtime composition", () => {
         OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
         OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
         OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
+        OMNIWA_EVENT_LOG_BACKEND: "postgresql",
       },
       {
         redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
@@ -985,6 +1026,7 @@ describe("API runtime composition", () => {
     expect(composition.profile).toBe("production");
     expect(composition.repositoryProfile).toBe("postgresql");
     expect(composition.queueProfile).toBe("durable-worker-job");
+    expect(composition.eventLogBackend).toBe("postgresql");
     expect(composition.options.metricRecorder).toBe(metricRecorder);
   });
 
@@ -1055,6 +1097,21 @@ describe("API runtime composition", () => {
     );
     expect(() => readApiQueueProfile({ OMNIWA_API_QUEUE_PROFILE: "invalid" })).toThrow(
       /Unsupported OmniWA API queue profile/u,
+    );
+  });
+
+  it("normalizes EventLog backend names", () => {
+    expect(readApiEventLogBackend({})).toBe("in-memory");
+    expect(readApiEventLogBackend({ OMNIWA_EVENT_LOG_PATH: "/tmp/event-log.json" })).toBe(
+      "durable-json",
+    );
+    expect(readApiEventLogBackend({ OMNIWA_EVENT_LOG_BACKEND: "in-memory" })).toBe("in-memory");
+    expect(readApiEventLogBackend({ OMNIWA_EVENT_LOG_BACKEND: "durable-json" })).toBe(
+      "durable-json",
+    );
+    expect(readApiEventLogBackend({ OMNIWA_EVENT_LOG_BACKEND: "postgresql" })).toBe("postgresql");
+    expect(() => readApiEventLogBackend({ OMNIWA_EVENT_LOG_BACKEND: "invalid" })).toThrow(
+      /Unsupported OmniWA API EventLog backend/u,
     );
   });
 });

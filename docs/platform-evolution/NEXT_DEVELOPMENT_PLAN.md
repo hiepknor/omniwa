@@ -203,8 +203,8 @@ IPC/shared socket ownership and target-environment evidence are complete.
 The production compose validation slice adds `pnpm docker:production:check` and wires it into
 `pnpm production:check`, so the checked-in production template must render successfully with
 `deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key
-posture, Redis rate limiting, disabled auto-migration, and controlled-pilot worker/provider runtime
-profiles before the root quality gate can pass.
+posture, Redis rate limiting, disabled auto-migration, PostgreSQL API EventLog backend, and
+controlled-pilot worker/provider runtime profiles before the root quality gate can pass.
 The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer` foundation for
 safe pending-outbox drain loops. It does not yet select the production EventLog backend or wire a
 production outbox runtime loop; those remain N11 follow-up work. `ADR-0009` is Accepted, so the
@@ -221,6 +221,12 @@ The PostgreSQL EventLog backend slice adds versioned SQL migrations and a
 idempotency, monotonic replay cursors, not-found/expired cursor semantics, durable outbox records,
 generic outbox consumer drain, and safe failure summaries. Remaining EventLog hardening is now
 production runtime wiring plus backlog metrics.
+The API EventLog runtime wiring slice makes Application event publication, `GET /v1/events`, and
+`/v1/events/stream` async-compatible, adds `OMNIWA_EVENT_LOG_BACKEND=postgresql`, and makes the API
+production profile fail closed unless the PostgreSQL EventLog backend is selected. Remaining
+EventLog hardening is now production outbox runtime wiring plus backlog metrics.
+The production compose validation gate now also verifies `OMNIWA_EVENT_LOG_BACKEND=postgresql`, so
+the deployment template cannot drift back to a JSON EventLog path for the API production profile.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving

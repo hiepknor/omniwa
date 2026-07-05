@@ -83,6 +83,14 @@ export async function runProductionComposeTemplateCheck(options = {}) {
     };
   });
 
+  await recordCheck(checks, "postgresql_eventlog_declared", async () => {
+    assertRenderedAssignment(renderedConfig, "OMNIWA_EVENT_LOG_BACKEND", ["postgresql"]);
+
+    return {
+      eventLogBackend: "postgresql",
+    };
+  });
+
   await recordCheck(checks, "postgres_auto_migrate_disabled", async () => {
     assertRenderedAssignment(renderedConfig, "OMNIWA_POSTGRES_AUTO_MIGRATE", ["false"]);
 

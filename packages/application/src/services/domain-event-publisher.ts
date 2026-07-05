@@ -2,7 +2,11 @@ import { getDomainEventContract, type DomainEvent } from "@omniwa/domain";
 import { ok } from "@omniwa/shared";
 
 import type { ApplicationPortContext, ApplicationPortResult } from "../ports/application-port.js";
-import type { EventLogPort, PlatformEventRecord } from "../ports/event-log.js";
+import type {
+  AsyncEventLogAppendPort,
+  EventLogAppendPort,
+  PlatformEventRecord,
+} from "../ports/event-log.js";
 
 export type DomainEventPublicationRecord = Readonly<{
   domainEvent: DomainEvent;
@@ -27,7 +31,7 @@ export type DomainEventPublisher = Readonly<{
 }>;
 
 export type DomainEventPublisherOptions = Readonly<{
-  eventLog: EventLogPort;
+  eventLog: EventLogAppendPort | AsyncEventLogAppendPort;
   nowIso: () => string;
 }>;
 
@@ -38,7 +42,7 @@ export function createDomainEventPublisher(
 }
 
 export class DefaultDomainEventPublisher implements DomainEventPublisher {
-  private readonly eventLog: EventLogPort;
+  private readonly eventLog: EventLogAppendPort | AsyncEventLogAppendPort;
   private readonly nowIso: () => string;
 
   constructor(options: DomainEventPublisherOptions) {
@@ -56,7 +60,7 @@ export class DefaultDomainEventPublisher implements DomainEventPublisher {
     for (const [offset, domainEvent] of newEvents.entries()) {
       const eventIndex = startIndex + offset;
       const contract = getDomainEventContract(domainEvent.name);
-      const appendResult = this.eventLog.appendEvent({
+      const appendResult = await this.eventLog.appendEvent({
         id: createDeterministicEventId(input.executionRef, domainEvent, eventIndex),
         type: contract.integrationEventName ?? `${contract.signalName}.v1`,
         timestamp: this.nowIso(),

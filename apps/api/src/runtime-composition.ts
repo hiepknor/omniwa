@@ -14,6 +14,8 @@ import {
   createDomainEventPublisher,
   type AuditRecordSourceSignalRecorder,
   type ApplicationDispatcherRepositories,
+  type AsyncEventLogPort,
+  type EventLogPort,
 } from "@omniwa/application";
 import {
   DurableJsonGroupMutationIntentStore,
@@ -26,6 +28,8 @@ import {
   createDurableJsonEventLogStore,
   createInMemoryEventLogStore,
   createInMemoryRepositorySet,
+  PostgresqlEventLogStore,
+  runPostgresqlSqlMigrations,
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
@@ -77,10 +81,15 @@ export const apiQueueProfiles = ["in-memory", "durable-worker-job"] as const;
 
 export type ApiQueueProfile = (typeof apiQueueProfiles)[number];
 
+export const apiEventLogBackends = ["in-memory", "durable-json", "postgresql"] as const;
+
+export type ApiEventLogBackend = (typeof apiEventLogBackends)[number];
+
 export type ApiRuntimeComposition = Readonly<{
   profile: ApiRuntimeProfile;
   repositoryProfile: ApiRepositoryProfile;
   queueProfile: ApiQueueProfile;
+  eventLogBackend: ApiEventLogBackend;
   options: ApiHttpServerOptions;
 }>;
 
@@ -111,6 +120,7 @@ export function createApiRuntimeComposition(
   const profile = readRuntimeProfile(env);
   const repositoryProfile = readRepositoryProfile(env);
   const queueProfile = readApiQueueProfile(env);
+  const eventLogBackend = readApiEventLogBackend(env);
   const apiKeys = readApiKeysFromEnv(env);
   const hashedApiKeys = readHashedApiKeysFromEnv(env);
   const apiKeyLifecycleStorePath = readApiKeyLifecycleStorePath(env);
@@ -145,20 +155,14 @@ export function createApiRuntimeComposition(
     securityAuditSinkKind: readSecurityAuditSinkKind(env),
     repositoryOwnershipResolutionEnabled,
     queueProfile,
+    eventLogBackend,
     hasMetricRecorder: metricRecorder !== undefined,
     metricsJsonlPath: readOptionalStringEnv(env, "OMNIWA_API_METRICS_JSONL_PATH"),
   });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
-  const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
-  const eventLog =
-    eventLogPath === undefined || eventLogPath.length === 0
-      ? createInMemoryEventLogStore()
-      : createDurableJsonEventLogStore(eventLogPath);
-  const eventSource =
-    eventLogPath === undefined || eventLogPath.length === 0
-      ? undefined
-      : createEventLogRealtimeEventSource(eventLog);
+  const eventLog = createRuntimeEventLog(env, eventLogBackend);
+  const eventSource = createEventLogRealtimeEventSource(eventLog);
   const outboundMessageIntentStore = createRuntimeOutboundMessageIntentStore(
     env,
     repositoryProfile,
@@ -208,6 +212,7 @@ export function createApiRuntimeComposition(
     profile,
     repositoryProfile,
     queueProfile,
+    eventLogBackend,
     options: Object.freeze({
       dispatcher,
       outboundMessageIntentStore,
@@ -692,6 +697,59 @@ export function readApiQueueProfile(env: NodeJS.ProcessEnv = process.env): ApiQu
   }
 }
 
+export function readApiEventLogBackend(env: NodeJS.ProcessEnv = process.env): ApiEventLogBackend {
+  const value = env.OMNIWA_EVENT_LOG_BACKEND?.trim();
+  const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
+
+  switch (value) {
+    case "postgresql":
+      return "postgresql";
+    case "durable-json":
+      return "durable-json";
+    case "in-memory":
+      return "in-memory";
+    case undefined:
+    case "":
+      return eventLogPath === undefined || eventLogPath.length === 0 ? "in-memory" : "durable-json";
+    default:
+      throw new Error("Unsupported OmniWA API EventLog backend.");
+  }
+}
+
+function createRuntimeEventLog(
+  env: NodeJS.ProcessEnv,
+  backend: ApiEventLogBackend,
+): EventLogPort | AsyncEventLogPort {
+  if (backend === "in-memory") {
+    return createInMemoryEventLogStore();
+  }
+
+  if (backend === "durable-json") {
+    const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
+
+    if (eventLogPath === undefined || eventLogPath.length === 0) {
+      throw new Error("OMNIWA_EVENT_LOG_PATH is required when OMNIWA_EVENT_LOG_BACKEND=durable-json.");
+    }
+
+    return createDurableJsonEventLogStore(eventLogPath);
+  }
+
+  const databaseUrl = env.OMNIWA_POSTGRES_DATABASE_URL?.trim();
+
+  if (databaseUrl === undefined || databaseUrl.length === 0) {
+    throw new Error("OMNIWA_POSTGRES_DATABASE_URL is required when OMNIWA_EVENT_LOG_BACKEND=postgresql.");
+  }
+
+  const connection = createPostgresqlConnectionPool(databaseUrl);
+  const migrationBarrier = readBooleanEnv(env.OMNIWA_POSTGRES_AUTO_MIGRATE)
+    ? createApiPostgresqlMigrationBarrier(connection)
+    : undefined;
+
+  return new PostgresqlEventLogStore(connection, {
+    ...optional("migrationBarrier", migrationBarrier),
+  });
+}
+
 function createRuntimeRepositories(
   env: NodeJS.ProcessEnv,
   repositoryProfile: ApiRepositoryProfile,
@@ -786,6 +844,7 @@ function assertRuntimeProfileIsComposable(
     securityAuditSinkKind: ApiSecurityAuditSinkKind;
     repositoryOwnershipResolutionEnabled: boolean;
     queueProfile: ApiQueueProfile;
+    eventLogBackend: ApiEventLogBackend;
     hasMetricRecorder: boolean;
     metricsJsonlPath: string | undefined;
   }>,
@@ -802,6 +861,7 @@ function assertRuntimeProfileIsComposable(
     assertProductionSecurityAuditConfiguration(options.securityAuditSinkKind);
     assertProductionResourceOwnershipConfiguration(options.repositoryOwnershipResolutionEnabled);
     assertProductionQueueConfiguration(options.queueProfile);
+    assertProductionEventLogConfiguration(options.eventLogBackend);
     assertProductionObservabilityConfiguration(options);
   }
 
@@ -831,6 +891,14 @@ function assertProductionResourceOwnershipConfiguration(enabled: boolean): void 
 function assertProductionQueueConfiguration(queueProfile: ApiQueueProfile): void {
   if (queueProfile !== "durable-worker-job") {
     throw new Error("OmniWA API production profile requires OMNIWA_API_QUEUE_PROFILE=durable.");
+  }
+}
+
+function assertProductionEventLogConfiguration(eventLogBackend: ApiEventLogBackend): void {
+  if (eventLogBackend !== "postgresql") {
+    throw new Error(
+      "OmniWA API production profile requires OMNIWA_EVENT_LOG_BACKEND=postgresql.",
+    );
   }
 }
 
@@ -921,6 +989,18 @@ function assertProductionPostgresqlDatabaseUrl(value: string | undefined): void 
       "OmniWA API production profile must not use known development PostgreSQL credentials.",
     );
   }
+}
+
+function createApiPostgresqlMigrationBarrier(
+  connection: Parameters<typeof runPostgresqlSqlMigrations>[0],
+): () => Promise<void> {
+  let migrationPromise: Promise<void> | undefined;
+
+  return async () => {
+    migrationPromise ??= runPostgresqlSqlMigrations(connection).then(() => undefined);
+
+    await migrationPromise;
+  };
 }
 
 function isLocalDatabaseHost(hostname: string): boolean {

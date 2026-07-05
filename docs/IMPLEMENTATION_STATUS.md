@@ -114,7 +114,8 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   into `pnpm production:check` and the root `pnpm check` path. The gate renders the checked-in
   production compose template with `deploy/docker/env/production.env.example` and verifies required
   services, hash-only API-key posture, Redis API rate limiting, disabled auto-migration, and the
-  intentional worker/provider controlled-pilot profiles without printing rendered secret material.
+  PostgreSQL API EventLog backend, plus the intentional worker/provider controlled-pilot profiles
+  without printing rendered secret material.
 - N11 EventLog/outbox hardening now adds a generic `EventOutboxConsumer` foundation that drains
   pending outbox records through an injected publisher, marks successful records as published, keeps
   failed records pending, and returns safe failure summaries without raw provider payload exposure.
@@ -132,6 +133,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   passed 48 tests covering PostgreSQL EventLog append idempotency, monotonic cursor replay,
   not-found/expired cursor semantics, durable outbox state, generic outbox consumer drain, and safe
   failure summaries.
+- API runtime composition can now select `OMNIWA_EVENT_LOG_BACKEND=postgresql` and wire
+  `PostgresqlEventLogStore` into Application event publication, `GET /v1/events`, and
+  `/v1/events/stream`. The production API profile now fails closed unless that PostgreSQL EventLog
+  backend is configured, and the production Docker template/check now declares and verifies that
+  backend.
 
 ## Known Gaps
 
@@ -147,8 +153,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   unless that queue profile is selected. This closes the API enqueue-side queue-profile gap, while
   cross-process worker/provider runtime proof remains target-environment validation work.
 - N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic async-compatible outbox
-  consumer, async EventLog compatibility boundary, and PostgreSQL EventLog backend foundation now
-  exist, but production runtime wiring and EventLog backlog metrics remain open hardening work.
+  consumer, async EventLog compatibility boundary, PostgreSQL EventLog backend foundation, and API
+  runtime PostgreSQL EventLog selection now exist, but production outbox runtime wiring and EventLog
+  backlog metrics remain open hardening work.
 - Production Docker template coverage is broader than the API service now, but it is still a
   deployment template and controlled-pilot profile. Target-environment startup, production load, SLO
   evidence, worker/provider true production profiles, and the provider-runtime IPC/shared socket
