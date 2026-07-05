@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "status": "NOT_PROVEN",
+  "checkedAtIso": "1970-01-01T00:00:00.000Z",
+  "proofStates": {
+    "targetEnvironmentProven": false,
+    "productionLoadProven": false,
+    "sloEvidenceProven": false
+  },
+  "evidence": {
+    "deploymentProfileRef": "operator-evidence-deployment-profile-pending",
+    "runtimeVersionsRef": "operator-evidence-runtime-versions-pending",
+    "startupSummaryRef": "operator-evidence-startup-summary-pending",
+    "healthReadinessRef": "operator-evidence-health-readiness-pending",
+    "dependencyConnectivityRef": "operator-evidence-dependency-connectivity-pending",
+    "backupRestoreDrillRef": "operator-evidence-backup-restore-drill-pending",
+    "productionLoadSummaryRef": "operator-evidence-production-load-summary-pending",
+    "alertSloDryRunRef": "operator-evidence-alert-slo-dry-run-pending",
+    "rollbackOrForwardFixNotesRef": "operator-evidence-rollback-forward-fix-notes-pending"
+  },
+  "components": [
+    {
+      "component": "API Runtime",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-api-runtime-pending"
+    },
+    {
+      "component": "Worker Runtime",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-worker-runtime-pending"
+    },
+    {
+      "component": "Provider Runtime",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-provider-runtime-pending"
+    },
+    {
+      "component": "Webhook Dispatcher",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-webhook-dispatcher-pending"
+    },
+    {
+      "component": "PostgreSQL",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-postgresql-pending"
+    },
+    {
+      "component": "Redis",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-redis-pending"
+    },
+    {
+      "component": "EventLog",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-eventlog-pending"
+    },
+    {
+      "component": "Secret Provider",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-secret-provider-pending"
+    },
+    {
+      "component": "Observability",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-observability-pending"
+    },
+    {
+      "component": "Backup/Restore",
+      "status": "PENDING",
+      "evidenceRef": "operator-evidence-backup-restore-pending"
+    }
+  ],
+  "artifacts": {
+    "smoke": {
+      "artifactRef": "operator-evidence-smoke-report-pending"
+    },
+    "load": {
+      "artifactRef": "operator-evidence-load-report-pending"
+    }
+  },
+  "findings": [
+    {
+      "code": "target_environment_evidence_not_collected",
+      "severity": "warning",
+      "safeDetailCode": "operator_evidence_required"
+    }
+  ]
+}

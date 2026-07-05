@@ -120,11 +120,15 @@ Operators can also provide `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` to validate 
 bundle manifest. The bundle records references to deployment profile, runtime versions, startup
 summary, health/readiness, dependency connectivity, backup/restore drill, production-load summary,
 alert/SLO dry-run, rollback or forward-fix notes, and smoke/load artifacts without storing raw
-environment values.
+environment values. Start from
+`docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` and write the populated copy outside
+the design/review source tree before passing its path to the gate.
 
 It verifies:
 
 - `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` exists,
+- `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` remains a safe `NOT_PROVEN`
+  skeleton,
 - target-environment proof state is explicit,
 - every required runtime/dependency component has an evidence row,
 - optional target-environment evidence bundle artifacts are schema-valid and sanitized,

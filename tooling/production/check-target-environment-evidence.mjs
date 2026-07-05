@@ -9,6 +9,7 @@ export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/production/run-target-environment-smoke.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
+  "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
 ]);
 
@@ -69,6 +70,7 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
     findings,
   );
   await checkTargetEnvironmentReview(projectRoot, findings);
+  await checkTargetEnvironmentBundleTemplate(projectRoot, findings);
   await checkRootPackage(projectRoot, findings);
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
@@ -117,7 +119,11 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
     ...requiredTargetEnvironmentEvidenceFiles,
     ...requiredTargetEnvironmentEvidenceTests,
   ]) {
-    await writeText(join(projectRoot, file), "fixture\n");
+    if (file === "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json") {
+      await writeJson(join(projectRoot, file), createTargetEnvironmentEvidenceBundleTemplate());
+    } else {
+      await writeText(join(projectRoot, file), "fixture\n");
+    }
   }
 
   await writeText(
@@ -245,6 +251,30 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
         );
       }
     }
+  }
+}
+
+async function checkTargetEnvironmentBundleTemplate(projectRoot, findings) {
+  let template;
+
+  try {
+    template = JSON.parse(
+      await readFile(
+        join(projectRoot, "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json"),
+        "utf8",
+      ),
+    );
+  } catch {
+    findings.push(createFinding("target_environment_bundle_template_unreadable", "blocker"));
+    return;
+  }
+
+  if (!isTargetEnvironmentEvidenceBundleTemplate(template)) {
+    findings.push(createFinding("target_environment_bundle_template_invalid_schema", "blocker"));
+  }
+
+  if (findUnsafeArtifactContent(template) !== undefined) {
+    findings.push(createFinding("target_environment_bundle_template_unsafe_content", "blocker"));
   }
 }
 
@@ -435,6 +465,54 @@ export function validateTargetEnvironmentEvidenceBundleArtifact(artifact) {
   );
 }
 
+export function createTargetEnvironmentEvidenceBundleTemplate() {
+  return Object.freeze({
+    version: 1,
+    status: "NOT_PROVEN",
+    checkedAtIso: "1970-01-01T00:00:00.000Z",
+    proofStates: Object.freeze({
+      targetEnvironmentProven: false,
+      productionLoadProven: false,
+      sloEvidenceProven: false,
+    }),
+    evidence: Object.freeze({
+      deploymentProfileRef: "operator-evidence-deployment-profile-pending",
+      runtimeVersionsRef: "operator-evidence-runtime-versions-pending",
+      startupSummaryRef: "operator-evidence-startup-summary-pending",
+      healthReadinessRef: "operator-evidence-health-readiness-pending",
+      dependencyConnectivityRef: "operator-evidence-dependency-connectivity-pending",
+      backupRestoreDrillRef: "operator-evidence-backup-restore-drill-pending",
+      productionLoadSummaryRef: "operator-evidence-production-load-summary-pending",
+      alertSloDryRunRef: "operator-evidence-alert-slo-dry-run-pending",
+      rollbackOrForwardFixNotesRef: "operator-evidence-rollback-forward-fix-notes-pending",
+    }),
+    components: Object.freeze(
+      requiredTargetEnvironmentComponents.map((component) =>
+        Object.freeze({
+          component,
+          status: "PENDING",
+          evidenceRef: `operator-evidence-${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-pending`,
+        }),
+      ),
+    ),
+    artifacts: Object.freeze({
+      smoke: Object.freeze({
+        artifactRef: "operator-evidence-smoke-report-pending",
+      }),
+      load: Object.freeze({
+        artifactRef: "operator-evidence-load-report-pending",
+      }),
+    }),
+    findings: Object.freeze([
+      Object.freeze({
+        code: "target_environment_evidence_not_collected",
+        severity: "warning",
+        safeDetailCode: "operator_evidence_required",
+      }),
+    ]),
+  });
+}
+
 function isSmokeEndpointArtifact(value) {
   return (
     isRecord(value) &&
@@ -562,6 +640,17 @@ function isValidProvenBundleClaim(artifact) {
     artifact.proofStates.productionLoadProven === true &&
     artifact.proofStates.sloEvidenceProven === true &&
     artifact.components.every((component) => component.status === "PASS")
+  );
+}
+
+function isTargetEnvironmentEvidenceBundleTemplate(artifact) {
+  return (
+    validateTargetEnvironmentEvidenceBundleArtifact(artifact) &&
+    artifact.status === "NOT_PROVEN" &&
+    artifact.proofStates.targetEnvironmentProven === false &&
+    artifact.proofStates.productionLoadProven === false &&
+    artifact.proofStates.sloEvidenceProven === false &&
+    artifact.components.every((component) => component.status === "PENDING")
   );
 }
 

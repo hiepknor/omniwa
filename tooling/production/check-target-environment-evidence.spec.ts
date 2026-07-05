@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  createTargetEnvironmentEvidenceBundleTemplate,
   createTargetEnvironmentFixture,
   evaluateTargetEnvironmentEvidence,
   requiredTargetEnvironmentComponents,
@@ -146,6 +147,75 @@ describe("target environment evidence gate", () => {
           }),
           expect.objectContaining({ code: "production_script_missing_target_environment_gate" }),
           expect.objectContaining({ code: "check_script_missing_target_environment_gate" }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment evidence bundle template is missing", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await rm(join(root, "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json"), {
+        force: true,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_evidence_missing",
+            target: "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json",
+          }),
+          expect.objectContaining({
+            code: "target_environment_bundle_template_unreadable",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment evidence bundle template claims proof", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json"), {
+        ...createTargetEnvironmentEvidenceBundleTemplate(),
+        status: "PROVEN",
+        proofStates: {
+          targetEnvironmentProven: true,
+          productionLoadProven: true,
+          sloEvidenceProven: true,
+        },
+        components: requiredTargetEnvironmentComponents.map((component) => ({
+          component,
+          status: "PASS",
+          evidenceRef: `${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-proven`,
+        })),
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_bundle_template_invalid_schema",
+          }),
         ]),
       );
     } finally {

@@ -264,6 +264,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   versions, startup, health/readiness, dependency connectivity, backup/restore, production-load,
   alert/SLO dry-run, rollback or forward-fix references, and smoke/load artifact refs without
   storing raw environment details.
+- N11.7 target-environment evidence validation now also keeps
+  `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` under the local evidence gate as a
+  safe `NOT_PROVEN` skeleton. Operators should copy and populate that template into an external
+  artifact path before passing it through `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.
 
 ## Update Rule
 

@@ -99,6 +99,9 @@ The evidence bundle is an operator-maintained sanitized JSON manifest that refer
 evidence matrix, smoke/load artifacts, deployment profile, dependency checks, backup/restore drill,
 alert/SLO dry-run, and rollback or forward-fix notes. The checker validates its schema and rejects
 unsafe fields, but it does not create target-environment evidence.
+Use `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` as the starting skeleton, copy
+it to the operator artifact path, and replace only safe reference values with target-environment
+evidence identifiers.
 
 Target-environment evidence must additionally record:
 
