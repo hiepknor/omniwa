@@ -240,6 +240,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   review artifact without storing the target URL, API key, response bodies, raw IDs, query strings,
   QR/JID/text payloads, provider payloads, or secrets. This still does not prove sustained SLOs or
   external dependency capacity.
+- N11.7 production cut validation now also requires `PRODUCTION_CUT_REVIEW.md` to acknowledge
+  target-environment load evidence and requires the root `target-env:load` script to exist. This
+  keeps the production-cut decision gate aligned with the optional deployed API load runner without
+  running target-environment traffic in the default local quality gate.
 
 ## Update Rule
 

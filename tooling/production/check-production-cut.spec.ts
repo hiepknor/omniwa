@@ -56,6 +56,7 @@ describe("production cut gate check", () => {
           expect.objectContaining({ code: "production_load_proof_state_missing" }),
           expect.objectContaining({ code: "slo_evidence_proof_state_missing" }),
           expect.objectContaining({ code: "load_baseline_summary_missing" }),
+          expect.objectContaining({ code: "target_environment_load_summary_missing" }),
           expect.objectContaining({ code: "gate_2_review_missing" }),
           expect.objectContaining({ code: "known_constraints_missing" }),
         ]),
@@ -79,6 +80,7 @@ describe("production cut gate check", () => {
           "load:check":
             "vitest run --passWithNoTests tooling/production/check-production-cut.spec.ts",
           "production:check": "pnpm test",
+          "target-env:check": "node tooling/production/check-target-environment-evidence.mjs",
           check: "pnpm regression:check && pnpm release:check",
         },
       });
@@ -92,8 +94,11 @@ describe("production cut gate check", () => {
       expect(report.status).toBe("failed");
       expect(report.findings).toEqual(
         expect.arrayContaining([
+          expect.objectContaining({
+            code: "root_production_script_missing",
+            target: "target-env:load",
+          }),
           expect.objectContaining({ code: "production_script_missing_cut_checker" }),
-          expect.objectContaining({ code: "production_script_missing_target_environment_gate" }),
           expect.objectContaining({ code: "production_script_missing_load_gate" }),
           expect.objectContaining({ code: "load_script_must_not_pass_with_no_tests" }),
           expect.objectContaining({ code: "load_script_missing_test", target: missingTest }),
@@ -116,7 +121,7 @@ describe("production cut gate check", () => {
       await createProductionCutFixture(root);
       await writeText(
         join(root, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
-        "# Production Cut Review\n\nFinal readiness decision: PRODUCTION_READY\n\nProduction Ready: NO\n\nEnterprise Ready: NO\n\n## Load baseline\n\nRecorded.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n",
+        "# Production Cut Review\n\nFinal readiness decision: PRODUCTION_READY\n\nProduction Ready: NO\n\nEnterprise Ready: NO\n\n## Load baseline\n\nRecorded.\n\n## Target environment load\n\npnpm target-env:load tooling present.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n",
       );
 
       const report = await evaluateProductionCutReadiness({
@@ -160,6 +165,10 @@ describe("production cut gate check", () => {
           "## Load baseline",
           "",
           "Recorded.",
+          "",
+          "## Target environment load",
+          "",
+          "pnpm target-env:load tooling present.",
           "",
           "## Gate 2 Review",
           "",

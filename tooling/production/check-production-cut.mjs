@@ -10,6 +10,8 @@ export const productionCutDecisions = Object.freeze([
 
 export const requiredProductionEvidenceFiles = Object.freeze([
   "tooling/production/check-production-cut.mjs",
+  "tooling/performance/run-target-environment-load.mjs",
+  "tooling/performance/run-target-environment-load.spec.ts",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
   "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
@@ -24,6 +26,7 @@ export const requiredProductionEvidenceTests = Object.freeze([
 export const requiredProductionScripts = Object.freeze([
   "load:check",
   "target-env:check",
+  "target-env:load",
   "production:check",
 ]);
 
@@ -59,6 +62,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
       "load:check":
         "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
       "target-env:check": "node tooling/production/check-target-environment-evidence.mjs",
+      "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
       check:
@@ -72,7 +76,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
 
   await writeText(
     join(projectRoot, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
-    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
+    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Target environment load\n\npnpm target-env:load tooling present.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
   );
 }
 
@@ -152,6 +156,10 @@ async function checkProductionCutReview(projectRoot, findings) {
 
   if (!content.includes("Load baseline")) {
     findings.push(createFinding("load_baseline_summary_missing", "blocker"));
+  }
+
+  if (!/Target environment load|pnpm target-env:load/iu.test(content)) {
+    findings.push(createFinding("target_environment_load_summary_missing", "blocker"));
   }
 
   if (!/Gate 2 Review/iu.test(content)) {
