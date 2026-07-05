@@ -5,29 +5,36 @@ deployment templates.
 
 ## Current Runtime Status
 
-The Docker path can run the current API runtime. It does not make OmniWA production-ready by itself.
+The Docker path can run the current local stack and now includes a production deployment template
+for the API, worker, webhook dispatcher, provider runtime, PostgreSQL, and Redis. It does not make
+OmniWA production-ready by itself.
 
 Important current constraints:
 
-- `apps/api` is the only HTTP runtime entrypoint that starts a long-running server today.
-- `apps/worker` now has a long-running worker loop entrypoint for local runtime validation.
-- `apps/webhook-dispatcher` now has a long-running dispatcher loop entrypoint for local runtime
-  validation.
-- `OMNIWA_API_RUNTIME_PROFILE=production` is intentionally blocked by the code until production
-  persistence, queue, secret, and observability adapters are wired.
+- `apps/api` starts the public HTTP runtime.
+- `apps/worker` starts a long-running worker loop entrypoint.
+- `apps/webhook-dispatcher` starts a long-running dispatcher loop entrypoint and can compose with
+  the production profile when PostgreSQL, durable queue, fetch gateway, signing secret, metrics, and
+  audit sinks are configured.
+- `apps/provider-runtime` starts the provider supervisor loop and local live helpers. Its production
+  profile remains fail-closed; use `local` only for a controlled pilot until production auth-state
+  encryption and distributed ownership evidence are complete.
+- `apps/worker` production profile remains fail-closed until provider-runtime IPC/shared socket
+  ownership is implemented. The production template uses a controlled-pilot profile for the worker.
+- `OMNIWA_API_RUNTIME_PROFILE=production` is now composable only when PostgreSQL, Redis rate
+  limiting, repository-backed ownership, audit records, durable queue, and metric sinks are
+  configured.
 - The current API runtime supports `in-memory`, `durable-json`, and `postgresql` repository
   profiles.
-- The local Compose stack defaults to the PostgreSQL repository profile for the current
-  `InstanceRepositoryPort` vertical slice.
+- The local Compose stack defaults to the PostgreSQL repository profile for currently implemented
+  repositories.
 - Durable JSON storage remains a development/bootstrap fallback and is not the approved production
   source of truth.
-- PostgreSQL coverage is still partial: the first implemented source-state adapter is Instance and
-  WorkerJob. WebhookSubscription and WebhookDelivery still use durable JSON in the local dispatcher
-  topology. Health/readiness still uses a local in-memory projection fallback. Additional
-  repositories, production queue, secrets, observability, and provider runtime work remain required
-  before claiming production readiness.
-- PostgreSQL, Redis, and Object Storage remain required production architecture components, but the
-  current runtime does not wire them as production adapters yet.
+- PostgreSQL coverage now includes the runtime-exposed repositories and explicit migration commands.
+  Some catalog ports and production migration evidence remain follow-up hardening.
+- Redis is wired for API rate limiting in the production API profile.
+- Object Storage remains an approved future production architecture component, but the current
+  runtime does not wire it as a production adapter yet.
 
 ## Local
 
@@ -102,18 +109,19 @@ Production template rules:
 - Bind the API to `127.0.0.1` and put a reverse proxy/TLS layer in front of it.
 - Store real env values outside git.
 - Keep PostgreSQL, Redis, Object Storage, and backup storage private.
-- Do not set `OMNIWA_API_RUNTIME_PROFILE=production` until the P0 production adapters are complete.
+- Run `pnpm db:migrate:status` and `pnpm db:migrate` against the target PostgreSQL database before
+  starting production-profile services. Keep `OMNIWA_POSTGRES_AUTO_MIGRATE=false`.
+- Use `OMNIWA_API_KEY_HASH` or a lifecycle store. Do not configure plaintext `OMNIWA_API_KEY` in the
+  production template.
 - Do not treat `OMNIWA_API_REPOSITORY_PROFILE=durable-json` as a production database substitute.
-- Keep `OMNIWA_POSTGRES_AUTO_MIGRATE=false` unless an explicit migration operation has been
-  approved for that environment.
+- Keep `OMNIWA_WORKER_RUNTIME_PROFILE=local` and `OMNIWA_PROVIDER_RUNTIME_PROFILE=local` only for a
+  controlled internal pilot. These are not production-ready runtime profiles.
 - Do not claim production readiness until `docs/platform-evolution/PRODUCTION_EXECUTION_PLAN.md`
   gates are satisfied.
 
 ## Expected Next Hardening
 
-- Add production PostgreSQL repository adapter wiring.
-- Add production queue wiring.
-- Add runtime-specific containers for worker, scheduler, provider, webhook dispatcher, projection,
-  metrics, and health once their entrypoints are long-running processes.
-- Add backup and restore automation.
+- Add provider-runtime IPC/shared socket ownership so the worker can run a true production profile.
+- Add a production EventLog/outbox backend and consumer loop beyond the JSON pilot store.
+- Add target-environment migration, backup, restore, load, and SLO evidence.
 - Add image signing/SBOM/security scanning in CI.

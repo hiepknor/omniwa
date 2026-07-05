@@ -195,6 +195,11 @@ The PostgreSQL migration hardening slice adds explicit `pnpm db:migrate:status` 
 `pnpm db:migrate` commands backed by the versioned `omniwa_schema_migrations` ledger. Production
 promotion still requires target-environment migration evidence, backup verification, and rollback
 runbook validation before claiming the database path is production-ready.
+The production Docker template hardening slice expands `deploy/docker/compose.production.yml` from
+an API-only template to a full runtime template with API, worker, webhook dispatcher, provider
+runtime, PostgreSQL, and Redis services. It intentionally keeps worker and provider runtime in
+controlled-pilot profiles because true production profiles remain blocked until provider-runtime
+IPC/shared socket ownership and target-environment evidence are complete.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
