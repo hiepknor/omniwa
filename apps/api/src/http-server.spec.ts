@@ -624,13 +624,29 @@ describe("API HTTP transport", () => {
             targetUrl: "https://receiver.example.test/private",
             payload: { secret: "receiver-payload" },
           },
+          {
+            deliveryId: "webhook_delivery_dead_timeout",
+            webhookId: "webhook_demo",
+            status: "dead_letter",
+            eventType: "message.failed.v1",
+            attemptCount: 3,
+            failureCategory: "webhook",
+            reasonCode: "receiver_timeout",
+            targetUrl: "https://receiver.example.test/private",
+            payload: { secret: "receiver-payload" },
+          },
         ],
       },
     });
 
-    const response = await request(dispatcher, "GET", "/v1/webhook-deliveries?status=dead_letter", {
-      apiKey: "admin-secret",
-    });
+    const response = await request(
+      dispatcher,
+      "GET",
+      "/v1/webhook-deliveries?status=dead_letter&reasonCode=receiver_terminal_failure",
+      {
+        apiKey: "admin-secret",
+      },
+    );
     const serialized = JSON.stringify(response.body);
 
     expect(response.statusCode).toBe(200);
@@ -649,12 +665,14 @@ describe("API HTTP transport", () => {
     expect(getCollectionMeta(response).pagination).toMatchObject({
       limit: 50,
       filters: {
+        reasonCode: "receiver_terminal_failure",
         status: "dead_letter",
       },
     });
     expect(dispatcher.queryEnvelopes[0]).toMatchObject({
       name: "ListWebhookDeliveries",
-      safeCriteriaRef: "http:ListWebhookDeliveries:limit=50;status=dead_letter",
+      safeCriteriaRef:
+        "http:ListWebhookDeliveries:limit=50;reasonCode=receiver_terminal_failure;status=dead_letter",
     });
     expect(serialized).not.toContain("targetUrl");
     expect(serialized).not.toContain("receiver-payload");

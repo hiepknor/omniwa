@@ -244,12 +244,12 @@ fn webhooks_client_exposes_dead_letter_filter_and_bulk_redrive() {
         list_config,
         AssertRequestTransport {
             expected_operation_id: "listWebhookDeliveries",
-            expected_url_contains: "status=dead_letter",
+            expected_url_contains: "reasonCode=receiver_terminal_failure",
             expected_body_contains: None,
             expected_idempotency_key: None,
             response: SdkResponse::json(
                 200,
-                r#"{"data":[{"resourceType":"webhookDelivery","id":"webhook_delivery_dead_1","webhookId":"webhook_demo","status":"dead_letter","eventType":"message.failed.v1","attemptCount":3,"failureCategory":"webhook","reasonCode":"receiver_terminal_failure"}],"meta":{"requestId":"req_dead_letter","correlationId":"corr_dead_letter","timestamp":"2026-07-05T00:00:00.000Z","pagination":{"nextCursor":null,"previousCursor":null,"hasMore":false,"limit":50,"filters":{"status":"dead_letter"}}}}"#,
+                r#"{"data":[{"resourceType":"webhookDelivery","id":"webhook_delivery_dead_1","webhookId":"webhook_demo","status":"dead_letter","eventType":"message.failed.v1","attemptCount":3,"failureCategory":"webhook","reasonCode":"receiver_terminal_failure"}],"meta":{"requestId":"req_dead_letter","correlationId":"corr_dead_letter","timestamp":"2026-07-05T00:00:00.000Z","pagination":{"nextCursor":null,"previousCursor":null,"hasMore":false,"limit":50,"filters":{"status":"dead_letter","reasonCode":"receiver_terminal_failure"}}}}"#,
             ),
         },
     );
@@ -278,7 +278,7 @@ fn webhooks_client_exposes_dead_letter_filter_and_bulk_redrive() {
 
     let dead_letters = list_client
         .webhooks()
-        .list_dead_letter_deliveries()
+        .list_dead_letter_deliveries_by_reason("receiver_terminal_failure")
         .expect("dead-letter delivery fixture response")
         .collection_envelope::<PublicData>()
         .expect("dead-letter delivery collection envelope");
@@ -294,9 +294,11 @@ fn webhooks_client_exposes_dead_letter_filter_and_bulk_redrive() {
         dead_letters.data[0]["reasonCode"],
         "receiver_terminal_failure"
     );
+    let pagination = dead_letters.meta.pagination.expect("pagination");
+    assert_eq!(pagination.filters["status"], "dead_letter");
     assert_eq!(
-        dead_letters.meta.pagination.expect("pagination").filters["status"],
-        "dead_letter",
+        pagination.filters["reasonCode"],
+        "receiver_terminal_failure",
     );
     assert_eq!(redrive.data.operation_status, "queued");
     assert_eq!(

@@ -622,9 +622,18 @@
       "status": "implemented_public",
       "authRequired": true,
       "dto": "WebhookDeliveryDto[]",
-      "queryParams": ["cursor", "limit", "sort", "search", "status", "webhookId"],
+      "queryParams": [
+        "cursor",
+        "limit",
+        "sort",
+        "search",
+        "status",
+        "webhookId",
+        "failureCategory",
+        "reasonCode"
+      ],
       "responseEnvelope": "CollectionEnvelope",
-      "notes": "Returns safe webhook delivery collection items. retryPolicy and domainEvents are not exposed."
+      "notes": "Returns safe webhook delivery collection items. Dead-letter operator views may filter by status, webhookId, failureCategory, and reasonCode. retryPolicy, targetUrl, payload, and domainEvents are not exposed."
     },
     {
       "feature": "webhooks",

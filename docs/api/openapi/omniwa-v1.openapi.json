@@ -1544,6 +1544,42 @@
           },
           {
             "$ref": "#/components/parameters/Sort"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Optional webhook delivery status filter, for example dead_letter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "in": "query",
+            "required": false,
+            "description": "Optional safe webhook subscription identifier filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "failureCategory",
+            "in": "query",
+            "required": false,
+            "description": "Optional safe failure category filter for operator remediation views.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reasonCode",
+            "in": "query",
+            "required": false,
+            "description": "Optional safe dead-letter reason code filter for operator remediation views.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

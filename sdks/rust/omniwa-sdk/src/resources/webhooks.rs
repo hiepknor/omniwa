@@ -53,6 +53,19 @@ where
         )
     }
 
+    pub fn list_dead_letter_deliveries_by_reason(
+        &self,
+        reason_code: &str,
+    ) -> Result<SdkResponse, SdkError> {
+        self.client.execute(
+            LIST_WEBHOOK_DELIVERIES,
+            &[],
+            &[("status", "dead_letter"), ("reasonCode", reason_code)],
+            None,
+            RequestOptions::default(),
+        )
+    }
+
     pub fn delivery_history(&self, delivery_id: &str) -> Result<SdkResponse, SdkError> {
         self.client.execute(
             GET_WEBHOOK_DELIVERY_HISTORY,

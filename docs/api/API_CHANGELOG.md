@@ -54,6 +54,9 @@ Client impact:
 - Adds safe `failureCategory` and `reasonCode` fields to webhook delivery DTOs
   when the backend has dead-letter remediation context. Target URLs, receiver
   payloads, retry-policy internals, and domain events remain excluded.
+- Allows `GET /v1/webhook-deliveries` operator views to filter by safe
+  `failureCategory` and `reasonCode` values in addition to `status` and
+  `webhookId`.
 - Group member mutations return `operationStatus: "accepted"` because they record
   controlled local intents and audit evidence; they do not imply provider-backed
   WhatsApp completion. Group metadata and local-state mutations remain

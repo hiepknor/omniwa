@@ -32,6 +32,7 @@
       "hasMore": false,
       "limit": 50,
       "filters": {
+        "reasonCode": "receiver_terminal_failure",
         "status": "dead_letter"
       }
     }

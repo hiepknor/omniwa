@@ -2324,7 +2324,7 @@ const allowedFilterFieldsByQueryName: Readonly<Record<string, readonly string[]>
   ListEvents: ["type", "source", "resourceRef"],
   ListWorkerJobs: ["status", "workType", "ownerContext"],
   ListWebhookSubscriptions: ["status"],
-  ListWebhookDeliveries: ["status", "webhookId"],
+  ListWebhookDeliveries: ["status", "webhookId", "failureCategory", "reasonCode"],
   QueryAuditRecords: ["category", "status"],
 });
 
