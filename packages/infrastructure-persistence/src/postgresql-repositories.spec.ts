@@ -24,6 +24,7 @@ import {
 
 import {
   createPostgresqlConnectionPool,
+  getPostgresqlSqlMigrationStatus,
   PostgresqlAuditRecordRepository,
   PostgresqlChatRepository,
   PostgresqlContactRepository,
@@ -100,6 +101,37 @@ describe("PostgreSQL migration runner", () => {
     expect(connection.client.queries).not.toContain(
       "CREATE TABLE IF NOT EXISTS example_skip_table (id text PRIMARY KEY)",
     );
+  });
+
+  it("reports pending, applied, and unknown migration ledger entries", async () => {
+    const connection = new FakePostgresqlConnection();
+    const firstMigration = sqlMigration("pgm_unit_status_001", [
+      "CREATE TABLE IF NOT EXISTS example_status_table (id text PRIMARY KEY)",
+    ]);
+    const secondMigration = sqlMigration("pgm_unit_status_002", [
+      "ALTER TABLE example_status_table ADD COLUMN IF NOT EXISTS value text NULL",
+    ]);
+
+    await expect(
+      getPostgresqlSqlMigrationStatus(connection, [firstMigration, secondMigration]),
+    ).resolves.toEqual({
+      totalMigrationIds: ["pgm_unit_status_001", "pgm_unit_status_002"],
+      appliedMigrationIds: [],
+      pendingMigrationIds: ["pgm_unit_status_001", "pgm_unit_status_002"],
+      unknownAppliedMigrationIds: [],
+    });
+
+    await runPostgresqlSqlMigrations(connection, [firstMigration]);
+    connection.client.appliedMigrationIds.push("pgm_unknown_status");
+
+    await expect(
+      getPostgresqlSqlMigrationStatus(connection, [firstMigration, secondMigration]),
+    ).resolves.toEqual({
+      totalMigrationIds: ["pgm_unit_status_001", "pgm_unit_status_002"],
+      appliedMigrationIds: ["pgm_unit_status_001"],
+      pendingMigrationIds: ["pgm_unit_status_002"],
+      unknownAppliedMigrationIds: ["pgm_unknown_status"],
+    });
   });
 
   it("defines the PostgreSQL repository storage migrations explicitly", () => {
@@ -512,12 +544,30 @@ class FakePostgresqlConnection implements PostgresqlConnection {
 class FakePostgresqlClient implements PostgresqlTransactionClient {
   readonly appliedMigrationIds: string[] = [];
   readonly queries: string[] = [];
+  private schemaTableExists = false;
 
   query<TRow extends QueryResultRow = QueryResultRow>(
     text: string,
     values: readonly unknown[] = [],
   ): Promise<QueryResult<TRow>> {
     this.queries.push(text);
+
+    if (text.startsWith("SELECT to_regclass")) {
+      return Promise.resolve(
+        queryResult(
+          [
+            { table_name: this.schemaTableExists ? "omniwa_schema_migrations" : null },
+          ] as unknown as TRow[],
+          1,
+        ),
+      );
+    }
+
+    if (text.startsWith("SELECT id FROM omniwa_schema_migrations ORDER BY id ASC")) {
+      const rows = this.appliedMigrationIds.map((id) => ({ id }) as unknown as TRow);
+
+      return Promise.resolve(queryResult(rows, rows.length));
+    }
 
     if (text.startsWith("SELECT id FROM omniwa_schema_migrations")) {
       const migrationId = String(values[0]);
@@ -530,6 +580,10 @@ class FakePostgresqlClient implements PostgresqlTransactionClient {
 
     if (text.startsWith("INSERT INTO omniwa_schema_migrations")) {
       this.appliedMigrationIds.push(String(values[0]));
+    }
+
+    if (text.startsWith("CREATE TABLE IF NOT EXISTS omniwa_schema_migrations")) {
+      this.schemaTableExists = true;
     }
 
     return Promise.resolve(queryResult([], null));

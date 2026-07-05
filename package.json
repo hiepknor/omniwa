@@ -19,6 +19,8 @@
     "docker:local": "docker compose -f deploy/docker/compose.local.yml up --build",
     "docker:production": "docker compose --env-file deploy/docker/env/production.env -f deploy/docker/compose.production.yml up -d",
     "docker:smoke": "node tooling/docker/check-local-stack.mjs",
+    "db:migrate": "pnpm --filter @omniwa/infrastructure-persistence build && node packages/infrastructure-persistence/dist/postgresql-migration-cli.js apply",
+    "db:migrate:status": "pnpm --filter @omniwa/infrastructure-persistence build && node packages/infrastructure-persistence/dist/postgresql-migration-cli.js status",
     "e2e:check": "node tooling/e2e/check-e2e-readiness.mjs && pnpm exec vitest run apps/api/src/platform-regression.spec.ts apps/background/src/local-vertical-slice-demo.spec.ts tooling/e2e/check-e2e-readiness.spec.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

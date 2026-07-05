@@ -191,6 +191,10 @@ The first N11.7 validation slice adds a dedicated `pnpm recovery:check` gate for
 drill evidence, deterministic recovery validation tests, and release-readiness wiring. This proves
 the local deterministic recovery contract, while target-environment backup automation and restore
 drills remain required before any broad production-ready claim.
+The PostgreSQL migration hardening slice adds explicit `pnpm db:migrate:status` and
+`pnpm db:migrate` commands backed by the versioned `omniwa_schema_migrations` ledger. Production
+promotion still requires target-environment migration evidence, backup verification, and rollback
+runbook validation before claiming the database path is production-ready.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving

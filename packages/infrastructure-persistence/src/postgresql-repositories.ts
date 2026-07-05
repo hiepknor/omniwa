@@ -120,6 +120,13 @@ export type PostgresqlSqlMigrationRunResult = Readonly<{
   skippedMigrationIds: readonly string[];
 }>;
 
+export type PostgresqlSqlMigrationStatus = Readonly<{
+  totalMigrationIds: readonly string[];
+  appliedMigrationIds: readonly string[];
+  pendingMigrationIds: readonly string[];
+  unknownAppliedMigrationIds: readonly string[];
+}>;
+
 export type PostgresqlRepositorySetOptions = Readonly<{
   autoMigrate?: boolean;
 }>;
@@ -473,6 +480,29 @@ export async function runPostgresqlSqlMigrations(
   return Object.freeze({
     appliedMigrationIds: Object.freeze(appliedMigrationIds),
     skippedMigrationIds: Object.freeze(skippedMigrationIds),
+  });
+}
+
+export async function getPostgresqlSqlMigrationStatus(
+  connection: PostgresqlConnection,
+  migrations: readonly PostgresqlSqlMigration[] = postgresqlRepositoryMigrations,
+): Promise<PostgresqlSqlMigrationStatus> {
+  const totalMigrationIds = migrations.map((migration) => migration.id);
+  const expectedMigrationIds = new Set(totalMigrationIds);
+  const appliedMigrationIds = await findAppliedPostgresqlSqlMigrationIds(connection);
+  const appliedMigrationIdSet = new Set(appliedMigrationIds);
+
+  return Object.freeze({
+    totalMigrationIds: Object.freeze(totalMigrationIds),
+    appliedMigrationIds: Object.freeze(
+      totalMigrationIds.filter((migrationId) => appliedMigrationIdSet.has(migrationId)),
+    ),
+    pendingMigrationIds: Object.freeze(
+      totalMigrationIds.filter((migrationId) => !appliedMigrationIdSet.has(migrationId)),
+    ),
+    unknownAppliedMigrationIds: Object.freeze(
+      appliedMigrationIds.filter((migrationId) => !expectedMigrationIds.has(migrationId)),
+    ),
   });
 }
 
@@ -1645,6 +1675,25 @@ function createPostgresqlMigrationBarrier(connection: PostgresqlConnection): () 
 
     await migrationPromise;
   };
+}
+
+async function findAppliedPostgresqlSqlMigrationIds(
+  connection: PostgresqlConnection,
+): Promise<readonly string[]> {
+  const table = await connection.query<{ table_name: string | null }>(
+    "SELECT to_regclass($1::text) AS table_name",
+    ["omniwa_schema_migrations"],
+  );
+
+  if (table.rows[0]?.table_name === null || table.rows[0]?.table_name === undefined) {
+    return Object.freeze([]);
+  }
+
+  const result = await connection.query<{ id: string }>(
+    "SELECT id FROM omniwa_schema_migrations ORDER BY id ASC",
+  );
+
+  return Object.freeze(result.rows.map((row) => row.id));
 }
 
 function decodeInstanceAggregate(value: unknown): Instance {
