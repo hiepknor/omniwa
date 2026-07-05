@@ -25,6 +25,7 @@ describe("production Docker compose template check", () => {
       "plaintext_api_key_not_declared",
       "redis_rate_limit_declared",
       "postgresql_eventlog_declared",
+      "background_event_outbox_declared",
       "postgres_auto_migrate_disabled",
       "controlled_pilot_profiles_declared",
     ]);
@@ -122,6 +123,29 @@ describe("production Docker compose template check", () => {
     );
   });
 
+  it("fails when background EventLog outbox publisher wiring is missing", async () => {
+    const report = await runProductionComposeTemplateCheck({
+      commandRunner: async () => ({
+        stdout: renderedProductionComposeConfig().replace(
+          "      OMNIWA_EVENT_OUTBOX_PUBLISHER_JSONL_PATH: /var/lib/omniwa/observability/event-outbox-publisher.jsonl\n",
+          "",
+        ),
+        stderr: "",
+      }),
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "background_event_outbox_declared",
+          status: "failed",
+          error: "Missing rendered assignment for OMNIWA_EVENT_OUTBOX_PUBLISHER_JSONL_PATH.",
+        }),
+      ]),
+    );
+  });
+
   it("builds defaults from the checked-in production template paths", () => {
     const config = createProductionComposeTemplateConfig({
       now: () => 1_800_000_000_000,
@@ -134,6 +158,7 @@ describe("production Docker compose template check", () => {
       "worker",
       "webhook-dispatcher",
       "provider-runtime",
+      "background",
       "postgres",
       "redis",
     ]);
@@ -185,6 +210,12 @@ function renderedProductionComposeConfig(): string {
     "  provider-runtime:",
     "    environment:",
     "      OMNIWA_PROVIDER_RUNTIME_PROFILE: local",
+    "  background:",
+    "    environment:",
+    "      OMNIWA_BACKGROUND_RUNTIME_PROFILE: production",
+    "      OMNIWA_BACKGROUND_EVENT_LOG_BACKEND: postgresql",
+    "      OMNIWA_EVENT_OUTBOX_PUBLISHER_JSONL_PATH: /var/lib/omniwa/observability/event-outbox-publisher.jsonl",
+    "      OMNIWA_EVENT_OUTBOX_METRICS_JSONL_PATH: /var/lib/omniwa/observability/event-outbox-metrics.jsonl",
     "  postgres:",
     "    image: postgres:17-alpine",
     "  redis:",

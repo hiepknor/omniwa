@@ -13,6 +13,7 @@ export const requiredProductionComposeServices = Object.freeze([
   "worker",
   "webhook-dispatcher",
   "provider-runtime",
+  "background",
   "postgres",
   "redis",
 ]);
@@ -88,6 +89,20 @@ export async function runProductionComposeTemplateCheck(options = {}) {
 
     return {
       eventLogBackend: "postgresql",
+    };
+  });
+
+  await recordCheck(checks, "background_event_outbox_declared", async () => {
+    assertRenderedAssignment(renderedConfig, "OMNIWA_BACKGROUND_RUNTIME_PROFILE", ["production"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_BACKGROUND_EVENT_LOG_BACKEND", ["postgresql"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_EVENT_OUTBOX_PUBLISHER_JSONL_PATH", /.+/u);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_EVENT_OUTBOX_METRICS_JSONL_PATH", /.+/u);
+
+    return {
+      runtimeProfile: "production",
+      eventLogBackend: "postgresql",
+      outboxPublisher: "jsonl",
+      metrics: "jsonl",
     };
   });
 

@@ -75,7 +75,7 @@ pnpm check
 
 ## Remaining Work
 
-- Wire the production downstream EventLog outbox publisher where integration dispatch is required.
-- Provide target-environment evidence for the background outbox loop and PostgreSQL EventLog backend.
+- Provide target-environment evidence for the background outbox loop, JSONL outbox publication
+  evidence, and PostgreSQL EventLog backend.
 - Extend observability dashboards and alert routing with EventLog/outbox backlog and replay health
   metrics.

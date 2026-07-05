@@ -135,6 +135,30 @@ services:
     tmpfs:
       - /tmp
 
+  background:
+    image: ${OMNIWA_IMAGE:?Set OMNIWA_IMAGE to a built OmniWA image tag}
+    command: ["node", "apps/background/dist/index.js"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      OMNIWA_BACKGROUND_RUNTIME_PROFILE: production
+      OMNIWA_BACKGROUND_EVENT_LOG_BACKEND: postgresql
+      OMNIWA_POSTGRES_DATABASE_URL: ${OMNIWA_POSTGRES_DATABASE_URL:?Set OMNIWA_POSTGRES_DATABASE_URL}
+      OMNIWA_POSTGRES_AUTO_MIGRATE: "false"
+      OMNIWA_EVENT_OUTBOX_LOOP_INTERVAL_MS: ${OMNIWA_EVENT_OUTBOX_LOOP_INTERVAL_MS:-5000}
+      OMNIWA_EVENT_OUTBOX_PUBLISHER_JSONL_PATH: /var/lib/omniwa/observability/event-outbox-publisher.jsonl
+      OMNIWA_EVENT_OUTBOX_METRICS_JSONL_PATH: /var/lib/omniwa/observability/event-outbox-metrics.jsonl
+    volumes:
+      - omniwa-production-data:/var/lib/omniwa
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -145,7 +169,11 @@ services:
     volumes:
       - omniwa-production-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${OMNIWA_POSTGRES_USER} -d ${OMNIWA_POSTGRES_DATABASE:-omniwa}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${OMNIWA_POSTGRES_USER} -d ${OMNIWA_POSTGRES_DATABASE:-omniwa}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -169,7 +197,7 @@ services:
     volumes:
       - omniwa-production-redis:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$${OMNIWA_REDIS_PASSWORD}\" ping | grep PONG"]
+      test: ["CMD-SHELL", 'redis-cli -a "$${OMNIWA_REDIS_PASSWORD}" ping | grep PONG']
       interval: 10s
       timeout: 5s
       retries: 5
