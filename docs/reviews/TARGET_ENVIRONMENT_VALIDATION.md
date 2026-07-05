@@ -91,6 +91,11 @@ claim production readiness by itself.
 Optional target-environment evidence bundle validation:
 
 ```text
+OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH=artifacts/target-env/evidence-bundle.json \
+pnpm target-env:bundle
+```
+
+```text
 OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH=artifacts/target-env/evidence-bundle.json \
 pnpm target-env:check
 ```
@@ -102,6 +107,8 @@ unsafe fields, but it does not create target-environment evidence.
 Use `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` as the starting skeleton, copy
 it to the operator artifact path, and replace only safe reference values with target-environment
 evidence identifiers.
+The `target-env:bundle` command creates the initial sanitized bundle from the checked-in template
+and can embed already-sanitized smoke/load summaries when their artifact path variables are set.
 
 Target-environment evidence must additionally record:
 

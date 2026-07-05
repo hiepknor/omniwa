@@ -25,6 +25,9 @@ Current tooling:
   evidence wiring, the checked-in evidence bundle template, and optional
   sanitized smoke/load artifact and evidence bundle schemas when their path
   environment variables are supplied.
+- `production/create-target-environment-evidence-bundle.mjs` creates an
+  operator-maintained sanitized evidence bundle from the checked-in template
+  and optional sanitized smoke/load summaries.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
 - `production/run-target-environment-smoke.mjs` performs optional deployed API

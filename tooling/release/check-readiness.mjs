@@ -127,6 +127,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "tooling/regression/check-production-regression.spec.ts",
   "apps/api/src/load-baseline.spec.ts",
   "tooling/production/check-target-environment-evidence.spec.ts",
+  "tooling/production/create-target-environment-evidence-bundle.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
   "tooling/production/check-production-cut.spec.ts",
   "tooling/performance/run-target-environment-load.spec.ts",
@@ -151,6 +152,7 @@ const requiredRootScripts = Object.freeze([
   "regression:check",
   "recovery:check",
   "performance:check",
+  "target-env:bundle",
   "target-env:check",
   "target-env:load",
   "target-env:smoke",
@@ -214,7 +216,8 @@ export async function createReadinessFixture(projectRoot) {
       "performance:check":
         "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/run-target-environment-load.spec.ts tooling/performance/check-performance-readiness.spec.ts",
       "target-env:check":
-        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/run-target-environment-smoke.spec.ts",
+        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/create-target-environment-evidence-bundle.spec.ts tooling/production/run-target-environment-smoke.spec.ts tooling/performance/run-target-environment-load.spec.ts",
+      "target-env:bundle": "node tooling/production/create-target-environment-evidence-bundle.mjs",
       "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
       "target-env:smoke": "node tooling/production/run-target-environment-smoke.mjs",
       "production:check":

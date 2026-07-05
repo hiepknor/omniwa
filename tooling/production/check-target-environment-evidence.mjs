@@ -6,6 +6,7 @@ export const targetEnvironmentEvidenceStatuses = Object.freeze(["NOT_PROVEN", "P
 
 export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/production/check-target-environment-evidence.mjs",
+  "tooling/production/create-target-environment-evidence-bundle.mjs",
   "tooling/production/run-target-environment-smoke.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
@@ -15,6 +16,7 @@ export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
 
 export const requiredTargetEnvironmentEvidenceTests = Object.freeze([
   "tooling/production/check-target-environment-evidence.spec.ts",
+  "tooling/production/create-target-environment-evidence-bundle.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
   "tooling/performance/run-target-environment-load.spec.ts",
 ]);
@@ -33,6 +35,7 @@ export const requiredTargetEnvironmentComponents = Object.freeze([
 ]);
 
 export const requiredTargetEnvironmentScriptName = "target-env:check";
+export const targetEnvironmentBundleScriptName = "target-env:bundle";
 export const targetEnvironmentSmokeScriptName = "target-env:smoke";
 export const targetEnvironmentLoadScriptName = "target-env:load";
 
@@ -106,6 +109,8 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
     packageManager: "pnpm@11.5.2",
     scripts: {
       [requiredTargetEnvironmentScriptName]: targetEnvironmentScript(),
+      [targetEnvironmentBundleScriptName]:
+        "node tooling/production/create-target-environment-evidence-bundle.mjs",
       [targetEnvironmentSmokeScriptName]:
         "node tooling/production/run-target-environment-smoke.mjs",
       [targetEnvironmentLoadScriptName]: "node tooling/performance/run-target-environment-load.mjs",
@@ -222,6 +227,14 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
 
   if (!content.includes("OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH")) {
     findings.push(createFinding("target_environment_bundle_artifact_path_missing", "blocker"));
+  }
+
+  if (!content.includes("pnpm target-env:bundle")) {
+    findings.push(createFinding("target_environment_bundle_command_missing", "blocker"));
+  }
+
+  if (!content.includes("OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH")) {
+    findings.push(createFinding("target_environment_bundle_output_path_missing", "blocker"));
   }
 
   if (!content.includes("## Known Constraints")) {
@@ -348,6 +361,21 @@ async function checkRootPackage(projectRoot, findings) {
       createFinding("root_target_environment_load_script_missing", "blocker", {
         target: targetEnvironmentLoadScriptName,
         safeDetailCode: "root_target_environment_load_script_missing",
+      }),
+    );
+  }
+
+  const targetEnvironmentBundle = scripts[targetEnvironmentBundleScriptName];
+  if (
+    typeof targetEnvironmentBundle !== "string" ||
+    !targetEnvironmentBundle.includes(
+      "node tooling/production/create-target-environment-evidence-bundle.mjs",
+    )
+  ) {
+    findings.push(
+      createFinding("root_target_environment_bundle_script_missing", "blocker", {
+        target: targetEnvironmentBundleScriptName,
+        safeDetailCode: "root_target_environment_bundle_script_missing",
       }),
     );
   }
@@ -845,6 +873,7 @@ function fixtureReview(status) {
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
+    "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",
     "## Known Constraints",
     "",

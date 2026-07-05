@@ -268,6 +268,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` under the local evidence gate as a
   safe `NOT_PROVEN` skeleton. Operators should copy and populate that template into an external
   artifact path before passing it through `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.
+- N11.7 target-environment evidence tooling now also provides `pnpm target-env:bundle`, which writes
+  a sanitized initial bundle to `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH` from the checked-in
+  template and can embed already-sanitized smoke/load summaries when their report path variables are
+  present. The generated bundle remains `NOT_PROVEN` until an operator supplies target-environment
+  evidence and updates the proof states.
 
 ## Update Rule
 

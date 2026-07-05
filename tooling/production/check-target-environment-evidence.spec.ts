@@ -145,6 +145,10 @@ describe("target environment evidence gate", () => {
             code: "root_target_environment_load_script_missing",
             target: "target-env:load",
           }),
+          expect.objectContaining({
+            code: "root_target_environment_bundle_script_missing",
+            target: "target-env:bundle",
+          }),
           expect.objectContaining({ code: "production_script_missing_target_environment_gate" }),
           expect.objectContaining({ code: "check_script_missing_target_environment_gate" }),
         ]),
@@ -273,6 +277,8 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "target_environment_load_command_missing" }),
           expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
+          expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
+          expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
         ]),
       );
     } finally {
@@ -519,6 +525,7 @@ function targetEnvironmentReviewWithComponentStatus(
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
+    "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",
     "## Known Constraints",
     "",

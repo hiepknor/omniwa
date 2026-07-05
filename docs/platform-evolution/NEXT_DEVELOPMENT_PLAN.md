@@ -226,6 +226,10 @@ executed by the default local quality gate. Operators can set
 `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH` to persist the sanitized load summary as target-environment
 review evidence, but sustained SLO observation and external dependency capacity proof remain
 required before a `PRODUCTION_READY` claim.
+It also provides the optional `pnpm target-env:bundle` command for creating a sanitized
+operator-maintained evidence bundle from the checked-in `NOT_PROVEN` template and any already
+sanitized smoke/load summaries. The generated bundle remains non-proving evidence until an operator
+updates the proof states and component statuses with target-environment evidence.
 
 ## Planned Increments
 

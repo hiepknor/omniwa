@@ -122,7 +122,14 @@ summary, health/readiness, dependency connectivity, backup/restore drill, produc
 alert/SLO dry-run, rollback or forward-fix notes, and smoke/load artifacts without storing raw
 environment values. Start from
 `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` and write the populated copy outside
-the design/review source tree before passing its path to the gate.
+the design/review source tree before passing its path to the gate. The helper command below creates
+that initial copy and can embed sanitized smoke/load summaries if their report path variables are
+also set:
+
+```text
+OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH=artifacts/target-env/evidence-bundle.json \
+pnpm target-env:bundle
+```
 
 It verifies:
 
