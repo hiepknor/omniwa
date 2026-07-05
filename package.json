@@ -33,7 +33,7 @@
     "sdk:generate": "node tooling/sdk/generate-rust-operations.mjs",
     "sdk:test": "cargo test -p omniwa-sdk",
     "test": "vitest run --passWithNoTests",
-    "test:postgres": "node -e \"if (!process.env.OMNIWA_POSTGRES_TEST_DATABASE_URL?.trim()) throw new Error('OMNIWA_POSTGRES_TEST_DATABASE_URL is required for pnpm test:postgres')\" && pnpm typecheck && vitest run packages/infrastructure-persistence/src/postgresql-repositories.spec.ts apps/provider-runtime/src/provider-runtime-ownership-guard.spec.ts",
+    "test:postgres": "node -e \"if (!process.env.OMNIWA_POSTGRES_TEST_DATABASE_URL?.trim()) throw new Error('OMNIWA_POSTGRES_TEST_DATABASE_URL is required for pnpm test:postgres')\" && pnpm typecheck && vitest run packages/infrastructure-persistence/src/postgresql-repositories.spec.ts apps/provider-runtime/src/provider-runtime-ownership-guard.spec.ts apps/webhook-dispatcher/src/runtime-composition.postgresql.spec.ts",
     "typecheck": "tsc -b tsconfig.references.json --pretty false"
   },
   "devDependencies": {

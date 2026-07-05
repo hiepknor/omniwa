@@ -40,6 +40,10 @@ Implemented capabilities:
   adapters from `OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH` and
   `OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH` when deployment code does not
   inject observability adapters directly.
+- `pnpm test:postgres` includes a production-profile dispatcher validation path
+  that persists webhook delivery and worker-job state through PostgreSQL,
+  dispatches through the durable worker-job queue profile and fetch gateway,
+  signs the outbound request, and records JSONL metric/audit evidence.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
@@ -98,8 +102,8 @@ validation is still tracked separately in the production execution plan.
 
 - Add richer operational management for webhook dead letters, such as bulk
   redrive, filtered operator dashboards, and remediation notes.
-- Add production end-to-end validation for the guarded production dispatcher
-  profile in the target deployment environment.
+- Expand production end-to-end validation beyond the webhook dispatcher path and
+  run it in the target deployment environment.
 - Validate the JSONL observability sink configuration in the target deployment
   environment and replace it with richer exporters when P0-13 introduces them.
 - Add circuit-breaker behavior if production receiver failure rates require it.
@@ -112,6 +116,12 @@ Targeted checks used for this slice:
 
 ```text
 pnpm exec vitest run packages/infrastructure-webhook/src/webhook-http-gateway.spec.ts packages/infrastructure-webhook/src/webhook-signing.spec.ts packages/infrastructure-webhook/src/webhook-transport.adapter.spec.ts packages/infrastructure-webhook/src/webhook-dispatcher-runtime.spec.ts apps/webhook-dispatcher/src/webhook-dispatcher-app.spec.ts
+```
+
+The PostgreSQL-backed production-profile validation is included in:
+
+```text
+pnpm test:postgres
 ```
 
 Full repository quality gate:

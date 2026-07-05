@@ -53,6 +53,7 @@ export type WebhookDispatcherRuntimeComposition = Readonly<{
   queueProvider: (InMemoryQueueProvider | DurableWorkerJobQueueProvider) &
     WebhookDispatcherQueueRecoveryCapable;
   app: WebhookDispatcherApp;
+  dispose?: () => Promise<void>;
 }>;
 
 export type WebhookDispatcherRuntimeCompositionAdapterOptions = Readonly<{
@@ -69,6 +70,7 @@ type WebhookDispatcherRepositories = Readonly<{
   workerJobRepository: WorkerJobRepositoryPort;
   webhookDeliveryRepository: WebhookDeliveryRepositoryPort;
   webhookSubscriptionRepository: WebhookSubscriptionRepositoryPort;
+  dispose?: () => Promise<void>;
 }>;
 
 type WebhookDispatcherHttpGateway = "disabled" | "fetch";
@@ -131,6 +133,7 @@ export function createWebhookDispatcherRuntimeComposition(
     queueProfile,
     queueProvider,
     app: new WebhookDispatcherApp({ runtime }),
+    ...optional("dispose", repositories.dispose),
   });
 }
 
@@ -311,17 +314,16 @@ function createWebhookDispatcherRepositories(
       );
     }
 
-    const postgresqlRepositories = createPostgresqlRepositorySet(
-      createPostgresqlConnectionPool(databaseUrl),
-      {
-        autoMigrate: readBooleanEnv(env.OMNIWA_POSTGRES_AUTO_MIGRATE),
-      },
-    );
+    const connection = createPostgresqlConnectionPool(databaseUrl);
+    const postgresqlRepositories = createPostgresqlRepositorySet(connection, {
+      autoMigrate: readBooleanEnv(env.OMNIWA_POSTGRES_AUTO_MIGRATE),
+    });
 
     return Object.freeze({
       workerJobRepository: postgresqlRepositories.workerJobRepository,
       webhookDeliveryRepository: postgresqlRepositories.webhookDeliveryRepository,
       webhookSubscriptionRepository: postgresqlRepositories.webhookSubscriptionRepository,
+      ...optional("dispose", connection.end?.bind(connection)),
     });
   }
 
