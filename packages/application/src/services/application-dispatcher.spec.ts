@@ -1343,6 +1343,58 @@ describe("application dispatcher", () => {
     expect(JSON.stringify(outcome)).not.toContain("retryPolicy");
   });
 
+  it("exposes safe webhook delivery remediation codes for dead-letter operator views", async () => {
+    const delivery = deadLetterWebhookDelivery(
+      startWebhookDelivery(
+        scheduleWebhookDelivery(
+          createWebhookDeliveryId("webhook-delivery:dead-letter"),
+          createWebhookId("webhook:dead-letter"),
+          "message.failed.v1",
+          retryPolicy,
+        ),
+        createAttemptNumber(3, retryPolicy),
+      ),
+      createDeadLetterReason({
+        code: "receiver_terminal_failure",
+        category: "webhook",
+      }),
+    );
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: new FakeInstanceRepository(),
+        webhookDeliveryRepository: new FakeWebhookDeliveryRepository([delivery]),
+      },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeQuery(
+      createApplicationQueryEnvelope({
+        name: "ListWebhookDeliveries",
+        queryRef: "qry-list-webhook-deliveries-dead-letter",
+        requestContext,
+        actorRef: "api_key:test",
+        requestedConsistency: "retention_bound",
+      }),
+    );
+
+    expect(outcome).toMatchObject({
+      outcome: "result",
+      items: [
+        {
+          id: "webhook-delivery:dead-letter",
+          webhookId: "webhook:dead-letter",
+          status: "dead_letter",
+          eventType: "message.failed.v1",
+          attemptCount: 3,
+          failureCategory: "webhook",
+          reasonCode: "receiver_terminal_failure",
+        },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+    expect(JSON.stringify(outcome)).not.toContain("retryPolicy");
+  });
+
   it("executes GetWebhookDeliveryHistory through the Webhook delivery repository", async () => {
     const delivery = scheduleWebhookDelivery(
       createWebhookDeliveryId("webhook-delivery:detail"),

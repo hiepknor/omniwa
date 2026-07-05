@@ -4396,6 +4396,12 @@
           "attemptCount": {
             "type": "integer"
           },
+          "failureCategory": {
+            "type": "string"
+          },
+          "reasonCode": {
+            "type": "string"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"

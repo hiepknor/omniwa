@@ -619,6 +619,8 @@ describe("API HTTP transport", () => {
             status: "dead_letter",
             eventType: "message.failed.v1",
             attemptCount: 3,
+            failureCategory: "webhook",
+            reasonCode: "receiver_terminal_failure",
             targetUrl: "https://receiver.example.test/private",
             payload: { secret: "receiver-payload" },
           },
@@ -640,6 +642,8 @@ describe("API HTTP transport", () => {
         status: "dead_letter",
         eventType: "message.failed.v1",
         attemptCount: 3,
+        failureCategory: "webhook",
+        reasonCode: "receiver_terminal_failure",
       },
     ]);
     expect(getCollectionMeta(response).pagination).toMatchObject({

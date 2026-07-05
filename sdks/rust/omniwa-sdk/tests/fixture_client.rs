@@ -249,7 +249,7 @@ fn webhooks_client_exposes_dead_letter_filter_and_bulk_redrive() {
             expected_idempotency_key: None,
             response: SdkResponse::json(
                 200,
-                r#"{"data":[{"resourceType":"webhookDelivery","id":"webhook_delivery_dead_1","webhookId":"webhook_demo","status":"dead_letter","eventType":"message.failed.v1","attemptCount":3}],"meta":{"requestId":"req_dead_letter","correlationId":"corr_dead_letter","timestamp":"2026-07-05T00:00:00.000Z","pagination":{"nextCursor":null,"previousCursor":null,"hasMore":false,"limit":50,"filters":{"status":"dead_letter"}}}}"#,
+                r#"{"data":[{"resourceType":"webhookDelivery","id":"webhook_delivery_dead_1","webhookId":"webhook_demo","status":"dead_letter","eventType":"message.failed.v1","attemptCount":3,"failureCategory":"webhook","reasonCode":"receiver_terminal_failure"}],"meta":{"requestId":"req_dead_letter","correlationId":"corr_dead_letter","timestamp":"2026-07-05T00:00:00.000Z","pagination":{"nextCursor":null,"previousCursor":null,"hasMore":false,"limit":50,"filters":{"status":"dead_letter"}}}}"#,
             ),
         },
     );
@@ -290,6 +290,10 @@ fn webhooks_client_exposes_dead_letter_filter_and_bulk_redrive() {
         .expect("bulk redrive operation envelope");
 
     assert_eq!(dead_letters.data[0]["status"], "dead_letter");
+    assert_eq!(
+        dead_letters.data[0]["reasonCode"],
+        "receiver_terminal_failure"
+    );
     assert_eq!(
         dead_letters.meta.pagination.expect("pagination").filters["status"],
         "dead_letter",

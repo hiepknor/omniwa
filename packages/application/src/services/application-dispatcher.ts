@@ -1291,6 +1291,8 @@ function webhookDeliveryQueryItem(delivery: WebhookDelivery): Readonly<{
   status: WebhookDelivery["status"];
   eventType: string;
   attemptCount?: number;
+  failureCategory?: string;
+  reasonCode?: string;
 }> {
   return Object.freeze({
     id: String(delivery.id),
@@ -1298,6 +1300,8 @@ function webhookDeliveryQueryItem(delivery: WebhookDelivery): Readonly<{
     status: delivery.status,
     eventType: delivery.sourceSignalRef,
     ...optional("attemptCount", delivery.attemptNumber),
+    ...optional("failureCategory", delivery.failureCategory),
+    ...optional("reasonCode", delivery.deadLetterReason?.code),
   });
 }
 

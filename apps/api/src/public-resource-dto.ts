@@ -453,6 +453,8 @@ const publicResourceSchemas: Readonly<Record<string, PublicResourceSchema>> = Ob
       publicStringField("status"),
       publicStringField("eventType"),
       publicNumberField("attemptCount"),
+      publicStringField("failureCategory"),
+      publicStringField("reasonCode"),
       publicStringField("createdAt"),
       publicStringField("updatedAt"),
       publicStringField("nextRetryAt"),

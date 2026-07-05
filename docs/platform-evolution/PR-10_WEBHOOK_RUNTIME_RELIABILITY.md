@@ -30,7 +30,7 @@ Implemented capabilities:
 - `POST /v1/webhook-deliveries/redrive` queues controlled redrive work for a
   selected set of dead-lettered deliveries through a safe operation intent.
 - `GET /v1/webhook-deliveries?status=dead_letter` is covered as the safe
-  operator read surface for dead-letter remediation views.
+  operator read surface for dead-letter remediation views with reason codes.
 - Dispatcher processing persists `WebhookDelivery` aggregate status for
   delivered, retrying, and dead-letter outcomes instead of relying only on
   `WorkerJob` state.

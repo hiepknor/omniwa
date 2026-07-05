@@ -7,6 +7,8 @@
       "status": "dead_letter",
       "eventType": "message.failed.v1",
       "attemptCount": 3,
+      "failureCategory": "webhook",
+      "reasonCode": "receiver_terminal_failure",
       "updatedAt": "2026-07-05T00:00:00.000Z"
     }
   ],

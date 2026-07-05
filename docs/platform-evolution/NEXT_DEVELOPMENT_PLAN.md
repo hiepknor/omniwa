@@ -160,7 +160,7 @@ deliveries and `POST /v1/webhook-deliveries/{deliveryId}/redrive` is public for 
 dead-lettered deliveries. `POST /v1/webhook-deliveries/redrive` is also public for selected bulk
 redrive of dead-lettered deliveries through a safe operation intent, and
 `GET /v1/webhook-deliveries?status=dead_letter` is now covered by a required client-contract
-fixture plus Rust SDK helper. These operations are synchronized with client-contract fixtures and
+fixture plus Rust SDK helper and safe remediation reason codes. These operations are synchronized with client-contract fixtures and
 the Rust SDK.
 Webhook dispatcher processing now persists `WebhookDelivery` dispatch outcomes for delivered,
 retrying, and dead-lettered deliveries so read surfaces no longer depend only on `WorkerJob` state.
