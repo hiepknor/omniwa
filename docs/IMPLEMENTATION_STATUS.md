@@ -138,6 +138,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `/v1/events/stream`. The production API profile now fails closed unless that PostgreSQL EventLog
   backend is configured, and the production Docker template/check now declares and verifies that
   backend.
+- EventLog outbox backlog metrics now have an approved catalog entry and API-side helper that can
+  record pending/published outbox counts from sync or async outbox ports without exporting raw event
+  ids.
 
 ## Known Gaps
 
@@ -154,8 +157,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   cross-process worker/provider runtime proof remains target-environment validation work.
 - N11.2 durable EventLog/outbox/SSE replay foundation is present. A generic async-compatible outbox
   consumer, async EventLog compatibility boundary, PostgreSQL EventLog backend foundation, and API
-  runtime PostgreSQL EventLog selection now exist, but production outbox runtime wiring and EventLog
-  backlog metrics remain open hardening work.
+  runtime PostgreSQL EventLog selection now exist. EventLog backlog metric definitions/helpers also
+  exist, but production outbox runtime wiring and scheduled backlog metric recording remain open
+  hardening work.
 - Production Docker template coverage is broader than the API service now, but it is still a
   deployment template and controlled-pilot profile. Target-environment startup, production load, SLO
   evidence, worker/provider true production profiles, and the provider-runtime IPC/shared socket

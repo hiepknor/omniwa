@@ -88,6 +88,14 @@ export const productionMetricDefinitions = Object.freeze([
     description:
       "Aggregated API rate-limit configured capacity by endpoint class and scope kind without raw bucket identifiers.",
   }),
+  metricDefinition({
+    name: "eventlog.outbox.records",
+    kind: "gauge",
+    runtimeRole: "metrics",
+    unit: "records",
+    allowedLabels: ["status"],
+    description: "EventLog outbox record count by low-cardinality delivery status.",
+  }),
 ]);
 
 export type ProductionMetricName = (typeof productionMetricDefinitions)[number]["name"];

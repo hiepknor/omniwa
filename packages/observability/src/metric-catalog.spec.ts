@@ -21,6 +21,7 @@ describe("production observability catalogs", () => {
       "api.rate_limit.bucket.count",
       "api.rate_limit.bucket.remaining",
       "api.rate_limit.bucket.limit",
+      "eventlog.outbox.records",
     ]);
   });
 
@@ -87,6 +88,35 @@ describe("production observability catalogs", () => {
           endpoint_class: classifyValue("message_send", "public"),
           scope_kind: classifyValue("instance", "public"),
           scopeRef: classifyValue("inst_high_cardinality", "internal"),
+        }),
+      }),
+    ).toThrow(TypeError);
+  });
+
+  it("creates EventLog outbox backlog metrics with low-cardinality labels only", () => {
+    const metric = createCatalogMetricPoint("eventlog.outbox.records", {
+      value: 12,
+      labels: toSafeLogFields({
+        status: classifyValue("pending", "public"),
+      }),
+    });
+
+    expect(metric).toMatchObject({
+      name: "eventlog.outbox.records",
+      kind: "gauge",
+      runtimeRole: "metrics",
+      unit: "records",
+      labels: {
+        status: "pending",
+      },
+    });
+
+    expect(() =>
+      createCatalogMetricPoint("eventlog.outbox.records", {
+        value: 12,
+        labels: toSafeLogFields({
+          status: classifyValue("pending", "public"),
+          eventId: classifyValue("evt_high_cardinality", "internal"),
         }),
       }),
     ).toThrow(TypeError);

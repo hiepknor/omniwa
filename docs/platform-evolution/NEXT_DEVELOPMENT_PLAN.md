@@ -227,6 +227,10 @@ production profile fail closed unless the PostgreSQL EventLog backend is selecte
 EventLog hardening is now production outbox runtime wiring plus backlog metrics.
 The production compose validation gate now also verifies `OMNIWA_EVENT_LOG_BACKEND=postgresql`, so
 the deployment template cannot drift back to a JSON EventLog path for the API production profile.
+The EventLog backlog metrics slice adds the approved `eventlog.outbox.records` catalog metric and
+an API-side helper that records pending/published counts from sync or async outbox ports without
+exporting event ids. Remaining EventLog hardening is now the production outbox runtime loop and
+scheduled metric recording.
 The observability validation slice adds a dedicated `pnpm observability:check` gate for metric
 catalog, alert definition, dependency-readiness, metrics runtime, health runtime, and
 release-readiness evidence. It keeps P0-13 visible in the root quality gate while leaving
