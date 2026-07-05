@@ -45,6 +45,9 @@ The repository now has automated gates for:
 
 `pnpm check` is the authoritative local quality gate.
 
+Target-environment proof is tracked separately in
+`docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` and is validated by `pnpm target-env:check`.
+
 ## Load Baseline
 
 Baseline command:
@@ -125,6 +128,7 @@ The production gate verifies:
 | Public DTO contract      | PASS   | `PR-17_PUBLIC_RESOURCE_DTO_CONTRACT.md`       |
 | Collection query runtime | PASS   | `PR-18_RUNTIME_COLLECTION_QUERY_SEMANTICS.md` |
 | Load baseline            | PASS   | `pnpm load:check`                             |
+| Target environment proof | PASS   | `pnpm target-env:check`                       |
 | Release readiness        | PASS   | `pnpm release:check`                          |
 | Full local gate          | PASS   | `pnpm check`                                  |
 

@@ -21,7 +21,11 @@ export const requiredProductionEvidenceTests = Object.freeze([
   "tooling/production/check-production-cut.spec.ts",
 ]);
 
-export const requiredProductionScripts = Object.freeze(["load:check", "production:check"]);
+export const requiredProductionScripts = Object.freeze([
+  "load:check",
+  "target-env:check",
+  "production:check",
+]);
 
 export async function evaluateProductionCutReadiness(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
@@ -54,7 +58,9 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
     scripts: {
       "load:check":
         "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
-      "production:check": "node tooling/production/check-production-cut.mjs && pnpm load:check",
+      "target-env:check": "node tooling/production/check-target-environment-evidence.mjs",
+      "production:check":
+        "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
       check:
         "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm regression:check && pnpm production:check && pnpm release:check",
     },
@@ -187,6 +193,10 @@ async function checkRootPackage(projectRoot, findings) {
     !productionCheck.includes("node tooling/production/check-production-cut.mjs")
   ) {
     findings.push(createFinding("production_script_missing_cut_checker", "blocker"));
+  }
+
+  if (typeof productionCheck === "string" && !productionCheck.includes("pnpm target-env:check")) {
+    findings.push(createFinding("production_script_missing_target_environment_gate", "blocker"));
   }
 
   if (typeof productionCheck === "string" && !productionCheck.includes("pnpm load:check")) {

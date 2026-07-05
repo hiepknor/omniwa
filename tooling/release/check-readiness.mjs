@@ -81,9 +81,11 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "docs/runbooks/BACKUP_RESTORE_RECOVERY_DRILL.md",
   "tooling/regression/check-production-regression.mjs",
   "docs/runbooks/PRODUCTION_REGRESSION_GATES.md",
+  "tooling/production/check-target-environment-evidence.mjs",
   "tooling/production/check-production-cut.mjs",
   "tooling/performance/check-performance-readiness.mjs",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
+  "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
   "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
   "docs/platform-evolution/PR-19_PRODUCTION_READY_GATE_REVIEW.md",
@@ -120,6 +122,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "packages/infrastructure-persistence/src/event-log-store.spec.ts",
   "tooling/regression/check-production-regression.spec.ts",
   "apps/api/src/load-baseline.spec.ts",
+  "tooling/production/check-target-environment-evidence.spec.ts",
   "tooling/production/check-production-cut.spec.ts",
   "tooling/performance/check-performance-readiness.spec.ts",
 ]);
@@ -141,6 +144,7 @@ const requiredRootScripts = Object.freeze([
   "regression:check",
   "recovery:check",
   "performance:check",
+  "target-env:check",
   "production:check",
   "release:check",
   "check",
@@ -198,10 +202,13 @@ export async function createReadinessFixture(projectRoot) {
         "node tooling/recovery/check-recovery-readiness.mjs && pnpm exec vitest run apps/background/src/backup-restore-drill.spec.ts apps/background/src/recovery-validation.spec.ts tooling/recovery/check-recovery-readiness.spec.ts",
       "performance:check":
         "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/check-performance-readiness.spec.ts",
-      "production:check": "node tooling/production/check-production-cut.mjs && pnpm load:check",
+      "target-env:check":
+        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts",
+      "production:check":
+        "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
       "release:check": "node tooling/release/check-readiness.mjs",
       check:
-        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm observability:check && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm performance:check && pnpm production:check && pnpm release:check",
+        "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check && pnpm openapi:check && pnpm openapi:compat && pnpm sdk:check && pnpm sdk:test && pnpm observability:check && pnpm security:check && pnpm e2e:check && pnpm regression:check && pnpm recovery:check && pnpm performance:check && pnpm target-env:check && pnpm production:check && pnpm release:check",
     },
   });
 
@@ -317,6 +324,10 @@ async function checkRootPackage(projectRoot, findings) {
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm performance:check")) {
     findings.push(createFinding("check_script_missing_performance_gate", "blocker"));
+  }
+
+  if (typeof checkScript === "string" && !checkScript.includes("pnpm target-env:check")) {
+    findings.push(createFinding("check_script_missing_target_environment_gate", "blocker"));
   }
 
   if (typeof checkScript === "string" && !checkScript.includes("pnpm production:check")) {

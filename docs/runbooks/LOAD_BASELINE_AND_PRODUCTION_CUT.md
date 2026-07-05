@@ -28,6 +28,12 @@ Run the production cut gate:
 pnpm production:check
 ```
 
+Run the target-environment evidence gate:
+
+```text
+pnpm target-env:check
+```
+
 Run the full quality gate:
 
 ```text
@@ -68,8 +74,14 @@ updated with review.
 The production cut gate is implemented in
 `tooling/production/check-production-cut.mjs`.
 
+The target-environment evidence gate is implemented in
+`tooling/production/check-target-environment-evidence.mjs`.
+
 It verifies:
 
+- `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` exists,
+- target-environment proof state is explicit,
+- every required runtime/dependency component has an evidence row,
 - `docs/reviews/PRODUCTION_CUT_REVIEW.md` exists,
 - final readiness decision is explicit,
 - Production Ready state is explicit,
@@ -100,6 +112,13 @@ This means OmniWA may proceed to controlled internal pilot hardening under the
 constraints in `docs/reviews/PRODUCTION_CUT_REVIEW.md`.
 
 It does not mean broad public production readiness.
+
+Current target-environment evidence:
+
+- `Target Environment Validation Status: NOT_PROVEN`
+- `Target Environment Proven: NO`
+- `Production Load Proven: NO`
+- `SLO Evidence Proven: NO`
 
 ## Operator Checklist
 

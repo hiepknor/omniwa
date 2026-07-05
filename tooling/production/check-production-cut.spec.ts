@@ -93,6 +93,7 @@ describe("production cut gate check", () => {
       expect(report.findings).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ code: "production_script_missing_cut_checker" }),
+          expect.objectContaining({ code: "production_script_missing_target_environment_gate" }),
           expect.objectContaining({ code: "production_script_missing_load_gate" }),
           expect.objectContaining({ code: "load_script_must_not_pass_with_no_tests" }),
           expect.objectContaining({ code: "load_script_missing_test", target: missingTest }),

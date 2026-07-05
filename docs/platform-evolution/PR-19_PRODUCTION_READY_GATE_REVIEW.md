@@ -45,6 +45,7 @@ platform.
 | SDK                        | `pnpm sdk:check`, `pnpm sdk:test`             | PASS   |
 | Regression                 | `pnpm regression:check`                       | PASS   |
 | Load baseline              | `pnpm load:check`                             | PASS   |
+| Target environment proof   | `pnpm target-env:check`                       | PASS   |
 | Production gate            | `pnpm production:check`                       | PASS   |
 | Release readiness          | `pnpm release:check`                          | PASS   |
 | Full local gate            | `pnpm check`                                  | PASS   |
@@ -111,6 +112,7 @@ recording `Production Ready: NO`, or vice versa.
 Targeted checks:
 
 ```text
+pnpm target-env:check
 pnpm production:check
 pnpm release:check
 ```

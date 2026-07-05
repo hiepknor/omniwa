@@ -211,6 +211,10 @@ The production-cut validation slice now requires explicit target-environment, pr
 SLO-evidence proof states. The current review keeps all three as `NO`, which preserves
 `CONDITIONALLY_READY` and prevents a future `PRODUCTION_READY` claim until the target environment is
 actually exercised.
+The target-environment evidence slice adds `pnpm target-env:check` and
+`docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` so the remaining proof has a single structured
+source. The current status is `NOT_PROVEN`; future production promotion must change that file with
+real runtime, load, and SLO evidence.
 
 ## Planned Increments
 

@@ -218,6 +218,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `Production Load Proven`, and `SLO Evidence Proven` states in the production cut review. The
   current values remain `NO`, so `PRODUCTION_READY` cannot be claimed until target-environment
   runtime startup, production-like load, and SLO/alert evidence are recorded.
+- N11.7 target-environment validation now has a dedicated `pnpm target-env:check` root gate and
+  `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` evidence file. The gate keeps the current
+  `NOT_PROVEN` status explicit while requiring a runtime/dependency evidence matrix before any
+  future `PROVEN` claim.
 
 ## Update Rule
 
