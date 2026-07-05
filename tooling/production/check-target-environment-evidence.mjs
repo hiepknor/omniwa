@@ -72,7 +72,7 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
     requiredTargetEnvironmentEvidenceTests,
     findings,
   );
-  await checkTargetEnvironmentReview(projectRoot, findings);
+  const reviewSnapshot = await checkTargetEnvironmentReview(projectRoot, findings);
   await checkTargetEnvironmentBundleTemplate(projectRoot, findings);
   await checkRootPackage(projectRoot, findings);
   await checkOptionalTargetEnvironmentArtifact(
@@ -92,6 +92,7 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
     "bundle",
     options.evidenceBundlePath ?? process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH,
     findings,
+    reviewSnapshot,
   );
 
   return freezeReport({
@@ -167,7 +168,7 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
       "utf8",
     );
   } catch {
-    return;
+    return undefined;
   }
 
   const status = content.match(/Target Environment Validation Status:\s*([A-Z_]+)/u)?.[1];
@@ -194,14 +195,19 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
     findings,
   );
 
+  const componentStatuses = new Map();
+
   for (const component of requiredTargetEnvironmentComponents) {
-    if (!hasComponentRow(content, component)) {
+    const componentStatus = readComponentStatus(content, component);
+    if (componentStatus === undefined) {
       findings.push(
         createFinding("target_environment_component_missing", "blocker", {
           target: component,
           safeDetailCode: "target_environment_component_missing",
         }),
       );
+    } else {
+      componentStatuses.set(component, componentStatus);
     }
   }
 
@@ -265,6 +271,14 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
       }
     }
   }
+
+  return freezeReviewSnapshot({
+    status,
+    targetEnvironmentProven,
+    productionLoadProven,
+    sloEvidenceProven,
+    componentStatuses,
+  });
 }
 
 async function checkTargetEnvironmentBundleTemplate(projectRoot, findings) {
@@ -396,6 +410,7 @@ async function checkOptionalTargetEnvironmentArtifact(
   artifactKind,
   artifactPath,
   findings,
+  reviewSnapshot,
 ) {
   const normalizedPath = typeof artifactPath === "string" ? artifactPath.trim() : "";
 
@@ -442,6 +457,10 @@ async function checkOptionalTargetEnvironmentArtifact(
     findings.push(
       createFinding(`target_environment_${artifactKind}_artifact_unsafe_content`, "blocker"),
     );
+  }
+
+  if (artifactKind === "bundle" && schemaValid) {
+    checkEvidenceBundleMatchesReview(artifact, reviewSnapshot, findings);
   }
 }
 
@@ -671,6 +690,63 @@ function isValidProvenBundleClaim(artifact) {
   );
 }
 
+function checkEvidenceBundleMatchesReview(artifact, reviewSnapshot, findings) {
+  if (reviewSnapshot === undefined || !isRecord(artifact)) {
+    return;
+  }
+
+  if (artifact.status !== reviewSnapshot.status) {
+    findings.push(createFinding("target_environment_bundle_review_status_mismatch", "blocker"));
+  }
+
+  if (
+    artifact.proofStates.targetEnvironmentProven !==
+    yesNoToBoolean(reviewSnapshot.targetEnvironmentProven)
+  ) {
+    findings.push(
+      createFinding("target_environment_bundle_review_target_proof_mismatch", "blocker"),
+    );
+  }
+
+  if (
+    artifact.proofStates.productionLoadProven !==
+    yesNoToBoolean(reviewSnapshot.productionLoadProven)
+  ) {
+    findings.push(createFinding("target_environment_bundle_review_load_proof_mismatch", "blocker"));
+  }
+
+  if (artifact.proofStates.sloEvidenceProven !== yesNoToBoolean(reviewSnapshot.sloEvidenceProven)) {
+    findings.push(createFinding("target_environment_bundle_review_slo_proof_mismatch", "blocker"));
+  }
+
+  for (const component of artifact.components) {
+    const reviewComponentStatus = reviewSnapshot.componentStatuses.get(component.component);
+
+    if (reviewComponentStatus !== component.status) {
+      findings.push(
+        createFinding("target_environment_bundle_review_component_status_mismatch", "blocker", {
+          target: component.component,
+          safeDetailCode: "target_environment_bundle_review_component_status_mismatch",
+        }),
+      );
+    }
+  }
+}
+
+function yesNoToBoolean(value) {
+  return value === "YES";
+}
+
+function freezeReviewSnapshot(snapshot) {
+  return Object.freeze({
+    status: snapshot.status,
+    targetEnvironmentProven: snapshot.targetEnvironmentProven,
+    productionLoadProven: snapshot.productionLoadProven,
+    sloEvidenceProven: snapshot.sloEvidenceProven,
+    componentStatuses: new Map(snapshot.componentStatuses),
+  });
+}
+
 function isTargetEnvironmentEvidenceBundleTemplate(artifact) {
   return (
     validateTargetEnvironmentEvidenceBundleArtifact(artifact) &&
@@ -785,6 +861,15 @@ function hasComponentRow(content, component, requiredStatus) {
   const pattern = new RegExp(`\\|\\s*${escapedComponent}\\s*\\|\\s*${statusPattern}\\s*\\|`, "u");
 
   return pattern.test(content);
+}
+
+function readComponentStatus(content, component) {
+  const escapedComponent = component.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const value = content.match(
+    new RegExp(`\\|\\s*${escapedComponent}\\s*\\|\\s*([A-Z_]+)\\s*\\|`, "u"),
+  )?.[1];
+
+  return isTargetEnvironmentComponentStatus(value) ? value : undefined;
 }
 
 async function readJson(path, findings) {

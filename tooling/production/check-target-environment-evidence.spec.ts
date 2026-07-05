@@ -62,6 +62,8 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "target_environment_load_command_missing" }),
           expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
+          expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
+          expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
           expect.objectContaining({ code: "target_environment_known_constraints_missing" }),
         ]),
       );
@@ -311,6 +313,82 @@ describe("target environment evidence gate", () => {
         checkedAtEpochMilliseconds: 1_800_000_000_000,
         findings: [],
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when an optional evidence bundle claims proof beyond the review state", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(
+        join(root, "artifacts/target-env/evidence-bundle.json"),
+        validEvidenceBundleArtifact("PROVEN"),
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_bundle_review_status_mismatch",
+          }),
+          expect.objectContaining({
+            code: "target_environment_bundle_review_target_proof_mismatch",
+          }),
+          expect.objectContaining({
+            code: "target_environment_bundle_review_load_proof_mismatch",
+          }),
+          expect.objectContaining({
+            code: "target_environment_bundle_review_slo_proof_mismatch",
+          }),
+          expect.objectContaining({
+            code: "target_environment_bundle_review_component_status_mismatch",
+            target: "API Runtime",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when optional evidence bundle component states drift from the review matrix", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeText(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md"),
+        targetEnvironmentReviewWithComponentStatus("NOT_PROVEN", "API Runtime", "FAIL"),
+      );
+      await writeJson(
+        join(root, "artifacts/target-env/evidence-bundle.json"),
+        validEvidenceBundleArtifact(),
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_bundle_review_component_status_mismatch",
+            target: "API Runtime",
+          }),
+        ]),
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -596,15 +674,17 @@ function validLoadArtifact(): unknown {
   };
 }
 
-function validEvidenceBundleArtifact(): unknown {
+function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROVEN"): unknown {
+  const proven = status === "PROVEN";
+
   return {
     version: 1,
-    status: "NOT_PROVEN",
+    status,
     checkedAtIso: "2026-07-05T00:00:00.000Z",
     proofStates: {
-      targetEnvironmentProven: false,
-      productionLoadProven: false,
-      sloEvidenceProven: false,
+      targetEnvironmentProven: proven,
+      productionLoadProven: proven,
+      sloEvidenceProven: proven,
     },
     evidence: {
       deploymentProfileRef: "deployment-profile-reviewed",
@@ -619,8 +699,8 @@ function validEvidenceBundleArtifact(): unknown {
     },
     components: requiredTargetEnvironmentComponents.map((component) => ({
       component,
-      status: "PENDING",
-      evidenceRef: `${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-pending`,
+      status: proven ? "PASS" : "PENDING",
+      evidenceRef: `${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-${proven ? "pass" : "pending"}`,
     })),
     artifacts: {
       smoke: {

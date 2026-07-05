@@ -273,6 +273,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   template and can embed already-sanitized smoke/load summaries when their report path variables are
   present. The generated bundle remains `NOT_PROVEN` until an operator supplies target-environment
   evidence and updates the proof states.
+- N11.7 target-environment evidence validation now also cross-checks optional evidence bundles
+  against `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`; bundle status, proof booleans, and
+  component statuses must match the review document when
+  `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` is supplied.
 
 ## Update Rule
 

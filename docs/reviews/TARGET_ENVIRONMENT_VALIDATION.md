@@ -109,6 +109,9 @@ it to the operator artifact path, and replace only safe reference values with ta
 evidence identifiers.
 The `target-env:bundle` command creates the initial sanitized bundle from the checked-in template
 and can embed already-sanitized smoke/load summaries when their artifact path variables are set.
+When a bundle path is supplied to `target-env:check`, the bundle status, proof states, and component
+statuses must match this review file. This keeps the review document as the authoritative readiness
+state and blocks artifact/review drift.
 
 Target-environment evidence must additionally record:
 

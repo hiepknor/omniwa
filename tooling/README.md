@@ -24,7 +24,8 @@ Current tooling:
 - `production/check-target-environment-evidence.mjs` checks target-environment
   evidence wiring, the checked-in evidence bundle template, and optional
   sanitized smoke/load artifact and evidence bundle schemas when their path
-  environment variables are supplied.
+  environment variables are supplied. It also cross-checks optional bundle
+  readiness state against the target-environment review document.
 - `production/create-target-environment-evidence-bundle.mjs` creates an
   operator-maintained sanitized evidence bundle from the checked-in template
   and optional sanitized smoke/load summaries.

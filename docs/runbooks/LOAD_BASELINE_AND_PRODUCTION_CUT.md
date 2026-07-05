@@ -131,6 +131,11 @@ OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH=artifacts/target-env/evidence-bund
 pnpm target-env:bundle
 ```
 
+When validating a populated bundle with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`, the bundle status,
+proof flags, and component statuses must match `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.
+Update both together during a target-environment review; do not let an external bundle claim a
+readiness state that the review document does not claim.
+
 It verifies:
 
 - `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` exists,
@@ -139,6 +144,7 @@ It verifies:
 - target-environment proof state is explicit,
 - every required runtime/dependency component has an evidence row,
 - optional target-environment evidence bundle artifacts are schema-valid and sanitized,
+- optional target-environment evidence bundle status matches the review document,
 - `docs/reviews/PRODUCTION_CUT_REVIEW.md` exists,
 - final readiness decision is explicit,
 - Production Ready state is explicit,

@@ -230,6 +230,8 @@ It also provides the optional `pnpm target-env:bundle` command for creating a sa
 operator-maintained evidence bundle from the checked-in `NOT_PROVEN` template and any already
 sanitized smoke/load summaries. The generated bundle remains non-proving evidence until an operator
 updates the proof states and component statuses with target-environment evidence.
+When that bundle is supplied back to `pnpm target-env:check`, the gate cross-checks it against
+`TARGET_ENVIRONMENT_VALIDATION.md` so review state and artifact state cannot drift.
 
 ## Planned Increments
 
