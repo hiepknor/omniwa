@@ -40,6 +40,18 @@ type IdempotencyAwareWorkerJobRepository = WorkerJobRepositoryPort &
     recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): Promise<void> | void;
   }>;
 
+type DurableQueueAwareWorkerJobRepository = IdempotencyAwareWorkerJobRepository &
+  Partial<{
+    reserveNextVisibleWorkerJob(input: {
+      workType: string;
+      visibleAtEpochMilliseconds: number;
+      reserve: (workerJob: WorkerJob) => WorkerJob;
+    }): Promise<WorkerJob | undefined>;
+    setWorkerJobVisibleAt(jobId: JobId, visibleAtEpochMilliseconds: number): Promise<void>;
+    clearWorkerJobVisibleAt(jobId: JobId): Promise<void>;
+    getWorkerJobVisibleAt(jobId: JobId): Promise<number | undefined>;
+  }>;
+
 export type DurableWorkerJobQueueProviderOptions = Readonly<{
   workerJobRepository: WorkerJobRepositoryPort;
   clock?: Pick<Clock, "epochMilliseconds">;
@@ -65,7 +77,7 @@ export type DurableWorkerJobQueueRecoveryResult = Readonly<{
 }>;
 
 export class DurableWorkerJobQueueProvider implements QueueProviderPort {
-  private readonly workerJobRepository: IdempotencyAwareWorkerJobRepository;
+  private readonly workerJobRepository: DurableQueueAwareWorkerJobRepository;
   private readonly clock: Pick<Clock, "epochMilliseconds">;
   private readonly metricRecorder: MetricRecorder | undefined;
   private readonly metricRuntimeRole: RuntimeRole;
@@ -117,24 +129,16 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
     return this.capturePortFailure(async () => {
       void context;
 
-      const workerJob = await this.findReservableWorkerJob(workType);
+      const reserved = await this.reserveNextVisibleWorkerJob(workType);
 
-      if (workerJob === undefined) {
+      if (reserved === undefined) {
         this.recordQueueMetric("queue.reserve.empty.total", workType, "empty");
         return undefined;
       }
 
-      const attempt = nextReservationAttempt(workerJob);
-      const reserved = reserveWorkerJob(
-        workerJob,
-        createAttemptNumber(attempt, workerJob.retryPolicy),
-      );
-
-      await this.workerJobRepository.save(reserved);
-      this.retryVisibleAtByJobId.delete(String(workerJob.id));
       this.recordQueueMetric("queue.reserve.total", workType, "reserved");
 
-      return reservationFor(reserved, attempt);
+      return reservationFor(reserved, reserved.attemptNumber ?? 1);
     });
   }
 
@@ -158,6 +162,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
           : completeWorkerJob(startWorkerJob(workerJob));
 
       await this.workerJobRepository.save(completed);
+      await this.clearWorkerJobVisibility(completed.id);
       this.recordQueueMetric(
         "queue.acknowledge.total",
         toQueueWorkType(completed.workType),
@@ -189,7 +194,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
         );
 
         await this.workerJobRepository.save(dead);
-        this.retryVisibleAtByJobId.delete(String(dead.id));
+        await this.clearWorkerJobVisibility(dead.id);
         this.recordQueueMetric(
           "queue.dead_letter.total",
           toQueueWorkType(dead.workType),
@@ -206,8 +211,8 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
         createFailureCategory("queue"),
       );
 
+      await this.setWorkerJobVisibility(retrying.id, this.now() + delayMilliseconds);
       await this.workerJobRepository.save(retrying);
-      this.retryVisibleAtByJobId.set(String(retrying.id), this.now() + delayMilliseconds);
       this.recordQueueMetric("queue.retry.total", toQueueWorkType(retrying.workType), "scheduled");
 
       return this.receiptFor(retrying);
@@ -235,7 +240,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
       );
 
       await this.workerJobRepository.save(dead);
-      this.retryVisibleAtByJobId.delete(String(dead.id));
+      await this.clearWorkerJobVisibility(dead.id);
       this.recordQueueMetric(
         "queue.dead_letter.total",
         toQueueWorkType(dead.workType),
@@ -270,12 +275,14 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
           }),
         );
         await this.workerJobRepository.save(dead);
+        await this.clearWorkerJobVisibility(dead.id);
       } else {
         const retrying = retryWorkerJob(
           workerJob,
           createAttemptNumber(nextAttempt, workerJob.retryPolicy),
           createFailureCategory("queue"),
         );
+        await this.setWorkerJobVisibility(retrying.id, this.now());
         await this.workerJobRepository.save(retrying);
       }
 
@@ -297,21 +304,88 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
     ];
 
     return Object.freeze(
-      jobs.filter(isSupportedWorkerJob).map((job) =>
-        Object.freeze({
-          jobId: job.id,
-          workType: toQueueWorkType(job.workType),
-          ownerRef: ownerRefFor(job),
-          status: job.status,
-          attempt: job.attemptNumber ?? 0,
-          visible: this.isWorkerJobVisible(job),
-          queueRef: queueRefFor(job),
-          ...optional("safeInputRef", job.safeMetadata?.outboundIntentRef),
-          ...optional("safeMetadata", job.safeMetadata),
-          ...optional("deadLetterReasonCode", job.deadLetterReason?.code),
-        }),
+      await Promise.all(
+        jobs.filter(isSupportedWorkerJob).map(async (job) =>
+          Object.freeze({
+            jobId: job.id,
+            workType: toQueueWorkType(job.workType),
+            ownerRef: ownerRefFor(job),
+            status: job.status,
+            attempt: job.attemptNumber ?? 0,
+            visible: await this.isWorkerJobVisible(job),
+            queueRef: queueRefFor(job),
+            ...optional("safeInputRef", job.safeMetadata?.outboundIntentRef),
+            ...optional("safeMetadata", job.safeMetadata),
+            ...optional("deadLetterReasonCode", job.deadLetterReason?.code),
+          }),
+        ),
       ),
     );
+  }
+
+  private async reserveNextVisibleWorkerJob(workType: QueueWorkType): Promise<WorkerJob | undefined> {
+    const atomicReserve = this.workerJobRepository.reserveNextVisibleWorkerJob;
+
+    if (atomicReserve !== undefined) {
+      const reserved = await atomicReserve.call(this.workerJobRepository, {
+        workType,
+        visibleAtEpochMilliseconds: this.now(),
+        reserve: (workerJob) => {
+          const attempt = nextReservationAttempt(workerJob);
+
+          return reserveWorkerJob(
+            workerJob,
+            createAttemptNumber(attempt, workerJob.retryPolicy),
+          );
+        },
+      });
+
+      if (reserved !== undefined) {
+        this.retryVisibleAtByJobId.delete(String(reserved.id));
+      }
+
+      return reserved;
+    }
+
+    const workerJob = await this.findReservableWorkerJob(workType);
+
+    if (workerJob === undefined) {
+      return undefined;
+    }
+
+    const attempt = nextReservationAttempt(workerJob);
+    const reserved = reserveWorkerJob(
+      workerJob,
+      createAttemptNumber(attempt, workerJob.retryPolicy),
+    );
+
+    await this.workerJobRepository.save(reserved);
+    await this.clearWorkerJobVisibility(workerJob.id);
+
+    return reserved;
+  }
+
+  private async visibleAtFor(workerJob: WorkerJob): Promise<number | undefined> {
+    const visibleAt = this.workerJobRepository.getWorkerJobVisibleAt;
+
+    if (visibleAt === undefined) {
+      return this.retryVisibleAtByJobId.get(String(workerJob.id));
+    }
+
+    return visibleAt.call(this.workerJobRepository, workerJob.id);
+  }
+
+  private async setWorkerJobVisibility(
+    jobId: JobId,
+    visibleAtEpochMilliseconds: number,
+  ): Promise<void> {
+    this.retryVisibleAtByJobId.set(String(jobId), visibleAtEpochMilliseconds);
+    await this.workerJobRepository.setWorkerJobVisibleAt?.(jobId, visibleAtEpochMilliseconds);
+  }
+
+  private async clearWorkerJobVisibility(jobId: JobId): Promise<void> {
+    this.retryVisibleAtByJobId.delete(String(jobId));
+    await this.workerJobRepository.clearWorkerJobVisibleAt?.(jobId);
   }
 
   private async findReservableWorkerJob(workType: QueueWorkType): Promise<WorkerJob | undefined> {
@@ -320,12 +394,17 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
       ...(await this.workerJobRepository.findByStatus("retrying")),
     ];
 
-    return candidates.find(
-      (candidate) =>
+    for (const candidate of candidates) {
+      if (
         isSupportedWorkerJob(candidate) &&
         candidate.workType === workType &&
-        this.isWorkerJobVisible(candidate),
-    );
+        (await this.isWorkerJobVisible(candidate))
+      ) {
+        return candidate;
+      }
+    }
+
+    return undefined;
   }
 
   private async loadWorkerJob(jobId: JobId): Promise<WorkerJob> {
@@ -345,20 +424,20 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
     return workerJob;
   }
 
-  private receiptFor(workerJob: WorkerJob): QueueVisibilityReceipt {
+  private async receiptFor(workerJob: WorkerJob): Promise<QueueVisibilityReceipt> {
     return Object.freeze({
       jobId: workerJob.id,
-      visible: this.isWorkerJobVisible(workerJob),
+      visible: await this.isWorkerJobVisible(workerJob),
       queueRef: queueRefFor(workerJob),
     });
   }
 
-  private isWorkerJobVisible(workerJob: WorkerJob): boolean {
+  private async isWorkerJobVisible(workerJob: WorkerJob): Promise<boolean> {
     switch (workerJob.status) {
       case "queued":
         return true;
       case "retrying":
-        return (this.retryVisibleAtByJobId.get(String(workerJob.id)) ?? 0) <= this.now();
+        return ((await this.visibleAtFor(workerJob)) ?? 0) <= this.now();
       case "dead":
         return true;
       case "reserved":

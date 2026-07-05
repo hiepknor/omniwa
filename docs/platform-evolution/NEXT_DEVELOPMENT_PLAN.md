@@ -108,7 +108,7 @@ Rollback:
 | Order | Increment                          | Goal                                                                 | Status  |
 | ----- | ---------------------------------- | -------------------------------------------------------------------- | ------- |
 | N11.0 | Production plan reconciliation     | Align execution docs with N8/N9/N10 implementation evidence          | Done    |
-| N11.1 | Production queue foundation        | Replace in-memory-only queue semantics behind `QueueProviderPort`    | Done    |
+| N11.1 | Production queue foundation        | Replace in-memory-only queue semantics behind `QueueProviderPort`    | Done; PostgreSQL atomic reserve + durable retry visibility covered locally |
 | N11.2 | Durable EventLog / outbox / replay | Make event visibility and SSE replay survive restart                 | Done    |
 | N11.3 | Provider runtime ownership         | Add production ownership/lease guard for one active socket per unit  | Done    |
 | N11.4 | Secret and API-key hardening       | Move from local/dev secret posture toward hashed, rotatable secrets  | Done    |

@@ -171,6 +171,35 @@ describe("DurableWorkerJobQueueProvider", () => {
     });
   });
 
+  it("keeps retry visibility durable when the repository persists queue metadata", async () => {
+    const workerJobs = new TestWorkerJobRepository();
+    const firstClock = new ManualClock(1000);
+    const firstQueue = new DurableWorkerJobQueueProvider({
+      workerJobRepository: workerJobs,
+      clock: firstClock,
+    });
+    const jobId = createJobId("durable-queue-job-retry-visible-restart");
+    const reservation = await enqueueAndReserve(firstQueue, jobId);
+
+    const retry = await firstQueue.releaseForRetry(reservation, 500, context);
+    const restartedClock = new ManualClock(1000);
+    const restartedQueue = new DurableWorkerJobQueueProvider({
+      workerJobRepository: workerJobs,
+      clock: restartedClock,
+    });
+    const hiddenReservation = await restartedQueue.reserve("outbound_message", context);
+    restartedClock.advance(500);
+    const visibleReservation = await restartedQueue.reserve("outbound_message", context);
+
+    expectOk(retry);
+    expect(retry.value.visible).toBe(false);
+    expectOk(hiddenReservation);
+    expect(hiddenReservation.value).toBeUndefined();
+    expectOk(visibleReservation);
+    expect(visibleReservation.value?.jobId).toBe(jobId);
+    expect(visibleReservation.value?.attempt).toBe(2);
+  });
+
   it("moves retry budget exhaustion to dead letter instead of throwing", async () => {
     const workerJobs = new TestWorkerJobRepository();
     const queue = new DurableWorkerJobQueueProvider({ workerJobRepository: workerJobs });
@@ -336,6 +365,7 @@ class TestMetricRecorder implements MetricRecorder {
 class TestWorkerJobRepository implements WorkerJobRepositoryPort {
   private readonly records = new Map<string, WorkerJob>();
   private readonly jobIdByIdempotencyKey = new Map<string, JobId>();
+  private readonly visibleAtByJobId = new Map<string, number>();
 
   load(id: JobId): Promise<WorkerJob | undefined> {
     return Promise.resolve(this.records.get(String(id)));
@@ -367,7 +397,44 @@ class TestWorkerJobRepository implements WorkerJobRepositoryPort {
     return Promise.resolve(jobId === undefined ? undefined : this.records.get(String(jobId)));
   }
 
+  async reserveNextVisibleWorkerJob(input: {
+    workType: string;
+    visibleAtEpochMilliseconds: number;
+    reserve: (workerJob: WorkerJob) => WorkerJob;
+  }): Promise<WorkerJob | undefined> {
+    const candidate = [...this.records.values()].find(
+      (job) =>
+        job.workType === input.workType &&
+        (job.status === "queued" ||
+          (job.status === "retrying" &&
+            (this.visibleAtByJobId.get(String(job.id)) ?? 0) <=
+              input.visibleAtEpochMilliseconds)),
+    );
+
+    if (candidate === undefined) {
+      return undefined;
+    }
+
+    const reserved = input.reserve(candidate);
+    await this.save(reserved);
+    this.clearWorkerJobVisibleAt(reserved.id);
+
+    return reserved;
+  }
+
   recordIdempotencyKey(idempotencyKey: IdempotencyKey, jobId: JobId): void {
     this.jobIdByIdempotencyKey.set(String(idempotencyKey), jobId);
+  }
+
+  setWorkerJobVisibleAt(jobId: JobId, visibleAtEpochMilliseconds: number): void {
+    this.visibleAtByJobId.set(String(jobId), visibleAtEpochMilliseconds);
+  }
+
+  clearWorkerJobVisibleAt(jobId: JobId): void {
+    this.visibleAtByJobId.delete(String(jobId));
+  }
+
+  getWorkerJobVisibleAt(jobId: JobId): Promise<number | undefined> {
+    return Promise.resolve(this.visibleAtByJobId.get(String(jobId)));
   }
 }

@@ -168,12 +168,14 @@ export const postgresqlRepositoryMigrations = Object.freeze([
         owner_context text NOT NULL,
         work_type text NOT NULL,
         idempotency_key text NULL UNIQUE,
+        queue_visible_at_epoch_ms bigint NULL,
         aggregate jsonb NOT NULL,
         updated_at timestamptz NOT NULL DEFAULT now()
       )`,
       "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_status_idx ON omniwa_worker_jobs (status)",
       "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_owner_context_idx ON omniwa_worker_jobs (owner_context)",
       "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_work_type_idx ON omniwa_worker_jobs (work_type)",
+      "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_reservable_idx ON omniwa_worker_jobs (work_type, status, queue_visible_at_epoch_ms)",
     ]),
   }),
   Object.freeze({
@@ -369,6 +371,15 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_media_assets_status_idx ON omniwa_media_assets (status)",
       "CREATE INDEX IF NOT EXISTS omniwa_media_assets_message_id_idx ON omniwa_media_assets (message_id)",
       "CREATE INDEX IF NOT EXISTS omniwa_media_assets_cleanup_required_idx ON omniwa_media_assets (cleanup_required) WHERE cleanup_required = true AND status <> 'cleaned'",
+    ]),
+  }),
+  Object.freeze({
+    id: "pgm_20260705_0015_worker_job_queue_visibility",
+    description:
+      "Add durable queue visibility metadata for WorkerJobRepositoryPort reservations.",
+    statements: Object.freeze([
+      "ALTER TABLE omniwa_worker_jobs ADD COLUMN IF NOT EXISTS queue_visible_at_epoch_ms bigint NULL",
+      "CREATE INDEX IF NOT EXISTS omniwa_worker_jobs_reservable_idx ON omniwa_worker_jobs (work_type, status, queue_visible_at_epoch_ms)",
     ]),
   }),
 ]) satisfies readonly PostgresqlSqlMigration[];
@@ -1288,6 +1299,8 @@ export class PostgresqlWorkerJobRepository
   extends PostgresqlAggregateRepository<WorkerJob, JobId>
   implements WorkerJobRepositoryPort
 {
+  private readonly transactionConnection: PostgresqlConnection | undefined;
+
   constructor(
     connection: PostgresqlQueryExecutor,
     options: PostgresqlWorkerJobRepositoryOptions = {},
@@ -1319,6 +1332,7 @@ export class PostgresqlWorkerJobRepository
       getId: (workerJob) => keyOf(workerJob.id),
       ...optional("migrationBarrier", options.migrationBarrier),
     });
+    this.transactionConnection = isPostgresqlConnection(connection) ? connection : undefined;
   }
 
   async findByStatus(status: JobStatus): Promise<readonly WorkerJob[]> {
@@ -1355,11 +1369,115 @@ export class PostgresqlWorkerJobRepository
       [keyOf(createIdempotencyKey(keyOf(idempotencyKey))), keyOf(jobId)],
     );
   }
+
+  async reserveNextVisibleWorkerJob(
+    input: PostgresqlWorkerJobReserveInput,
+  ): Promise<WorkerJob | undefined> {
+    await this.ensureReady();
+
+    if (this.transactionConnection === undefined) {
+      throw new TypeError("PostgreSQL WorkerJob atomic reservation requires a transaction connection.");
+    }
+
+    const client = await this.transactionConnection.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const candidate = await client.query<WorkerJobRow>(
+        `SELECT aggregate
+         FROM omniwa_worker_jobs
+         WHERE work_type = $1
+           AND (
+             status = $2
+             OR (status = $3 AND COALESCE(queue_visible_at_epoch_ms, 0) <= $4)
+           )
+         ORDER BY id ASC
+         FOR UPDATE SKIP LOCKED
+         LIMIT 1`,
+        [
+          input.workType,
+          createJobStatus("queued"),
+          createJobStatus("retrying"),
+          input.visibleAtEpochMilliseconds,
+        ],
+      );
+      const row = candidate.rows[0];
+
+      if (row === undefined) {
+        await client.query("COMMIT");
+        return undefined;
+      }
+
+      const workerJob = decodeWorkerJobAggregate(row.aggregate);
+      const reserved = input.reserve(workerJob);
+
+      await client.query(
+        `UPDATE omniwa_worker_jobs
+         SET status = $1,
+             aggregate = $2::jsonb,
+             queue_visible_at_epoch_ms = NULL,
+             updated_at = now()
+         WHERE id = $3`,
+        [reserved.status, JSON.stringify(reserved), keyOf(reserved.id)],
+      );
+      await client.query("COMMIT");
+
+      return reserved;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async setWorkerJobVisibleAt(
+    jobId: JobId,
+    visibleAtEpochMilliseconds: number,
+  ): Promise<void> {
+    await this.ensureReady();
+
+    await this.connection.query(
+      "UPDATE omniwa_worker_jobs SET queue_visible_at_epoch_ms = $1, updated_at = now() WHERE id = $2",
+      [visibleAtEpochMilliseconds, keyOf(jobId)],
+    );
+  }
+
+  async clearWorkerJobVisibleAt(jobId: JobId): Promise<void> {
+    await this.ensureReady();
+
+    await this.connection.query(
+      "UPDATE omniwa_worker_jobs SET queue_visible_at_epoch_ms = NULL, updated_at = now() WHERE id = $1",
+      [keyOf(jobId)],
+    );
+  }
+
+  async getWorkerJobVisibleAt(jobId: JobId): Promise<number | undefined> {
+    await this.ensureReady();
+
+    const result = await this.connection.query<WorkerJobVisibilityRow>(
+      "SELECT queue_visible_at_epoch_ms FROM omniwa_worker_jobs WHERE id = $1",
+      [keyOf(jobId)],
+    );
+
+    return optionalEpochMilliseconds(result.rows[0]?.queue_visible_at_epoch_ms);
+  }
 }
 
 type WorkerJobRow = QueryResultRow & {
   aggregate: unknown;
 };
+
+type WorkerJobVisibilityRow = QueryResultRow & {
+  queue_visible_at_epoch_ms: string | number | null;
+};
+
+type PostgresqlWorkerJobReserveInput = Readonly<{
+  workType: string;
+  visibleAtEpochMilliseconds: number;
+  reserve(workerJob: WorkerJob): WorkerJob;
+}>;
 
 type MessageRow = QueryResultRow & {
   aggregate: unknown;
@@ -1803,6 +1921,24 @@ function requiredArray(value: unknown, label: string): readonly unknown[] {
 
 function optionalNullable(value: string | undefined): string | null {
   return value === undefined ? null : value;
+}
+
+function optionalEpochMilliseconds(value: string | number | null | undefined): number | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  const normalized = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(normalized)) {
+    throw new TypeError("PostgreSQL WorkerJob visibility timestamp must be finite.");
+  }
+
+  return normalized;
+}
+
+function isPostgresqlConnection(value: PostgresqlQueryExecutor): value is PostgresqlConnection {
+  return "connect" in value && typeof value.connect === "function";
 }
 
 function keyOf(value: unknown): string {

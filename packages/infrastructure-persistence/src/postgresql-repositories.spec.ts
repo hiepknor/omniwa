@@ -3,6 +3,9 @@ import type { FieldDef, QueryResult, QueryResultRow } from "pg";
 import {
   acceptMediaAsset,
   attachMediaAsset,
+  createAttemptNumber,
+  createFailureCategory,
+  createJobId,
   createInstanceId,
   createLabel,
   createLabelId,
@@ -10,9 +13,13 @@ import {
   createMediaCategory,
   createMediaId,
   createMessageId,
+  createRetryPolicy,
   createRetentionPolicy,
   markMediaProcessed,
   markMediaProcessing,
+  queueWorkerJob,
+  reserveWorkerJob,
+  retryWorkerJob,
 } from "@omniwa/domain";
 
 import {
@@ -153,6 +160,10 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260705_0014_media_asset_repository",
         description: expect.stringContaining("MediaAssetRepositoryPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260705_0015_worker_job_queue_visibility",
+        description: expect.stringContaining("WorkerJobRepositoryPort"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -195,6 +206,9 @@ describe("PostgreSQL migration runner", () => {
     );
     expect(postgresqlInstanceRepositoryMigrations[13]?.statements.join("\n")).toContain(
       "omniwa_media_assets",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[14]?.statements.join("\n")).toContain(
+      "queue_visible_at_epoch_ms",
     );
   });
 });
@@ -320,6 +334,91 @@ if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length 
     describeWorkerJobRepositoryContract({
       name: "postgresql",
       create: () => new PostgresqlWorkerJobRepository(connection),
+    });
+
+    it("atomically reserves one visible worker job across concurrent PostgreSQL consumers", async () => {
+      const repository = new PostgresqlWorkerJobRepository(connection);
+      const retryPolicy = createRetryPolicy({
+        maxAttempts: 3,
+        initialDelayMilliseconds: 100,
+        backoffMultiplier: 2,
+      });
+      const workerJob = queueWorkerJob(
+        createJobId("postgresql-atomic-queue-job"),
+        "operations",
+        "outbound_message",
+        retryPolicy,
+      );
+
+      await repository.save(workerJob);
+
+      const reserve = async () =>
+        repository.reserveNextVisibleWorkerJob({
+          workType: "outbound_message",
+          visibleAtEpochMilliseconds: 1000,
+          reserve: (candidate) =>
+            reserveWorkerJob(candidate, createAttemptNumber(1, candidate.retryPolicy)),
+        });
+      const [first, second] = await Promise.all([reserve(), reserve()]);
+      const reservations = [first, second].filter((value) => value !== undefined);
+      const reserved = first ?? second;
+
+      expect(reservations).toHaveLength(1);
+      expect(reserved).toMatchObject({
+        id: workerJob.id,
+        status: "reserved",
+        attemptNumber: 1,
+      });
+      await expect(repository.load(workerJob.id)).resolves.toMatchObject({
+        status: "reserved",
+        attemptNumber: 1,
+      });
+    });
+
+    it("uses durable queue visibility metadata for retrying PostgreSQL worker jobs", async () => {
+      const repository = new PostgresqlWorkerJobRepository(connection);
+      const retryPolicy = createRetryPolicy({
+        maxAttempts: 3,
+        initialDelayMilliseconds: 100,
+        backoffMultiplier: 2,
+      });
+      const retrying = retryWorkerJob(
+        queueWorkerJob(
+          createJobId("postgresql-retry-visible-job"),
+          "operations",
+          "outbound_message",
+          retryPolicy,
+        ),
+        createAttemptNumber(1, retryPolicy),
+        createFailureCategory("queue"),
+      );
+
+      await repository.save(retrying);
+      await repository.setWorkerJobVisibleAt(retrying.id, 2000);
+
+      await expect(repository.getWorkerJobVisibleAt(retrying.id)).resolves.toBe(2000);
+      await expect(
+        repository.reserveNextVisibleWorkerJob({
+          workType: "outbound_message",
+          visibleAtEpochMilliseconds: 1999,
+          reserve: (candidate) =>
+            reserveWorkerJob(candidate, createAttemptNumber(1, candidate.retryPolicy)),
+        }),
+      ).resolves.toBeUndefined();
+
+      const reserved = await repository.reserveNextVisibleWorkerJob({
+        workType: "outbound_message",
+        visibleAtEpochMilliseconds: 2000,
+        reserve: (candidate) =>
+          reserveWorkerJob(candidate, createAttemptNumber(1, candidate.retryPolicy)),
+      });
+
+      expect(reserved).toMatchObject({
+        id: retrying.id,
+        status: "reserved",
+        attemptNumber: 1,
+      });
+      await expect(repository.getWorkerJobVisibleAt(retrying.id)).resolves.toBeUndefined();
     });
   });
 }
