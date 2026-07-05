@@ -93,6 +93,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 PostgreSQL CI hardening now runs `pnpm test:postgres` with Vitest file parallelism disabled,
   so repository contract truncation cannot race the webhook dispatcher PostgreSQL runtime proof in
   the shared CI database.
+- N11.7 CI also scopes `OMNIWA_POSTGRES_TEST_DATABASE_URL` to the dedicated `pnpm test:postgres`
+  step only. The generic `pnpm check` step no longer re-runs PostgreSQL contract specs in parallel
+  against the same service database after the sequential contract gate has passed.
 
 ## Known Gaps
 
