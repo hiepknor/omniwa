@@ -90,6 +90,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N10 controlled group mutations were verified locally with `pnpm check`, covering
   metadata/local-state/member actions, capability checks, audit actor requirements, client contract
   fixtures, OpenAPI compatibility, Rust SDK checks, and release gates.
+- N11.7 PostgreSQL CI hardening now runs `pnpm test:postgres` with Vitest file parallelism disabled,
+  so repository contract truncation cannot race the webhook dispatcher PostgreSQL runtime proof in
+  the shared CI database.
 
 ## Known Gaps
 
