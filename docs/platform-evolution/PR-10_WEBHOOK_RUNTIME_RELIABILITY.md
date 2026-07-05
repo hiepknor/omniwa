@@ -36,6 +36,10 @@ Implemented capabilities:
   PostgreSQL repositories, the durable worker-job queue profile, fetch HTTP
   gateway, a configured signing secret value, metric recorder, and webhook
   dispatch audit sink before composition is allowed.
+- Runtime composition can create JSONL metric and webhook dispatch audit
+  adapters from `OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH` and
+  `OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH` when deployment code does not
+  inject observability adapters directly.
 - Signature verification supports timestamp tolerance and replay protection.
 - Dispatcher tests cover durable restart recovery through the durable
   `WorkerJob` repository and queue recovery.
@@ -96,8 +100,8 @@ validation is still tracked separately in the production execution plan.
   redrive, filtered operator dashboards, and remediation notes.
 - Add production end-to-end validation for the guarded production dispatcher
   profile in the target deployment environment.
-- Wire concrete deployment observability adapters for production runtime
-  startup rather than relying on test-injected adapters.
+- Validate the JSONL observability sink configuration in the target deployment
+  environment and replace it with richer exporters when P0-13 introduces them.
 - Add circuit-breaker behavior if production receiver failure rates require it.
 - Add full end-to-end tests once the production Application dispatcher,
   persistence adapter, and queue adapter are wired together.

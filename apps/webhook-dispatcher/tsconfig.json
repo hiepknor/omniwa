@@ -13,6 +13,7 @@
     { "path": "../../packages/observability" },
     { "path": "../../packages/domain" },
     { "path": "../../packages/application" },
+    { "path": "../../packages/infrastructure-observability" },
     { "path": "../../packages/infrastructure-persistence" },
     { "path": "../../packages/infrastructure-queue" },
     { "path": "../../packages/infrastructure-secrets" },

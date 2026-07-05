@@ -164,8 +164,11 @@ The dispatcher can now opt into `OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE=durable
 durable `WorkerJob`-backed queue provider. Webhook dispatcher production profile composition is now
 guarded by fail-closed validation and requires PostgreSQL repositories, the durable worker-job queue
 profile, fetch HTTP gateway, a configured signing secret value, metric recorder, and webhook dispatch
-audit sink before composition is allowed. Remaining hardening is focused on production E2E
-validation, concrete deployment observability wiring, richer dead-letter operations, and any
+audit sink before composition is allowed. Runtime composition can satisfy the metric/audit
+observability requirement from JSONL sinks configured with
+`OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH` and
+`OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH`. Remaining hardening is focused on production E2E
+validation, target-environment observability validation, richer dead-letter operations, and any
 circuit-breaker policy required by receiver failure rates.
 
 ## Planned Increments

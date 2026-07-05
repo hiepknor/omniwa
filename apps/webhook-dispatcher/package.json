@@ -12,6 +12,7 @@
     "@omniwa/config": "workspace:*",
     "@omniwa/domain": "workspace:*",
     "@omniwa/errors": "workspace:*",
+    "@omniwa/infrastructure-observability": "workspace:*",
     "@omniwa/infrastructure-persistence": "workspace:*",
     "@omniwa/infrastructure-queue": "workspace:*",
     "@omniwa/infrastructure-secrets": "workspace:*",

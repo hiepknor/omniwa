@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -221,6 +221,28 @@ describe("Webhook Dispatcher runtime composition", () => {
     ).toThrow(/configured webhook signing secret value/u);
   });
 
+  it("wires JSONL observability sinks from runtime environment", async () => {
+    const directory = createTemporaryDirectory();
+    const metricsPath = join(directory, "metrics", "webhook-dispatcher.jsonl");
+    const auditPath = join(directory, "audit", "webhook-dispatcher.jsonl");
+    const composition = createWebhookDispatcherRuntimeComposition({
+      NODE_ENV: "test",
+      OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH: metricsPath,
+      OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH: auditPath,
+    });
+
+    await expect(composition.app.runOnce(context)).resolves.toMatchObject({ outcome: "idle" });
+
+    const metrics = readFileSync(metricsPath, "utf8");
+    const audit = readFileSync(auditPath, "utf8");
+    expect(metrics).toContain("webhook_dispatcher.dispatch.total");
+    expect(metrics).toContain('"runtimeRole":"webhook"');
+    expect(audit).toContain('"event":"webhook_dispatch"');
+    expect(audit).toContain('"outcome":"idle"');
+    expect(JSON.stringify({ metrics, audit })).not.toContain("webhook-runtime-composition-secret");
+    expect(JSON.stringify({ metrics, audit })).not.toContain("receiver.example.test");
+  });
+
   it("composes production runtime when durable queue, gateway, secret, and observability are present", () => {
     const telemetry = new RecordingWebhookDispatcherTelemetry();
     const composition = createWebhookDispatcherRuntimeComposition(
@@ -238,6 +260,34 @@ describe("Webhook Dispatcher runtime composition", () => {
         webhookFetch: new RecordingWebhookFetch().fetch,
         metricRecorder: telemetry,
         auditSink: telemetry,
+      },
+    );
+
+    expect(composition).toMatchObject({
+      profile: "production",
+      repositoryProfile: "postgresql",
+      queueProfile: "durable-worker-job",
+    });
+    expect(composition.queueProvider).toBeInstanceOf(DurableWorkerJobQueueProvider);
+  });
+
+  it("composes production runtime with JSONL observability paths", () => {
+    const directory = createTemporaryDirectory();
+    const composition = createWebhookDispatcherRuntimeComposition(
+      {
+        OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: "production",
+        OMNIWA_WEBHOOK_DISPATCHER_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_WEBHOOK_DISPATCHER_QUEUE_PROFILE: "durable-worker-job",
+        OMNIWA_WEBHOOK_DISPATCHER_HTTP_GATEWAY: "fetch",
+        OMNIWA_WEBHOOK_SIGNING_SECRET_NAME: "OMNIWA_WEBHOOK_SIGNING_SECRET",
+        OMNIWA_WEBHOOK_SIGNING_SECRET: "webhook-production-runtime-secret",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@127.0.0.1:55432/omniwa",
+        OMNIWA_POSTGRES_AUTO_MIGRATE: "true",
+        OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH: join(directory, "metrics.jsonl"),
+        OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH: join(directory, "audit.jsonl"),
+      },
+      {
+        webhookFetch: new RecordingWebhookFetch().fetch,
       },
     );
 

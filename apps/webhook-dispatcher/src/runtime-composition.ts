@@ -10,6 +10,7 @@ import {
   createPostgresqlConnectionPool,
   createPostgresqlRepositorySet,
 } from "@omniwa/infrastructure-persistence";
+import { JsonLineFileSink, JsonLineMetricRecorder } from "@omniwa/infrastructure-observability";
 import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import { EnvSecretProvider } from "@omniwa/infrastructure-secrets";
 import {
@@ -26,6 +27,7 @@ import {
   createWebhookDispatcherRuntime,
   type WebhookDispatchAuditSink,
 } from "./webhook-dispatcher-app.js";
+import { JsonLineWebhookDispatchAuditSink } from "./webhook-dispatcher-observability.js";
 
 export const webhookDispatcherRuntimeProfiles = ["local", "test", "production"] as const;
 
@@ -70,6 +72,10 @@ type WebhookDispatcherRepositories = Readonly<{
 }>;
 
 type WebhookDispatcherHttpGateway = "disabled" | "fetch";
+type WebhookDispatcherRuntimeObservability = Readonly<{
+  metricRecorder?: MetricRecorder;
+  auditSink?: WebhookDispatchAuditSink;
+}>;
 
 export function createWebhookDispatcherRuntimeComposition(
   env: NodeJS.ProcessEnv = process.env,
@@ -80,6 +86,7 @@ export function createWebhookDispatcherRuntimeComposition(
   const queueProfile = readWebhookDispatcherQueueProfile(env);
   const signingSecretName = readOptionalStringEnv(env, "OMNIWA_WEBHOOK_SIGNING_SECRET_NAME");
   const httpGateway = readWebhookDispatcherHttpGateway(env);
+  const observability = createWebhookDispatcherRuntimeObservability(env, adapters);
 
   assertWebhookDispatcherRuntimeProfileIsComposable({
     profile,
@@ -88,14 +95,14 @@ export function createWebhookDispatcherRuntimeComposition(
     httpGateway,
     signingSecretName,
     env,
-    adapters,
+    observability,
   });
 
   const repositories = createWebhookDispatcherRepositories(env, repositoryProfile);
   const queueProvider = createWebhookDispatcherQueueProvider({
     queueProfile,
     workerJobRepository: repositories.workerJobRepository,
-    ...optional("metricRecorder", adapters.metricRecorder),
+    ...optional("metricRecorder", observability.metricRecorder),
   });
   const runtime = createWebhookDispatcherRuntime({
     queueProvider,
@@ -114,8 +121,8 @@ export function createWebhookDispatcherRuntimeComposition(
       1_000,
       "OMNIWA_WEBHOOK_DISPATCHER_RETRY_DELAY_MS",
     ),
-    ...optional("metricRecorder", adapters.metricRecorder),
-    ...optional("auditSink", adapters.auditSink),
+    ...optional("metricRecorder", observability.metricRecorder),
+    ...optional("auditSink", observability.auditSink),
   });
 
   return Object.freeze({
@@ -156,6 +163,41 @@ function createWebhookDispatcherTransport(
       "OMNIWA_WEBHOOK_DISPATCHER_HTTP_TIMEOUT_MS",
     ),
   });
+}
+
+function createWebhookDispatcherRuntimeObservability(
+  env: NodeJS.ProcessEnv,
+  adapters: WebhookDispatcherRuntimeCompositionAdapterOptions,
+): WebhookDispatcherRuntimeObservability {
+  return Object.freeze({
+    ...optional(
+      "metricRecorder",
+      adapters.metricRecorder ?? createJsonLineMetricRecorderFromEnv(env),
+    ),
+    ...optional("auditSink", adapters.auditSink ?? createJsonLineAuditSinkFromEnv(env)),
+  });
+}
+
+function createJsonLineMetricRecorderFromEnv(env: NodeJS.ProcessEnv): MetricRecorder | undefined {
+  const filePath = readOptionalStringEnv(env, "OMNIWA_WEBHOOK_DISPATCHER_METRICS_JSONL_PATH");
+
+  return filePath === undefined
+    ? undefined
+    : new JsonLineMetricRecorder({
+        sink: new JsonLineFileSink({ filePath }),
+      });
+}
+
+function createJsonLineAuditSinkFromEnv(
+  env: NodeJS.ProcessEnv,
+): WebhookDispatchAuditSink | undefined {
+  const filePath = readOptionalStringEnv(env, "OMNIWA_WEBHOOK_DISPATCHER_AUDIT_JSONL_PATH");
+
+  return filePath === undefined
+    ? undefined
+    : new JsonLineWebhookDispatchAuditSink({
+        sink: new JsonLineFileSink({ filePath }),
+      });
 }
 
 function readWebhookDispatcherHttpGateway(env: NodeJS.ProcessEnv): WebhookDispatcherHttpGateway {
@@ -304,7 +346,7 @@ function assertWebhookDispatcherRuntimeProfileIsComposable(
     httpGateway: WebhookDispatcherHttpGateway;
     signingSecretName: string | undefined;
     env: NodeJS.ProcessEnv;
-    adapters: WebhookDispatcherRuntimeCompositionAdapterOptions;
+    observability: WebhookDispatcherRuntimeObservability;
   }>,
 ): void {
   if (input.profile !== "production") {
@@ -331,11 +373,11 @@ function assertWebhookDispatcherRuntimeProfileIsComposable(
     missing.push("configured webhook signing secret value");
   }
 
-  if (input.adapters.metricRecorder === undefined) {
+  if (input.observability.metricRecorder === undefined) {
     missing.push("metric recorder adapter");
   }
 
-  if (input.adapters.auditSink === undefined) {
+  if (input.observability.auditSink === undefined) {
     missing.push("webhook dispatch audit sink");
   }
 
