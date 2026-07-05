@@ -77,6 +77,9 @@ importers:
       '@omniwa/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@omniwa/infrastructure-observability':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-observability
       '@omniwa/infrastructure-persistence':
         specifier: workspace:*
         version: link:../../packages/infrastructure-persistence
@@ -86,6 +89,9 @@ importers:
       '@omniwa/infrastructure-queue':
         specifier: workspace:*
         version: link:../../packages/infrastructure-queue
+      '@omniwa/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@omniwa/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -263,6 +269,9 @@ importers:
 
   packages/infrastructure-observability:
     dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../application
       '@omniwa/observability':
         specifier: workspace:*
         version: link:../observability

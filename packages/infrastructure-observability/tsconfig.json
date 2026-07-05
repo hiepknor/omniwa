@@ -6,5 +6,9 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"],
-  "references": [{ "path": "../shared" }, { "path": "../observability" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../application" },
+    { "path": "../observability" }
+  ]
 }

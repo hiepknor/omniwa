@@ -11,9 +11,11 @@
     { "path": "../worker" },
     { "path": "../../packages/application" },
     { "path": "../../packages/domain" },
+    { "path": "../../packages/infrastructure-observability" },
     { "path": "../../packages/infrastructure-persistence" },
     { "path": "../../packages/infrastructure-provider-baileys" },
     { "path": "../../packages/infrastructure-queue" },
+    { "path": "../../packages/observability" },
     { "path": "../../packages/shared" }
   ]
 }

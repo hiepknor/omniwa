@@ -75,7 +75,7 @@ pnpm check
 
 ## Remaining Work
 
-- Wire EventLog publisher into production provider/runtime composition.
-- Add production outbox consumers for downstream integration dispatch where required.
-- Move durable EventLog storage from local JSON to the selected production persistence backend.
-- Extend observability dashboards with EventLog/outbox backlog and replay health metrics.
+- Wire the production downstream EventLog outbox publisher where integration dispatch is required.
+- Provide target-environment evidence for the background outbox loop and PostgreSQL EventLog backend.
+- Extend observability dashboards and alert routing with EventLog/outbox backlog and replay health
+  metrics.
