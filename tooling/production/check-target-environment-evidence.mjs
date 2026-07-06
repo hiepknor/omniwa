@@ -748,6 +748,7 @@ export function validateTargetEnvironmentRuntimeEvidenceArtifact(artifact) {
     artifact.dependencies.every(isDependencyEvidenceArtifact) &&
     isProviderCommandBridgeEvidenceArtifact(artifact.providerCommandBridge) &&
     isQueueRuntimeEvidenceArtifact(artifact.queueRuntime) &&
+    isEventStreamEvidenceArtifact(artifact.eventStream) &&
     isCredentialBoundaryEvidenceArtifact(artifact.credentialBoundary) &&
     isObservabilitySignalsEvidenceArtifact(artifact.observabilitySignals) &&
     isBackupRestoreEvidenceArtifact(artifact.backupRestore) &&
@@ -922,6 +923,19 @@ export function createTargetEnvironmentRuntimeEvidenceInputTemplate() {
       retryRecoveryProofRef: "operator-evidence-queue-retry-recovery-pending",
       deadLetterProofRef: "operator-evidence-queue-dead-letter-pending",
       expiredLeaseRecoveryProofRef: "operator-evidence-queue-expired-lease-recovery-pending",
+      safeErrorCode: "operator_runtime_evidence_required",
+    }),
+    eventStream: Object.freeze({
+      durableEventBackendChecked: false,
+      replayCursorChecked: false,
+      expiredCursorChecked: false,
+      sseCursorResumeChecked: false,
+      eventEnvelopeChecked: false,
+      durableBackendProofRef: "operator-evidence-event-stream-durable-backend-pending",
+      replayCursorProofRef: "operator-evidence-event-stream-replay-cursor-pending",
+      expiredCursorProofRef: "operator-evidence-event-stream-expired-cursor-pending",
+      sseCursorProofRef: "operator-evidence-event-stream-sse-cursor-pending",
+      eventEnvelopeProofRef: "operator-evidence-event-stream-envelope-pending",
       safeErrorCode: "operator_runtime_evidence_required",
     }),
     credentialBoundary: Object.freeze({
@@ -1100,6 +1114,23 @@ function isQueueRuntimeEvidenceArtifact(value) {
     isNonEmptyString(value.retryRecoveryProofRef) &&
     isNonEmptyString(value.deadLetterProofRef) &&
     isNonEmptyString(value.expiredLeaseRecoveryProofRef) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isEventStreamEvidenceArtifact(value) {
+  return (
+    isRecord(value) &&
+    typeof value.durableEventBackendChecked === "boolean" &&
+    typeof value.replayCursorChecked === "boolean" &&
+    typeof value.expiredCursorChecked === "boolean" &&
+    typeof value.sseCursorResumeChecked === "boolean" &&
+    typeof value.eventEnvelopeChecked === "boolean" &&
+    isNonEmptyString(value.durableBackendProofRef) &&
+    isNonEmptyString(value.replayCursorProofRef) &&
+    isNonEmptyString(value.expiredCursorProofRef) &&
+    isNonEmptyString(value.sseCursorProofRef) &&
+    isNonEmptyString(value.eventEnvelopeProofRef) &&
     (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
   );
 }
@@ -1399,6 +1430,17 @@ function isTargetEnvironmentRuntimeEvidenceInputTemplate(artifact) {
     artifact.queueRuntime.deadLetterProofRef.endsWith("-pending") &&
     artifact.queueRuntime.expiredLeaseRecoveryProofRef.endsWith("-pending") &&
     artifact.queueRuntime.safeErrorCode === "operator_runtime_evidence_required" &&
+    artifact.eventStream.durableEventBackendChecked === false &&
+    artifact.eventStream.replayCursorChecked === false &&
+    artifact.eventStream.expiredCursorChecked === false &&
+    artifact.eventStream.sseCursorResumeChecked === false &&
+    artifact.eventStream.eventEnvelopeChecked === false &&
+    artifact.eventStream.durableBackendProofRef.endsWith("-pending") &&
+    artifact.eventStream.replayCursorProofRef.endsWith("-pending") &&
+    artifact.eventStream.expiredCursorProofRef.endsWith("-pending") &&
+    artifact.eventStream.sseCursorProofRef.endsWith("-pending") &&
+    artifact.eventStream.eventEnvelopeProofRef.endsWith("-pending") &&
+    artifact.eventStream.safeErrorCode === "operator_runtime_evidence_required" &&
     artifact.credentialBoundary.providerSelectionChecked === false &&
     artifact.credentialBoundary.platformCredentialSourceChecked === false &&
     artifact.credentialBoundary.deliverySigningCredentialChecked === false &&

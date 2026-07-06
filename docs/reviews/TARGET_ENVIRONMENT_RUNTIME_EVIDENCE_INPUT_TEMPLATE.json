@@ -131,6 +131,19 @@
     "expiredLeaseRecoveryProofRef": "operator-evidence-queue-expired-lease-recovery-pending",
     "safeErrorCode": "operator_runtime_evidence_required"
   },
+  "eventStream": {
+    "durableEventBackendChecked": false,
+    "replayCursorChecked": false,
+    "expiredCursorChecked": false,
+    "sseCursorResumeChecked": false,
+    "eventEnvelopeChecked": false,
+    "durableBackendProofRef": "operator-evidence-event-stream-durable-backend-pending",
+    "replayCursorProofRef": "operator-evidence-event-stream-replay-cursor-pending",
+    "expiredCursorProofRef": "operator-evidence-event-stream-expired-cursor-pending",
+    "sseCursorProofRef": "operator-evidence-event-stream-sse-cursor-pending",
+    "eventEnvelopeProofRef": "operator-evidence-event-stream-envelope-pending",
+    "safeErrorCode": "operator_runtime_evidence_required"
+  },
   "credentialBoundary": {
     "providerSelectionChecked": false,
     "platformCredentialSourceChecked": false,

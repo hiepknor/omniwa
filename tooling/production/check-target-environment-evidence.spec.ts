@@ -938,6 +938,35 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails when optional runtime evidence omits event stream proof", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), {
+        ...validRuntimeEvidenceArtifact(),
+        eventStream: undefined,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails when optional runtime evidence omits credential boundary proof", async () => {
     const root = await createTempProject();
 
@@ -1006,6 +1035,36 @@ describe("target environment evidence gate", () => {
         queueRuntime: Record<string, unknown>;
       };
       delete artifact.queueRuntime.retryRecoveryProofRef;
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), artifact);
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when optional runtime evidence omits an event stream proof ref", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      const artifact = validRuntimeEvidenceArtifact() as {
+        eventStream: Record<string, unknown>;
+      };
+      delete artifact.eventStream.sseCursorProofRef;
       await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), artifact);
 
       const report = await evaluateTargetEnvironmentEvidence({
@@ -1503,6 +1562,18 @@ function validRuntimeEvidenceArtifact(): unknown {
       retryRecoveryProofRef: "queue-retry-recovery-reviewed",
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    },
+    eventStream: {
+      durableEventBackendChecked: true,
+      replayCursorChecked: true,
+      expiredCursorChecked: true,
+      sseCursorResumeChecked: true,
+      eventEnvelopeChecked: true,
+      durableBackendProofRef: "event-stream-durable-backend-reviewed",
+      replayCursorProofRef: "event-stream-replay-cursor-reviewed",
+      expiredCursorProofRef: "event-stream-expired-cursor-reviewed",
+      sseCursorProofRef: "event-stream-sse-cursor-reviewed",
+      eventEnvelopeProofRef: "event-stream-envelope-reviewed",
     },
     credentialBoundary: {
       providerSelectionChecked: true,

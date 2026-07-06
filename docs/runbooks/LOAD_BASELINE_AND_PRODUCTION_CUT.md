@@ -166,6 +166,9 @@ that still contain `pending` keep runtime evidence failed even if the boolean ch
 Queue runtime evidence must include safe refs for durable queue profile selection, atomic
 reservation, retry recovery, dead-letter behavior, and expired lease recovery. Refs that still
 contain `pending` keep runtime evidence failed even if the boolean checks are set.
+Event-stream evidence must include safe refs for durable EventLog backend selection, replay cursor,
+expired cursor handling, SSE cursor resume, and public event envelope checks. Refs that still
+contain `pending` keep runtime evidence failed even if the boolean checks are set.
 Credential-boundary evidence must include safe refs for Secret Provider selection, platform
 credential source, delivery signing credential access, Baileys state encryption, and the rotation
 procedure. Refs that still contain `pending` keep runtime evidence failed even if the boolean checks

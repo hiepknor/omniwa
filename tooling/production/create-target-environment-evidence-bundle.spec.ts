@@ -484,6 +484,18 @@ function validRuntimeEvidenceArtifact(): unknown {
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
     },
+    eventStream: {
+      durableEventBackendChecked: true,
+      replayCursorChecked: true,
+      expiredCursorChecked: true,
+      sseCursorResumeChecked: true,
+      eventEnvelopeChecked: true,
+      durableBackendProofRef: "event-stream-durable-backend-reviewed",
+      replayCursorProofRef: "event-stream-replay-cursor-reviewed",
+      expiredCursorProofRef: "event-stream-expired-cursor-reviewed",
+      sseCursorProofRef: "event-stream-sse-cursor-reviewed",
+      eventEnvelopeProofRef: "event-stream-envelope-reviewed",
+    },
     credentialBoundary: {
       providerSelectionChecked: true,
       platformCredentialSourceChecked: true,

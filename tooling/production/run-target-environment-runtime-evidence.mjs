@@ -142,6 +142,19 @@ function createDefaultRuntimeEvidenceReport({ checkedAtIso, findings }) {
       expiredLeaseRecoveryProofRef: "target-runtime-queue-expired-lease-recovery-pending",
       safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
     }),
+    eventStream: Object.freeze({
+      durableEventBackendChecked: false,
+      replayCursorChecked: false,
+      expiredCursorChecked: false,
+      sseCursorResumeChecked: false,
+      eventEnvelopeChecked: false,
+      durableBackendProofRef: "target-runtime-event-stream-durable-backend-pending",
+      replayCursorProofRef: "target-runtime-event-stream-replay-cursor-pending",
+      expiredCursorProofRef: "target-runtime-event-stream-expired-cursor-pending",
+      sseCursorProofRef: "target-runtime-event-stream-sse-cursor-pending",
+      eventEnvelopeProofRef: "target-runtime-event-stream-envelope-pending",
+      safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
+    }),
     credentialBoundary: Object.freeze({
       providerSelectionChecked: false,
       platformCredentialSourceChecked: false,
@@ -205,6 +218,12 @@ function runtimeEvidenceChecksPass(report) {
     report.queueRuntime.deadLetterChecked &&
     report.queueRuntime.expiredLeaseRecoveryChecked &&
     queueRuntimeProofRefsComplete(report.queueRuntime) &&
+    report.eventStream.durableEventBackendChecked &&
+    report.eventStream.replayCursorChecked &&
+    report.eventStream.expiredCursorChecked &&
+    report.eventStream.sseCursorResumeChecked &&
+    report.eventStream.eventEnvelopeChecked &&
+    eventStreamProofRefsComplete(report.eventStream) &&
     report.credentialBoundary.providerSelectionChecked &&
     report.credentialBoundary.platformCredentialSourceChecked &&
     report.credentialBoundary.deliverySigningCredentialChecked &&
@@ -241,6 +260,16 @@ function queueRuntimeProofRefsComplete(queueRuntime) {
     queueRuntime.retryRecoveryProofRef,
     queueRuntime.deadLetterProofRef,
     queueRuntime.expiredLeaseRecoveryProofRef,
+  ].every((value) => typeof value === "string" && value.length > 0 && !value.includes("pending"));
+}
+
+function eventStreamProofRefsComplete(eventStream) {
+  return [
+    eventStream.durableBackendProofRef,
+    eventStream.replayCursorProofRef,
+    eventStream.expiredCursorProofRef,
+    eventStream.sseCursorProofRef,
+    eventStream.eventEnvelopeProofRef,
   ].every((value) => typeof value === "string" && value.length > 0 && !value.includes("pending"));
 }
 
@@ -291,6 +320,7 @@ function freezeRuntimeEvidenceReport(report) {
     ),
     providerCommandBridge: Object.freeze({ ...report.providerCommandBridge }),
     queueRuntime: Object.freeze({ ...report.queueRuntime }),
+    eventStream: Object.freeze({ ...report.eventStream }),
     credentialBoundary: Object.freeze({ ...report.credentialBoundary }),
     observabilitySignals: Object.freeze({ ...report.observabilitySignals }),
     backupRestore: Object.freeze({ ...report.backupRestore }),

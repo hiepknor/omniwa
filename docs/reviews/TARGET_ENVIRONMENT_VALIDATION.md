@@ -138,13 +138,17 @@ runtime evidence artifact. If no input is supplied, it emits a failed safe skele
 claiming proof. The checked-in input template is validated by `pnpm target-env:check` and must remain
 a failed safe skeleton. The generated artifact records startup, readiness, shutdown, dependency
 connectivity, migration-status, provider-command bridge configuration/auth/round-trip proof, queue
-runtime proof, credential-boundary proof for Secret Provider posture, observability signal proof,
-and backup/restore drill checks. Provider-command bridge
+runtime proof, event-stream proof for EventLog replay and SSE cursor behavior,
+credential-boundary proof for Secret Provider posture, observability signal proof, and
+backup/restore drill checks. Provider-command bridge
 proof must include safe refs for startup, worker client configuration, provider-runtime server
 configuration, authentication boundary, and a command round trip; refs that still contain `pending`
 keep the artifact failed even if booleans are set. Queue runtime proof must include safe refs for
 the durable queue profile, atomic reservation, retry recovery, dead-letter behavior, and expired
 lease recovery; refs that still contain `pending` keep the artifact failed even if booleans are set.
+Event-stream proof must include safe refs for durable EventLog backend selection, replay cursor,
+expired cursor handling, SSE cursor resume, and public event envelope checks; refs that still
+contain `pending` keep the artifact failed.
 Credential-boundary proof must include safe refs for provider selection, platform credential source,
 delivery signing credential access, Baileys state encryption, and the rotation procedure; refs that
 still contain `pending` keep the artifact failed.
@@ -154,8 +158,8 @@ queue backlog metrics, EventLog outbox metrics, and redaction review; refs that 
 database or Redis connection strings, API keys, raw runtime logs, raw instance IDs, QR payloads,
 JIDs, message text, provider payloads, session material, webhook secrets, or secret-provider values.
 This artifact provides operator evidence for the runtime matrix, dependency connectivity, bridge
-behavior, queue runtime behavior, observability signals, and recovery drill references, but it does
-not by itself change the proof states above.
+behavior, queue runtime behavior, EventLog/SSE replay behavior, observability signals, and recovery
+drill references, but it does not by itself change the proof states above.
 
 Optional target-environment evidence bundle validation:
 

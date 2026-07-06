@@ -69,6 +69,19 @@ describe("target environment runtime evidence runner", () => {
       expiredLeaseRecoveryProofRef: "target-runtime-queue-expired-lease-recovery-pending",
       safeErrorCode: "target_runtime_evidence_not_supplied",
     });
+    expect(report.eventStream).toEqual({
+      durableEventBackendChecked: false,
+      replayCursorChecked: false,
+      expiredCursorChecked: false,
+      sseCursorResumeChecked: false,
+      eventEnvelopeChecked: false,
+      durableBackendProofRef: "target-runtime-event-stream-durable-backend-pending",
+      replayCursorProofRef: "target-runtime-event-stream-replay-cursor-pending",
+      expiredCursorProofRef: "target-runtime-event-stream-expired-cursor-pending",
+      sseCursorProofRef: "target-runtime-event-stream-sse-cursor-pending",
+      eventEnvelopeProofRef: "target-runtime-event-stream-envelope-pending",
+      safeErrorCode: "target_runtime_evidence_not_supplied",
+    });
     expect(report.credentialBoundary).toEqual({
       providerSelectionChecked: false,
       platformCredentialSourceChecked: false,
@@ -158,6 +171,18 @@ describe("target environment runtime evidence runner", () => {
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
     });
+    expect(report.eventStream).toEqual({
+      durableEventBackendChecked: true,
+      replayCursorChecked: true,
+      expiredCursorChecked: true,
+      sseCursorResumeChecked: true,
+      eventEnvelopeChecked: true,
+      durableBackendProofRef: "event-stream-durable-backend-reviewed",
+      replayCursorProofRef: "event-stream-replay-cursor-reviewed",
+      expiredCursorProofRef: "event-stream-expired-cursor-reviewed",
+      sseCursorProofRef: "event-stream-sse-cursor-reviewed",
+      eventEnvelopeProofRef: "event-stream-envelope-reviewed",
+    });
     expect(report.credentialBoundary).toEqual({
       providerSelectionChecked: true,
       platformCredentialSourceChecked: true,
@@ -235,6 +260,24 @@ describe("target environment runtime evidence runner", () => {
     expect(report.status).toBe("failed");
     expect(report.queueRuntime.retryRecoveryProofRef).toBe(
       "operator-evidence-queue-retry-recovery-pending",
+    );
+  });
+
+  it("keeps runtime evidence failed when event stream proof refs remain pending", async () => {
+    const input = validRuntimeEvidenceInput("passed");
+    const report = await runTargetEnvironmentRuntimeEvidence({
+      input: {
+        ...input,
+        eventStream: {
+          ...input.eventStream,
+          sseCursorProofRef: "operator-evidence-event-stream-sse-cursor-pending",
+        },
+      },
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.eventStream.sseCursorProofRef).toBe(
+      "operator-evidence-event-stream-sse-cursor-pending",
     );
   });
 
@@ -437,6 +480,18 @@ function validRuntimeEvidenceInput(status: "passed" | "failed" = "passed") {
       retryRecoveryProofRef: "queue-retry-recovery-reviewed",
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    },
+    eventStream: {
+      durableEventBackendChecked: true,
+      replayCursorChecked: true,
+      expiredCursorChecked: true,
+      sseCursorResumeChecked: true,
+      eventEnvelopeChecked: true,
+      durableBackendProofRef: "event-stream-durable-backend-reviewed",
+      replayCursorProofRef: "event-stream-replay-cursor-reviewed",
+      expiredCursorProofRef: "event-stream-expired-cursor-reviewed",
+      sseCursorProofRef: "event-stream-sse-cursor-reviewed",
+      eventEnvelopeProofRef: "event-stream-envelope-reviewed",
     },
     credentialBoundary: {
       providerSelectionChecked: true,

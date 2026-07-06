@@ -160,6 +160,11 @@ Provider proof. Populate only booleans and safe refs for provider selection, pla
 source, delivery signing credential access, Baileys state encryption, and rotation procedure checks;
 any ref that still contains `pending` keeps runtime evidence failed.
 
+The same input must include the `eventStream` section for EventLog/SSE proof. Populate only booleans
+and safe refs for durable EventLog backend selection, replay cursor, expired cursor handling, SSE
+cursor resume, and public event envelope checks; any ref that still contains `pending` keeps runtime
+evidence failed.
+
 ## Review Update
 
 Only after the collected artifacts pass validation should reviewers update

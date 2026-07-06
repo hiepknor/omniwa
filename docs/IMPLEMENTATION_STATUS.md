@@ -385,6 +385,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   for Secret Provider posture. The sanitized artifact must prove provider selection, platform
   credential source, delivery signing credential access, Baileys state encryption, and rotation
   procedure checks with non-pending safe refs before runtime evidence can pass.
+- N11.7 target-environment runtime evidence now also requires an `eventStream` proof section for
+  EventLog/SSE posture. The sanitized artifact must prove durable EventLog backend selection, replay
+  cursor, expired cursor handling, SSE cursor resume, and public event envelope checks with
+  non-pending safe refs before runtime evidence can pass.
 - N11.7 target-environment evidence validation now keeps
   `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` under the local evidence
   gate as a safe failed skeleton. Operators should copy and populate that template into an external
