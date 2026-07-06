@@ -84,7 +84,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
 
   await writeText(
     join(projectRoot, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
-    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Target environment smoke\n\npnpm target-env:smoke tooling present.\n\n## Target environment load\n\npnpm target-env:load tooling present.\n\n## Target environment runtime evidence\n\npnpm target-env:runtime tooling present.\n\n## Target environment bundle\n\npnpm target-env:bundle tooling present.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
+    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Target environment smoke\n\npnpm target-env:smoke tooling present.\n\n## Target environment load\n\npnpm target-env:load tooling present.\n\n## Target environment runtime evidence\n\npnpm target-env:runtime tooling present. Provider-command bridge proof refs are required for startup, worker client configuration, provider-runtime server configuration, authentication boundary, and command round trip.\n\n## Target environment bundle\n\npnpm target-env:bundle tooling present.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
   );
 }
 
@@ -180,6 +180,10 @@ async function checkProductionCutReview(projectRoot, findings) {
 
   if (!/Target environment runtime evidence|pnpm target-env:runtime/iu.test(content)) {
     findings.push(createFinding("target_environment_runtime_summary_missing", "blocker"));
+  }
+
+  if (!/Provider-command bridge proof/iu.test(content)) {
+    findings.push(createFinding("target_environment_provider_bridge_proof_missing", "blocker"));
   }
 
   if (!/Gate 2 Review/iu.test(content)) {

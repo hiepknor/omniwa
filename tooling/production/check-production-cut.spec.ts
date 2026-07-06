@@ -60,6 +60,7 @@ describe("production cut gate check", () => {
           expect.objectContaining({ code: "target_environment_load_summary_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_summary_missing" }),
           expect.objectContaining({ code: "target_environment_runtime_summary_missing" }),
+          expect.objectContaining({ code: "target_environment_provider_bridge_proof_missing" }),
           expect.objectContaining({ code: "gate_2_review_missing" }),
           expect.objectContaining({ code: "known_constraints_missing" }),
         ]),

@@ -187,6 +187,9 @@ describe("release readiness check", () => {
           expect.objectContaining({
             code: "load_baseline_runbook_missing_runtime_evidence_template",
           }),
+          expect.objectContaining({
+            code: "load_baseline_runbook_missing_provider_bridge_proof_guidance",
+          }),
         ]),
       );
     } finally {
@@ -237,6 +240,9 @@ describe("release readiness check", () => {
           }),
           expect.objectContaining({
             code: "target_environment_collection_runbook_missing_production_cut_review",
+          }),
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_provider_bridge_proof_guidance",
           }),
         ]),
       );

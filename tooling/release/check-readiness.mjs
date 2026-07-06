@@ -317,6 +317,8 @@ function releaseEvidenceFixtureContent(file) {
       "",
       "Use `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` as the starting skeleton.",
       "",
+      "Provider-command bridge proof must include startup, worker client configuration, provider-runtime server configuration, authentication boundary, and command round-trip refs.",
+      "",
     ].join("\n");
   }
 
@@ -329,6 +331,8 @@ function releaseEvidenceFixtureContent(file) {
       "Use `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`, `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`, `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`, and `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
       "",
       "Start from `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` and `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json`.",
+      "",
+      "Provider-command bridge proof must include startup, worker client configuration, provider-runtime server configuration, authentication boundary, and command round-trip refs.",
       "",
       "Update `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` and `docs/reviews/PRODUCTION_CUT_REVIEW.md` only after sanitized evidence passes validation.",
       "",
@@ -511,6 +515,12 @@ async function checkProductionCutRunbook(projectRoot, findings) {
     );
   }
 
+  if (!/provider-command bridge proof/iu.test(runbook)) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_provider_bridge_proof_guidance", "blocker"),
+    );
+  }
+
   if (!runbook.includes("docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md")) {
     findings.push(
       createFinding("load_baseline_runbook_missing_evidence_collection_link", "blocker"),
@@ -575,10 +585,14 @@ async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, find
       "target_environment_collection_runbook_missing_production_cut_review",
       "docs/reviews/PRODUCTION_CUT_REVIEW.md",
     ],
+    [
+      "target_environment_collection_runbook_missing_provider_bridge_proof_guidance",
+      "provider-command bridge proof",
+    ],
   ];
 
   for (const [code, fragment] of requiredFragments) {
-    if (!runbook.includes(fragment)) {
+    if (!runbook.toLowerCase().includes(fragment.toLowerCase())) {
       findings.push(createFinding(code, "blocker"));
     }
   }

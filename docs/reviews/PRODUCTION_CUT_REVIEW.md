@@ -58,11 +58,13 @@ checked-in template and already-sanitized smoke/load/runtime evidence summaries.
 validated by `pnpm target-env:check`, but it must not claim a readiness state that this review
 document does not claim.
 The optional `pnpm target-env:runtime` command can normalize sanitized operator runtime evidence for
-startup, readiness, shutdown, dependency connectivity, migration-status checks, and backup/restore
-drill references from an external copy of
+startup, readiness, shutdown, dependency connectivity, migration-status checks, provider-command
+bridge proof refs, and backup/restore drill references from an external copy of
 `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json`. It does not collect secrets
 or raw runtime logs, and it does not replace the proof state updates required in
 `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.
+Provider-command bridge proof must include safe refs for startup, worker client configuration,
+provider-runtime server configuration, authentication boundary, and command round trip.
 
 ## Load Baseline
 
