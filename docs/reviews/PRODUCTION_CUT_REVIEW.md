@@ -59,8 +59,10 @@ validated by `pnpm target-env:check`, but it must not claim a readiness state th
 document does not claim.
 The optional `pnpm target-env:runtime` command can normalize sanitized operator runtime evidence for
 startup, readiness, shutdown, dependency connectivity, migration-status checks, and backup/restore
-drill references. It does not collect secrets or raw runtime logs, and it does not replace the proof
-state updates required in `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.
+drill references from an external copy of
+`docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json`. It does not collect secrets
+or raw runtime logs, and it does not replace the proof state updates required in
+`docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.
 
 ## Load Baseline
 

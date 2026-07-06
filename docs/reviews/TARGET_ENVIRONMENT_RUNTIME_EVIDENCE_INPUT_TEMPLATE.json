@@ -1,0 +1,123 @@
+{
+  "status": "failed",
+  "checkedAtIso": "1970-01-01T00:00:00.000Z",
+  "runtimes": [
+    {
+      "component": "API Runtime",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-api-runtime-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Worker Runtime",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-worker-runtime-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Provider Runtime",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-provider-runtime-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Background Runtime",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-background-runtime-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Webhook Dispatcher",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-webhook-dispatcher-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "PostgreSQL",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-postgresql-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Redis",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-redis-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "EventLog",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-eventlog-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Secret Provider",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-secret-provider-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Observability",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-observability-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "component": "Backup/Restore",
+      "started": false,
+      "readinessChecked": false,
+      "shutdownChecked": false,
+      "versionRef": "operator-evidence-backup-restore-version-pending",
+      "safeErrorCode": "operator_runtime_evidence_required"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependency": "PostgreSQL",
+      "connectivityChecked": false,
+      "credentialBoundaryChecked": false,
+      "migrationStatusChecked": false,
+      "safeErrorCode": "operator_runtime_evidence_required"
+    },
+    {
+      "dependency": "Redis",
+      "connectivityChecked": false,
+      "credentialBoundaryChecked": false,
+      "safeErrorCode": "operator_runtime_evidence_required"
+    }
+  ],
+  "backupRestore": {
+    "drillRef": "operator-evidence-backup-restore-drill-pending",
+    "backupCreated": false,
+    "restoreValidated": false,
+    "rollbackOrForwardFixReviewed": false,
+    "safeErrorCode": "operator_runtime_evidence_required"
+  },
+  "findings": [
+    {
+      "code": "target_runtime_evidence_input_not_collected",
+      "severity": "warning",
+      "safeDetailCode": "operator_runtime_evidence_required"
+    }
+  ]
+}

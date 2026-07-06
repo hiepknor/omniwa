@@ -12,6 +12,7 @@ export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/performance/run-target-environment-load.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json",
+  "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
 ]);
 
@@ -103,6 +104,7 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
   );
   const reviewSnapshot = await checkTargetEnvironmentReview(projectRoot, findings);
   await checkTargetEnvironmentBundleTemplate(projectRoot, findings);
+  await checkTargetEnvironmentRuntimeEvidenceInputTemplate(projectRoot, findings);
   await checkRootPackage(projectRoot, findings);
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
@@ -170,6 +172,11 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
   ]) {
     if (file === "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json") {
       await writeJson(join(projectRoot, file), createTargetEnvironmentEvidenceBundleTemplate());
+    } else if (file === "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json") {
+      await writeJson(
+        join(projectRoot, file),
+        createTargetEnvironmentRuntimeEvidenceInputTemplate(),
+      );
     } else {
       await writeText(join(projectRoot, file), "fixture\n");
     }
@@ -361,6 +368,36 @@ async function checkTargetEnvironmentBundleTemplate(projectRoot, findings) {
 
   if (findUnsafeArtifactContent(template) !== undefined) {
     findings.push(createFinding("target_environment_bundle_template_unsafe_content", "blocker"));
+  }
+}
+
+async function checkTargetEnvironmentRuntimeEvidenceInputTemplate(projectRoot, findings) {
+  let template;
+
+  try {
+    template = JSON.parse(
+      await readFile(
+        join(projectRoot, "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json"),
+        "utf8",
+      ),
+    );
+  } catch {
+    findings.push(
+      createFinding("target_environment_runtime_evidence_input_template_unreadable", "blocker"),
+    );
+    return;
+  }
+
+  if (!isTargetEnvironmentRuntimeEvidenceInputTemplate(template)) {
+    findings.push(
+      createFinding("target_environment_runtime_evidence_input_template_invalid_schema", "blocker"),
+    );
+  }
+
+  if (findUnsafeArtifactContent(template) !== undefined) {
+    findings.push(
+      createFinding("target_environment_runtime_evidence_input_template_unsafe_content", "blocker"),
+    );
   }
 }
 
@@ -676,6 +713,54 @@ export function createTargetEnvironmentEvidenceBundleTemplate() {
   });
 }
 
+export function createTargetEnvironmentRuntimeEvidenceInputTemplate() {
+  return Object.freeze({
+    status: "failed",
+    checkedAtIso: "1970-01-01T00:00:00.000Z",
+    runtimes: Object.freeze(
+      requiredTargetEnvironmentComponents.map((component) =>
+        Object.freeze({
+          component,
+          started: false,
+          readinessChecked: false,
+          shutdownChecked: false,
+          versionRef: `operator-evidence-${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-version-pending`,
+          safeErrorCode: "operator_runtime_evidence_required",
+        }),
+      ),
+    ),
+    dependencies: Object.freeze([
+      Object.freeze({
+        dependency: "PostgreSQL",
+        connectivityChecked: false,
+        credentialBoundaryChecked: false,
+        migrationStatusChecked: false,
+        safeErrorCode: "operator_runtime_evidence_required",
+      }),
+      Object.freeze({
+        dependency: "Redis",
+        connectivityChecked: false,
+        credentialBoundaryChecked: false,
+        safeErrorCode: "operator_runtime_evidence_required",
+      }),
+    ]),
+    backupRestore: Object.freeze({
+      drillRef: "operator-evidence-backup-restore-drill-pending",
+      backupCreated: false,
+      restoreValidated: false,
+      rollbackOrForwardFixReviewed: false,
+      safeErrorCode: "operator_runtime_evidence_required",
+    }),
+    findings: Object.freeze([
+      Object.freeze({
+        code: "target_runtime_evidence_input_not_collected",
+        severity: "warning",
+        safeDetailCode: "operator_runtime_evidence_required",
+      }),
+    ]),
+  });
+}
+
 function isSmokeEndpointArtifact(value) {
   return (
     isRecord(value) &&
@@ -947,6 +1032,37 @@ function isTargetEnvironmentEvidenceBundleTemplate(artifact) {
     artifact.proofStates.productionLoadProven === false &&
     artifact.proofStates.sloEvidenceProven === false &&
     artifact.components.every((component) => component.status === "PENDING")
+  );
+}
+
+function isTargetEnvironmentRuntimeEvidenceInputTemplate(artifact) {
+  return (
+    validateTargetEnvironmentRuntimeEvidenceArtifact(artifact) &&
+    artifact.status === "failed" &&
+    artifact.runtimes.every(
+      (runtime) =>
+        runtime.started === false &&
+        runtime.readinessChecked === false &&
+        runtime.shutdownChecked === false &&
+        runtime.safeErrorCode === "operator_runtime_evidence_required",
+    ) &&
+    artifact.dependencies.every(
+      (dependency) =>
+        dependency.connectivityChecked === false &&
+        dependency.credentialBoundaryChecked === false &&
+        dependency.migrationStatusChecked !== true &&
+        dependency.safeErrorCode === "operator_runtime_evidence_required",
+    ) &&
+    artifact.backupRestore.backupCreated === false &&
+    artifact.backupRestore.restoreValidated === false &&
+    artifact.backupRestore.rollbackOrForwardFixReviewed === false &&
+    artifact.backupRestore.safeErrorCode === "operator_runtime_evidence_required" &&
+    artifact.findings.some(
+      (finding) =>
+        finding.code === "target_runtime_evidence_input_not_collected" &&
+        finding.severity === "warning" &&
+        finding.safeDetailCode === "operator_runtime_evidence_required",
+    )
   );
 }
 

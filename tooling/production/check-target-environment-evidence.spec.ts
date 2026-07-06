@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   createTargetEnvironmentEvidenceBundleTemplate,
   createTargetEnvironmentFixture,
+  createTargetEnvironmentRuntimeEvidenceInputTemplate,
   evaluateTargetEnvironmentEvidence,
   requiredTargetEnvironmentComponents,
   requiredTargetEnvironmentEvidenceTests,
@@ -264,6 +265,97 @@ describe("target environment evidence gate", () => {
           }),
         ]),
       );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment runtime evidence input template is missing", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await rm(join(root, "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json"), {
+        force: true,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_evidence_missing",
+            target: "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json",
+          }),
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_input_template_unreadable",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment runtime evidence input template claims proof", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json"),
+        validRuntimeEvidenceArtifact(),
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_input_template_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment runtime evidence input template contains unsafe details", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json"),
+        {
+          ...createTargetEnvironmentRuntimeEvidenceInputTemplate(),
+          runtimeUrl: "https://target.example.invalid/runtime",
+        },
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_input_template_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(report)).not.toContain("target.example");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
