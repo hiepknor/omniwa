@@ -28,7 +28,10 @@ import {
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
 import {
+  classifyValue,
+  createCatalogMetricPoint,
   createMetricPoint,
+  toSafeLogFields,
   type MetricKind,
   type MetricRecorder,
   type RuntimeRole,
@@ -127,9 +130,10 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
       );
 
       await this.workerJobRepository.save(workerJob);
+      await this.setWorkerJobVisibility(workerJob.id, this.now());
       await this.workerJobRepository.recordIdempotencyKey?.(idempotencyKey, work.jobId);
       this.recordQueueMetric("queue.enqueue.total", work.workType, "accepted");
-      await this.recordDepthMetric(work.workType);
+      await this.recordBacklogMetrics(work.workType);
 
       return this.receiptFor(workerJob);
     });
@@ -151,6 +155,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
       }
 
       this.recordQueueMetric("queue.reserve.total", workType, "reserved");
+      await this.recordBacklogMetrics(workType);
 
       return reservationFor(reserved, reserved.attemptNumber ?? 1);
     });
@@ -182,7 +187,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
         toQueueWorkType(completed.workType),
         "completed",
       );
-      await this.recordDepthMetric(toQueueWorkType(completed.workType));
+      await this.recordBacklogMetrics(toQueueWorkType(completed.workType));
 
       return this.receiptFor(completed);
     });
@@ -214,7 +219,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
           toQueueWorkType(dead.workType),
           "dead_lettered",
         );
-        await this.recordDepthMetric(toQueueWorkType(dead.workType));
+        await this.recordBacklogMetrics(toQueueWorkType(dead.workType));
 
         return this.receiptFor(dead);
       }
@@ -228,6 +233,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
       await this.setWorkerJobVisibility(retrying.id, this.now() + delayMilliseconds);
       await this.workerJobRepository.save(retrying);
       this.recordQueueMetric("queue.retry.total", toQueueWorkType(retrying.workType), "scheduled");
+      await this.recordBacklogMetrics(toQueueWorkType(retrying.workType));
 
       return this.receiptFor(retrying);
     });
@@ -260,7 +266,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
         toQueueWorkType(dead.workType),
         "dead_lettered",
       );
-      await this.recordDepthMetric(toQueueWorkType(dead.workType));
+      await this.recordBacklogMetrics(toQueueWorkType(dead.workType));
 
       return this.receiptFor(dead);
     });
@@ -376,7 +382,9 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
     );
   }
 
-  private async reserveNextVisibleWorkerJob(workType: QueueWorkType): Promise<WorkerJob | undefined> {
+  private async reserveNextVisibleWorkerJob(
+    workType: QueueWorkType,
+  ): Promise<WorkerJob | undefined> {
     const atomicReserve = this.workerJobRepository.reserveNextVisibleWorkerJob;
 
     if (atomicReserve !== undefined) {
@@ -387,10 +395,7 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
         reserve: (workerJob) => {
           const attempt = nextReservationAttempt(workerJob);
 
-          return reserveWorkerJob(
-            workerJob,
-            createAttemptNumber(attempt, workerJob.retryPolicy),
-          );
+          return reserveWorkerJob(workerJob, createAttemptNumber(attempt, workerJob.retryPolicy));
         },
       });
 
@@ -504,15 +509,64 @@ export class DurableWorkerJobQueueProvider implements QueueProviderPort {
     }
   }
 
-  private async recordDepthMetric(workType: QueueWorkType): Promise<void> {
-    const activeJobs = [
-      ...(await this.workerJobRepository.findByStatus("queued")),
-      ...(await this.workerJobRepository.findByStatus("reserved")),
-      ...(await this.workerJobRepository.findByStatus("running")),
-      ...(await this.workerJobRepository.findByStatus("retrying")),
-    ].filter((job) => isSupportedWorkerJob(job) && job.workType === workType).length;
+  private async recordBacklogMetrics(workType: QueueWorkType): Promise<void> {
+    const visibleJobs = await this.visibleBacklogJobs(workType);
+    const oldestVisibleAt = await this.oldestVisibleAt(visibleJobs);
+    const oldestPendingAge =
+      oldestVisibleAt === undefined ? 0 : Math.max(0, this.now() - oldestVisibleAt);
 
-    this.recordMetric("queue.depth", activeJobs, "gauge", { workType });
+    this.recordCatalogMetric("queue.backlog.depth", visibleJobs.length, { work_type: workType });
+    this.recordCatalogMetric("queue.backlog.oldest_pending_age", oldestPendingAge, {
+      work_type: workType,
+    });
+  }
+
+  private async visibleBacklogJobs(workType: QueueWorkType): Promise<readonly WorkerJob[]> {
+    const candidates = [
+      ...(await this.workerJobRepository.findByStatus("queued")),
+      ...(await this.workerJobRepository.findByStatus("retrying")),
+    ].filter((job) => isSupportedWorkerJob(job) && job.workType === workType);
+
+    const visibleJobs: WorkerJob[] = [];
+
+    for (const job of candidates) {
+      if (await this.isWorkerJobVisible(job)) {
+        visibleJobs.push(job);
+      }
+    }
+
+    return Object.freeze(visibleJobs);
+  }
+
+  private async oldestVisibleAt(jobs: readonly WorkerJob[]): Promise<number | undefined> {
+    let oldest: number | undefined;
+
+    for (const job of jobs) {
+      const visibleAt = (await this.visibleAtFor(job)) ?? this.now();
+      oldest = oldest === undefined ? visibleAt : Math.min(oldest, visibleAt);
+    }
+
+    return oldest;
+  }
+
+  private recordCatalogMetric(
+    name: "queue.backlog.depth" | "queue.backlog.oldest_pending_age",
+    value: number,
+    labels: Record<"work_type", QueueWorkType>,
+  ): void {
+    try {
+      this.metricRecorder?.recordMetric(
+        createCatalogMetricPoint(name, {
+          value,
+          labels: toSafeLogFields({
+            work_type: classifyValue(labels.work_type, "public"),
+          }),
+          observedAtEpochMilliseconds: this.now(),
+        }),
+      );
+    } catch {
+      return;
+    }
   }
 
   private recordQueueMetric(name: string, workType: QueueWorkType, result: string): void {

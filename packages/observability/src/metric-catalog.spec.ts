@@ -14,6 +14,8 @@ describe("production observability catalogs", () => {
     expect(productionMetricDefinitions.map((definition) => definition.name)).toEqual([
       "api.request.latency",
       "queue.work.latency",
+      "queue.backlog.depth",
+      "queue.backlog.oldest_pending_age",
       "provider.connection.state",
       "webhook.delivery.success.total",
       "worker.utilization.ratio",
@@ -88,6 +90,50 @@ describe("production observability catalogs", () => {
           endpoint_class: classifyValue("message_send", "public"),
           scope_kind: classifyValue("instance", "public"),
           scopeRef: classifyValue("inst_high_cardinality", "internal"),
+        }),
+      }),
+    ).toThrow(TypeError);
+  });
+
+  it("creates queue backlog catalog metrics with low-cardinality work type labels only", () => {
+    const depth = createCatalogMetricPoint("queue.backlog.depth", {
+      value: 7,
+      labels: toSafeLogFields({
+        work_type: classifyValue("outbound_message", "public"),
+      }),
+    });
+    const oldestPendingAge = createCatalogMetricPoint("queue.backlog.oldest_pending_age", {
+      value: 1500,
+      labels: toSafeLogFields({
+        work_type: classifyValue("webhook_delivery", "public"),
+      }),
+    });
+
+    expect(depth).toMatchObject({
+      name: "queue.backlog.depth",
+      kind: "gauge",
+      runtimeRole: "worker",
+      unit: "jobs",
+      labels: {
+        work_type: "outbound_message",
+      },
+    });
+    expect(oldestPendingAge).toMatchObject({
+      name: "queue.backlog.oldest_pending_age",
+      kind: "gauge",
+      runtimeRole: "worker",
+      unit: "milliseconds",
+      labels: {
+        work_type: "webhook_delivery",
+      },
+    });
+
+    expect(() =>
+      createCatalogMetricPoint("queue.backlog.depth", {
+        value: 1,
+        labels: toSafeLogFields({
+          work_type: classifyValue("outbound_message", "public"),
+          jobId: classifyValue("job_high_cardinality", "internal"),
         }),
       }),
     ).toThrow(TypeError);

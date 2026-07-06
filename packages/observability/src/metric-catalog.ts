@@ -34,6 +34,22 @@ export const productionMetricDefinitions = Object.freeze([
     description: "Queue work latency by approved work type and outcome category.",
   }),
   metricDefinition({
+    name: "queue.backlog.depth",
+    kind: "gauge",
+    runtimeRole: "worker",
+    unit: "jobs",
+    allowedLabels: ["work_type"],
+    description: "Visible queued/retrying work count by approved work type.",
+  }),
+  metricDefinition({
+    name: "queue.backlog.oldest_pending_age",
+    kind: "gauge",
+    runtimeRole: "worker",
+    unit: "milliseconds",
+    allowedLabels: ["work_type"],
+    description: "Age of the oldest visible queued/retrying item by approved work type.",
+  }),
+  metricDefinition({
     name: "provider.connection.state",
     kind: "gauge",
     runtimeRole: "provider",

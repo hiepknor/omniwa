@@ -312,6 +312,83 @@ describe("DurableWorkerJobQueueProvider", () => {
     );
     expect(JSON.stringify(metricRecorder.snapshot())).not.toContain("durable-queue-intent");
   });
+
+  it("emits cataloged queue backlog depth and oldest pending age metrics", async () => {
+    const workerJobs = new TestWorkerJobRepository();
+    const metricRecorder = new TestMetricRecorder();
+    const clock = new ManualClock(1000);
+    const queue = new DurableWorkerJobQueueProvider({
+      workerJobRepository: workerJobs,
+      metricRecorder,
+      clock,
+    });
+
+    expectOk(
+      await queue.enqueue(
+        {
+          jobId: createJobId("durable-queue-job-backlog-1"),
+          ownerContext: "messaging",
+          ownerRef: outboundSafeMetadata.messageId,
+          workType: "outbound_message",
+          retryPolicy,
+          idempotencyKey: "durable-queue-job-backlog-1-idem",
+          safeMetadata: outboundSafeMetadata,
+        },
+        context,
+      ),
+    );
+    clock.advance(250);
+    expectOk(
+      await queue.enqueue(
+        {
+          jobId: createJobId("durable-queue-job-backlog-2"),
+          ownerContext: "messaging",
+          ownerRef: outboundSafeMetadata.messageId,
+          workType: "outbound_message",
+          retryPolicy,
+          idempotencyKey: "durable-queue-job-backlog-2-idem",
+          safeMetadata: outboundSafeMetadata,
+        },
+        context,
+      ),
+    );
+
+    expect(lastMetric(metricRecorder.snapshot(), "queue.backlog.depth")).toMatchObject({
+      name: "queue.backlog.depth",
+      kind: "gauge",
+      runtimeRole: "worker",
+      unit: "jobs",
+      value: 2,
+      labels: {
+        work_type: "outbound_message",
+      },
+      observedAtEpochMilliseconds: 1250,
+    });
+    expect(lastMetric(metricRecorder.snapshot(), "queue.backlog.oldest_pending_age")).toMatchObject(
+      {
+        name: "queue.backlog.oldest_pending_age",
+        kind: "gauge",
+        runtimeRole: "worker",
+        unit: "milliseconds",
+        value: 250,
+        labels: {
+          work_type: "outbound_message",
+        },
+        observedAtEpochMilliseconds: 1250,
+      },
+    );
+
+    const reservation = await queue.reserve("outbound_message", context);
+    expectOk(reservation);
+    expect(lastMetric(metricRecorder.snapshot(), "queue.backlog.depth")).toMatchObject({
+      value: 1,
+      labels: {
+        work_type: "outbound_message",
+      },
+    });
+    expect(JSON.stringify(metricRecorder.snapshot())).not.toContain("durable-queue-intent");
+    expect(JSON.stringify(metricRecorder.snapshot())).not.toContain("durable-queue-message");
+  });
 });
 
 async function enqueueAndReserve(
@@ -374,6 +451,10 @@ class TestMetricRecorder implements MetricRecorder {
   }
 }
 
+function lastMetric(metrics: readonly MetricPoint[], name: string): MetricPoint | undefined {
+  return metrics.filter((metric) => metric.name === name).at(-1);
+}
+
 class TestWorkerJobRepository implements WorkerJobRepositoryPort {
   private readonly records = new Map<string, WorkerJob>();
   private readonly jobIdByIdempotencyKey = new Map<string, JobId>();
@@ -420,8 +501,7 @@ class TestWorkerJobRepository implements WorkerJobRepositoryPort {
         job.workType === input.workType &&
         (job.status === "queued" ||
           (job.status === "retrying" &&
-            (this.visibleAtByJobId.get(String(job.id)) ?? 0) <=
-              input.visibleAtEpochMilliseconds)),
+            (this.visibleAtByJobId.get(String(job.id)) ?? 0) <= input.visibleAtEpochMilliseconds)),
     );
 
     if (candidate === undefined) {
@@ -446,8 +526,7 @@ class TestWorkerJobRepository implements WorkerJobRepositoryPort {
       if (
         !input.workTypes.includes(candidate.workType) ||
         (candidate.status !== "reserved" && candidate.status !== "running") ||
-        ((this.visibleAtByJobId.get(String(candidate.id)) ?? 0) >
-          input.visibleAtEpochMilliseconds)
+        (this.visibleAtByJobId.get(String(candidate.id)) ?? 0) > input.visibleAtEpochMilliseconds
       ) {
         continue;
       }

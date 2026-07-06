@@ -44,18 +44,20 @@ runtime degraded.
 The approved PR-13 metric catalog is implemented in
 `packages/observability/src/metric-catalog.ts`.
 
-| Metric                            | Runtime  | Purpose                                                   | Alert                                               |
-| --------------------------------- | -------- | --------------------------------------------------------- | --------------------------------------------------- |
-| `api.request.latency`             | API      | API latency and error/availability grouping               | `api_availability_degraded`, `api_latency_degraded` |
-| `queue.work.latency`              | Worker   | Queue work latency and backlog signal                     | `queue_backlog`                                     |
-| `provider.connection.state`       | Provider | Provider connection state without raw account identifiers | `provider_connection_degraded`                      |
-| `webhook.delivery.success.total`  | Webhook  | Webhook success/failure signal                            | `webhook_success_degraded`                          |
-| `worker.utilization.ratio`        | Worker   | Worker saturation signal                                  | `worker_utilization_saturated`                      |
-| `event_stream.errors.total`       | API      | SSE/event stream failure signal                           | `event_stream_errors`                               |
-| `api.rate_limit.bucket.count`     | API      | Aggregate API rate-limit bucket usage                     | Dashboard evidence                                  |
-| `api.rate_limit.bucket.remaining` | API      | Aggregate API rate-limit remaining capacity               | Dashboard evidence                                  |
-| `api.rate_limit.bucket.limit`     | API      | Aggregate API rate-limit configured capacity              | Dashboard evidence                                  |
-| `eventlog.outbox.records`         | Metrics  | EventLog outbox backlog by delivery status                | `queue_backlog`                                     |
+| Metric                             | Runtime  | Purpose                                                   | Alert                                               |
+| ---------------------------------- | -------- | --------------------------------------------------------- | --------------------------------------------------- |
+| `api.request.latency`              | API      | API latency and error/availability grouping               | `api_availability_degraded`, `api_latency_degraded` |
+| `queue.work.latency`               | Worker   | Queue work latency and backlog signal                     | `queue_backlog`                                     |
+| `queue.backlog.depth`              | Worker   | Visible queued/retrying work count by approved work type  | `queue_backlog`                                     |
+| `queue.backlog.oldest_pending_age` | Worker   | Oldest visible queued/retrying work age by work type      | `queue_backlog`                                     |
+| `provider.connection.state`        | Provider | Provider connection state without raw account identifiers | `provider_connection_degraded`                      |
+| `webhook.delivery.success.total`   | Webhook  | Webhook success/failure signal                            | `webhook_success_degraded`                          |
+| `worker.utilization.ratio`         | Worker   | Worker saturation signal                                  | `worker_utilization_saturated`                      |
+| `event_stream.errors.total`        | API      | SSE/event stream failure signal                           | `event_stream_errors`                               |
+| `api.rate_limit.bucket.count`      | API      | Aggregate API rate-limit bucket usage                     | Dashboard evidence                                  |
+| `api.rate_limit.bucket.remaining`  | API      | Aggregate API rate-limit remaining capacity               | Dashboard evidence                                  |
+| `api.rate_limit.bucket.limit`      | API      | Aggregate API rate-limit configured capacity              | Dashboard evidence                                  |
+| `eventlog.outbox.records`          | Metrics  | EventLog outbox backlog by delivery status                | `queue_backlog`                                     |
 
 Metric labels must use the approved low-cardinality label allowlist from the
 metric catalog. Raw instance IDs, phone numbers, JIDs, message bodies, webhook
@@ -122,7 +124,8 @@ Alert id:
 Operator response:
 
 1. Check queue readiness and worker readiness.
-2. Check `queue.work.latency` and queue depth snapshots.
+2. Check `queue.backlog.depth`, `queue.backlog.oldest_pending_age`, and `queue.work.latency` by
+   approved work type.
 3. Scale worker capacity or apply backpressure.
 4. Confirm accepted work remains visible.
 

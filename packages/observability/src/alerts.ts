@@ -31,7 +31,7 @@ export const productionAlertDefinitions = Object.freeze([
   alertDefinition({
     id: "queue_backlog",
     severity: "p0",
-    signalName: "queue.work.latency",
+    signalName: "queue.backlog.oldest_pending_age",
     condition: "oldest_pending_age_or_depth_above_threshold",
     runbookRef: "docs/runbooks/OBSERVABILITY_AND_DEPENDENCY_READINESS.md#queue-backlog",
     description: "Queue backlog threatens accepted work visibility or processing latency.",

@@ -33,6 +33,22 @@ export function createMetricsRuntimeSmokeSnapshot(): MetricsRuntimeSmokeSnapshot
     }),
   );
   runtime.recordMetric(
+    createCatalogMetricPoint("queue.backlog.depth", {
+      value: 2,
+      labels: toSafeLogFields({
+        work_type: classifyValue("outbound_message", "public"),
+      }),
+    }),
+  );
+  runtime.recordMetric(
+    createCatalogMetricPoint("queue.backlog.oldest_pending_age", {
+      value: 1500,
+      labels: toSafeLogFields({
+        work_type: classifyValue("outbound_message", "public"),
+      }),
+    }),
+  );
+  runtime.recordMetric(
     createCatalogMetricPoint("provider.connection.state", {
       value: 1,
       labels: toSafeLogFields({

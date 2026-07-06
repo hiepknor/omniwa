@@ -6,10 +6,12 @@ describe("metrics runtime smoke", () => {
   it("exports PR-13 required production metrics without unsafe identifiers", () => {
     const snapshot = createMetricsRuntimeSmokeSnapshot();
 
-    expect(snapshot.metricCount).toBe(10);
+    expect(snapshot.metricCount).toBe(12);
     expect(snapshot.contentType).toBe("text/plain; version=0.0.4; charset=utf-8");
     expect(snapshot.body).toContain("api_request_latency");
     expect(snapshot.body).toContain("queue_work_latency");
+    expect(snapshot.body).toContain("queue_backlog_depth");
+    expect(snapshot.body).toContain("queue_backlog_oldest_pending_age");
     expect(snapshot.body).toContain("provider_connection_state");
     expect(snapshot.body).toContain("webhook_delivery_success_total");
     expect(snapshot.body).toContain("worker_utilization_ratio");

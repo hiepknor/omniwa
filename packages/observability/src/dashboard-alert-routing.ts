@@ -89,6 +89,20 @@ export const productionDashboardDefinitions = Object.freeze([
         alertRefs: ["queue_backlog"],
       }),
       panelDefinition({
+        id: "queue_backlog_depth",
+        title: "Queue Backlog Depth",
+        metricName: "queue.backlog.depth",
+        queryIntent: "Track visible queued or retrying work count by approved work type.",
+        alertRefs: ["queue_backlog"],
+      }),
+      panelDefinition({
+        id: "queue_backlog_oldest_pending_age",
+        title: "Queue Backlog Oldest Pending Age",
+        metricName: "queue.backlog.oldest_pending_age",
+        queryIntent: "Track oldest visible queued or retrying work age by approved work type.",
+        alertRefs: ["queue_backlog"],
+      }),
+      panelDefinition({
         id: "worker_utilization",
         title: "Worker Utilization",
         metricName: "worker.utilization.ratio",
