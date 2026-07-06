@@ -404,6 +404,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   against `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`; bundle status, proof booleans, and
   component statuses must match the review document when
   `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` is supplied.
+- N11.7 target-environment evidence validation now also rejects future `PROVEN` evidence bundles
+  unless every evidence/component reference is non-pending and the smoke, load, alert/SLO dry-run,
+  and runtime evidence artifact entries all include `passed` summaries.
 - N11.7 target-environment evidence validation now also requires `Background Runtime` in both
   `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` and sanitized evidence bundles. This prevents the
   EventLog outbox runtime from being skipped during production evidence collection.
