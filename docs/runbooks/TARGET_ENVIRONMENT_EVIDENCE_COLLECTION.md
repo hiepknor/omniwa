@@ -76,7 +76,27 @@ OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evid
 pnpm target-env:runtime
 ```
 
-Optionally validate alert/SLO dry-run evidence if an operator-maintained artifact exists:
+Prepare sanitized alert/SLO dry-run input:
+
+```text
+cp docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json \
+  artifacts/target-env/alert-slo-dry-run-input.json
+```
+
+Edit only the copied input file. Replace placeholders with sanitized dashboard ids, alert ids,
+receiver classes, SLO areas, booleans, counts, timestamps, and safe error codes. Do not write raw
+dashboard URLs, notification destinations, target ids, API keys, or runtime details into the copied
+input.
+
+Normalize optional alert/SLO dry-run evidence:
+
+```text
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH=artifacts/target-env/alert-slo-dry-run-input.json \
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
+pnpm target-env:alert-slo
+```
+
+Validate alert/SLO dry-run evidence if the operator-maintained artifact exists:
 
 ```text
 OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
@@ -90,6 +110,7 @@ The bundle command starts from `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_
 ```text
 OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
 OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
 OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
 OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF=operator-evidence-provider-command-bridge-reviewed \
 OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH=artifacts/target-env/evidence-bundle.json \
@@ -105,6 +126,7 @@ Validate all collected artifacts together:
 ```text
 OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
 OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
 OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
 OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH=artifacts/target-env/evidence-bundle.json \
 pnpm target-env:check

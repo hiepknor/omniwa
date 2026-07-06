@@ -57,6 +57,20 @@ OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
 pnpm target-env:load
 ```
 
+Normalize optional target-environment alert/SLO dry-run evidence from a sanitized
+operator-maintained input:
+
+```text
+mkdir -p artifacts/target-env
+
+cp docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json \
+  artifacts/target-env/alert-slo-dry-run-input.json
+
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH=artifacts/target-env/alert-slo-dry-run-input.json \
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
+pnpm target-env:alert-slo
+```
+
 Normalize optional target-environment runtime evidence from a sanitized operator-maintained input:
 
 ```text
@@ -128,6 +142,15 @@ against the same approved public endpoint set and writes a sanitized summary to 
 for review evidence. The summary includes aggregate counts and latency budgets only; it excludes the
 base URL, API key, response bodies, raw IDs, query strings, provider payloads, and secrets.
 
+The optional target-environment alert/SLO dry-run runner is implemented in
+`tooling/production/run-target-environment-alert-slo-dry-run.mjs`. Start from
+`docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json`, copy it to an external
+operator artifact path, and populate only sanitized dashboard ids, alert ids, receiver classes, SLO
+areas, booleans, counts, timestamps, and safe error codes. The runner normalizes that input into
+`OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH` and fails safe if the input is missing, unsafe, or
+schema-invalid. The generated artifact must not include dashboard URLs, notification destinations,
+API keys, raw IDs, JIDs, message text, provider payloads, auth state, session material, or secrets.
+
 The optional target-environment runtime evidence runner is implemented in
 `tooling/production/run-target-environment-runtime-evidence.mjs`. Start from
 `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json`, copy it to an external
@@ -142,9 +165,9 @@ provider-runtime server configuration, authentication boundary, and command roun
 that still contain `pending` keep runtime evidence failed even if the boolean checks are set.
 
 When any target-environment artifact path environment variable is present, `pnpm target-env:check`
-also validates the referenced smoke/load/runtime artifact JSON shape and rejects unsafe fields such
-as URLs, API keys, raw payloads, QR values, JIDs, text, auth state, and session material. This
-validation is local-only; it does not run target-environment traffic.
+also validates the referenced smoke/load/alert-SLO/runtime artifact JSON shape and rejects unsafe
+fields such as URLs, API keys, raw payloads, QR values, JIDs, text, auth state, and session
+material. This validation is local-only; it does not run target-environment traffic.
 
 Operators can also provide `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` to validate a sanitized evidence
 bundle manifest. The bundle records references to deployment profile, runtime versions, startup
@@ -153,11 +176,12 @@ drill, production-load summary, alert/SLO dry-run, rollback or forward-fix notes
 artifacts without storing raw environment values. Start from
 `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` and write the populated copy outside
 the design/review source tree before passing its path to the gate. The helper command below creates
-that initial copy, can embed sanitized smoke/load/runtime summaries if their report path variables
-are also set, and can replace the provider-command bridge pending evidence reference from a safe
-operator ref:
+that initial copy, can embed sanitized smoke/load/alert-SLO/runtime summaries if their report path
+variables are also set, and can replace the provider-command bridge pending evidence reference from
+a safe operator ref:
 
 ```text
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
 OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
 OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF=operator-evidence-provider-command-bridge-reviewed \
 OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH=artifacts/target-env/evidence-bundle.json \
@@ -182,12 +206,16 @@ It verifies:
 - `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` exists,
 - `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` remains a safe `NOT_PROVEN`
   skeleton,
+- `docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json` remains a safe failed
+  skeleton,
 - `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` remains a safe failed
   skeleton,
 - target-environment proof state is explicit,
 - every required runtime/dependency component has an evidence row,
 - optional target-environment smoke artifacts are schema-valid, sanitized, and produced by a runner
   that validates public response envelope/request metadata on successful responses,
+- optional target-environment alert/SLO dry-run artifacts are schema-valid, sanitized, and produced
+  by a runner instead of a handwritten blob,
 - optional target-environment runtime evidence artifacts are schema-valid and sanitized,
 - optional target-environment evidence bundle artifacts are schema-valid and sanitized,
 - optional target-environment evidence bundle status matches the review document,

@@ -91,18 +91,30 @@ running `pnpm target-env:check`, the local evidence gate validates the reference
 artifact schema and blocks unsafe fields. The gate still does not contact a target deployment or
 claim production readiness by itself.
 
-Optional target-environment alert/SLO dry-run artifact validation:
+Optional target-environment alert/SLO dry-run normalization and validation:
+
+Start from the checked-in safe skeleton at
+`docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json`, copy it to the operator
+artifact path, and replace only sanitized dashboard ids, alert ids, receiver classes, SLO areas,
+booleans, counts, timestamps, and safe error codes.
+
+```text
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH=artifacts/target-env/alert-slo-dry-run-input.json \
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
+pnpm target-env:alert-slo
+```
 
 ```text
 OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
 pnpm target-env:check
 ```
 
-The alert/SLO dry-run artifact records sanitized dashboard access checks, alert-route dry-runs, and
-SLO window or error-budget policy checks. It must not contain dashboard URLs, notification
-destinations, raw instance IDs, JIDs, message text, provider payloads, API keys, session material, or
-secrets. This artifact is reviewed alongside the evidence bundle and does not replace sustained SLO
-observation.
+The alert/SLO dry-run command normalizes an operator-maintained sanitized input file into a canonical
+artifact. If no input is supplied, it emits a failed safe skeleton instead of claiming proof. The
+generated artifact records sanitized dashboard access checks, alert-route dry-runs, and SLO window
+or error-budget policy checks. It must not contain dashboard URLs, notification destinations, raw
+instance IDs, JIDs, message text, provider payloads, API keys, session material, or secrets. This
+artifact is reviewed alongside the evidence bundle and does not replace sustained SLO observation.
 
 Optional target-environment runtime evidence artifact validation:
 

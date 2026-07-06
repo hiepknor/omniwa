@@ -1,0 +1,36 @@
+{
+  "status": "failed",
+  "checkedAtIso": "1970-01-01T00:00:00.000Z",
+  "dashboards": [
+    {
+      "dashboardId": "operator-evidence-dashboard-access-pending",
+      "accessible": false,
+      "panelCount": 0,
+      "safeErrorCode": "operator_alert_slo_dry_run_required"
+    }
+  ],
+  "alertRoutes": [
+    {
+      "alertId": "operator-evidence-alert-route-pending",
+      "routeChecked": false,
+      "notificationDryRun": false,
+      "receiverClass": "operator-evidence-receiver-class-pending",
+      "safeErrorCode": "operator_alert_slo_dry_run_required"
+    }
+  ],
+  "sloWindows": [
+    {
+      "area": "operator-evidence-slo-window-pending",
+      "windowChecked": false,
+      "budgetPolicyChecked": false,
+      "safeErrorCode": "operator_alert_slo_dry_run_required"
+    }
+  ],
+  "findings": [
+    {
+      "code": "target_alert_slo_dry_run_input_not_collected",
+      "severity": "warning",
+      "safeDetailCode": "operator_alert_slo_dry_run_required"
+    }
+  ]
+}

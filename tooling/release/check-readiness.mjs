@@ -84,6 +84,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "tooling/regression/check-production-regression.mjs",
   "docs/runbooks/PRODUCTION_REGRESSION_GATES.md",
   "tooling/production/check-target-environment-evidence.mjs",
+  "tooling/production/run-target-environment-alert-slo-dry-run.mjs",
   "tooling/production/run-target-environment-runtime-evidence.mjs",
   "tooling/production/run-target-environment-smoke.mjs",
   "tooling/production/check-production-cut.mjs",
@@ -94,6 +95,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
+  "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json",
   "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
   "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
@@ -134,6 +136,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "apps/api/src/load-baseline.spec.ts",
   "tooling/production/check-target-environment-evidence.spec.ts",
   "tooling/production/create-target-environment-evidence-bundle.spec.ts",
+  "tooling/production/run-target-environment-alert-slo-dry-run.spec.ts",
   "tooling/production/run-target-environment-runtime-evidence.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
   "tooling/production/check-production-cut.spec.ts",
@@ -159,6 +162,7 @@ const requiredRootScripts = Object.freeze([
   "regression:check",
   "recovery:check",
   "performance:check",
+  "target-env:alert-slo",
   "target-env:bundle",
   "target-env:check",
   "target-env:load",
@@ -228,7 +232,9 @@ export async function createReadinessFixture(projectRoot) {
       "performance:check":
         "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/run-target-environment-load.spec.ts tooling/performance/check-performance-readiness.spec.ts",
       "target-env:check":
-        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/create-target-environment-evidence-bundle.spec.ts tooling/production/run-target-environment-runtime-evidence.spec.ts tooling/production/run-target-environment-smoke.spec.ts tooling/performance/run-target-environment-load.spec.ts",
+        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/create-target-environment-evidence-bundle.spec.ts tooling/production/run-target-environment-alert-slo-dry-run.spec.ts tooling/production/run-target-environment-runtime-evidence.spec.ts tooling/production/run-target-environment-smoke.spec.ts tooling/performance/run-target-environment-load.spec.ts",
+      "target-env:alert-slo":
+        "node tooling/production/run-target-environment-alert-slo-dry-run.mjs",
       "target-env:bundle": "node tooling/production/create-target-environment-evidence-bundle.mjs",
       "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
       "target-env:runtime": "node tooling/production/run-target-environment-runtime-evidence.mjs",
@@ -315,6 +321,16 @@ function releaseEvidenceFixtureContent(file) {
       "",
       "Run the optional target-environment runtime evidence workflow.",
       "",
+      "Run the optional target-environment alert/SLO dry-run workflow.",
+      "",
+      "```text",
+      "OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH=artifacts/target-env/alert-slo-dry-run-input.json \\",
+      "OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \\",
+      "pnpm target-env:alert-slo",
+      "```",
+      "",
+      "Use `docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json` as the starting skeleton.",
+      "",
       "```text",
       "OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH=artifacts/target-env/runtime-evidence-input.json \\",
       "OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \\",
@@ -332,11 +348,11 @@ function releaseEvidenceFixtureContent(file) {
     return [
       "# Target Environment Evidence Collection Runbook",
       "",
-      "Run `pnpm target-env:smoke`, `pnpm target-env:load`, `pnpm target-env:runtime`, and `pnpm target-env:bundle`.",
+      "Run `pnpm target-env:smoke`, `pnpm target-env:load`, `pnpm target-env:alert-slo`, `pnpm target-env:runtime`, and `pnpm target-env:bundle`.",
       "",
-      "Use `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`, `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`, `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`, and `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
+      "Use `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`, `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`, `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH`, `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`, `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`, and `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
       "",
-      "Start from `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` and `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json`.",
+      "Start from `docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json`, `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json`, and `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json`.",
       "",
       "Provider-command bridge proof must include startup, worker client configuration, provider-runtime server configuration, authentication boundary, and command round-trip refs.",
       "",
@@ -503,6 +519,30 @@ async function checkProductionCutRunbook(projectRoot, findings) {
     );
   }
 
+  if (!runbook.includes("pnpm target-env:alert-slo")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_alert_slo_dry_run_command", "blocker"),
+    );
+  }
+
+  if (!runbook.includes("OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_alert_slo_dry_run_input_path", "blocker"),
+    );
+  }
+
+  if (!runbook.includes("OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_alert_slo_dry_run_report_path", "blocker"),
+    );
+  }
+
+  if (!runbook.includes("TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_alert_slo_dry_run_template", "blocker"),
+    );
+  }
+
   if (!runbook.includes("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH")) {
     findings.push(
       createFinding("load_baseline_runbook_missing_runtime_evidence_input_path", "blocker"),
@@ -566,6 +606,10 @@ async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, find
   const requiredFragments = [
     ["target_environment_collection_runbook_missing_smoke_command", "pnpm target-env:smoke"],
     ["target_environment_collection_runbook_missing_load_command", "pnpm target-env:load"],
+    [
+      "target_environment_collection_runbook_missing_alert_slo_dry_run_command",
+      "pnpm target-env:alert-slo",
+    ],
     ["target_environment_collection_runbook_missing_runtime_command", "pnpm target-env:runtime"],
     ["target_environment_collection_runbook_missing_bundle_command", "pnpm target-env:bundle"],
     [
@@ -575,6 +619,14 @@ async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, find
     [
       "target_environment_collection_runbook_missing_load_report_path",
       "OMNIWA_TARGET_ENV_LOAD_REPORT_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_alert_slo_dry_run_input_path",
+      "OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_alert_slo_dry_run_report_path",
+      "OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH",
     ],
     [
       "target_environment_collection_runbook_missing_runtime_input_path",
@@ -591,6 +643,10 @@ async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, find
     [
       "target_environment_collection_runbook_missing_bundle_input_path",
       "OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_alert_slo_dry_run_template",
+      "TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json",
     ],
     [
       "target_environment_collection_runbook_missing_runtime_template",

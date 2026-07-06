@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  createTargetEnvironmentAlertSloDryRunInputTemplate,
   createTargetEnvironmentEvidenceBundleTemplate,
   createTargetEnvironmentFixture,
   createTargetEnvironmentRuntimeEvidenceInputTemplate,
@@ -38,12 +39,15 @@ describe("target environment evidence gate", () => {
     const root = await createTempProject();
     const previousSmokePath = process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH;
     const previousLoadPath = process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH;
+    const previousAlertSloPath = process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH;
     const previousRuntimePath = process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH;
     const previousBundlePath = process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH;
 
     try {
       process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH = "artifacts/target-env/smoke-report.json";
       process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH = "artifacts/target-env/load-report.json";
+      process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH =
+        "artifacts/target-env/alert-slo-dry-run.json";
       process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH =
         "artifacts/target-env/runtime-evidence.json";
       process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH =
@@ -64,6 +68,7 @@ describe("target environment evidence gate", () => {
     } finally {
       restoreEnv("OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH", previousSmokePath);
       restoreEnv("OMNIWA_TARGET_ENV_LOAD_REPORT_PATH", previousLoadPath);
+      restoreEnv("OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH", previousAlertSloPath);
       restoreEnv("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH", previousRuntimePath);
       restoreEnv("OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH", previousBundlePath);
       await rm(root, { recursive: true, force: true });
@@ -100,6 +105,12 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({ code: "target_environment_load_artifact_path_missing" }),
           expect.objectContaining({
             code: "target_environment_alert_slo_dry_run_artifact_path_missing",
+          }),
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_command_missing",
+          }),
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_input_path_missing",
           }),
           expect.objectContaining({
             code: "target_environment_runtime_evidence_artifact_path_missing",
@@ -221,6 +232,10 @@ describe("target environment evidence gate", () => {
             target: "target-env:load",
           }),
           expect.objectContaining({
+            code: "root_target_environment_alert_slo_dry_run_script_missing",
+            target: "target-env:alert-slo",
+          }),
+          expect.objectContaining({
             code: "root_target_environment_runtime_script_missing",
             target: "target-env:runtime",
           }),
@@ -301,6 +316,100 @@ describe("target environment evidence gate", () => {
           }),
         ]),
       );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment alert/SLO dry-run input template is missing", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await rm(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json"),
+        {
+          force: true,
+        },
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_evidence_missing",
+            target: "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json",
+          }),
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_input_template_unreadable",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment alert/SLO dry-run input template claims proof", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json"),
+        validAlertSloDryRunArtifact(),
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_input_template_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the target-environment alert/SLO dry-run input template contains unsafe details", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(
+        join(root, "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json"),
+        {
+          ...createTargetEnvironmentAlertSloDryRunInputTemplate(),
+          dashboardUrl: "https://target.example.invalid/dashboard",
+        },
+      );
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_alert_slo_dry_run_input_template_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(report)).not.toContain("target.example");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -997,6 +1106,7 @@ function targetEnvironmentReviewWithComponentStatus(
     "- `pnpm check`",
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:alert-slo` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH` and `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:runtime` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` and `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
@@ -1040,6 +1150,7 @@ function targetEnvironmentReviewWithoutComponent(
     "- `pnpm check`",
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:alert-slo` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH` and `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:runtime` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` and `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",

@@ -299,6 +299,12 @@ It also validates an optional sanitized alert/SLO dry-run artifact through
 `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`, covering dashboard access checks, alert-route
 dry-runs, and SLO window/error-budget policy checks without storing dashboard URLs, notification
 destinations, raw IDs, JIDs, message text, provider payloads, API keys, or secrets.
+It also provides the optional `pnpm target-env:alert-slo` command to normalize sanitized operator
+alert/SLO dry-run input from `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH` into
+`OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`. Operators should copy the checked-in safe
+skeleton from `docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json` into an
+external artifact path and populate only sanitized dashboard ids, alert ids, receiver classes, SLO
+areas, booleans, counts, timestamps, and safe error codes.
 It also provides the optional `pnpm target-env:runtime` command to normalize sanitized operator
 runtime evidence input from `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` into
 `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`, covering runtime startup/readiness/shutdown,
@@ -313,8 +319,8 @@ refs that still contain `pending` keep runtime evidence failed.
 The production-cut runbook now carries the same runtime-evidence workflow, and `pnpm release:check`
 guards that runbook against drift from the root `target-env:runtime` command and template path.
 The target-environment evidence collection runbook now gives operators the ordered
-smoke/load/runtime/bundle workflow and review-update rules; `pnpm release:check` guards that runbook
-against missing commands, artifact path variables, template refs, and review refs.
+smoke/load/alert-SLO/runtime/bundle workflow and review-update rules; `pnpm release:check` guards
+that runbook against missing commands, artifact path variables, template refs, and review refs.
 It also provides the optional `pnpm target-env:bundle` command for creating a sanitized
 operator-maintained evidence bundle from the checked-in `NOT_PROVEN` template and any already
 sanitized smoke, load, alert/SLO dry-run, and runtime evidence summaries. The generated bundle

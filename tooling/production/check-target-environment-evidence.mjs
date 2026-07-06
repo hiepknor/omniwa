@@ -7,10 +7,12 @@ export const targetEnvironmentEvidenceStatuses = Object.freeze(["NOT_PROVEN", "P
 export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/production/check-target-environment-evidence.mjs",
   "tooling/production/create-target-environment-evidence-bundle.mjs",
+  "tooling/production/run-target-environment-alert-slo-dry-run.mjs",
   "tooling/production/run-target-environment-runtime-evidence.mjs",
   "tooling/production/run-target-environment-smoke.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
+  "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json",
   "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json",
   "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
@@ -19,6 +21,7 @@ export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
 export const requiredTargetEnvironmentEvidenceTests = Object.freeze([
   "tooling/production/check-target-environment-evidence.spec.ts",
   "tooling/production/create-target-environment-evidence-bundle.spec.ts",
+  "tooling/production/run-target-environment-alert-slo-dry-run.spec.ts",
   "tooling/production/run-target-environment-runtime-evidence.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
   "tooling/performance/run-target-environment-load.spec.ts",
@@ -39,6 +42,7 @@ export const requiredTargetEnvironmentComponents = Object.freeze([
 ]);
 
 export const requiredTargetEnvironmentScriptName = "target-env:check";
+export const targetEnvironmentAlertSloDryRunScriptName = "target-env:alert-slo";
 export const targetEnvironmentBundleScriptName = "target-env:bundle";
 export const targetEnvironmentRuntimeScriptName = "target-env:runtime";
 export const targetEnvironmentSmokeScriptName = "target-env:smoke";
@@ -104,6 +108,7 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
     findings,
   );
   const reviewSnapshot = await checkTargetEnvironmentReview(projectRoot, findings);
+  await checkTargetEnvironmentAlertSloDryRunInputTemplate(projectRoot, findings);
   await checkTargetEnvironmentBundleTemplate(projectRoot, findings);
   await checkTargetEnvironmentRuntimeEvidenceInputTemplate(projectRoot, findings);
   await checkRootPackage(projectRoot, findings);
@@ -154,6 +159,8 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
     packageManager: "pnpm@11.5.2",
     scripts: {
       [requiredTargetEnvironmentScriptName]: targetEnvironmentScript(),
+      [targetEnvironmentAlertSloDryRunScriptName]:
+        "node tooling/production/run-target-environment-alert-slo-dry-run.mjs",
       [targetEnvironmentBundleScriptName]:
         "node tooling/production/create-target-environment-evidence-bundle.mjs",
       [targetEnvironmentRuntimeScriptName]:
@@ -173,6 +180,11 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
   ]) {
     if (file === "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json") {
       await writeJson(join(projectRoot, file), createTargetEnvironmentEvidenceBundleTemplate());
+    } else if (file === "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json") {
+      await writeJson(
+        join(projectRoot, file),
+        createTargetEnvironmentAlertSloDryRunInputTemplate(),
+      );
     } else if (file === "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json") {
       await writeJson(
         join(projectRoot, file),
@@ -288,6 +300,16 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
     );
   }
 
+  if (!content.includes("pnpm target-env:alert-slo")) {
+    findings.push(createFinding("target_environment_alert_slo_dry_run_command_missing", "blocker"));
+  }
+
+  if (!content.includes("OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH")) {
+    findings.push(
+      createFinding("target_environment_alert_slo_dry_run_input_path_missing", "blocker"),
+    );
+  }
+
   if (!content.includes("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH")) {
     findings.push(
       createFinding("target_environment_runtime_evidence_artifact_path_missing", "blocker"),
@@ -346,6 +368,42 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
     sloEvidenceProven,
     componentStatuses,
   });
+}
+
+async function checkTargetEnvironmentAlertSloDryRunInputTemplate(projectRoot, findings) {
+  let template;
+
+  try {
+    template = JSON.parse(
+      await readFile(
+        join(projectRoot, "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json"),
+        "utf8",
+      ),
+    );
+  } catch {
+    findings.push(
+      createFinding("target_environment_alert_slo_dry_run_input_template_unreadable", "blocker"),
+    );
+    return;
+  }
+
+  if (!isTargetEnvironmentAlertSloDryRunInputTemplate(template)) {
+    findings.push(
+      createFinding(
+        "target_environment_alert_slo_dry_run_input_template_invalid_schema",
+        "blocker",
+      ),
+    );
+  }
+
+  if (findUnsafeArtifactContent(template) !== undefined) {
+    findings.push(
+      createFinding(
+        "target_environment_alert_slo_dry_run_input_template_unsafe_content",
+        "blocker",
+      ),
+    );
+  }
 }
 
 async function checkTargetEnvironmentBundleTemplate(projectRoot, findings) {
@@ -472,6 +530,21 @@ async function checkRootPackage(projectRoot, findings) {
       createFinding("root_target_environment_load_script_missing", "blocker", {
         target: targetEnvironmentLoadScriptName,
         safeDetailCode: "root_target_environment_load_script_missing",
+      }),
+    );
+  }
+
+  const targetEnvironmentAlertSloDryRun = scripts[targetEnvironmentAlertSloDryRunScriptName];
+  if (
+    typeof targetEnvironmentAlertSloDryRun !== "string" ||
+    !targetEnvironmentAlertSloDryRun.includes(
+      "node tooling/production/run-target-environment-alert-slo-dry-run.mjs",
+    )
+  ) {
+    findings.push(
+      createFinding("root_target_environment_alert_slo_dry_run_script_missing", "blocker", {
+        target: targetEnvironmentAlertSloDryRunScriptName,
+        safeDetailCode: "root_target_environment_alert_slo_dry_run_script_missing",
       }),
     );
   }
@@ -711,6 +784,45 @@ export function createTargetEnvironmentEvidenceBundleTemplate() {
         code: "target_environment_evidence_not_collected",
         severity: "warning",
         safeDetailCode: "operator_evidence_required",
+      }),
+    ]),
+  });
+}
+
+export function createTargetEnvironmentAlertSloDryRunInputTemplate() {
+  return Object.freeze({
+    status: "failed",
+    checkedAtIso: "1970-01-01T00:00:00.000Z",
+    dashboards: Object.freeze([
+      Object.freeze({
+        dashboardId: "operator-evidence-dashboard-access-pending",
+        accessible: false,
+        panelCount: 0,
+        safeErrorCode: "operator_alert_slo_dry_run_required",
+      }),
+    ]),
+    alertRoutes: Object.freeze([
+      Object.freeze({
+        alertId: "operator-evidence-alert-route-pending",
+        routeChecked: false,
+        notificationDryRun: false,
+        receiverClass: "operator-evidence-receiver-class-pending",
+        safeErrorCode: "operator_alert_slo_dry_run_required",
+      }),
+    ]),
+    sloWindows: Object.freeze([
+      Object.freeze({
+        area: "operator-evidence-slo-window-pending",
+        windowChecked: false,
+        budgetPolicyChecked: false,
+        safeErrorCode: "operator_alert_slo_dry_run_required",
+      }),
+    ]),
+    findings: Object.freeze([
+      Object.freeze({
+        code: "target_alert_slo_dry_run_input_not_collected",
+        severity: "warning",
+        safeDetailCode: "operator_alert_slo_dry_run_required",
       }),
     ]),
   });
@@ -1087,6 +1199,37 @@ function isTargetEnvironmentEvidenceBundleTemplate(artifact) {
   );
 }
 
+function isTargetEnvironmentAlertSloDryRunInputTemplate(artifact) {
+  return (
+    validateTargetEnvironmentAlertSloDryRunArtifact(artifact) &&
+    artifact.status === "failed" &&
+    artifact.dashboards.every(
+      (dashboard) =>
+        dashboard.accessible === false &&
+        dashboard.panelCount === 0 &&
+        dashboard.safeErrorCode === "operator_alert_slo_dry_run_required",
+    ) &&
+    artifact.alertRoutes.every(
+      (alertRoute) =>
+        alertRoute.routeChecked === false &&
+        alertRoute.notificationDryRun === false &&
+        alertRoute.safeErrorCode === "operator_alert_slo_dry_run_required",
+    ) &&
+    artifact.sloWindows.every(
+      (sloWindow) =>
+        sloWindow.windowChecked === false &&
+        sloWindow.budgetPolicyChecked === false &&
+        sloWindow.safeErrorCode === "operator_alert_slo_dry_run_required",
+    ) &&
+    artifact.findings.some(
+      (finding) =>
+        finding.code === "target_alert_slo_dry_run_input_not_collected" &&
+        finding.severity === "warning" &&
+        finding.safeDetailCode === "operator_alert_slo_dry_run_required",
+    )
+  );
+}
+
 function isTargetEnvironmentRuntimeEvidenceInputTemplate(artifact) {
   return (
     validateTargetEnvironmentRuntimeEvidenceArtifact(artifact) &&
@@ -1337,6 +1480,7 @@ function fixtureReview(status) {
     "- `pnpm check`",
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
+    "- `pnpm target-env:alert-slo` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH` and `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
     "- `pnpm target-env:runtime` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` and `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",

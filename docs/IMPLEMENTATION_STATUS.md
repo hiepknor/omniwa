@@ -359,6 +359,12 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   covers dashboard access checks, alert-route dry-runs, and SLO window/error-budget policy checks
   without storing dashboard URLs, notification destinations, raw IDs, JIDs, message text, provider
   payloads, API keys, or secrets.
+- N11.7 target-environment evidence tooling now also provides `pnpm target-env:alert-slo`, which
+  normalizes sanitized operator alert/SLO dry-run input from
+  `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH` into
+  `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`. The checked-in
+  `TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json` remains a safe failed skeleton, and
+  release readiness guards the command, template, runbook references, and unit tests.
 - N11.7 target-environment evidence tooling now also provides `pnpm target-env:runtime`, which
   normalizes sanitized operator runtime evidence input from
   `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` into

@@ -54,9 +54,13 @@ does not skip deployed API smoke evidence. The optional `pnpm target-env:load` c
 bounded deployed-API load evidence against the approved public GET endpoint set; it also does not
 replace sustained production-load duration, external dependency capacity notes, or SLO proof.
 The optional `pnpm target-env:bundle` command can create a sanitized evidence bundle from the
-checked-in template and already-sanitized smoke/load/runtime evidence summaries. That bundle is
-validated by `pnpm target-env:check`, but it must not claim a readiness state that this review
-document does not claim.
+checked-in template and already-sanitized smoke/load/alert-SLO/runtime evidence summaries. That
+bundle is validated by `pnpm target-env:check`, but it must not claim a readiness state that this
+review document does not claim.
+The optional `pnpm target-env:alert-slo` command can normalize sanitized operator alert/SLO dry-run
+input from `docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json`. It does not
+collect dashboard URLs, notification destinations, API keys, raw IDs, provider payloads, or secrets,
+and it does not replace sustained SLO observation.
 The optional `pnpm target-env:runtime` command can normalize sanitized operator runtime evidence for
 startup, readiness, shutdown, dependency connectivity, migration-status checks, provider-command
 bridge proof refs, and backup/restore drill references from an external copy of
@@ -137,22 +141,23 @@ The production gate verifies:
 
 ## Gate Status
 
-| Gate                                | Status | Evidence                                      |
-| ----------------------------------- | ------ | --------------------------------------------- |
-| Architecture                        | PASS   | `pnpm arch:check`                             |
-| OpenAPI                             | PASS   | `pnpm openapi:check`                          |
-| OpenAPI compatibility               | PASS   | `pnpm openapi:compat`                         |
-| SDK                                 | PASS   | `pnpm sdk:check`, `pnpm sdk:test`             |
-| Regression                          | PASS   | `pnpm regression:check`                       |
-| Public DTO contract                 | PASS   | `PR-17_PUBLIC_RESOURCE_DTO_CONTRACT.md`       |
-| Collection query runtime            | PASS   | `PR-18_RUNTIME_COLLECTION_QUERY_SEMANTICS.md` |
-| Load baseline                       | PASS   | `pnpm load:check`                             |
-| Target environment proof            | PASS   | `pnpm target-env:check`                       |
-| Target environment smoke            | PASS   | `pnpm target-env:smoke` tooling present       |
-| Target environment load             | PASS   | `pnpm target-env:load` tooling present        |
-| Target environment runtime evidence | PASS   | `pnpm target-env:runtime` tooling present     |
-| Release readiness                   | PASS   | `pnpm release:check`                          |
-| Full local gate                     | PASS   | `pnpm check`                                  |
+| Gate                                 | Status | Evidence                                      |
+| ------------------------------------ | ------ | --------------------------------------------- |
+| Architecture                         | PASS   | `pnpm arch:check`                             |
+| OpenAPI                              | PASS   | `pnpm openapi:check`                          |
+| OpenAPI compatibility                | PASS   | `pnpm openapi:compat`                         |
+| SDK                                  | PASS   | `pnpm sdk:check`, `pnpm sdk:test`             |
+| Regression                           | PASS   | `pnpm regression:check`                       |
+| Public DTO contract                  | PASS   | `PR-17_PUBLIC_RESOURCE_DTO_CONTRACT.md`       |
+| Collection query runtime             | PASS   | `PR-18_RUNTIME_COLLECTION_QUERY_SEMANTICS.md` |
+| Load baseline                        | PASS   | `pnpm load:check`                             |
+| Target environment proof             | PASS   | `pnpm target-env:check`                       |
+| Target environment smoke             | PASS   | `pnpm target-env:smoke` tooling present       |
+| Target environment load              | PASS   | `pnpm target-env:load` tooling present        |
+| Target environment alert/SLO dry-run | PASS   | `pnpm target-env:alert-slo` tooling present   |
+| Target environment runtime evidence  | PASS   | `pnpm target-env:runtime` tooling present     |
+| Release readiness                    | PASS   | `pnpm release:check`                          |
+| Full local gate                      | PASS   | `pnpm check`                                  |
 
 ## Gate 2 Review
 
