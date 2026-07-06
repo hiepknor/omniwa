@@ -58,6 +58,7 @@ describe("production cut gate check", () => {
           expect.objectContaining({ code: "load_baseline_summary_missing" }),
           expect.objectContaining({ code: "target_environment_smoke_summary_missing" }),
           expect.objectContaining({ code: "target_environment_load_summary_missing" }),
+          expect.objectContaining({ code: "target_environment_alert_slo_summary_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_summary_missing" }),
           expect.objectContaining({ code: "target_environment_runtime_summary_missing" }),
           expect.objectContaining({ code: "target_environment_provider_bridge_proof_missing" }),
@@ -99,6 +100,10 @@ describe("production cut gate check", () => {
       expect(report.status).toBe("failed");
       expect(report.findings).toEqual(
         expect.arrayContaining([
+          expect.objectContaining({
+            code: "root_production_script_missing",
+            target: "target-env:alert-slo",
+          }),
           expect.objectContaining({
             code: "root_production_script_missing",
             target: "target-env:bundle",

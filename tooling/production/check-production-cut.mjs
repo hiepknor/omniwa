@@ -11,11 +11,13 @@ export const productionCutDecisions = Object.freeze([
 export const requiredProductionEvidenceFiles = Object.freeze([
   "tooling/production/check-production-cut.mjs",
   "tooling/production/create-target-environment-evidence-bundle.mjs",
+  "tooling/production/run-target-environment-alert-slo-dry-run.mjs",
   "tooling/production/run-target-environment-runtime-evidence.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "tooling/performance/run-target-environment-load.spec.ts",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
+  "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json",
   "docs/platform-evolution/PR-16_LOAD_BASELINE_AND_PRODUCTION_CUT_REVIEW.md",
   "docs/platform-evolution/PR-19_PRODUCTION_READY_GATE_REVIEW.md",
 ]);
@@ -27,6 +29,7 @@ export const requiredProductionEvidenceTests = Object.freeze([
 
 export const requiredProductionScripts = Object.freeze([
   "load:check",
+  "target-env:alert-slo",
   "target-env:bundle",
   "target-env:check",
   "target-env:load",
@@ -66,6 +69,8 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
     scripts: {
       "load:check":
         "pnpm exec vitest run apps/api/src/load-baseline.spec.ts tooling/production/check-production-cut.spec.ts",
+      "target-env:alert-slo":
+        "node tooling/production/run-target-environment-alert-slo-dry-run.mjs",
       "target-env:bundle": "node tooling/production/create-target-environment-evidence-bundle.mjs",
       "target-env:check": "node tooling/production/check-target-environment-evidence.mjs",
       "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
@@ -84,8 +89,61 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
 
   await writeText(
     join(projectRoot, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
-    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Target environment smoke\n\npnpm target-env:smoke tooling present.\n\n## Target environment load\n\npnpm target-env:load tooling present.\n\n## Target environment runtime evidence\n\npnpm target-env:runtime tooling present. Provider-command bridge proof refs are required for startup, worker client configuration, provider-runtime server configuration, authentication boundary, and command round trip.\n\n## Target environment bundle\n\npnpm target-env:bundle tooling present.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
+    productionCutReviewFixtureContent(decision),
   );
+}
+
+function productionCutReviewFixtureContent(decision) {
+  const proven = decision === "PRODUCTION_READY" ? "YES" : "NO";
+
+  return [
+    "# Production Cut Review",
+    "",
+    `Final readiness decision: ${decision}`,
+    "",
+    `Production Ready: ${proven}`,
+    "",
+    "Enterprise Ready: NO",
+    "",
+    `Target Environment Proven: ${proven}`,
+    "",
+    `Production Load Proven: ${proven}`,
+    "",
+    `SLO Evidence Proven: ${proven}`,
+    "",
+    "## Load baseline",
+    "",
+    "Recorded.",
+    "",
+    "## Target environment smoke",
+    "",
+    "pnpm target-env:smoke tooling present.",
+    "",
+    "## Target environment load",
+    "",
+    "pnpm target-env:load tooling present.",
+    "",
+    "## Target environment alert/SLO dry-run",
+    "",
+    "pnpm target-env:alert-slo tooling present.",
+    "",
+    "## Target environment runtime evidence",
+    "",
+    "pnpm target-env:runtime tooling present. Provider-command bridge proof refs are required for startup, worker client configuration, provider-runtime server configuration, authentication boundary, and command round trip.",
+    "",
+    "## Target environment bundle",
+    "",
+    "pnpm target-env:bundle tooling present.",
+    "",
+    "## Gate 2 Review",
+    "",
+    "Recorded.",
+    "",
+    "## Known Constraints",
+    "",
+    "Recorded.",
+    "",
+  ].join("\n");
 }
 
 async function checkFiles(projectRoot, category, files, findings) {
@@ -176,6 +234,10 @@ async function checkProductionCutReview(projectRoot, findings) {
 
   if (!/Target environment bundle|pnpm target-env:bundle/iu.test(content)) {
     findings.push(createFinding("target_environment_bundle_summary_missing", "blocker"));
+  }
+
+  if (!/Target environment alert\/SLO dry-run|pnpm target-env:alert-slo/iu.test(content)) {
+    findings.push(createFinding("target_environment_alert_slo_summary_missing", "blocker"));
   }
 
   if (!/Target environment runtime evidence|pnpm target-env:runtime/iu.test(content)) {

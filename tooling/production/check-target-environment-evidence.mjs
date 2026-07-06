@@ -112,6 +112,9 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
   await checkTargetEnvironmentBundleTemplate(projectRoot, findings);
   await checkTargetEnvironmentRuntimeEvidenceInputTemplate(projectRoot, findings);
   await checkRootPackage(projectRoot, findings);
+  const evidenceBundlePath =
+    options.evidenceBundlePath ?? env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH;
+  checkProvenReviewRequiresEvidenceBundle(reviewSnapshot, evidenceBundlePath, findings);
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
     "smoke",
@@ -139,7 +142,7 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
     "bundle",
-    options.evidenceBundlePath ?? env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH,
+    evidenceBundlePath,
     findings,
     reviewSnapshot,
   );
@@ -219,6 +222,16 @@ async function checkFiles(projectRoot, category, files, findings) {
         }),
       );
     }
+  }
+}
+
+function checkProvenReviewRequiresEvidenceBundle(reviewSnapshot, evidenceBundlePath, findings) {
+  if (reviewSnapshot?.status !== "PROVEN") {
+    return;
+  }
+
+  if (typeof evidenceBundlePath !== "string" || evidenceBundlePath.trim().length === 0) {
+    findings.push(createFinding("proven_target_environment_requires_evidence_bundle", "blocker"));
   }
 }
 

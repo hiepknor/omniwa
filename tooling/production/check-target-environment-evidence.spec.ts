@@ -156,6 +156,30 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails when PROVEN target-environment review is not backed by an evidence bundle artifact", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "PROVEN");
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "proven_target_environment_requires_evidence_bundle",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("requires target-environment proof for the background runtime", async () => {
     const root = await createTempProject();
 

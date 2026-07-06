@@ -328,13 +328,16 @@ remains non-proving evidence until an operator updates the proof states and comp
 target-environment evidence.
 When that bundle is supplied back to `pnpm target-env:check`, the gate cross-checks it against
 `TARGET_ENVIRONMENT_VALIDATION.md` so review state and artifact state cannot drift.
+If a future `TARGET_ENVIRONMENT_VALIDATION.md` review claims `PROVEN`, `pnpm target-env:check` now
+also requires `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` to provide the matching sanitized evidence
+bundle artifact, so a markdown-only proof promotion cannot pass the local release gate.
 If a future bundle claims `PROVEN`, the gate now also requires every evidence/component reference to
 be non-pending and every smoke, load, alert/SLO dry-run, and runtime evidence artifact entry to
 include a `passed` summary.
 The required component set includes `Background Runtime`, matching the production compose service
 that drains the PostgreSQL EventLog outbox and records backlog metrics.
-The production-cut gate also requires the smoke and bundle workflows to be present in the root
-scripts and acknowledged by `PRODUCTION_CUT_REVIEW.md`.
+The production-cut gate also requires the smoke, alert/SLO dry-run, and bundle workflows to be
+present in the root scripts and acknowledged by `PRODUCTION_CUT_REVIEW.md`.
 
 ## Planned Increments
 

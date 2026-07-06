@@ -413,6 +413,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 target-environment evidence validation now also rejects future `PROVEN` evidence bundles
   unless every evidence/component reference is non-pending and the smoke, load, alert/SLO dry-run,
   and runtime evidence artifact entries all include `passed` summaries.
+- N11.7 target-environment evidence validation now also rejects a future `PROVEN`
+  `TARGET_ENVIRONMENT_VALIDATION.md` review unless `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` supplies
+  a matching sanitized evidence bundle artifact. This prevents proof promotion by markdown-only
+  edits.
 - N11.7 target-environment evidence tooling now isolates imported checker/bundle functions from
   ambient operator artifact path environment variables. The CLI entrypoints still consume those env
   vars, but unit tests and fixture evaluations no longer fail when an operator runs
@@ -426,6 +430,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 production-cut validation now also requires `target-env:smoke` tooling and a production-cut
   review acknowledgement for deployed API smoke evidence, keeping the production-cut gate aligned
   with all target-environment operator evidence commands.
+- N11.7 production-cut validation now also requires `target-env:alert-slo` tooling and a
+  production-cut review acknowledgement for alert/SLO dry-run evidence, keeping production-cut
+  review parity with the target-environment evidence workflow.
 - N11.7 release readiness now also guards `.gitignore` so operator target-environment artifacts
   under `artifacts/` remain ignored while the evidence collection runbook points operators at
   `artifacts/target-env/`.
