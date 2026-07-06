@@ -1,4 +1,5 @@
 import {
+  createApplicationPortFailure,
   type ApplicationPortContext,
   type ApplicationPortResult,
   type MessagingProviderPort,
@@ -27,8 +28,15 @@ import {
 } from "@omniwa/shared";
 import { describe, expect, it } from "vitest";
 
-import { ProviderRuntimeCommandReceiver } from "./provider-command-receiver.js";
+import {
+  ProviderRuntimeCommandReceiver,
+  type ProviderRuntimeSessionStarter,
+} from "./provider-command-receiver.js";
 import type { ProviderRuntimeApp, ProviderRuntimeAppResult } from "./provider-runtime-app.js";
+import type {
+  ProviderRuntimeSupervisorSessionSnapshot,
+  ProviderRuntimeSupervisorStartInput,
+} from "./provider-runtime-supervisor.js";
 
 const instanceId = createInstanceId("bridge-receiver-instance");
 const providerId = createProviderId("baileys");
@@ -61,6 +69,74 @@ describe("ProviderRuntimeCommandReceiver", () => {
     expect(disconnected.ok ? disconnected.value.kind : undefined).toBe("disconnect");
     expect(app.actions).toEqual(["connect", "reconnect", "request_qr_pairing", "disconnect"]);
     expect(provider.outboundRequests).toHaveLength(0);
+  });
+
+  it("starts the provider session through the supervisor for connect intent", async () => {
+    const app = new RecordingProviderRuntimeApp();
+    const supervisor = new RecordingSessionStarter();
+    const receiver = new ProviderRuntimeCommandReceiver({
+      app,
+      provider: new RecordingMessagingProvider(),
+      supervisor,
+    });
+
+    const result = await receiver.execute(connectionCommand("connect"), context);
+
+    expect(result.ok ? result.value : undefined).toEqual({
+      kind: "request_connection",
+      result: {
+        instanceId,
+        providerId,
+        providerSignalRef: "signal.safe-ref",
+        state: "qr_required",
+      },
+    });
+    expect(supervisor.startInputs).toEqual([
+      {
+        instanceId,
+        providerId,
+        reasonCode: "receiver.connect",
+        sessionId,
+      },
+    ]);
+    expect(app.actions).toEqual([]);
+  });
+
+  it("falls back to the runtime connect path when the supervisor already owns the session", async () => {
+    const app = new RecordingProviderRuntimeApp();
+    const supervisor = new RecordingSessionStarter({
+      failWithCode: "provider_runtime_supervisor_session_already_active",
+    });
+    const receiver = new ProviderRuntimeCommandReceiver({
+      app,
+      provider: new RecordingMessagingProvider(),
+      supervisor,
+    });
+
+    const result = await receiver.execute(connectionCommand("connect"), context);
+
+    expect(result.ok ? result.value.kind : undefined).toBe("request_connection");
+    expect(app.actions).toEqual(["connect"]);
+  });
+
+  it("propagates non-duplicate supervisor start failures", async () => {
+    const app = new RecordingProviderRuntimeApp();
+    const supervisor = new RecordingSessionStarter({
+      failWithCode: "provider_runtime_supervisor_start_failed",
+    });
+    const receiver = new ProviderRuntimeCommandReceiver({
+      app,
+      provider: new RecordingMessagingProvider(),
+      supervisor,
+    });
+
+    const result = await receiver.execute(connectionCommand("connect"), context);
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error.code).toBe(
+      "provider_runtime_supervisor_start_failed",
+    );
+    expect(app.actions).toEqual([]);
   });
 
   it("does not serialize app or provider dependencies", () => {
@@ -353,6 +429,48 @@ class RecordingMessagingProvider implements MessagingProviderPort {
         degraded: false,
         providerId: summaryProviderId,
         supportedMessageTypes: ["text"],
+      }),
+    );
+  }
+}
+
+class RecordingSessionStarter implements ProviderRuntimeSessionStarter {
+  readonly startInputs: ProviderRuntimeSupervisorStartInput[] = [];
+  private readonly failWithCode: string | undefined;
+
+  constructor(options: Readonly<{ failWithCode?: string }> = {}) {
+    this.failWithCode = options.failWithCode;
+  }
+
+  startSession(
+    input: ProviderRuntimeSupervisorStartInput,
+    startContext: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<ProviderRuntimeSupervisorSessionSnapshot>> {
+    void startContext;
+    this.startInputs.push(input);
+
+    if (this.failWithCode !== undefined) {
+      return Promise.resolve(
+        err(
+          createApplicationPortFailure({
+            category: "conflict",
+            code: this.failWithCode,
+            message: "Supervisor session start failed.",
+            retryable: true,
+          }),
+        ),
+      );
+    }
+
+    return Promise.resolve(
+      ok({
+        instanceId: input.instanceId,
+        lastSignalRef: "signal.safe-ref",
+        ownerRef: "receiver-test",
+        providerId: input.providerId,
+        sessionId: input.sessionId,
+        state: "PAIRING",
+        transitions: ["CREATED", "STARTING", "PAIRING"],
       }),
     );
   }

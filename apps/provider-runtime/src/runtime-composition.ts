@@ -208,12 +208,6 @@ export function createProviderRuntimeComposition(
       secretProvider: overrides.secretProvider ?? new EnvSecretProvider({ env }),
       ...optional("ownerRef", ownerRef),
     });
-  const providerCommandTransport =
-    overrides.providerCommandTransport ??
-    new ProviderRuntimeCommandReceiver({
-      app: providerRuntimeApp,
-      provider: messagingProvider,
-    });
   const signalIngress =
     overrides.signalIngress ??
     createProviderSignalIngress({
@@ -228,6 +222,13 @@ export function createProviderRuntimeComposition(
       createProviderRuntimeOwnershipGuard(ownershipMode, paths.ownershipLeasePath, env),
     ...optional("ownerRef", ownerRef),
   });
+  const providerCommandTransport =
+    overrides.providerCommandTransport ??
+    new ProviderRuntimeCommandReceiver({
+      app: providerRuntimeApp,
+      provider: messagingProvider,
+      supervisor,
+    });
 
   return Object.freeze({
     profile,

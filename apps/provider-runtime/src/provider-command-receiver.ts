@@ -5,6 +5,7 @@ import {
   type ApplicationPortResult,
   type MessagingProviderPort,
   type ProviderConnectionResult,
+  type ProviderConnectionState,
   type ProviderQrPairingChallenge,
 } from "@omniwa/application";
 import type {
@@ -16,19 +17,34 @@ import { err, ok } from "@omniwa/shared";
 
 import type { ProviderRuntimeApp, ProviderRuntimeAppCommand } from "./provider-runtime-app.js";
 import type { ProviderRuntimeFailure, ProviderRuntimeLifecycleState } from "./provider-runtime.js";
+import type {
+  ProviderRuntimeSupervisorSessionSnapshot,
+  ProviderRuntimeSupervisorStartInput,
+  ProviderRuntimeSupervisorState,
+} from "./provider-runtime-supervisor.js";
+
+export type ProviderRuntimeSessionStarter = Readonly<{
+  startSession(
+    input: ProviderRuntimeSupervisorStartInput,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<ProviderRuntimeSupervisorSessionSnapshot>>;
+}>;
 
 export type ProviderRuntimeCommandReceiverOptions = Readonly<{
   app: Pick<ProviderRuntimeApp, "runOnce">;
   provider: MessagingProviderPort;
+  supervisor?: ProviderRuntimeSessionStarter;
 }>;
 
 export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport {
   readonly #app: Pick<ProviderRuntimeApp, "runOnce">;
   readonly #provider: MessagingProviderPort;
+  readonly #supervisor: ProviderRuntimeSessionStarter | undefined;
 
   constructor(options: ProviderRuntimeCommandReceiverOptions) {
     this.#app = options.app;
     this.#provider = options.provider;
+    this.#supervisor = options.supervisor;
   }
 
   async execute(
@@ -62,6 +78,35 @@ export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport 
           retryable: false,
         }),
       );
+    }
+
+    if (
+      command.request.intent === "connect" &&
+      this.#supervisor !== undefined &&
+      command.request.sessionId !== undefined
+    ) {
+      const started = await this.#supervisor.startSession(
+        {
+          instanceId: command.request.instanceId,
+          providerId: command.request.providerId,
+          sessionId: command.request.sessionId,
+          reasonCode: command.request.reasonCode,
+        },
+        context,
+      );
+
+      if (started.ok) {
+        return ok({
+          kind: "request_connection",
+          result: connectionResultFromSupervisorSnapshot(command.request, started.value),
+        });
+      }
+
+      if (started.error.code !== "provider_runtime_supervisor_session_already_active") {
+        return err(started.error);
+      }
+      // The supervisor already owns this session; fall through to the provider
+      // connection path so repeated connect commands stay idempotent.
     }
 
     const runtimeCommand: ProviderRuntimeAppCommand =
@@ -263,6 +308,42 @@ function applicationPortCategoryForRuntimeFailure(
   }
 
   return "unknown";
+}
+
+function connectionResultFromSupervisorSnapshot(
+  request: Readonly<{
+    instanceId: ProviderConnectionResult["instanceId"];
+    providerId: ProviderConnectionResult["providerId"];
+  }>,
+  snapshot: ProviderRuntimeSupervisorSessionSnapshot,
+): ProviderConnectionResult {
+  return Object.freeze({
+    instanceId: request.instanceId,
+    providerId: request.providerId,
+    state: connectionStateFromSupervisorState(snapshot.state),
+    ...optional("providerSignalRef", snapshot.lastSignalRef),
+  });
+}
+
+function connectionStateFromSupervisorState(
+  state: ProviderRuntimeSupervisorState,
+): ProviderConnectionState {
+  switch (state) {
+    case "CONNECTED":
+      return "connected";
+    case "QR_REQUIRED":
+    case "PAIRING":
+      return "qr_required";
+    case "DISCONNECTED":
+    case "DESTROYED":
+      return "disconnected";
+    case "LOGGED_OUT":
+      return "logged_out";
+    case "CREATED":
+    case "STARTING":
+    case "RECONNECTING":
+      return "connecting";
+  }
 }
 
 function optional<TKey extends string, TValue>(
