@@ -27,7 +27,7 @@ describe("production Docker compose template check", () => {
       "postgresql_eventlog_declared",
       "background_event_outbox_declared",
       "postgres_auto_migrate_disabled",
-      "controlled_pilot_profiles_declared",
+      "provider_bridge_controlled_pilot_declared",
     ]);
     expect(report.checks.every((check) => check.status === "passed")).toBe(true);
   });
@@ -146,6 +146,29 @@ describe("production Docker compose template check", () => {
     );
   });
 
+  it("fails when the provider command bridge wiring is missing", async () => {
+    const report = await runProductionComposeTemplateCheck({
+      commandRunner: async () => ({
+        stdout: renderedProductionComposeConfig().replace(
+          "      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: http://provider-runtime:3011/internal/provider-command/v1/commands\n",
+          "",
+        ),
+        stderr: "",
+      }),
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "provider_bridge_controlled_pilot_declared",
+          status: "failed",
+          error: "Missing rendered assignment for OMNIWA_PROVIDER_COMMAND_BRIDGE_URL.",
+        }),
+      ]),
+    );
+  });
+
   it("builds defaults from the checked-in production template paths", () => {
     const config = createProductionComposeTemplateConfig({
       now: () => 1_800_000_000_000,
@@ -203,13 +226,19 @@ function renderedProductionComposeConfig(): string {
     "  worker:",
     "    environment:",
     "      OMNIWA_WORKER_RUNTIME_PROFILE: local",
-    "      OMNIWA_WORKER_PROVIDER_MODE: multi-process-unsupported",
+    "      OMNIWA_WORKER_PROVIDER_MODE: provider-runtime-bridge",
+    "      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: http://provider-runtime:3011/internal/provider-command/v1/commands",
+    "      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: replace-with-provider-command-bridge-token",
     "  webhook-dispatcher:",
     "    environment:",
     "      OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: production",
     "  provider-runtime:",
     "    environment:",
     "      OMNIWA_PROVIDER_RUNTIME_PROFILE: local",
+    '      OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP: "true"',
+    "      OMNIWA_PROVIDER_COMMAND_BRIDGE_HOST: 0.0.0.0",
+    '      OMNIWA_PROVIDER_COMMAND_BRIDGE_PORT: "3011"',
+    "      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: replace-with-provider-command-bridge-token",
     "  background:",
     "    environment:",
     "      OMNIWA_BACKGROUND_RUNTIME_PROFILE: production",

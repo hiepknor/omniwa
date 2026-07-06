@@ -57,12 +57,14 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      # Worker production profile still fails closed until provider-runtime IPC/shared socket
-      # ownership is implemented. Use local only for a controlled pilot.
-      OMNIWA_WORKER_RUNTIME_PROFILE: ${OMNIWA_WORKER_RUNTIME_PROFILE:?Set local for controlled pilot; production remains blocked until worker provider IPC is implemented}
+      # Worker production profile still fails closed. Use local only for a controlled
+      # pilot while the internal provider-runtime bridge gathers target evidence.
+      OMNIWA_WORKER_RUNTIME_PROFILE: ${OMNIWA_WORKER_RUNTIME_PROFILE:?Set local for controlled pilot; production remains blocked until worker production profile is enabled}
       OMNIWA_WORKER_REPOSITORY_PROFILE: postgresql
       OMNIWA_WORKER_QUEUE_PROFILE: durable-worker-job
-      OMNIWA_WORKER_PROVIDER_MODE: ${OMNIWA_WORKER_PROVIDER_MODE:-multi-process-unsupported}
+      OMNIWA_WORKER_PROVIDER_MODE: ${OMNIWA_WORKER_PROVIDER_MODE:-provider-runtime-bridge}
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: ${OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:-http://provider-runtime:3011/internal/provider-command/v1/commands}
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: ${OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN:?Set OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN from a protected secret source}
       OMNIWA_POSTGRES_DATABASE_URL: ${OMNIWA_POSTGRES_DATABASE_URL:?Set OMNIWA_POSTGRES_DATABASE_URL}
       OMNIWA_POSTGRES_AUTO_MIGRATE: "false"
       OMNIWA_EVENT_LOG_PATH: /var/lib/omniwa/event-log.json
@@ -73,6 +75,8 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+      provider-runtime:
+        condition: service_started
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -124,6 +128,10 @@ services:
       OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL: ${OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL:?Set OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL}
       OMNIWA_BAILEYS_AUTH_STATE_PATH: /var/lib/omniwa/provider-runtime/baileys-auth-state.json
       OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY: ${OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY:?Set OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY}
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP: "true"
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_HOST: 0.0.0.0
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_PORT: 3011
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: ${OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN:?Set OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN from a protected secret source}
     volumes:
       - omniwa-production-data:/var/lib/omniwa
     depends_on:

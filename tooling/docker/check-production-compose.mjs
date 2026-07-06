@@ -114,15 +114,26 @@ export async function runProductionComposeTemplateCheck(options = {}) {
     };
   });
 
-  await recordCheck(checks, "controlled_pilot_profiles_declared", async () => {
+  await recordCheck(checks, "provider_bridge_controlled_pilot_declared", async () => {
     assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_PROVIDER_MODE", [
-      "multi-process-unsupported",
+      "provider-runtime-bridge",
     ]);
+    assertRenderedAssignment(
+      renderedConfig,
+      "OMNIWA_PROVIDER_COMMAND_BRIDGE_URL",
+      /^http:\/\/provider-runtime:3011\/internal\/provider-command\/v1\/commands$/u,
+    );
+    assertRenderedAssignmentCount(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN", 2);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN", /.+/u);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP", ["true"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HOST", ["0.0.0.0"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_PORT", ["3011"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_RUNTIME_PROFILE", ["local"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_RUNTIME_PROFILE", ["local"]);
 
     return {
-      workerProviderMode: "multi-process-unsupported",
+      workerProviderMode: "provider-runtime-bridge",
+      bridgeEndpoint: "provider-runtime:3011",
       workerRuntimeProfile: "local",
       providerRuntimeProfile: "local",
     };
@@ -202,6 +213,17 @@ function assertRenderedAssignment(renderedConfig, name, expected) {
 
   if (!isExpected) {
     throw new Error(`Unexpected rendered assignment for ${name}.`);
+  }
+}
+
+function assertRenderedAssignmentCount(renderedConfig, name, expectedCount) {
+  const matches = renderedConfig.match(
+    new RegExp(`^\\s*${escapeRegExp(name)}:\\s*(.+?)\\s*$`, "gmu"),
+  );
+  const count = matches?.length ?? 0;
+
+  if (count !== expectedCount) {
+    throw new Error(`Expected ${expectedCount} rendered assignments for ${name}, found ${count}.`);
   }
 }
 

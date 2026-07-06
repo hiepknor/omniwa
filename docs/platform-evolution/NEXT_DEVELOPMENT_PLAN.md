@@ -209,8 +209,9 @@ HTTP transport/handler foundation with internal token authentication and safe fa
 Provider Runtime now has an opt-in internal HTTP bridge server endpoint that fails closed when the
 bridge token or transport is missing, and Worker runtime can compose a
 `FetchProviderCommandTransport` from bridge endpoint/token env configuration in
-`provider-runtime-bridge` mode. Production profile enablement, compose validation, and
-target-environment evidence remain open.
+`provider-runtime-bridge` mode. The production compose template/check now declares this
+controlled-pilot bridge wiring between Worker and Provider Runtime. Production profile enablement
+and target-environment evidence remain open.
 The production compose validation slice adds `pnpm docker:production:check` and wires it into
 `pnpm production:check`, so the checked-in production template must render successfully with
 `deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key
