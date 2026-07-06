@@ -18,6 +18,7 @@
     "@omniwa/domain": "workspace:*",
     "@omniwa/infrastructure-persistence": "workspace:*",
     "@omniwa/infrastructure-provider-baileys": "workspace:*",
+    "@omniwa/infrastructure-provider-bridge": "workspace:*",
     "@omniwa/infrastructure-queue": "workspace:*",
     "@omniwa/shared": "workspace:*"
   }

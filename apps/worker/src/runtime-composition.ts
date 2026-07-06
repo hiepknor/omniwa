@@ -43,6 +43,10 @@ import {
   type BaileysOutboundMessageResolver,
   type BaileysSocketProvider,
 } from "@omniwa/infrastructure-provider-baileys";
+import {
+  ProviderCommandMessagingProviderAdapter,
+  type ProviderCommandTransport,
+} from "@omniwa/infrastructure-provider-bridge";
 import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import { err, ok } from "@omniwa/shared";
 
@@ -61,6 +65,7 @@ export type WorkerRepositoryProfile = (typeof workerRepositoryProfiles)[number];
 export const workerProviderModes = [
   "same-process-local-demo",
   "multi-process-unsupported",
+  "provider-runtime-bridge",
 ] as const;
 
 export type WorkerProviderMode = (typeof workerProviderModes)[number];
@@ -83,11 +88,13 @@ export type WorkerRuntimeComposition = Readonly<{
   app: WorkerRuntimeApp;
   socketProvider?: BaileysSocketProvider;
   outboundMessageResolver?: BaileysOutboundMessageResolver;
+  providerCommandTransport?: ProviderCommandTransport;
 }>;
 
 export type WorkerRuntimeCompositionOverrides = Readonly<{
   socketProvider?: BaileysSocketProvider;
   outboundMessageResolver?: BaileysOutboundMessageResolver;
+  providerCommandTransport?: ProviderCommandTransport;
 }>;
 
 type WorkerRuntimeRepositories = Readonly<{
@@ -129,6 +136,7 @@ export function createWorkerRuntimeComposition(
     outboundMessageIntentStore,
     ...optional("socketProvider", overrides.socketProvider),
     ...optional("outboundMessageResolver", overrides.outboundMessageResolver),
+    ...optional("providerCommandTransport", overrides.providerCommandTransport),
   });
   const queueProvider = createWorkerQueueProvider({
     queueProfile,
@@ -180,6 +188,7 @@ export function createWorkerRuntimeComposition(
     }),
     ...optional("socketProvider", providerComposition.socketProvider),
     ...optional("outboundMessageResolver", providerComposition.outboundMessageResolver),
+    ...optional("providerCommandTransport", providerComposition.providerCommandTransport),
   });
 }
 
@@ -227,6 +236,8 @@ export function readWorkerProviderMode(env: NodeJS.ProcessEnv = process.env): Wo
   const value = env.OMNIWA_WORKER_PROVIDER_MODE?.trim();
 
   switch (value) {
+    case "provider-runtime-bridge":
+      return "provider-runtime-bridge";
     case "multi-process-unsupported":
       return "multi-process-unsupported";
     case "same-process-local-demo":
@@ -352,6 +363,7 @@ type WorkerMessagingProviderComposition = Readonly<{
   messagingProvider: MessagingProviderPort;
   socketProvider?: BaileysSocketProvider;
   outboundMessageResolver?: BaileysOutboundMessageResolver;
+  providerCommandTransport?: ProviderCommandTransport;
 }>;
 
 function createWorkerMessagingProvider(
@@ -361,8 +373,27 @@ function createWorkerMessagingProvider(
       InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore;
     socketProvider?: BaileysSocketProvider;
     outboundMessageResolver?: BaileysOutboundMessageResolver;
+    providerCommandTransport?: ProviderCommandTransport;
   }>,
 ): WorkerMessagingProviderComposition {
+  if (input.providerMode === "provider-runtime-bridge") {
+    if (input.providerCommandTransport === undefined) {
+      return Object.freeze({
+        messagingProvider: createUnavailableMessagingProvider({
+          code: "worker_provider_command_transport_required",
+          message: "Worker provider-runtime bridge mode requires a provider command transport.",
+        }),
+      });
+    }
+
+    return Object.freeze({
+      messagingProvider: new ProviderCommandMessagingProviderAdapter({
+        transport: input.providerCommandTransport,
+      }),
+      providerCommandTransport: input.providerCommandTransport,
+    });
+  }
+
   if (input.providerMode === "multi-process-unsupported") {
     return Object.freeze({
       messagingProvider: createUnavailableMessagingProvider({

@@ -11,6 +11,7 @@
     { "path": "../../packages/domain" },
     { "path": "../../packages/infrastructure-persistence" },
     { "path": "../../packages/infrastructure-provider-baileys" },
+    { "path": "../../packages/infrastructure-provider-bridge" },
     { "path": "../../packages/infrastructure-queue" },
     { "path": "../../packages/shared" }
   ]

@@ -36,7 +36,11 @@ import {
   FakeBaileysSocketProvider,
   OutboundMessageIntentBaileysResolver,
 } from "@omniwa/infrastructure-provider-baileys";
-import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
+import {
+  InMemoryProviderCommandTransport,
+  ProviderCommandMessagingProviderAdapter,
+} from "@omniwa/infrastructure-provider-bridge";
+import { createCorrelationId, createRequestContext, createRequestId, ok } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -268,6 +272,91 @@ describe("Worker runtime composition", () => {
     expect(JSON.stringify(result)).not.toContain(rawText);
   });
 
+  it("keeps provider-runtime bridge mode fail-safe when command transport is missing", async () => {
+    const composition = createWorkerRuntimeComposition({
+      NODE_ENV: "test",
+      OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+    });
+
+    expect(composition.providerMode).toBe("provider-runtime-bridge");
+    expect(composition.socketProvider).toBeUndefined();
+    expect(composition.outboundMessageResolver).toBeUndefined();
+    expect(composition.providerCommandTransport).toBeUndefined();
+
+    const result = await composition.messagingProvider.sendOutboundMessage(
+      providerRequest(),
+      context,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error).toMatchObject({
+      code: "worker_provider_command_transport_required",
+      category: "unavailable",
+      retryable: true,
+    });
+    expect(JSON.stringify(result)).not.toContain(rawRecipient);
+    expect(JSON.stringify(result)).not.toContain(rawText);
+  });
+
+  it("routes provider-runtime bridge mode through an injected provider command transport", async () => {
+    const transport = new InMemoryProviderCommandTransport({
+      handler: (command) => {
+        expect(command.kind).toBe("send_outbound_message");
+        return ok({
+          kind: "send_outbound_message",
+          result: {
+            messageId,
+            status: "accepted",
+            providerReceiptRef: "bridge-provider-receipt",
+            retryable: false,
+          },
+        });
+      },
+    });
+    const composition = createWorkerRuntimeComposition(
+      {
+        NODE_ENV: "test",
+        OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+      },
+      {
+        providerCommandTransport: transport,
+      },
+    );
+
+    expect(composition.providerMode).toBe("provider-runtime-bridge");
+    expect(composition.messagingProvider).toBeInstanceOf(ProviderCommandMessagingProviderAdapter);
+    expect(composition.providerCommandTransport).toBe(transport);
+    expect(composition.socketProvider).toBeUndefined();
+    expect(composition.outboundMessageResolver).toBeUndefined();
+
+    const result = await composition.messagingProvider.sendOutboundMessage(
+      providerRequest(),
+      context,
+    );
+
+    expect(result).toEqual(
+      ok({
+        messageId,
+        status: "accepted",
+        providerReceiptRef: "bridge-provider-receipt",
+        retryable: false,
+      }),
+    );
+    expect(transport.commands()).toHaveLength(1);
+    expect(transport.commands()[0]).toMatchObject({
+      kind: "send_outbound_message",
+      request: {
+        instanceId,
+        providerId,
+        sessionId,
+        messageId,
+        outboundIntentRef: String(outboundIntentRef),
+      },
+    });
+    expect(JSON.stringify(transport.commands())).not.toContain(rawRecipient);
+    expect(JSON.stringify(transport.commands())).not.toContain(rawText);
+  });
+
   it("falls back to API repository profile for shared local stack configuration", () => {
     expect(
       readWorkerRepositoryProfile({
@@ -338,6 +427,9 @@ describe("Worker runtime composition", () => {
     expect(
       readWorkerProviderMode({ OMNIWA_WORKER_PROVIDER_MODE: "multi-process-unsupported" }),
     ).toBe("multi-process-unsupported");
+    expect(readWorkerProviderMode({ OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge" })).toBe(
+      "provider-runtime-bridge",
+    );
     expect(() => readWorkerProviderMode({ OMNIWA_WORKER_PROVIDER_MODE: "invalid" })).toThrow(
       /Unsupported OmniWA Worker provider mode/u,
     );
