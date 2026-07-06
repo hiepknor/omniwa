@@ -111,6 +111,11 @@
     "providerRuntimeServerConfigured": false,
     "authenticationBoundaryChecked": false,
     "commandRoundTripChecked": false,
+    "startupProofRef": "operator-evidence-provider-command-bridge-startup-pending",
+    "workerClientProofRef": "operator-evidence-provider-command-bridge-worker-client-pending",
+    "providerRuntimeServerProofRef": "operator-evidence-provider-command-bridge-server-pending",
+    "authenticationProofRef": "operator-evidence-provider-command-bridge-authentication-pending",
+    "roundTripProofRef": "operator-evidence-provider-command-bridge-round-trip-pending",
     "safeErrorCode": "operator_runtime_evidence_required"
   },
   "backupRestore": {

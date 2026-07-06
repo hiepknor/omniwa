@@ -377,6 +377,11 @@ function validRuntimeEvidenceArtifact(): unknown {
       providerRuntimeServerConfigured: true,
       authenticationBoundaryChecked: true,
       commandRoundTripChecked: true,
+      startupProofRef: "provider-command-bridge-startup-reviewed",
+      workerClientProofRef: "provider-command-bridge-worker-client-reviewed",
+      providerRuntimeServerProofRef: "provider-command-bridge-server-reviewed",
+      authenticationProofRef: "provider-command-bridge-authentication-reviewed",
+      roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
     },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",

@@ -62,6 +62,9 @@ cp docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json \
 
 Edit only the copied input file. Replace placeholders with sanitized booleans, safe refs, timestamps,
 and safe error codes. Do not write raw deployment values into the copied input.
+For provider-command bridge proof, fill only safe evidence refs for startup, worker client
+configuration, provider-runtime server configuration, authentication boundary, and command
+round-trip checks. Refs that still contain `pending` keep runtime evidence failed by design.
 
 Normalize runtime evidence:
 

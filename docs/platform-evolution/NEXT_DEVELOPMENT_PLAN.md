@@ -302,12 +302,14 @@ destinations, raw IDs, JIDs, message text, provider payloads, API keys, or secre
 It also provides the optional `pnpm target-env:runtime` command to normalize sanitized operator
 runtime evidence input from `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` into
 `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`, covering runtime startup/readiness/shutdown,
-dependency connectivity, migration-status checks, and backup/restore drill references without
-storing target URLs, connection strings, raw runtime logs, raw IDs, JIDs, message text, provider
-payloads, API keys, session material, or secrets. When no input is supplied, the command emits a
-failed safe skeleton instead of claiming proof. Operators should copy the checked-in safe skeleton
-from `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` into an external
-artifact path and populate only sanitized booleans, safe refs, timestamps, and safe error codes.
+dependency connectivity, migration-status checks, provider-command bridge startup/client/server/auth
+and command round-trip proof refs, and backup/restore drill references without storing target URLs,
+connection strings, raw runtime logs, raw IDs, JIDs, message text, provider payloads, API keys,
+session material, or secrets. When no input is supplied, the command emits a failed safe skeleton
+instead of claiming proof. Operators should copy the checked-in safe skeleton from
+`docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` into an external artifact
+path and populate only sanitized booleans, safe refs, timestamps, and safe error codes; bridge proof
+refs that still contain `pending` keep runtime evidence failed.
 The production-cut runbook now carries the same runtime-evidence workflow, and `pnpm release:check`
 guards that runbook against drift from the root `target-env:runtime` command and template path.
 The target-environment evidence collection runbook now gives operators the ordered

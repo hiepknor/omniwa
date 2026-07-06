@@ -676,6 +676,7 @@ export function createTargetEnvironmentEvidenceBundleTemplate() {
       startupSummaryRef: "operator-evidence-startup-summary-pending",
       healthReadinessRef: "operator-evidence-health-readiness-pending",
       dependencyConnectivityRef: "operator-evidence-dependency-connectivity-pending",
+      providerCommandBridgeRef: "operator-evidence-provider-command-bridge-pending",
       backupRestoreDrillRef: "operator-evidence-backup-restore-drill-pending",
       productionLoadSummaryRef: "operator-evidence-production-load-summary-pending",
       alertSloDryRunRef: "operator-evidence-alert-slo-dry-run-pending",
@@ -750,6 +751,11 @@ export function createTargetEnvironmentRuntimeEvidenceInputTemplate() {
       providerRuntimeServerConfigured: false,
       authenticationBoundaryChecked: false,
       commandRoundTripChecked: false,
+      startupProofRef: "operator-evidence-provider-command-bridge-startup-pending",
+      workerClientProofRef: "operator-evidence-provider-command-bridge-worker-client-pending",
+      providerRuntimeServerProofRef: "operator-evidence-provider-command-bridge-server-pending",
+      authenticationProofRef: "operator-evidence-provider-command-bridge-authentication-pending",
+      roundTripProofRef: "operator-evidence-provider-command-bridge-round-trip-pending",
       safeErrorCode: "operator_runtime_evidence_required",
     }),
     backupRestore: Object.freeze({
@@ -880,6 +886,11 @@ function isProviderCommandBridgeEvidenceArtifact(value) {
     typeof value.providerRuntimeServerConfigured === "boolean" &&
     typeof value.authenticationBoundaryChecked === "boolean" &&
     typeof value.commandRoundTripChecked === "boolean" &&
+    isNonEmptyString(value.startupProofRef) &&
+    isNonEmptyString(value.workerClientProofRef) &&
+    isNonEmptyString(value.providerRuntimeServerProofRef) &&
+    isNonEmptyString(value.authenticationProofRef) &&
+    isNonEmptyString(value.roundTripProofRef) &&
     (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
   );
 }
@@ -914,6 +925,7 @@ function isTargetEnvironmentEvidenceRefs(value) {
     isNonEmptyString(value.startupSummaryRef) &&
     isNonEmptyString(value.healthReadinessRef) &&
     isNonEmptyString(value.dependencyConnectivityRef) &&
+    isNonEmptyString(value.providerCommandBridgeRef) &&
     isNonEmptyString(value.backupRestoreDrillRef) &&
     isNonEmptyString(value.productionLoadSummaryRef) &&
     isNonEmptyString(value.alertSloDryRunRef) &&
@@ -1076,6 +1088,11 @@ function isTargetEnvironmentRuntimeEvidenceInputTemplate(artifact) {
     artifact.providerCommandBridge.providerRuntimeServerConfigured === false &&
     artifact.providerCommandBridge.authenticationBoundaryChecked === false &&
     artifact.providerCommandBridge.commandRoundTripChecked === false &&
+    artifact.providerCommandBridge.startupProofRef.endsWith("-pending") &&
+    artifact.providerCommandBridge.workerClientProofRef.endsWith("-pending") &&
+    artifact.providerCommandBridge.providerRuntimeServerProofRef.endsWith("-pending") &&
+    artifact.providerCommandBridge.authenticationProofRef.endsWith("-pending") &&
+    artifact.providerCommandBridge.roundTripProofRef.endsWith("-pending") &&
     artifact.providerCommandBridge.safeErrorCode === "operator_runtime_evidence_required" &&
     artifact.backupRestore.backupCreated === false &&
     artifact.backupRestore.restoreValidated === false &&

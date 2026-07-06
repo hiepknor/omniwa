@@ -122,6 +122,11 @@ function createDefaultRuntimeEvidenceReport({ checkedAtIso, findings }) {
       providerRuntimeServerConfigured: false,
       authenticationBoundaryChecked: false,
       commandRoundTripChecked: false,
+      startupProofRef: "target-runtime-provider-command-bridge-startup-pending",
+      workerClientProofRef: "target-runtime-provider-command-bridge-worker-client-pending",
+      providerRuntimeServerProofRef: "target-runtime-provider-command-bridge-server-pending",
+      authenticationProofRef: "target-runtime-provider-command-bridge-authentication-pending",
+      roundTripProofRef: "target-runtime-provider-command-bridge-round-trip-pending",
       safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
     }),
     backupRestore: Object.freeze({
@@ -154,11 +159,22 @@ function runtimeEvidenceChecksPass(report) {
     report.providerCommandBridge.providerRuntimeServerConfigured &&
     report.providerCommandBridge.authenticationBoundaryChecked &&
     report.providerCommandBridge.commandRoundTripChecked &&
+    providerCommandBridgeProofRefsComplete(report.providerCommandBridge) &&
     report.backupRestore.backupCreated &&
     report.backupRestore.restoreValidated &&
     report.backupRestore.rollbackOrForwardFixReviewed &&
     report.findings.every((finding) => finding.severity !== "blocker")
   );
+}
+
+function providerCommandBridgeProofRefsComplete(providerCommandBridge) {
+  return [
+    providerCommandBridge.startupProofRef,
+    providerCommandBridge.workerClientProofRef,
+    providerCommandBridge.providerRuntimeServerProofRef,
+    providerCommandBridge.authenticationProofRef,
+    providerCommandBridge.roundTripProofRef,
+  ].every((value) => typeof value === "string" && value.length > 0 && !value.includes("pending"));
 }
 
 function normalizeOptionalString(value) {

@@ -13,6 +13,7 @@
     "startupSummaryRef": "operator-evidence-startup-summary-pending",
     "healthReadinessRef": "operator-evidence-health-readiness-pending",
     "dependencyConnectivityRef": "operator-evidence-dependency-connectivity-pending",
+    "providerCommandBridgeRef": "operator-evidence-provider-command-bridge-pending",
     "backupRestoreDrillRef": "operator-evidence-backup-restore-drill-pending",
     "productionLoadSummaryRef": "operator-evidence-production-load-summary-pending",
     "alertSloDryRunRef": "operator-evidence-alert-slo-dry-run-pending",

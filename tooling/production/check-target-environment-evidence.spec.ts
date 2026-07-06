@@ -711,6 +711,36 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails when optional runtime evidence omits a provider command bridge proof ref", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      const artifact = validRuntimeEvidenceArtifact() as {
+        providerCommandBridge: Record<string, unknown>;
+      };
+      delete artifact.providerCommandBridge.roundTripProofRef;
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), artifact);
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails safe when optional artifacts contain unsafe deployment details", async () => {
     const root = await createTempProject();
 
@@ -1075,6 +1105,11 @@ function validRuntimeEvidenceArtifact(): unknown {
       providerRuntimeServerConfigured: true,
       authenticationBoundaryChecked: true,
       commandRoundTripChecked: true,
+      startupProofRef: "provider-command-bridge-startup-reviewed",
+      workerClientProofRef: "provider-command-bridge-worker-client-reviewed",
+      providerRuntimeServerProofRef: "provider-command-bridge-server-reviewed",
+      authenticationProofRef: "provider-command-bridge-authentication-reviewed",
+      roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
     },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",
@@ -1106,6 +1141,7 @@ function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROV
       startupSummaryRef: "startup-summary-reviewed",
       healthReadinessRef: "health-readiness-reviewed",
       dependencyConnectivityRef: "dependency-connectivity-reviewed",
+      providerCommandBridgeRef: "provider-command-bridge-reviewed",
       backupRestoreDrillRef: "backup-restore-drill-reviewed",
       productionLoadSummaryRef: "production-load-summary-reviewed",
       alertSloDryRunRef: "alert-slo-dry-run-reviewed",

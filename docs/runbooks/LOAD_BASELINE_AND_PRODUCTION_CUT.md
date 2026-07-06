@@ -137,6 +137,9 @@ keeps status failed unless every runtime, dependency, and backup/restore check p
 blocker findings. The input and report must not contain target URLs, database or Redis connection
 strings, API keys, raw runtime logs, QR payloads, JIDs, message text, provider payloads, auth state,
 session material, webhook secrets, or secret-provider values.
+Provider-command bridge evidence must include safe refs for startup, worker client configuration,
+provider-runtime server configuration, authentication boundary, and command round-trip checks. Refs
+that still contain `pending` keep runtime evidence failed even if the boolean checks are set.
 
 When any target-environment artifact path environment variable is present, `pnpm target-env:check`
 also validates the referenced smoke/load/runtime artifact JSON shape and rejects unsafe fields such
@@ -145,9 +148,9 @@ validation is local-only; it does not run target-environment traffic.
 
 Operators can also provide `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` to validate a sanitized evidence
 bundle manifest. The bundle records references to deployment profile, runtime versions, startup
-summary, health/readiness, dependency connectivity, backup/restore drill, production-load summary,
-alert/SLO dry-run, rollback or forward-fix notes, and smoke/load artifacts without storing raw
-environment values. Start from
+summary, health/readiness, dependency connectivity, provider-command bridge proof, backup/restore
+drill, production-load summary, alert/SLO dry-run, rollback or forward-fix notes, and smoke/load
+artifacts without storing raw environment values. Start from
 `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` and write the populated copy outside
 the design/review source tree before passing its path to the gate. The helper command below creates
 that initial copy and can embed sanitized smoke/load summaries if their report path variables are

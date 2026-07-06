@@ -49,6 +49,11 @@ describe("target environment runtime evidence runner", () => {
       providerRuntimeServerConfigured: false,
       authenticationBoundaryChecked: false,
       commandRoundTripChecked: false,
+      startupProofRef: "target-runtime-provider-command-bridge-startup-pending",
+      workerClientProofRef: "target-runtime-provider-command-bridge-worker-client-pending",
+      providerRuntimeServerProofRef: "target-runtime-provider-command-bridge-server-pending",
+      authenticationProofRef: "target-runtime-provider-command-bridge-authentication-pending",
+      roundTripProofRef: "target-runtime-provider-command-bridge-round-trip-pending",
       safeErrorCode: "target_runtime_evidence_not_supplied",
     });
     expect(report.backupRestore).toEqual(
@@ -96,6 +101,11 @@ describe("target environment runtime evidence runner", () => {
       providerRuntimeServerConfigured: true,
       authenticationBoundaryChecked: true,
       commandRoundTripChecked: true,
+      startupProofRef: "provider-command-bridge-startup-reviewed",
+      workerClientProofRef: "provider-command-bridge-worker-client-reviewed",
+      providerRuntimeServerProofRef: "provider-command-bridge-server-reviewed",
+      authenticationProofRef: "provider-command-bridge-authentication-reviewed",
+      roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
     });
     expect(JSON.stringify(report)).not.toContain("target-secret-api-key");
     expect(JSON.stringify(report)).not.toContain("postgresql://");
@@ -115,6 +125,24 @@ describe("target environment runtime evidence runner", () => {
 
     expect(report.status).toBe("failed");
     expect(report.backupRestore.restoreValidated).toBe(false);
+  });
+
+  it("keeps runtime evidence failed when bridge proof refs remain pending", async () => {
+    const input = validRuntimeEvidenceInput("passed");
+    const report = await runTargetEnvironmentRuntimeEvidence({
+      input: {
+        ...input,
+        providerCommandBridge: {
+          ...input.providerCommandBridge,
+          roundTripProofRef: "operator-evidence-provider-command-bridge-round-trip-pending",
+        },
+      },
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.providerCommandBridge.roundTripProofRef).toBe(
+      "operator-evidence-provider-command-bridge-round-trip-pending",
+    );
   });
 
   it("reads sanitized operator input from a file and writes a sanitized report", async () => {
@@ -263,6 +291,11 @@ function validRuntimeEvidenceInput(status: "passed" | "failed" = "passed") {
       providerRuntimeServerConfigured: true,
       authenticationBoundaryChecked: true,
       commandRoundTripChecked: true,
+      startupProofRef: "provider-command-bridge-startup-reviewed",
+      workerClientProofRef: "provider-command-bridge-worker-client-reviewed",
+      providerRuntimeServerProofRef: "provider-command-bridge-server-reviewed",
+      authenticationProofRef: "provider-command-bridge-authentication-reviewed",
+      roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
     },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",
