@@ -373,11 +373,13 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` into
   `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`. The artifact covers runtime
   startup/readiness/shutdown checks, dependency connectivity, migration-status checks,
-  provider-command bridge startup/client/server/auth/round-trip proof refs, and backup/restore drill
-  references without storing target URLs, connection strings, raw runtime logs, API keys, JIDs,
-  message text, provider payloads, session material, or secrets. If no input is supplied, the
-  command emits a failed safe skeleton instead of claiming proof, and bridge proof refs that still
-  contain `pending` keep the artifact failed.
+  provider-command bridge startup/client/server/auth/round-trip proof refs, observability signal
+  proof refs for the metrics exporter, structured logging, queue backlog metrics, EventLog outbox
+  metrics, redaction review, and backup/restore drill references without storing target URLs,
+  connection strings, raw runtime logs, API keys, JIDs, message text, provider payloads, session
+  material, or secrets. If no input is supplied, the command emits a failed safe skeleton instead of
+  claiming proof, and bridge or observability signal proof refs that still contain `pending` keep
+  the artifact failed.
 - N11.7 target-environment evidence validation now keeps
   `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` under the local evidence
   gate as a safe failed skeleton. Operators should copy and populate that template into an external

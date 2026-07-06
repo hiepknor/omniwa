@@ -880,6 +880,35 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails when optional runtime evidence omits observability signal proof", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), {
+        ...validRuntimeEvidenceArtifact(),
+        observabilitySignals: undefined,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails when optional runtime evidence omits a provider command bridge proof ref", async () => {
     const root = await createTempProject();
 
@@ -889,6 +918,36 @@ describe("target environment evidence gate", () => {
         providerCommandBridge: Record<string, unknown>;
       };
       delete artifact.providerCommandBridge.roundTripProofRef;
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), artifact);
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when optional runtime evidence omits a queue backlog metric proof ref", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      const artifact = validRuntimeEvidenceArtifact() as {
+        observabilitySignals: Record<string, unknown>;
+      };
+      delete artifact.observabilitySignals.queueBacklogMetricsProofRef;
       await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), artifact);
 
       const report = await evaluateTargetEnvironmentEvidence({
@@ -1314,6 +1373,18 @@ function validRuntimeEvidenceArtifact(): unknown {
       providerRuntimeServerProofRef: "provider-command-bridge-server-reviewed",
       authenticationProofRef: "provider-command-bridge-authentication-reviewed",
       roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
+    },
+    observabilitySignals: {
+      metricExporterChecked: true,
+      structuredLoggingChecked: true,
+      queueBacklogMetricsChecked: true,
+      eventLogOutboxMetricsChecked: true,
+      redactionChecked: true,
+      metricsProofRef: "observability-metrics-reviewed",
+      loggingProofRef: "observability-logging-reviewed",
+      queueBacklogMetricsProofRef: "queue-backlog-metrics-reviewed",
+      eventLogOutboxMetricsProofRef: "eventlog-outbox-metrics-reviewed",
+      redactionProofRef: "observability-redaction-reviewed",
     },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",

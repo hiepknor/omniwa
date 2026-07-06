@@ -118,6 +118,19 @@
     "roundTripProofRef": "operator-evidence-provider-command-bridge-round-trip-pending",
     "safeErrorCode": "operator_runtime_evidence_required"
   },
+  "observabilitySignals": {
+    "metricExporterChecked": false,
+    "structuredLoggingChecked": false,
+    "queueBacklogMetricsChecked": false,
+    "eventLogOutboxMetricsChecked": false,
+    "redactionChecked": false,
+    "metricsProofRef": "operator-evidence-observability-metrics-pending",
+    "loggingProofRef": "operator-evidence-observability-logging-pending",
+    "queueBacklogMetricsProofRef": "operator-evidence-queue-backlog-metrics-pending",
+    "eventLogOutboxMetricsProofRef": "operator-evidence-eventlog-outbox-metrics-pending",
+    "redactionProofRef": "operator-evidence-observability-redaction-pending",
+    "safeErrorCode": "operator_runtime_evidence_required"
+  },
   "backupRestore": {
     "drillRef": "operator-evidence-backup-restore-drill-pending",
     "backupCreated": false,

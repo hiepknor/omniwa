@@ -747,6 +747,7 @@ export function validateTargetEnvironmentRuntimeEvidenceArtifact(artifact) {
     Array.isArray(artifact.dependencies) &&
     artifact.dependencies.every(isDependencyEvidenceArtifact) &&
     isProviderCommandBridgeEvidenceArtifact(artifact.providerCommandBridge) &&
+    isObservabilitySignalsEvidenceArtifact(artifact.observabilitySignals) &&
     isBackupRestoreEvidenceArtifact(artifact.backupRestore) &&
     Array.isArray(artifact.findings) &&
     artifact.findings.every(isFindingArtifact)
@@ -908,6 +909,19 @@ export function createTargetEnvironmentRuntimeEvidenceInputTemplate() {
       roundTripProofRef: "operator-evidence-provider-command-bridge-round-trip-pending",
       safeErrorCode: "operator_runtime_evidence_required",
     }),
+    observabilitySignals: Object.freeze({
+      metricExporterChecked: false,
+      structuredLoggingChecked: false,
+      queueBacklogMetricsChecked: false,
+      eventLogOutboxMetricsChecked: false,
+      redactionChecked: false,
+      metricsProofRef: "operator-evidence-observability-metrics-pending",
+      loggingProofRef: "operator-evidence-observability-logging-pending",
+      queueBacklogMetricsProofRef: "operator-evidence-queue-backlog-metrics-pending",
+      eventLogOutboxMetricsProofRef: "operator-evidence-eventlog-outbox-metrics-pending",
+      redactionProofRef: "operator-evidence-observability-redaction-pending",
+      safeErrorCode: "operator_runtime_evidence_required",
+    }),
     backupRestore: Object.freeze({
       drillRef: "operator-evidence-backup-restore-drill-pending",
       backupCreated: false,
@@ -1041,6 +1055,23 @@ function isProviderCommandBridgeEvidenceArtifact(value) {
     isNonEmptyString(value.providerRuntimeServerProofRef) &&
     isNonEmptyString(value.authenticationProofRef) &&
     isNonEmptyString(value.roundTripProofRef) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isObservabilitySignalsEvidenceArtifact(value) {
+  return (
+    isRecord(value) &&
+    typeof value.metricExporterChecked === "boolean" &&
+    typeof value.structuredLoggingChecked === "boolean" &&
+    typeof value.queueBacklogMetricsChecked === "boolean" &&
+    typeof value.eventLogOutboxMetricsChecked === "boolean" &&
+    typeof value.redactionChecked === "boolean" &&
+    isNonEmptyString(value.metricsProofRef) &&
+    isNonEmptyString(value.loggingProofRef) &&
+    isNonEmptyString(value.queueBacklogMetricsProofRef) &&
+    isNonEmptyString(value.eventLogOutboxMetricsProofRef) &&
+    isNonEmptyString(value.redactionProofRef) &&
     (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
   );
 }
@@ -1295,6 +1326,17 @@ function isTargetEnvironmentRuntimeEvidenceInputTemplate(artifact) {
     artifact.providerCommandBridge.authenticationProofRef.endsWith("-pending") &&
     artifact.providerCommandBridge.roundTripProofRef.endsWith("-pending") &&
     artifact.providerCommandBridge.safeErrorCode === "operator_runtime_evidence_required" &&
+    artifact.observabilitySignals.metricExporterChecked === false &&
+    artifact.observabilitySignals.structuredLoggingChecked === false &&
+    artifact.observabilitySignals.queueBacklogMetricsChecked === false &&
+    artifact.observabilitySignals.eventLogOutboxMetricsChecked === false &&
+    artifact.observabilitySignals.redactionChecked === false &&
+    artifact.observabilitySignals.metricsProofRef.endsWith("-pending") &&
+    artifact.observabilitySignals.loggingProofRef.endsWith("-pending") &&
+    artifact.observabilitySignals.queueBacklogMetricsProofRef.endsWith("-pending") &&
+    artifact.observabilitySignals.eventLogOutboxMetricsProofRef.endsWith("-pending") &&
+    artifact.observabilitySignals.redactionProofRef.endsWith("-pending") &&
+    artifact.observabilitySignals.safeErrorCode === "operator_runtime_evidence_required" &&
     artifact.backupRestore.backupCreated === false &&
     artifact.backupRestore.restoreValidated === false &&
     artifact.backupRestore.rollbackOrForwardFixReviewed === false &&

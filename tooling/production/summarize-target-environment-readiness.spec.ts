@@ -301,6 +301,18 @@ function runtimeEvidenceSummary() {
       authenticationProofRef: "bridge-authentication-reviewed",
       roundTripProofRef: "bridge-round-trip-reviewed",
     },
+    observabilitySignals: {
+      metricExporterChecked: true,
+      structuredLoggingChecked: true,
+      queueBacklogMetricsChecked: true,
+      eventLogOutboxMetricsChecked: true,
+      redactionChecked: true,
+      metricsProofRef: "observability-metrics-reviewed",
+      loggingProofRef: "observability-logging-reviewed",
+      queueBacklogMetricsProofRef: "queue-backlog-metrics-reviewed",
+      eventLogOutboxMetricsProofRef: "eventlog-outbox-metrics-reviewed",
+      redactionProofRef: "observability-redaction-reviewed",
+    },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",
       backupCreated: true,

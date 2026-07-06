@@ -63,7 +63,7 @@ collect dashboard URLs, notification destinations, API keys, raw IDs, provider p
 and it does not replace sustained SLO observation.
 The optional `pnpm target-env:runtime` command can normalize sanitized operator runtime evidence for
 startup, readiness, shutdown, dependency connectivity, migration-status checks, provider-command
-bridge proof refs, and backup/restore drill references from an external copy of
+bridge proof refs, observability signal proof refs, and backup/restore drill references from an external copy of
 `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json`. It does not collect secrets
 or raw runtime logs, and it does not replace the proof state updates required in
 `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.
@@ -73,6 +73,8 @@ next-action codes. The production-cut gate requires this workflow to remain ackn
 future production-ready review has a final non-secret sanity check before proof states are updated.
 Provider-command bridge proof must include safe refs for startup, worker client configuration,
 provider-runtime server configuration, authentication boundary, and command round trip.
+Observability signal proof must include safe refs for the metrics exporter, structured logging,
+queue backlog metrics, EventLog outbox metrics, and redaction review.
 
 ## Load Baseline
 

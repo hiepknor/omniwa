@@ -56,6 +56,19 @@ describe("target environment runtime evidence runner", () => {
       roundTripProofRef: "target-runtime-provider-command-bridge-round-trip-pending",
       safeErrorCode: "target_runtime_evidence_not_supplied",
     });
+    expect(report.observabilitySignals).toEqual({
+      metricExporterChecked: false,
+      structuredLoggingChecked: false,
+      queueBacklogMetricsChecked: false,
+      eventLogOutboxMetricsChecked: false,
+      redactionChecked: false,
+      metricsProofRef: "target-runtime-observability-metrics-pending",
+      loggingProofRef: "target-runtime-observability-logging-pending",
+      queueBacklogMetricsProofRef: "target-runtime-queue-backlog-metrics-pending",
+      eventLogOutboxMetricsProofRef: "target-runtime-eventlog-outbox-metrics-pending",
+      redactionProofRef: "target-runtime-observability-redaction-pending",
+      safeErrorCode: "target_runtime_evidence_not_supplied",
+    });
     expect(report.backupRestore).toEqual(
       expect.objectContaining({
         backupCreated: false,
@@ -107,6 +120,18 @@ describe("target environment runtime evidence runner", () => {
       authenticationProofRef: "provider-command-bridge-authentication-reviewed",
       roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
     });
+    expect(report.observabilitySignals).toEqual({
+      metricExporterChecked: true,
+      structuredLoggingChecked: true,
+      queueBacklogMetricsChecked: true,
+      eventLogOutboxMetricsChecked: true,
+      redactionChecked: true,
+      metricsProofRef: "observability-metrics-reviewed",
+      loggingProofRef: "observability-logging-reviewed",
+      queueBacklogMetricsProofRef: "queue-backlog-metrics-reviewed",
+      eventLogOutboxMetricsProofRef: "eventlog-outbox-metrics-reviewed",
+      redactionProofRef: "observability-redaction-reviewed",
+    });
     expect(JSON.stringify(report)).not.toContain("target-secret-api-key");
     expect(JSON.stringify(report)).not.toContain("postgresql://");
   });
@@ -142,6 +167,24 @@ describe("target environment runtime evidence runner", () => {
     expect(report.status).toBe("failed");
     expect(report.providerCommandBridge.roundTripProofRef).toBe(
       "operator-evidence-provider-command-bridge-round-trip-pending",
+    );
+  });
+
+  it("keeps runtime evidence failed when observability proof refs remain pending", async () => {
+    const input = validRuntimeEvidenceInput("passed");
+    const report = await runTargetEnvironmentRuntimeEvidence({
+      input: {
+        ...input,
+        observabilitySignals: {
+          ...input.observabilitySignals,
+          queueBacklogMetricsProofRef: "operator-evidence-queue-backlog-metrics-pending",
+        },
+      },
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.observabilitySignals.queueBacklogMetricsProofRef).toBe(
+      "operator-evidence-queue-backlog-metrics-pending",
     );
   });
 
@@ -296,6 +339,18 @@ function validRuntimeEvidenceInput(status: "passed" | "failed" = "passed") {
       providerRuntimeServerProofRef: "provider-command-bridge-server-reviewed",
       authenticationProofRef: "provider-command-bridge-authentication-reviewed",
       roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
+    },
+    observabilitySignals: {
+      metricExporterChecked: true,
+      structuredLoggingChecked: true,
+      queueBacklogMetricsChecked: true,
+      eventLogOutboxMetricsChecked: true,
+      redactionChecked: true,
+      metricsProofRef: "observability-metrics-reviewed",
+      loggingProofRef: "observability-logging-reviewed",
+      queueBacklogMetricsProofRef: "queue-backlog-metrics-reviewed",
+      eventLogOutboxMetricsProofRef: "eventlog-outbox-metrics-reviewed",
+      redactionProofRef: "observability-redaction-reviewed",
     },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",

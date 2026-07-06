@@ -163,6 +163,9 @@ session material, webhook secrets, or secret-provider values.
 Provider-command bridge evidence must include safe refs for startup, worker client configuration,
 provider-runtime server configuration, authentication boundary, and command round-trip checks. Refs
 that still contain `pending` keep runtime evidence failed even if the boolean checks are set.
+Observability signal evidence must include safe refs for the metrics exporter, structured logging,
+queue backlog metrics, EventLog outbox metrics, and redaction review. Refs that still contain
+`pending` keep runtime evidence failed even if the boolean checks are set.
 
 When any target-environment artifact path environment variable is present, `pnpm target-env:check`
 also validates the referenced smoke/load/alert-SLO/runtime artifact JSON shape and rejects unsafe

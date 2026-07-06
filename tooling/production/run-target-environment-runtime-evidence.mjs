@@ -129,6 +129,19 @@ function createDefaultRuntimeEvidenceReport({ checkedAtIso, findings }) {
       roundTripProofRef: "target-runtime-provider-command-bridge-round-trip-pending",
       safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
     }),
+    observabilitySignals: Object.freeze({
+      metricExporterChecked: false,
+      structuredLoggingChecked: false,
+      queueBacklogMetricsChecked: false,
+      eventLogOutboxMetricsChecked: false,
+      redactionChecked: false,
+      metricsProofRef: "target-runtime-observability-metrics-pending",
+      loggingProofRef: "target-runtime-observability-logging-pending",
+      queueBacklogMetricsProofRef: "target-runtime-queue-backlog-metrics-pending",
+      eventLogOutboxMetricsProofRef: "target-runtime-eventlog-outbox-metrics-pending",
+      redactionProofRef: "target-runtime-observability-redaction-pending",
+      safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
+    }),
     backupRestore: Object.freeze({
       drillRef: "backup-restore-drill-pending",
       backupCreated: false,
@@ -160,6 +173,12 @@ function runtimeEvidenceChecksPass(report) {
     report.providerCommandBridge.authenticationBoundaryChecked &&
     report.providerCommandBridge.commandRoundTripChecked &&
     providerCommandBridgeProofRefsComplete(report.providerCommandBridge) &&
+    report.observabilitySignals.metricExporterChecked &&
+    report.observabilitySignals.structuredLoggingChecked &&
+    report.observabilitySignals.queueBacklogMetricsChecked &&
+    report.observabilitySignals.eventLogOutboxMetricsChecked &&
+    report.observabilitySignals.redactionChecked &&
+    observabilityProofRefsComplete(report.observabilitySignals) &&
     report.backupRestore.backupCreated &&
     report.backupRestore.restoreValidated &&
     report.backupRestore.rollbackOrForwardFixReviewed &&
@@ -174,6 +193,16 @@ function providerCommandBridgeProofRefsComplete(providerCommandBridge) {
     providerCommandBridge.providerRuntimeServerProofRef,
     providerCommandBridge.authenticationProofRef,
     providerCommandBridge.roundTripProofRef,
+  ].every((value) => typeof value === "string" && value.length > 0 && !value.includes("pending"));
+}
+
+function observabilityProofRefsComplete(observabilitySignals) {
+  return [
+    observabilitySignals.metricsProofRef,
+    observabilitySignals.loggingProofRef,
+    observabilitySignals.queueBacklogMetricsProofRef,
+    observabilitySignals.eventLogOutboxMetricsProofRef,
+    observabilitySignals.redactionProofRef,
   ].every((value) => typeof value === "string" && value.length > 0 && !value.includes("pending"));
 }
 
@@ -203,6 +232,7 @@ function freezeRuntimeEvidenceReport(report) {
       report.dependencies.map((dependency) => Object.freeze({ ...dependency })),
     ),
     providerCommandBridge: Object.freeze({ ...report.providerCommandBridge }),
+    observabilitySignals: Object.freeze({ ...report.observabilitySignals }),
     backupRestore: Object.freeze({ ...report.backupRestore }),
     findings: Object.freeze(report.findings.map((finding) => Object.freeze({ ...finding }))),
   });
