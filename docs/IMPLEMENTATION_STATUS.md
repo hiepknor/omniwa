@@ -184,8 +184,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   provider outcomes. Worker runtime now has an explicit `provider-runtime-bridge` mode that routes
   through an injected `ProviderCommandTransport` and fails closed when that transport is missing.
   Provider Runtime now has an opt-in internal HTTP bridge server endpoint that fails closed when the
-  bridge token or transport is missing. Worker HTTP client runtime wiring, production profile
-  enablement, and target-environment evidence remain open follow-up work.
+  bridge token or transport is missing, and Worker runtime can compose a
+  `FetchProviderCommandTransport` from bridge endpoint/token env configuration in
+  `provider-runtime-bridge` mode. Production profile enablement and target-environment evidence
+  remain open follow-up work.
 - N11.3 added durable local and PostgreSQL provider-runtime ownership lease guards, active lease
   renewal during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`.
   Production profile enablement remains blocked by secret hardening and final production validation.

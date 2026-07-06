@@ -37,6 +37,7 @@ import {
   OutboundMessageIntentBaileysResolver,
 } from "@omniwa/infrastructure-provider-baileys";
 import {
+  FetchProviderCommandTransport,
   InMemoryProviderCommandTransport,
   ProviderCommandMessagingProviderAdapter,
 } from "@omniwa/infrastructure-provider-bridge";
@@ -296,6 +297,59 @@ describe("Worker runtime composition", () => {
     });
     expect(JSON.stringify(result)).not.toContain(rawRecipient);
     expect(JSON.stringify(result)).not.toContain(rawText);
+  });
+
+  it("keeps provider-runtime bridge mode fail-safe when HTTP bridge config is incomplete", async () => {
+    const missingToken = createWorkerRuntimeComposition({
+      NODE_ENV: "test",
+      OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:
+        "http://127.0.0.1:3011/internal/provider-command/v1/commands",
+    });
+    const missingUrl = createWorkerRuntimeComposition({
+      NODE_ENV: "test",
+      OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: "provider-runtime-command-bridge-token",
+    });
+
+    expect(missingToken.providerCommandTransport).toBeUndefined();
+    expect(missingUrl.providerCommandTransport).toBeUndefined();
+
+    await expect(
+      missingToken.messagingProvider.sendOutboundMessage(providerRequest(), context),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: {
+        code: "worker_provider_command_transport_required",
+      },
+    });
+    await expect(
+      missingUrl.messagingProvider.sendOutboundMessage(providerRequest(), context),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: {
+        code: "worker_provider_command_transport_required",
+      },
+    });
+  });
+
+  it("wires provider-runtime bridge mode through HTTP transport env config", () => {
+    const composition = createWorkerRuntimeComposition({
+      NODE_ENV: "test",
+      OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:
+        "http://127.0.0.1:3011/internal/provider-command/v1/commands",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: "provider-runtime-command-bridge-token",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TIMEOUT_MS: "2500",
+    });
+
+    expect(composition.providerMode).toBe("provider-runtime-bridge");
+    expect(composition.messagingProvider).toBeInstanceOf(ProviderCommandMessagingProviderAdapter);
+    expect(composition.providerCommandTransport).toBeInstanceOf(FetchProviderCommandTransport);
+    expect(composition.socketProvider).toBeUndefined();
+    expect(composition.outboundMessageResolver).toBeUndefined();
+    expect(JSON.stringify(composition.providerCommandTransport)).not.toContain(rawRecipient);
+    expect(JSON.stringify(composition.providerCommandTransport)).not.toContain(rawText);
   });
 
   it("routes provider-runtime bridge mode through an injected provider command transport", async () => {

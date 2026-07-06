@@ -44,6 +44,7 @@ import {
   type BaileysSocketProvider,
 } from "@omniwa/infrastructure-provider-baileys";
 import {
+  FetchProviderCommandTransport,
   ProviderCommandMessagingProviderAdapter,
   type ProviderCommandTransport,
 } from "@omniwa/infrastructure-provider-bridge";
@@ -136,7 +137,10 @@ export function createWorkerRuntimeComposition(
     outboundMessageIntentStore,
     ...optional("socketProvider", overrides.socketProvider),
     ...optional("outboundMessageResolver", overrides.outboundMessageResolver),
-    ...optional("providerCommandTransport", overrides.providerCommandTransport),
+    ...optional(
+      "providerCommandTransport",
+      overrides.providerCommandTransport ?? createWorkerProviderCommandTransport(env, providerMode),
+    ),
   });
   const queueProvider = createWorkerQueueProvider({
     queueProfile,
@@ -424,6 +428,32 @@ function createWorkerMessagingProvider(
   });
 }
 
+function createWorkerProviderCommandTransport(
+  env: NodeJS.ProcessEnv,
+  providerMode: WorkerProviderMode,
+): ProviderCommandTransport | undefined {
+  if (providerMode !== "provider-runtime-bridge") {
+    return undefined;
+  }
+
+  const endpointUrl = readOptionalEnv(env.OMNIWA_PROVIDER_COMMAND_BRIDGE_URL);
+  const bridgeToken = readOptionalEnv(env.OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN);
+
+  if (endpointUrl === undefined || bridgeToken === undefined) {
+    return undefined;
+  }
+
+  return new FetchProviderCommandTransport({
+    endpointUrl,
+    bridgeToken,
+    timeoutMilliseconds: readPositiveIntegerEnv(
+      env.OMNIWA_PROVIDER_COMMAND_BRIDGE_TIMEOUT_MS,
+      5_000,
+      "OMNIWA_PROVIDER_COMMAND_BRIDGE_TIMEOUT_MS",
+    ),
+  });
+}
+
 function createUnavailableMessagingProvider(
   input: Readonly<{
     code: string;
@@ -531,6 +561,12 @@ function readPositiveIntegerEnv(
   }
 
   return parsed;
+}
+
+function readOptionalEnv(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+
+  return normalized === undefined || normalized.length === 0 ? undefined : normalized;
 }
 
 function optional<TKey extends string, TValue>(
