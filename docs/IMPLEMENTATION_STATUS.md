@@ -349,6 +349,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` under the local evidence
   gate as a safe failed skeleton. Operators should copy and populate that template into an external
   artifact path before passing it through `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH`.
+- N11.7 release readiness now also guards
+  `docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md` against runtime-evidence workflow drift. The
+  runbook must document `pnpm target-env:runtime`, the runtime evidence input/report paths, and the
+  checked-in safe input template.
 - N11.7 target-environment smoke evidence now validates the deployed API public response envelope and
   request/correlation metadata for successful `/v1/health`, `/v1/health/readiness`, and
   `/v1/instances` checks while still excluding response bodies, target URLs, API keys, raw IDs,

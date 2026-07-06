@@ -54,6 +54,19 @@ OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
 pnpm target-env:load
 ```
 
+Normalize optional target-environment runtime evidence from a sanitized operator-maintained input:
+
+```text
+mkdir -p artifacts/target-env
+
+cp docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json \
+  artifacts/target-env/runtime-evidence-input.json
+
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH=artifacts/target-env/runtime-evidence-input.json \
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
+pnpm target-env:runtime
+```
+
 Run the full quality gate:
 
 ```text
@@ -112,10 +125,20 @@ against the same approved public endpoint set and writes a sanitized summary to 
 for review evidence. The summary includes aggregate counts and latency budgets only; it excludes the
 base URL, API key, response bodies, raw IDs, query strings, provider payloads, and secrets.
 
-When either target-environment artifact path environment variable is present, `pnpm target-env:check`
-also validates the referenced smoke/load artifact JSON shape and rejects unsafe fields such as URLs,
-API keys, raw payloads, QR values, JIDs, text, auth state, and session material. This validation is
-local-only; it does not run target-environment traffic.
+The optional target-environment runtime evidence runner is implemented in
+`tooling/production/run-target-environment-runtime-evidence.mjs`. Start from
+`docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json`, copy it to an external
+operator artifact path, and populate only sanitized booleans, safe refs, timestamps, and safe error
+codes. The runner normalizes that input into `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH` and
+keeps status failed unless every runtime, dependency, and backup/restore check passes without
+blocker findings. The input and report must not contain target URLs, database or Redis connection
+strings, API keys, raw runtime logs, QR payloads, JIDs, message text, provider payloads, auth state,
+session material, webhook secrets, or secret-provider values.
+
+When any target-environment artifact path environment variable is present, `pnpm target-env:check`
+also validates the referenced smoke/load/runtime artifact JSON shape and rejects unsafe fields such
+as URLs, API keys, raw payloads, QR values, JIDs, text, auth state, and session material. This
+validation is local-only; it does not run target-environment traffic.
 
 Operators can also provide `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` to validate a sanitized evidence
 bundle manifest. The bundle records references to deployment profile, runtime versions, startup
@@ -142,10 +165,13 @@ It verifies:
 - `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` exists,
 - `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` remains a safe `NOT_PROVEN`
   skeleton,
+- `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` remains a safe failed
+  skeleton,
 - target-environment proof state is explicit,
 - every required runtime/dependency component has an evidence row,
 - optional target-environment smoke artifacts are schema-valid, sanitized, and produced by a runner
   that validates public response envelope/request metadata on successful responses,
+- optional target-environment runtime evidence artifacts are schema-valid and sanitized,
 - optional target-environment evidence bundle artifacts are schema-valid and sanitized,
 - optional target-environment evidence bundle status matches the review document,
 - `docs/reviews/PRODUCTION_CUT_REVIEW.md` exists,

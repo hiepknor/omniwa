@@ -152,6 +152,48 @@ describe("release readiness check", () => {
     }
   });
 
+  it("fails when the production cut runbook omits runtime evidence workflow", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createReadinessFixture(root);
+      await writeText(
+        join(root, "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md"),
+        [
+          "# Load Baseline And Production Cut Runbook",
+          "",
+          "Run the target-environment smoke and load workflows.",
+          "",
+        ].join("\n"),
+      );
+
+      const report = await evaluateReleaseReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "load_baseline_runbook_missing_runtime_evidence_command",
+          }),
+          expect.objectContaining({
+            code: "load_baseline_runbook_missing_runtime_evidence_input_path",
+          }),
+          expect.objectContaining({
+            code: "load_baseline_runbook_missing_runtime_evidence_report_path",
+          }),
+          expect.objectContaining({
+            code: "load_baseline_runbook_missing_runtime_evidence_template",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails package manifests that are not private ESM workspace units", async () => {
     const root = await createTempProject();
 

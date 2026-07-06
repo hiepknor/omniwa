@@ -178,6 +178,7 @@ export async function evaluateReleaseReadiness(options = {}) {
   await checkRootPackage(projectRoot, findings);
   await checkWorkspaceManifests(projectRoot, findings);
   await checkImplementationProgressDocuments(projectRoot, findings);
+  await checkProductionCutRunbook(projectRoot, findings);
 
   return freezeReport({
     status: findings.some((finding) => finding.severity === "blocker") ? "failed" : "passed",
@@ -294,6 +295,23 @@ function releaseEvidenceFixtureContent(file) {
       "```text",
       "  -> Production hardening (current: N11.7 production validation gates)",
       "```",
+      "",
+    ].join("\n");
+  }
+
+  if (file === "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md") {
+    return [
+      "# Load Baseline And Production Cut Runbook",
+      "",
+      "Run the optional target-environment runtime evidence workflow.",
+      "",
+      "```text",
+      "OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH=artifacts/target-env/runtime-evidence-input.json \\",
+      "OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \\",
+      "pnpm target-env:runtime",
+      "```",
+      "",
+      "Use `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` as the starting skeleton.",
       "",
     ].join("\n");
   }
@@ -435,6 +453,43 @@ async function checkImplementationProgressDocuments(projectRoot, findings) {
 
   if (/current:\s*N11\.(?:[0-6])\b/iu.test(nextDevelopmentPlan)) {
     findings.push(createFinding("next_development_plan_stale_current_increment", "blocker"));
+  }
+}
+
+async function checkProductionCutRunbook(projectRoot, findings) {
+  const runbook = await readText(
+    join(projectRoot, "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md"),
+    findings,
+    "load_baseline_runbook",
+    "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
+  );
+
+  if (runbook === undefined) {
+    return;
+  }
+
+  if (!runbook.includes("pnpm target-env:runtime")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_runtime_evidence_command", "blocker"),
+    );
+  }
+
+  if (!runbook.includes("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_runtime_evidence_input_path", "blocker"),
+    );
+  }
+
+  if (!runbook.includes("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_runtime_evidence_report_path", "blocker"),
+    );
+  }
+
+  if (!runbook.includes("TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_runtime_evidence_template", "blocker"),
+    );
   }
 }
 

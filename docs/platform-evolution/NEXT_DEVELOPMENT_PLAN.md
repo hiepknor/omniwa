@@ -288,6 +288,8 @@ payloads, API keys, session material, or secrets. When no input is supplied, the
 failed safe skeleton instead of claiming proof. Operators should copy the checked-in safe skeleton
 from `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` into an external
 artifact path and populate only sanitized booleans, safe refs, timestamps, and safe error codes.
+The production-cut runbook now carries the same runtime-evidence workflow, and `pnpm release:check`
+guards that runbook against drift from the root `target-env:runtime` command and template path.
 It also provides the optional `pnpm target-env:bundle` command for creating a sanitized
 operator-maintained evidence bundle from the checked-in `NOT_PROVEN` template and any already
 sanitized smoke, load, alert/SLO dry-run, and runtime evidence summaries. The generated bundle
