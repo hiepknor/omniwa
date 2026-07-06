@@ -297,7 +297,7 @@ describe("target environment evidence bundle generator", () => {
       await writeJson(join(root, "artifacts/target-env/smoke-report.json"), {
         ...validSmokeArtifact(),
         baseUrl: "https://target.example.invalid",
-        apiKey: "local-dev-secret-change-me",
+        apiKey: "local-dev-credential-change-me",
       });
 
       const report = await createTargetEnvironmentEvidenceBundle({
@@ -483,6 +483,18 @@ function validRuntimeEvidenceArtifact(): unknown {
       retryRecoveryProofRef: "queue-retry-recovery-reviewed",
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    },
+    credentialBoundary: {
+      providerSelectionChecked: true,
+      platformCredentialSourceChecked: true,
+      deliverySigningCredentialChecked: true,
+      baileysStateEncryptionChecked: true,
+      rotationProcedureChecked: true,
+      credentialProviderProofRef: "credential-boundary-selection-reviewed",
+      platformCredentialProofRef: "platform-credential-source-reviewed",
+      deliverySigningProofRef: "delivery-signing-credential-reviewed",
+      baileysStateEncryptionProofRef: "baileys-state-encryption-reviewed",
+      rotationProcedureProofRef: "credential-rotation-procedure-reviewed",
     },
     observabilitySignals: {
       metricExporterChecked: true,

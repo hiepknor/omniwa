@@ -938,6 +938,35 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails when optional runtime evidence omits credential boundary proof", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), {
+        ...validRuntimeEvidenceArtifact(),
+        credentialBoundary: undefined,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails when optional runtime evidence omits a provider command bridge proof ref", async () => {
     const root = await createTempProject();
 
@@ -998,6 +1027,36 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails when optional runtime evidence omits a credential boundary proof ref", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      const artifact = validRuntimeEvidenceArtifact() as {
+        credentialBoundary: Record<string, unknown>;
+      };
+      delete artifact.credentialBoundary.rotationProcedureProofRef;
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), artifact);
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails when optional runtime evidence omits a queue backlog metric proof ref", async () => {
     const root = await createTempProject();
 
@@ -1036,7 +1095,7 @@ describe("target environment evidence gate", () => {
       await writeJson(join(root, "artifacts/target-env/smoke-report.json"), {
         ...validSmokeArtifact(),
         baseUrl: "https://target.example.invalid",
-        apiKey: "local-dev-secret-change-me",
+        apiKey: "local-dev-credential-change-me",
       });
 
       const report = await evaluateTargetEnvironmentEvidence({
@@ -1189,7 +1248,7 @@ describe("target environment evidence gate", () => {
       await createTargetEnvironmentFixture(root, "NOT_PROVEN");
       await writeJson(join(root, "artifacts/target-env/evidence-bundle.json"), {
         ...validEvidenceBundleArtifact(),
-        apiKey: "local-dev-secret-change-me",
+        apiKey: "local-dev-credential-change-me",
         startupSummaryUrl: "https://target.example.invalid/startup",
       });
 
@@ -1444,6 +1503,18 @@ function validRuntimeEvidenceArtifact(): unknown {
       retryRecoveryProofRef: "queue-retry-recovery-reviewed",
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    },
+    credentialBoundary: {
+      providerSelectionChecked: true,
+      platformCredentialSourceChecked: true,
+      deliverySigningCredentialChecked: true,
+      baileysStateEncryptionChecked: true,
+      rotationProcedureChecked: true,
+      credentialProviderProofRef: "credential-boundary-selection-reviewed",
+      platformCredentialProofRef: "platform-credential-source-reviewed",
+      deliverySigningProofRef: "delivery-signing-credential-reviewed",
+      baileysStateEncryptionProofRef: "baileys-state-encryption-reviewed",
+      rotationProcedureProofRef: "credential-rotation-procedure-reviewed",
     },
     observabilitySignals: {
       metricExporterChecked: true,

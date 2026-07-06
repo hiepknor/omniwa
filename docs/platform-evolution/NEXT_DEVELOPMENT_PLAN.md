@@ -316,14 +316,16 @@ dependency connectivity, migration-status checks, provider-command bridge startu
 and command round-trip proof refs, queue runtime proof refs for durable queue profile selection,
 atomic reservation, retry recovery, dead-letter behavior, and expired lease recovery, observability
 signal proof refs for metrics exporter, structured logging, queue backlog metrics, EventLog outbox
-metrics, redaction review, and backup/restore drill references without storing target URLs,
+metrics, redaction review, credential-boundary proof refs for Secret Provider selection, platform
+credential source, delivery signing credential access, Baileys state encryption, rotation procedure,
+and backup/restore drill references without storing target URLs,
 connection strings, raw runtime logs, raw IDs, JIDs, message text, provider payloads, API keys,
 session material, or secrets. When no input is supplied, the command emits a failed safe skeleton
 instead of claiming proof. Operators should copy the checked-in safe skeleton from
 `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` into an external artifact
 path and populate only sanitized booleans, safe refs, timestamps, and safe error codes; bridge proof
-queue runtime proof, or observability signal refs that still contain `pending` keep runtime evidence
-failed.
+queue runtime proof, credential-boundary proof, or observability signal refs that still contain
+`pending` keep runtime evidence failed.
 The production-cut runbook now carries the same runtime-evidence workflow, and `pnpm release:check`
 guards that runbook against drift from the root `target-env:runtime` command and template path.
 The target-environment evidence collection runbook now gives operators the ordered

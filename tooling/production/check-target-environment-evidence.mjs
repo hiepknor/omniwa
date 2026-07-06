@@ -748,6 +748,7 @@ export function validateTargetEnvironmentRuntimeEvidenceArtifact(artifact) {
     artifact.dependencies.every(isDependencyEvidenceArtifact) &&
     isProviderCommandBridgeEvidenceArtifact(artifact.providerCommandBridge) &&
     isQueueRuntimeEvidenceArtifact(artifact.queueRuntime) &&
+    isCredentialBoundaryEvidenceArtifact(artifact.credentialBoundary) &&
     isObservabilitySignalsEvidenceArtifact(artifact.observabilitySignals) &&
     isBackupRestoreEvidenceArtifact(artifact.backupRestore) &&
     Array.isArray(artifact.findings) &&
@@ -923,6 +924,19 @@ export function createTargetEnvironmentRuntimeEvidenceInputTemplate() {
       expiredLeaseRecoveryProofRef: "operator-evidence-queue-expired-lease-recovery-pending",
       safeErrorCode: "operator_runtime_evidence_required",
     }),
+    credentialBoundary: Object.freeze({
+      providerSelectionChecked: false,
+      platformCredentialSourceChecked: false,
+      deliverySigningCredentialChecked: false,
+      baileysStateEncryptionChecked: false,
+      rotationProcedureChecked: false,
+      credentialProviderProofRef: "operator-evidence-credential-boundary-selection-pending",
+      platformCredentialProofRef: "operator-evidence-platform-credential-source-pending",
+      deliverySigningProofRef: "operator-evidence-delivery-signing-credential-pending",
+      baileysStateEncryptionProofRef: "operator-evidence-baileys-state-encryption-pending",
+      rotationProcedureProofRef: "operator-evidence-credential-rotation-procedure-pending",
+      safeErrorCode: "operator_runtime_evidence_required",
+    }),
     observabilitySignals: Object.freeze({
       metricExporterChecked: false,
       structuredLoggingChecked: false,
@@ -1086,6 +1100,23 @@ function isQueueRuntimeEvidenceArtifact(value) {
     isNonEmptyString(value.retryRecoveryProofRef) &&
     isNonEmptyString(value.deadLetterProofRef) &&
     isNonEmptyString(value.expiredLeaseRecoveryProofRef) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isCredentialBoundaryEvidenceArtifact(value) {
+  return (
+    isRecord(value) &&
+    typeof value.providerSelectionChecked === "boolean" &&
+    typeof value.platformCredentialSourceChecked === "boolean" &&
+    typeof value.deliverySigningCredentialChecked === "boolean" &&
+    typeof value.baileysStateEncryptionChecked === "boolean" &&
+    typeof value.rotationProcedureChecked === "boolean" &&
+    isNonEmptyString(value.credentialProviderProofRef) &&
+    isNonEmptyString(value.platformCredentialProofRef) &&
+    isNonEmptyString(value.deliverySigningProofRef) &&
+    isNonEmptyString(value.baileysStateEncryptionProofRef) &&
+    isNonEmptyString(value.rotationProcedureProofRef) &&
     (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
   );
 }
@@ -1368,6 +1399,17 @@ function isTargetEnvironmentRuntimeEvidenceInputTemplate(artifact) {
     artifact.queueRuntime.deadLetterProofRef.endsWith("-pending") &&
     artifact.queueRuntime.expiredLeaseRecoveryProofRef.endsWith("-pending") &&
     artifact.queueRuntime.safeErrorCode === "operator_runtime_evidence_required" &&
+    artifact.credentialBoundary.providerSelectionChecked === false &&
+    artifact.credentialBoundary.platformCredentialSourceChecked === false &&
+    artifact.credentialBoundary.deliverySigningCredentialChecked === false &&
+    artifact.credentialBoundary.baileysStateEncryptionChecked === false &&
+    artifact.credentialBoundary.rotationProcedureChecked === false &&
+    artifact.credentialBoundary.credentialProviderProofRef.endsWith("-pending") &&
+    artifact.credentialBoundary.platformCredentialProofRef.endsWith("-pending") &&
+    artifact.credentialBoundary.deliverySigningProofRef.endsWith("-pending") &&
+    artifact.credentialBoundary.baileysStateEncryptionProofRef.endsWith("-pending") &&
+    artifact.credentialBoundary.rotationProcedureProofRef.endsWith("-pending") &&
+    artifact.credentialBoundary.safeErrorCode === "operator_runtime_evidence_required" &&
     artifact.observabilitySignals.metricExporterChecked === false &&
     artifact.observabilitySignals.structuredLoggingChecked === false &&
     artifact.observabilitySignals.queueBacklogMetricsChecked === false &&

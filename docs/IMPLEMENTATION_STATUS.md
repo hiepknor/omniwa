@@ -381,6 +381,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   JIDs, message text, provider payloads, session material, or secrets. If no input is supplied, the
   command emits a failed safe skeleton instead of claiming proof, and bridge, queue runtime, or
   observability signal proof refs that still contain `pending` keep the artifact failed.
+- N11.7 target-environment runtime evidence now also requires a `credentialBoundary` proof section
+  for Secret Provider posture. The sanitized artifact must prove provider selection, platform
+  credential source, delivery signing credential access, Baileys state encryption, and rotation
+  procedure checks with non-pending safe refs before runtime evidence can pass.
 - N11.7 target-environment evidence validation now keeps
   `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` under the local evidence
   gate as a safe failed skeleton. Operators should copy and populate that template into an external

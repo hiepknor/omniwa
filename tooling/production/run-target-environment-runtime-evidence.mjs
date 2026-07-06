@@ -142,6 +142,19 @@ function createDefaultRuntimeEvidenceReport({ checkedAtIso, findings }) {
       expiredLeaseRecoveryProofRef: "target-runtime-queue-expired-lease-recovery-pending",
       safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
     }),
+    credentialBoundary: Object.freeze({
+      providerSelectionChecked: false,
+      platformCredentialSourceChecked: false,
+      deliverySigningCredentialChecked: false,
+      baileysStateEncryptionChecked: false,
+      rotationProcedureChecked: false,
+      credentialProviderProofRef: "target-runtime-credential-boundary-selection-pending",
+      platformCredentialProofRef: "target-runtime-platform-credential-source-pending",
+      deliverySigningProofRef: "target-runtime-delivery-signing-credential-pending",
+      baileysStateEncryptionProofRef: "target-runtime-baileys-state-encryption-pending",
+      rotationProcedureProofRef: "target-runtime-credential-rotation-procedure-pending",
+      safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
+    }),
     observabilitySignals: Object.freeze({
       metricExporterChecked: false,
       structuredLoggingChecked: false,
@@ -192,6 +205,12 @@ function runtimeEvidenceChecksPass(report) {
     report.queueRuntime.deadLetterChecked &&
     report.queueRuntime.expiredLeaseRecoveryChecked &&
     queueRuntimeProofRefsComplete(report.queueRuntime) &&
+    report.credentialBoundary.providerSelectionChecked &&
+    report.credentialBoundary.platformCredentialSourceChecked &&
+    report.credentialBoundary.deliverySigningCredentialChecked &&
+    report.credentialBoundary.baileysStateEncryptionChecked &&
+    report.credentialBoundary.rotationProcedureChecked &&
+    credentialBoundaryProofRefsComplete(report.credentialBoundary) &&
     report.observabilitySignals.metricExporterChecked &&
     report.observabilitySignals.structuredLoggingChecked &&
     report.observabilitySignals.queueBacklogMetricsChecked &&
@@ -222,6 +241,16 @@ function queueRuntimeProofRefsComplete(queueRuntime) {
     queueRuntime.retryRecoveryProofRef,
     queueRuntime.deadLetterProofRef,
     queueRuntime.expiredLeaseRecoveryProofRef,
+  ].every((value) => typeof value === "string" && value.length > 0 && !value.includes("pending"));
+}
+
+function credentialBoundaryProofRefsComplete(credentialBoundary) {
+  return [
+    credentialBoundary.credentialProviderProofRef,
+    credentialBoundary.platformCredentialProofRef,
+    credentialBoundary.deliverySigningProofRef,
+    credentialBoundary.baileysStateEncryptionProofRef,
+    credentialBoundary.rotationProcedureProofRef,
   ].every((value) => typeof value === "string" && value.length > 0 && !value.includes("pending"));
 }
 
@@ -262,6 +291,7 @@ function freezeRuntimeEvidenceReport(report) {
     ),
     providerCommandBridge: Object.freeze({ ...report.providerCommandBridge }),
     queueRuntime: Object.freeze({ ...report.queueRuntime }),
+    credentialBoundary: Object.freeze({ ...report.credentialBoundary }),
     observabilitySignals: Object.freeze({ ...report.observabilitySignals }),
     backupRestore: Object.freeze({ ...report.backupRestore }),
     findings: Object.freeze(report.findings.map((finding) => Object.freeze({ ...finding }))),

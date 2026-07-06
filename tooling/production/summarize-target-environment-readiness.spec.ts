@@ -21,7 +21,7 @@ describe("target environment readiness summary", () => {
         projectRoot: root,
         checkedAtIso: "2026-07-06T00:00:00.000Z",
         env: {
-          OMNIWA_TARGET_ENV_API_KEY: "target-secret-api-key",
+          OMNIWA_TARGET_ENV_API_KEY: "target-credential-api-key",
           OMNIWA_TARGET_ENV_BASE_URL: "https://api.prod.example",
         },
       });
@@ -65,7 +65,7 @@ describe("target environment readiness summary", () => {
           "supply_evidence_bundle_artifact_when_available",
         ]),
       );
-      expect(JSON.stringify(summary)).not.toContain("target-secret-api-key");
+      expect(JSON.stringify(summary)).not.toContain("target-credential-api-key");
       expect(JSON.stringify(summary)).not.toContain("https://api.prod.example");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -312,6 +312,18 @@ function runtimeEvidenceSummary() {
       retryRecoveryProofRef: "queue-retry-recovery-reviewed",
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    },
+    credentialBoundary: {
+      providerSelectionChecked: true,
+      platformCredentialSourceChecked: true,
+      deliverySigningCredentialChecked: true,
+      baileysStateEncryptionChecked: true,
+      rotationProcedureChecked: true,
+      credentialProviderProofRef: "credential-boundary-selection-reviewed",
+      platformCredentialProofRef: "platform-credential-source-reviewed",
+      deliverySigningProofRef: "delivery-signing-credential-reviewed",
+      baileysStateEncryptionProofRef: "baileys-state-encryption-reviewed",
+      rotationProcedureProofRef: "credential-rotation-procedure-reviewed",
     },
     observabilitySignals: {
       metricExporterChecked: true,

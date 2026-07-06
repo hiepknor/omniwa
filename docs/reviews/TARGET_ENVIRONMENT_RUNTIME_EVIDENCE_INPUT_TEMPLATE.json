@@ -71,7 +71,7 @@
       "started": false,
       "readinessChecked": false,
       "shutdownChecked": false,
-      "versionRef": "operator-evidence-secret-provider-version-pending",
+      "versionRef": "operator-evidence-credential-boundary-version-pending",
       "safeErrorCode": "operator_runtime_evidence_required"
     },
     {
@@ -129,6 +129,19 @@
     "retryRecoveryProofRef": "operator-evidence-queue-retry-recovery-pending",
     "deadLetterProofRef": "operator-evidence-queue-dead-letter-pending",
     "expiredLeaseRecoveryProofRef": "operator-evidence-queue-expired-lease-recovery-pending",
+    "safeErrorCode": "operator_runtime_evidence_required"
+  },
+  "credentialBoundary": {
+    "providerSelectionChecked": false,
+    "platformCredentialSourceChecked": false,
+    "deliverySigningCredentialChecked": false,
+    "baileysStateEncryptionChecked": false,
+    "rotationProcedureChecked": false,
+    "credentialProviderProofRef": "operator-evidence-credential-boundary-selection-pending",
+    "platformCredentialProofRef": "operator-evidence-platform-credential-source-pending",
+    "deliverySigningProofRef": "operator-evidence-delivery-signing-credential-pending",
+    "baileysStateEncryptionProofRef": "operator-evidence-baileys-state-encryption-pending",
+    "rotationProcedureProofRef": "operator-evidence-credential-rotation-procedure-pending",
     "safeErrorCode": "operator_runtime_evidence_required"
   },
   "observabilitySignals": {

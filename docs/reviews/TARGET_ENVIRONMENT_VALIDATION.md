@@ -138,12 +138,16 @@ runtime evidence artifact. If no input is supplied, it emits a failed safe skele
 claiming proof. The checked-in input template is validated by `pnpm target-env:check` and must remain
 a failed safe skeleton. The generated artifact records startup, readiness, shutdown, dependency
 connectivity, migration-status, provider-command bridge configuration/auth/round-trip proof, queue
-runtime proof, observability signal proof, and backup/restore drill checks. Provider-command bridge
+runtime proof, credential-boundary proof for Secret Provider posture, observability signal proof,
+and backup/restore drill checks. Provider-command bridge
 proof must include safe refs for startup, worker client configuration, provider-runtime server
 configuration, authentication boundary, and a command round trip; refs that still contain `pending`
 keep the artifact failed even if booleans are set. Queue runtime proof must include safe refs for
 the durable queue profile, atomic reservation, retry recovery, dead-letter behavior, and expired
 lease recovery; refs that still contain `pending` keep the artifact failed even if booleans are set.
+Credential-boundary proof must include safe refs for provider selection, platform credential source,
+delivery signing credential access, Baileys state encryption, and the rotation procedure; refs that
+still contain `pending` keep the artifact failed.
 Observability signal proof must include safe refs for the metrics exporter, structured logging,
 queue backlog metrics, EventLog outbox metrics, and redaction review; refs that still contain
 `pending` keep the artifact failed. It must not contain target URLs,

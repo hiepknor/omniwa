@@ -69,6 +69,19 @@ describe("target environment runtime evidence runner", () => {
       expiredLeaseRecoveryProofRef: "target-runtime-queue-expired-lease-recovery-pending",
       safeErrorCode: "target_runtime_evidence_not_supplied",
     });
+    expect(report.credentialBoundary).toEqual({
+      providerSelectionChecked: false,
+      platformCredentialSourceChecked: false,
+      deliverySigningCredentialChecked: false,
+      baileysStateEncryptionChecked: false,
+      rotationProcedureChecked: false,
+      credentialProviderProofRef: "target-runtime-credential-boundary-selection-pending",
+      platformCredentialProofRef: "target-runtime-platform-credential-source-pending",
+      deliverySigningProofRef: "target-runtime-delivery-signing-credential-pending",
+      baileysStateEncryptionProofRef: "target-runtime-baileys-state-encryption-pending",
+      rotationProcedureProofRef: "target-runtime-credential-rotation-procedure-pending",
+      safeErrorCode: "target_runtime_evidence_not_supplied",
+    });
     expect(report.observabilitySignals).toEqual({
       metricExporterChecked: false,
       structuredLoggingChecked: false,
@@ -145,6 +158,18 @@ describe("target environment runtime evidence runner", () => {
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
     });
+    expect(report.credentialBoundary).toEqual({
+      providerSelectionChecked: true,
+      platformCredentialSourceChecked: true,
+      deliverySigningCredentialChecked: true,
+      baileysStateEncryptionChecked: true,
+      rotationProcedureChecked: true,
+      credentialProviderProofRef: "credential-boundary-selection-reviewed",
+      platformCredentialProofRef: "platform-credential-source-reviewed",
+      deliverySigningProofRef: "delivery-signing-credential-reviewed",
+      baileysStateEncryptionProofRef: "baileys-state-encryption-reviewed",
+      rotationProcedureProofRef: "credential-rotation-procedure-reviewed",
+    });
     expect(report.observabilitySignals).toEqual({
       metricExporterChecked: true,
       structuredLoggingChecked: true,
@@ -157,7 +182,7 @@ describe("target environment runtime evidence runner", () => {
       eventLogOutboxMetricsProofRef: "eventlog-outbox-metrics-reviewed",
       redactionProofRef: "observability-redaction-reviewed",
     });
-    expect(JSON.stringify(report)).not.toContain("target-secret-api-key");
+    expect(JSON.stringify(report)).not.toContain("target-credential-api-key");
     expect(JSON.stringify(report)).not.toContain("postgresql://");
   });
 
@@ -213,6 +238,24 @@ describe("target environment runtime evidence runner", () => {
     );
   });
 
+  it("keeps runtime evidence failed when credential boundary proof refs remain pending", async () => {
+    const input = validRuntimeEvidenceInput("passed");
+    const report = await runTargetEnvironmentRuntimeEvidence({
+      input: {
+        ...input,
+        credentialBoundary: {
+          ...input.credentialBoundary,
+          rotationProcedureProofRef: "operator-evidence-credential-rotation-procedure-pending",
+        },
+      },
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.credentialBoundary.rotationProcedureProofRef).toBe(
+      "operator-evidence-credential-rotation-procedure-pending",
+    );
+  });
+
   it("keeps runtime evidence failed when observability proof refs remain pending", async () => {
     const input = validRuntimeEvidenceInput("passed");
     const report = await runTargetEnvironmentRuntimeEvidence({
@@ -248,7 +291,7 @@ describe("target environment runtime evidence runner", () => {
 
       const artifact = await readFile(reportPath, "utf8");
       expect(JSON.parse(artifact)).toEqual(report);
-      expect(artifact).not.toContain("target-secret-api-key");
+      expect(artifact).not.toContain("target-credential-api-key");
       expect(artifact).not.toContain("api.prod.example");
       expect(artifact).not.toContain("postgresql://");
     } finally {
@@ -394,6 +437,18 @@ function validRuntimeEvidenceInput(status: "passed" | "failed" = "passed") {
       retryRecoveryProofRef: "queue-retry-recovery-reviewed",
       deadLetterProofRef: "queue-dead-letter-reviewed",
       expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    },
+    credentialBoundary: {
+      providerSelectionChecked: true,
+      platformCredentialSourceChecked: true,
+      deliverySigningCredentialChecked: true,
+      baileysStateEncryptionChecked: true,
+      rotationProcedureChecked: true,
+      credentialProviderProofRef: "credential-boundary-selection-reviewed",
+      platformCredentialProofRef: "platform-credential-source-reviewed",
+      deliverySigningProofRef: "delivery-signing-credential-reviewed",
+      baileysStateEncryptionProofRef: "baileys-state-encryption-reviewed",
+      rotationProcedureProofRef: "credential-rotation-procedure-reviewed",
     },
     observabilitySignals: {
       metricExporterChecked: true,

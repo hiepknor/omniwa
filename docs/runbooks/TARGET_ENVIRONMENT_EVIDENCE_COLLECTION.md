@@ -155,6 +155,11 @@ presence booleans, finding codes, and next-action codes. It does not include the
 key, artifact path, response body, raw IDs, JIDs, message text, provider payloads, auth state, or
 secret material.
 
+The runtime evidence input must include the `credentialBoundary` section as the sanitized Secret
+Provider proof. Populate only booleans and safe refs for provider selection, platform credential
+source, delivery signing credential access, Baileys state encryption, and rotation procedure checks;
+any ref that still contains `pending` keeps runtime evidence failed.
+
 ## Review Update
 
 Only after the collected artifacts pass validation should reviewers update

@@ -166,6 +166,10 @@ that still contain `pending` keep runtime evidence failed even if the boolean ch
 Queue runtime evidence must include safe refs for durable queue profile selection, atomic
 reservation, retry recovery, dead-letter behavior, and expired lease recovery. Refs that still
 contain `pending` keep runtime evidence failed even if the boolean checks are set.
+Credential-boundary evidence must include safe refs for Secret Provider selection, platform
+credential source, delivery signing credential access, Baileys state encryption, and the rotation
+procedure. Refs that still contain `pending` keep runtime evidence failed even if the boolean checks
+are set.
 Observability signal evidence must include safe refs for the metrics exporter, structured logging,
 queue backlog metrics, EventLog outbox metrics, and redaction review. Refs that still contain
 `pending` keep runtime evidence failed even if the boolean checks are set.
