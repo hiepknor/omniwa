@@ -437,6 +437,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   a safe readiness summary from `TARGET_ENVIRONMENT_VALIDATION.md`, supplied artifact booleans, and
   evidence-gate finding codes without printing target URLs, artifact paths, API keys, raw IDs,
   JIDs, message text, provider payloads, auth state, or secret material.
+- N11.7 production-cut validation now also requires `target-env:summary` tooling and a
+  production-cut review acknowledgement, so future readiness reviews cannot skip the final safe
+  target-environment readiness sanity check.
 - N11.7 release readiness now also guards `.gitignore` so operator target-environment artifacts
   under `artifacts/` remain ignored while the evidence collection runbook points operators at
   `artifacts/target-env/`.

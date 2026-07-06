@@ -13,6 +13,7 @@ export const requiredProductionEvidenceFiles = Object.freeze([
   "tooling/production/create-target-environment-evidence-bundle.mjs",
   "tooling/production/run-target-environment-alert-slo-dry-run.mjs",
   "tooling/production/run-target-environment-runtime-evidence.mjs",
+  "tooling/production/summarize-target-environment-readiness.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "tooling/performance/run-target-environment-load.spec.ts",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
@@ -35,6 +36,7 @@ export const requiredProductionScripts = Object.freeze([
   "target-env:load",
   "target-env:runtime",
   "target-env:smoke",
+  "target-env:summary",
   "production:check",
 ]);
 
@@ -76,6 +78,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
       "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
       "target-env:runtime": "node tooling/production/run-target-environment-runtime-evidence.mjs",
       "target-env:smoke": "node tooling/production/run-target-environment-smoke.mjs",
+      "target-env:summary": "node tooling/production/summarize-target-environment-readiness.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
       check:
@@ -134,6 +137,10 @@ function productionCutReviewFixtureContent(decision) {
     "## Target environment bundle",
     "",
     "pnpm target-env:bundle tooling present.",
+    "",
+    "## Target environment readiness summary",
+    "",
+    "pnpm target-env:summary tooling present.",
     "",
     "## Gate 2 Review",
     "",
@@ -242,6 +249,10 @@ async function checkProductionCutReview(projectRoot, findings) {
 
   if (!/Target environment runtime evidence|pnpm target-env:runtime/iu.test(content)) {
     findings.push(createFinding("target_environment_runtime_summary_missing", "blocker"));
+  }
+
+  if (!/Target environment readiness summary|pnpm target-env:summary/iu.test(content)) {
+    findings.push(createFinding("target_environment_readiness_summary_missing", "blocker"));
   }
 
   if (!/Provider-command bridge proof/iu.test(content)) {

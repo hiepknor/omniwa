@@ -67,6 +67,10 @@ bridge proof refs, and backup/restore drill references from an external copy of
 `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json`. It does not collect secrets
 or raw runtime logs, and it does not replace the proof state updates required in
 `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.
+The optional `pnpm target-env:summary` command emits a safe readiness summary from the
+target-environment review document, supplied artifact booleans, evidence-gate finding codes, and
+next-action codes. The production-cut gate requires this workflow to remain acknowledged so a
+future production-ready review has a final non-secret sanity check before proof states are updated.
 Provider-command bridge proof must include safe refs for startup, worker client configuration,
 provider-runtime server configuration, authentication boundary, and command round trip.
 
@@ -156,6 +160,7 @@ The production gate verifies:
 | Target environment load              | PASS   | `pnpm target-env:load` tooling present        |
 | Target environment alert/SLO dry-run | PASS   | `pnpm target-env:alert-slo` tooling present   |
 | Target environment runtime evidence  | PASS   | `pnpm target-env:runtime` tooling present     |
+| Target environment readiness summary | PASS   | `pnpm target-env:summary` tooling present     |
 | Release readiness                    | PASS   | `pnpm release:check`                          |
 | Full local gate                      | PASS   | `pnpm check`                                  |
 

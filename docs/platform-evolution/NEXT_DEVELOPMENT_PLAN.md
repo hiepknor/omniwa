@@ -336,8 +336,8 @@ be non-pending and every smoke, load, alert/SLO dry-run, and runtime evidence ar
 include a `passed` summary.
 The required component set includes `Background Runtime`, matching the production compose service
 that drains the PostgreSQL EventLog outbox and records backlog metrics.
-The production-cut gate also requires the smoke, alert/SLO dry-run, and bundle workflows to be
-present in the root scripts and acknowledged by `PRODUCTION_CUT_REVIEW.md`.
+The production-cut gate also requires the smoke, alert/SLO dry-run, summary, and bundle workflows
+to be present in the root scripts and acknowledged by `PRODUCTION_CUT_REVIEW.md`.
 The `target-env:summary` command now gives operators a safe one-command status report for review
 state, artifact presence, gate finding codes, and next-action codes before reviewers update proof
 states.
