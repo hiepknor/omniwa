@@ -89,9 +89,14 @@ The bundle command starts from `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_
 OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
 OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
 OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
+OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF=operator-evidence-provider-command-bridge-reviewed \
 OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH=artifacts/target-env/evidence-bundle.json \
 pnpm target-env:bundle
 ```
+
+`OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF` must be a safe operator reference, not a
+URL, raw log path, API key, JID, message text, provider payload, session material, or secret. Leave
+it unset to keep the bundle template's pending placeholder.
 
 Validate all collected artifacts together:
 

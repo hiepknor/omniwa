@@ -153,13 +153,20 @@ drill, production-load summary, alert/SLO dry-run, rollback or forward-fix notes
 artifacts without storing raw environment values. Start from
 `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` and write the populated copy outside
 the design/review source tree before passing its path to the gate. The helper command below creates
-that initial copy and can embed sanitized smoke/load summaries if their report path variables are
-also set:
+that initial copy, can embed sanitized smoke/load/runtime summaries if their report path variables
+are also set, and can replace the provider-command bridge pending evidence reference from a safe
+operator ref:
 
 ```text
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
+OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF=operator-evidence-provider-command-bridge-reviewed \
 OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH=artifacts/target-env/evidence-bundle.json \
 pnpm target-env:bundle
 ```
+
+The provider-command bridge evidence ref must be a safe identifier only. It must not contain target
+URLs, raw runtime log paths, API keys, JIDs, message text, provider payloads, auth state, session
+material, webhook secrets, or secret-provider values.
 
 When validating a populated bundle with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`, the bundle status,
 proof flags, and component statuses must match `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.

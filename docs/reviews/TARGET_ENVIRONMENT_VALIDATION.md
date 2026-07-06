@@ -155,7 +155,9 @@ Use `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` as the start
 it to the operator artifact path, and replace only safe reference values with target-environment
 evidence identifiers.
 The `target-env:bundle` command creates the initial sanitized bundle from the checked-in template
-and can embed already-sanitized smoke/load summaries when their artifact path variables are set.
+and can embed already-sanitized smoke/load/runtime summaries when their artifact path variables are
+set. Operators may also set `OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF` to replace the
+bundle's provider-command bridge pending placeholder with a safe evidence reference.
 When a bundle path is supplied to `target-env:check`, the bundle status, proof states, and component
 statuses must match this review file. This keeps the review document as the authoritative readiness
 state and blocks artifact/review drift.

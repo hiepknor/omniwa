@@ -28,7 +28,8 @@ Current tooling:
   readiness state against the target-environment review document.
 - `production/create-target-environment-evidence-bundle.mjs` creates an
   operator-maintained sanitized evidence bundle from the checked-in template
-  and optional sanitized smoke/load summaries.
+  and optional sanitized smoke/load/runtime summaries plus safe provider-command
+  bridge evidence refs.
 - `production/check-production-cut.mjs` checks production cut evidence, load
   gate wiring, and explicit readiness decision state.
 - `production/run-target-environment-smoke.mjs` performs optional deployed API

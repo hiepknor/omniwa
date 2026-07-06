@@ -40,10 +40,23 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
   const bundle = {
     ...template,
     checkedAtIso,
+    evidence: {
+      ...template.evidence,
+    },
     artifacts: {
       ...template.artifacts,
     },
   };
+
+  applyOptionalEvidenceRef({
+    bundle,
+    key: "providerCommandBridgeRef",
+    value:
+      options.providerCommandBridgeEvidenceRef ??
+      process.env.OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF,
+    findingCode: "target_environment_provider_command_bridge_evidence_ref_unsafe_content",
+    findings,
+  });
 
   await attachOptionalArtifact({
     projectRoot,
@@ -185,6 +198,28 @@ async function attachOptionalArtifact({
       summary: artifact,
     };
   }
+}
+
+function applyOptionalEvidenceRef({ bundle, key, value, findingCode, findings }) {
+  const normalizedValue = normalizeOptionalString(value);
+
+  if (normalizedValue === undefined) {
+    return;
+  }
+
+  if (
+    !isSafeEvidenceReference(normalizedValue) ||
+    findUnsafeArtifactContent({ evidenceRef: normalizedValue }) !== undefined
+  ) {
+    findings.push(createBundleFinding(findingCode));
+    return;
+  }
+
+  bundle.evidence[key] = normalizedValue;
+}
+
+function isSafeEvidenceReference(value) {
+  return /^[a-z0-9][a-z0-9._-]*$/iu.test(value);
 }
 
 function isSafeBundleTemplate(value) {

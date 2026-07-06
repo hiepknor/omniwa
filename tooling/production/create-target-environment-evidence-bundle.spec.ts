@@ -17,6 +17,7 @@ type GeneratedBundle = Readonly<{
   status: string;
   checkedAtIso: string;
   proofStates: Readonly<Record<string, boolean>>;
+  evidence: Readonly<Record<string, string>>;
   artifacts: Readonly<{
     smoke: Readonly<{
       artifactRef: string;
@@ -77,6 +78,9 @@ describe("target environment evidence bundle generator", () => {
         status: "PENDING",
         evidenceRef: "operator-evidence-background-runtime-pending",
       });
+      expect(bundle.evidence.providerCommandBridgeRef).toBe(
+        "operator-evidence-provider-command-bridge-pending",
+      );
       expect(JSON.stringify(bundle)).not.toContain("http://");
       expect(JSON.stringify(bundle)).not.toContain("https://");
       expect(JSON.stringify(bundle)).not.toContain("local-dev-secret");
@@ -112,6 +116,7 @@ describe("target environment evidence bundle generator", () => {
         loadArtifactRef: "operator-load-artifact-ref",
         alertSloDryRunArtifactRef: "operator-alert-slo-artifact-ref",
         runtimeEvidenceArtifactRef: "operator-runtime-evidence-artifact-ref",
+        providerCommandBridgeEvidenceRef: "operator-provider-command-bridge-proof-ref",
         checkedAtIso: "2026-07-05T00:00:00.000Z",
       });
 
@@ -134,6 +139,9 @@ describe("target environment evidence bundle generator", () => {
         artifactRef: "operator-runtime-evidence-artifact-ref",
         status: "passed",
       });
+      expect(bundle.evidence.providerCommandBridgeRef).toBe(
+        "operator-provider-command-bridge-proof-ref",
+      );
       expect(bundle.artifacts.smoke.summary).toMatchObject({
         endpoints: [
           {
@@ -167,6 +175,53 @@ describe("target environment evidence bundle generator", () => {
       });
       expect(JSON.stringify(bundle)).not.toContain("x-api-key");
       expect(JSON.stringify(bundle)).not.toContain("@s.whatsapp.net");
+      expect(JSON.stringify(bundle)).not.toContain("https://");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects unsafe provider-command bridge evidence refs", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+
+      const urlReport = await createTargetEnvironmentEvidenceBundle({
+        projectRoot: root,
+        outputPath: "artifacts/target-env/evidence-bundle.json",
+        providerCommandBridgeEvidenceRef: "https://target.example.invalid/provider-bridge-proof",
+        checkedAtIso: "2026-07-05T00:00:00.000Z",
+      });
+
+      expect(urlReport.status).toBe("failed");
+      expect(urlReport.written).toBe(false);
+      expect(urlReport.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_provider_command_bridge_evidence_ref_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(urlReport)).not.toContain("target.example");
+
+      const pathReport = await createTargetEnvironmentEvidenceBundle({
+        projectRoot: root,
+        outputPath: "artifacts/target-env/evidence-bundle.json",
+        providerCommandBridgeEvidenceRef: "/var/log/provider-bridge-proof.log",
+        checkedAtIso: "2026-07-05T00:00:00.000Z",
+      });
+
+      expect(pathReport.status).toBe("failed");
+      expect(pathReport.written).toBe(false);
+      expect(pathReport.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_provider_command_bridge_evidence_ref_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(pathReport)).not.toContain("/var/log");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
