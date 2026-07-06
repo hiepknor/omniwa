@@ -18,6 +18,7 @@
     "@omniwa/errors": "workspace:*",
     "@omniwa/infrastructure-persistence": "workspace:*",
     "@omniwa/infrastructure-provider-baileys": "workspace:*",
+    "@omniwa/infrastructure-provider-bridge": "workspace:*",
     "@omniwa/observability": "workspace:*",
     "@omniwa/shared": "workspace:*"
   },

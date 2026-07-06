@@ -10,6 +10,7 @@ import { startProviderRuntimeLocalLiveApiServer } from "./local-live-api-server.
 
 export * from "./provider-runtime.js";
 export * from "./provider-runtime-app.js";
+export * from "./provider-command-receiver.js";
 export * from "./provider-runtime-ownership-guard.js";
 export * from "./provider-runtime-supervisor.js";
 export * from "./local-qr-operator-output.js";

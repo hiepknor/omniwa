@@ -200,10 +200,11 @@ an API-only template to a full runtime template with API, worker, webhook dispat
 runtime, PostgreSQL, and Redis services. It intentionally keeps worker and provider runtime in
 controlled-pilot profiles because true production profiles remain blocked until provider-runtime
 IPC/shared socket ownership and target-environment evidence are complete.
-`ADR-0010` is now accepted for the Provider Runtime Worker Bridge, and the first implementation slice
-adds the internal provider command transport contract/fake package. Worker/provider runtime wiring
-and production profile enablement remain open until the bridge command receiver, auth boundary,
-compose validation, and target-environment evidence are complete.
+`ADR-0010` is now accepted for the Provider Runtime Worker Bridge. The first implementation slices
+add the internal provider command transport contract/fake package and a Provider Runtime command
+receiver that maps bridge commands to lifecycle operations and safe provider outcomes. Worker runtime
+bridge mode wiring and production profile enablement remain open until the bridge transport/auth
+boundary, compose validation, and target-environment evidence are complete.
 The production compose validation slice adds `pnpm docker:production:check` and wires it into
 `pnpm production:check`, so the checked-in production template must render successfully with
 `deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key
