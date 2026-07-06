@@ -12,6 +12,7 @@ import {
   DEFAULT_CONNECTION_CONFIG,
   DisconnectReason,
   WAMessageStatus,
+  fetchLatestBaileysVersion,
   initAuthCreds,
   makeWASocket,
   type AuthenticationCreds,
@@ -321,14 +322,38 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
   private readonly inboundRecipientOperatorSink: BaileysInboundRecipientOperatorSink | undefined;
   private readonly sockets = new Map<string, WASocket>();
   private readonly signals: TranslatedProviderSignal[] = [];
+  private readonly resolveLatestWaWebVersion: boolean;
+  private cachedWaWebVersion: UserFacingSocketConfig["version"];
 
   constructor(options: RealBaileysSocketProviderOptions) {
     this.authStateStore = options.authStateStore;
     this.socketFactory = options.socketFactory ?? makeWASocket;
+    // Only the real socket needs the current WhatsApp Web version; injected
+    // factories (tests/fakes) must not trigger network version lookups.
+    this.resolveLatestWaWebVersion = options.socketFactory === undefined;
     this.nowEpochMilliseconds = options.nowEpochMilliseconds ?? Date.now;
     this.qrChallengeTtlMs = options.qrChallengeTtlMs ?? 60_000;
     this.qrCodeOperatorSink = options.qrCodeOperatorSink;
     this.inboundRecipientOperatorSink = options.inboundRecipientOperatorSink;
+  }
+
+  private async latestWaWebVersion(): Promise<UserFacingSocketConfig["version"]> {
+    if (!this.resolveLatestWaWebVersion) {
+      return undefined;
+    }
+
+    if (this.cachedWaWebVersion !== undefined) {
+      return this.cachedWaWebVersion;
+    }
+
+    try {
+      const { version } = await fetchLatestBaileysVersion();
+      this.cachedWaWebVersion = version;
+      return version;
+    } catch {
+      // Fall back to the library default version when the lookup is unavailable.
+      return undefined;
+    }
   }
 
   getSocket(request: BaileysSocketRequest, context: ApplicationPortContext): BaileysSocketLike {
@@ -371,6 +396,8 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
       snapshot: loaded.value?.state,
     });
 
+    const waWebVersion = await this.latestWaWebVersion();
+
     try {
       const socket = this.socketFactory({
         ...DEFAULT_CONNECTION_CONFIG,
@@ -378,6 +405,7 @@ export class RealBaileysSocketProvider implements BaileysSocketProvider {
         emitOwnEvents: false,
         logger: createSilentBaileysLogger(),
         printQRInTerminal: false,
+        ...(waWebVersion === undefined ? {} : { version: waWebVersion }),
       });
 
       socket.ev.on("creds.update", (update) => {
