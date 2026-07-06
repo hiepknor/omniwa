@@ -197,9 +197,10 @@ promotion still requires target-environment migration evidence, backup verificat
 runbook validation before claiming the database path is production-ready.
 The production Docker template hardening slice expands `deploy/docker/compose.production.yml` from
 an API-only template to a full runtime template with API, worker, webhook dispatcher, provider
-runtime, PostgreSQL, and Redis services. It intentionally keeps worker and provider runtime in
-controlled-pilot profiles because true production profiles remain blocked until provider-runtime
-IPC/shared socket ownership and target-environment evidence are complete.
+runtime, PostgreSQL, and Redis services. Worker production profile composition is now guarded by
+PostgreSQL repositories, the durable WorkerJob queue profile, a durable EventLog path, and the
+provider-runtime bridge. Provider Runtime intentionally remains in controlled-pilot profile until
+its production profile and target-environment bridge evidence are complete.
 `ADR-0010` is now accepted for the Provider Runtime Worker Bridge. The first implementation slices
 add the internal provider command transport contract/fake package and a Provider Runtime command
 receiver that maps bridge commands to lifecycle operations and safe provider outcomes. Worker runtime
@@ -209,15 +210,18 @@ HTTP transport/handler foundation with internal token authentication and safe fa
 Provider Runtime now has an opt-in internal HTTP bridge server endpoint that fails closed when the
 bridge token or transport is missing, and Worker runtime can compose a
 `FetchProviderCommandTransport` from bridge endpoint/token env configuration in
-`provider-runtime-bridge` mode. The production compose template/check now declares this
-controlled-pilot bridge wiring between Worker and Provider Runtime, and target-environment runtime
-evidence now requires sanitized bridge client/server/auth/round-trip proof. Production profile
-enablement and actual target-environment evidence collection remain open.
+`provider-runtime-bridge` mode. Worker production profile now fails closed unless PostgreSQL
+repositories, durable WorkerJob queue, provider-runtime bridge endpoint/token, and a durable
+EventLog path are configured. The production compose template/check now declares Worker production
+bridge wiring to the Provider Runtime controlled-pilot profile, and target-environment runtime
+evidence now requires sanitized bridge client/server/auth/round-trip proof. Provider Runtime
+production profile enablement and actual target-environment evidence collection remain open.
 The production compose validation slice adds `pnpm docker:production:check` and wires it into
 `pnpm production:check`, so the checked-in production template must render successfully with
 `deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key
-posture, Redis rate limiting, disabled auto-migration, PostgreSQL API EventLog backend, and
-controlled-pilot worker/provider runtime profiles before the root quality gate can pass.
+posture, Redis rate limiting, disabled auto-migration, PostgreSQL API EventLog backend, and Worker
+production plus Provider Runtime controlled-pilot bridge profiles before the root quality gate can
+pass.
 The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer` foundation for
 safe pending-outbox drain loops. `ADR-0009` is Accepted, so the async PostgreSQL EventLog backend
 migration can proceed in small reviewed slices.
@@ -402,7 +406,7 @@ VS02 proved:
 VS02 does not solve:
 
 - Production encryption for auth state.
-- Multi-process socket bridge.
+- Target-environment provider-runtime bridge evidence.
 - Production queue engine.
 - Production secret management.
 

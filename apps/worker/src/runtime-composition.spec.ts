@@ -453,12 +453,63 @@ describe("Worker runtime composition", () => {
     );
   });
 
-  it("keeps production runtime blocked until remaining production adapters are complete", () => {
+  it("keeps production runtime fail-closed until required production adapters are configured", () => {
     expect(() =>
       createWorkerRuntimeComposition({
         OMNIWA_WORKER_RUNTIME_PROFILE: "production",
+        OMNIWA_WORKER_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_WORKER_QUEUE_PROFILE: "durable-worker-job",
+        OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@postgres:5432/omniwa",
       }),
-    ).toThrow(/distributed queue, provider, secret, and observability adapters/u);
+    ).toThrow(/OMNIWA_PROVIDER_COMMAND_BRIDGE_URL and token/u);
+
+    expect(() =>
+      createWorkerRuntimeComposition({
+        OMNIWA_WORKER_RUNTIME_PROFILE: "production",
+        OMNIWA_WORKER_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_WORKER_QUEUE_PROFILE: "durable-worker-job",
+        OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+        OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:
+          "http://provider-runtime:3011/internal/provider-command/v1/commands",
+        OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: "provider-runtime-command-bridge-token",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@postgres:5432/omniwa",
+      }),
+    ).toThrow(/OMNIWA_EVENT_LOG_PATH durable EventLog path/u);
+  });
+
+  it("composes the production worker profile through PostgreSQL, durable queue, and provider bridge", () => {
+    const directory = createTemporaryDirectory();
+    const composition = createWorkerRuntimeComposition({
+      OMNIWA_WORKER_RUNTIME_PROFILE: "production",
+      OMNIWA_WORKER_REPOSITORY_PROFILE: "postgresql",
+      OMNIWA_WORKER_QUEUE_PROFILE: "durable-worker-job",
+      OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:
+        "http://provider-runtime:3011/internal/provider-command/v1/commands",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: "provider-runtime-command-bridge-token",
+      OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@postgres:5432/omniwa",
+      OMNIWA_POSTGRES_AUTO_MIGRATE: "false",
+      OMNIWA_EVENT_LOG_PATH: join(directory, "worker-event-log.json"),
+    });
+
+    expect(composition).toMatchObject({
+      profile: "production",
+      repositoryProfile: "postgresql",
+      providerMode: "provider-runtime-bridge",
+      queueProfile: "durable-worker-job",
+    });
+    expect(composition.repositories.instanceRepository).toBeInstanceOf(
+      PostgresqlInstanceRepository,
+    );
+    expect(composition.queueProvider).toBeInstanceOf(DurableWorkerJobQueueProvider);
+    expect(composition.messagingProvider).toBeInstanceOf(ProviderCommandMessagingProviderAdapter);
+    expect(composition.providerCommandTransport).toBeInstanceOf(FetchProviderCommandTransport);
+    expect(composition.socketProvider).toBeUndefined();
+    expect(composition.outboundMessageResolver).toBeUndefined();
+    expect(JSON.stringify(composition.providerCommandTransport)).not.toContain(
+      "provider-runtime-command-bridge-token",
+    );
   });
 
   it("normalizes worker runtime profile values", () => {

@@ -27,7 +27,7 @@ describe("production Docker compose template check", () => {
       "postgresql_eventlog_declared",
       "background_event_outbox_declared",
       "postgres_auto_migrate_disabled",
-      "provider_bridge_controlled_pilot_declared",
+      "provider_bridge_declared",
     ]);
     expect(report.checks.every((check) => check.status === "passed")).toBe(true);
   });
@@ -161,9 +161,55 @@ describe("production Docker compose template check", () => {
     expect(report.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          name: "provider_bridge_controlled_pilot_declared",
+          name: "provider_bridge_declared",
           status: "failed",
           error: "Missing rendered assignment for OMNIWA_PROVIDER_COMMAND_BRIDGE_URL.",
+        }),
+      ]),
+    );
+  });
+
+  it("fails when the worker production profile is not declared", async () => {
+    const report = await runProductionComposeTemplateCheck({
+      commandRunner: async () => ({
+        stdout: renderedProductionComposeConfig().replace(
+          "      OMNIWA_WORKER_RUNTIME_PROFILE: production\n",
+          "      OMNIWA_WORKER_RUNTIME_PROFILE: local\n",
+        ),
+        stderr: "",
+      }),
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "provider_bridge_declared",
+          status: "failed",
+          error: "Unexpected rendered assignment for OMNIWA_WORKER_RUNTIME_PROFILE.",
+        }),
+      ]),
+    );
+  });
+
+  it("fails when the worker durable queue profile is not declared", async () => {
+    const report = await runProductionComposeTemplateCheck({
+      commandRunner: async () => ({
+        stdout: renderedProductionComposeConfig().replace(
+          "      OMNIWA_WORKER_QUEUE_PROFILE: durable-worker-job\n",
+          "      OMNIWA_WORKER_QUEUE_PROFILE: in-memory\n",
+        ),
+        stderr: "",
+      }),
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "provider_bridge_declared",
+          status: "failed",
+          error: "Unexpected rendered assignment for OMNIWA_WORKER_QUEUE_PROFILE.",
         }),
       ]),
     );
@@ -225,7 +271,9 @@ function renderedProductionComposeConfig(): string {
     '      OMNIWA_POSTGRES_AUTO_MIGRATE: "false"',
     "  worker:",
     "    environment:",
-    "      OMNIWA_WORKER_RUNTIME_PROFILE: local",
+    "      OMNIWA_WORKER_RUNTIME_PROFILE: production",
+    "      OMNIWA_WORKER_REPOSITORY_PROFILE: postgresql",
+    "      OMNIWA_WORKER_QUEUE_PROFILE: durable-worker-job",
     "      OMNIWA_WORKER_PROVIDER_MODE: provider-runtime-bridge",
     "      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: http://provider-runtime:3011/internal/provider-command/v1/commands",
     "      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: replace-with-provider-command-bridge-token",

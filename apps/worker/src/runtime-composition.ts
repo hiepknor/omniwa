@@ -115,13 +115,22 @@ export function createWorkerRuntimeComposition(
   const repositoryProfile = readWorkerRepositoryProfile(env);
   const providerMode = readWorkerProviderMode(env);
   const queueProfile = readWorkerQueueProfile(env);
+  const providerCommandTransport =
+    overrides.providerCommandTransport ?? createWorkerProviderCommandTransport(env, providerMode);
+  const eventLogPath = readOptionalEnv(env.OMNIWA_EVENT_LOG_PATH);
 
-  assertWorkerRuntimeProfileIsComposable(profile);
+  assertWorkerRuntimeProfileIsComposable({
+    profile,
+    repositoryProfile,
+    providerMode,
+    queueProfile,
+    providerCommandTransport,
+    eventLogPath,
+  });
 
   const repositories = createWorkerRuntimeRepositories(env, repositoryProfile);
-  const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
   const eventLog =
-    eventLogPath === undefined || eventLogPath.length === 0
+    eventLogPath === undefined
       ? createInMemoryEventLogStore()
       : createDurableJsonEventLogStore(eventLogPath);
   const outboundMessageIntentStore = createRuntimeOutboundMessageIntentStore(
@@ -137,10 +146,7 @@ export function createWorkerRuntimeComposition(
     outboundMessageIntentStore,
     ...optional("socketProvider", overrides.socketProvider),
     ...optional("outboundMessageResolver", overrides.outboundMessageResolver),
-    ...optional(
-      "providerCommandTransport",
-      overrides.providerCommandTransport ?? createWorkerProviderCommandTransport(env, providerMode),
-    ),
+    ...optional("providerCommandTransport", providerCommandTransport),
   });
   const queueProvider = createWorkerQueueProvider({
     queueProfile,
@@ -333,10 +339,45 @@ function createWorkerRuntimeRepositories(
   return createDurableJsonRepositorySet(stateDirectory);
 }
 
-function assertWorkerRuntimeProfileIsComposable(profile: WorkerRuntimeProfile): void {
-  if (profile === "production") {
+type WorkerRuntimeProfileValidationInput = Readonly<{
+  profile: WorkerRuntimeProfile;
+  repositoryProfile: WorkerRepositoryProfile;
+  providerMode: WorkerProviderMode;
+  queueProfile: WorkerQueueProfile;
+  providerCommandTransport: ProviderCommandTransport | undefined;
+  eventLogPath: string | undefined;
+}>;
+
+function assertWorkerRuntimeProfileIsComposable(input: WorkerRuntimeProfileValidationInput): void {
+  if (input.profile !== "production") {
+    return;
+  }
+
+  const missingRequirements: string[] = [];
+
+  if (input.repositoryProfile !== "postgresql") {
+    missingRequirements.push("OMNIWA_WORKER_REPOSITORY_PROFILE=postgresql");
+  }
+
+  if (input.queueProfile !== "durable-worker-job") {
+    missingRequirements.push("OMNIWA_WORKER_QUEUE_PROFILE=durable-worker-job");
+  }
+
+  if (input.providerMode !== "provider-runtime-bridge") {
+    missingRequirements.push("OMNIWA_WORKER_PROVIDER_MODE=provider-runtime-bridge");
+  }
+
+  if (input.providerCommandTransport === undefined) {
+    missingRequirements.push("OMNIWA_PROVIDER_COMMAND_BRIDGE_URL and token");
+  }
+
+  if (input.eventLogPath === undefined) {
+    missingRequirements.push("OMNIWA_EVENT_LOG_PATH durable EventLog path");
+  }
+
+  if (missingRequirements.length > 0) {
     throw new Error(
-      "OmniWA Worker production profile requires distributed queue, provider, secret, and observability adapters before runtime composition is allowed.",
+      `OmniWA Worker production profile is not composable. Missing: ${missingRequirements.join(", ")}.`,
     );
   }
 }

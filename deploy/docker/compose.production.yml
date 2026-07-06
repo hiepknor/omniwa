@@ -57,9 +57,9 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      # Worker production profile still fails closed. Use local only for a controlled
-      # pilot while the internal provider-runtime bridge gathers target evidence.
-      OMNIWA_WORKER_RUNTIME_PROFILE: ${OMNIWA_WORKER_RUNTIME_PROFILE:?Set local for controlled pilot; production remains blocked until worker production profile is enabled}
+      # Worker production profile is enabled only with PostgreSQL repositories,
+      # durable WorkerJob queue, durable EventLog path, and the provider-runtime bridge.
+      OMNIWA_WORKER_RUNTIME_PROFILE: ${OMNIWA_WORKER_RUNTIME_PROFILE:-production}
       OMNIWA_WORKER_REPOSITORY_PROFILE: postgresql
       OMNIWA_WORKER_QUEUE_PROFILE: durable-worker-job
       OMNIWA_WORKER_PROVIDER_MODE: ${OMNIWA_WORKER_PROVIDER_MODE:-provider-runtime-bridge}

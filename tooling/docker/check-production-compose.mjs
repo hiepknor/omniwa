@@ -114,7 +114,10 @@ export async function runProductionComposeTemplateCheck(options = {}) {
     };
   });
 
-  await recordCheck(checks, "provider_bridge_controlled_pilot_declared", async () => {
+  await recordCheck(checks, "provider_bridge_declared", async () => {
+    assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_RUNTIME_PROFILE", ["production"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_REPOSITORY_PROFILE", ["postgresql"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_QUEUE_PROFILE", ["durable-worker-job"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_PROVIDER_MODE", [
       "provider-runtime-bridge",
     ]);
@@ -128,13 +131,14 @@ export async function runProductionComposeTemplateCheck(options = {}) {
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP", ["true"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HOST", ["0.0.0.0"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_PORT", ["3011"]);
-    assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_RUNTIME_PROFILE", ["local"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_RUNTIME_PROFILE", ["local"]);
 
     return {
+      workerRuntimeProfile: "production",
+      workerRepositoryProfile: "postgresql",
+      workerQueueProfile: "durable-worker-job",
       workerProviderMode: "provider-runtime-bridge",
       bridgeEndpoint: "provider-runtime:3011",
-      workerRuntimeProfile: "local",
       providerRuntimeProfile: "local",
     };
   });

@@ -49,14 +49,15 @@ export type FetchProviderCommandTransportOptions = Readonly<{
 }>;
 
 export class FetchProviderCommandTransport implements ProviderCommandTransport {
+  #bridgeToken: string;
+
   private readonly endpointUrl: string;
-  private readonly bridgeToken: string;
   private readonly timeoutMilliseconds: number;
   private readonly fetch: ProviderCommandHttpFetch;
 
   constructor(options: FetchProviderCommandTransportOptions) {
     this.endpointUrl = normalizeEndpointUrl(options.endpointUrl);
-    this.bridgeToken = normalizeBridgeToken(options.bridgeToken);
+    this.#bridgeToken = normalizeBridgeToken(options.bridgeToken);
     this.timeoutMilliseconds = options.timeoutMilliseconds ?? 5_000;
     this.fetch = options.fetch ?? defaultFetch;
 
@@ -78,7 +79,7 @@ export class FetchProviderCommandTransport implements ProviderCommandTransport {
         headers: {
           accept: "application/json",
           "content-type": "application/json",
-          [providerCommandBridgeTokenHeader]: this.bridgeToken,
+          [providerCommandBridgeTokenHeader]: this.#bridgeToken,
           "x-correlation-id": String(context.requestContext.correlationId),
           ...(context.requestContext.requestId === undefined
             ? {}
@@ -144,13 +145,14 @@ export type ProviderCommandHttpHandlerOptions = Readonly<{
 }>;
 
 export class ProviderCommandHttpHandler {
+  #bridgeToken: string;
+
   private readonly transport: ProviderCommandTransport;
-  private readonly bridgeToken: string;
   private readonly path: string;
 
   constructor(options: ProviderCommandHttpHandlerOptions) {
     this.transport = options.transport;
-    this.bridgeToken = normalizeBridgeToken(options.bridgeToken);
+    this.#bridgeToken = normalizeBridgeToken(options.bridgeToken);
     this.path = options.path ?? providerCommandBridgeHttpPath;
   }
 
@@ -181,7 +183,7 @@ export class ProviderCommandHttpHandler {
       );
     }
 
-    if (!authorized(request.headers, this.bridgeToken)) {
+    if (!authorized(request.headers, this.#bridgeToken)) {
       return response(
         401,
         err(

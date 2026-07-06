@@ -103,6 +103,33 @@ describe("Provider command HTTP bridge", () => {
     expect(JSON.stringify(requests[0]?.init.body)).not.toContain(rawText);
   });
 
+  it("does not serialize bridge tokens from transport or handler internals", () => {
+    const transport = new FetchProviderCommandTransport({
+      endpointUrl: "http://provider-runtime.internal/internal/provider-command/v1/commands",
+      bridgeToken,
+      fetch: () => ({
+        status: 200,
+        json: () =>
+          ok({
+            kind: "send_outbound_message",
+            result: {
+              messageId,
+              providerReceiptRef: "receipt.safe-ref",
+              retryable: false,
+              status: "accepted",
+            },
+          }),
+      }),
+    });
+    const handler = new ProviderCommandHttpHandler({
+      transport,
+      bridgeToken,
+    });
+
+    expect(JSON.stringify(transport)).not.toContain(bridgeToken);
+    expect(JSON.stringify(handler)).not.toContain(bridgeToken);
+  });
+
   it("requires an internal bridge token before executing provider commands", async () => {
     const transport = new InMemoryProviderCommandTransport({
       handler: () => {
