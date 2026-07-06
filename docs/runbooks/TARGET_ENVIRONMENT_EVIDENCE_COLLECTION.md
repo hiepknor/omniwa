@@ -16,6 +16,8 @@ states.
 - Local repository gates pass before collecting target-environment evidence.
 - Evidence artifacts are written outside the source tree or under an ignored operator artifact
   directory such as `artifacts/target-env/`.
+- The repository `.gitignore` ignores `artifacts/`, and `pnpm release:check` guards this so
+  operator evidence is not accidentally staged.
 - Raw target URLs, API keys, response bodies, QR values, JIDs, message text, provider payloads,
   auth state, session material, webhook secrets, and secret-provider values are not committed.
 

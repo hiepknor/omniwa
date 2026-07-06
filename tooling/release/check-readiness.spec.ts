@@ -152,6 +152,31 @@ describe("release readiness check", () => {
     }
   });
 
+  it("fails when operator evidence artifacts are not gitignored", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createReadinessFixture(root);
+      await writeText(join(root, ".gitignore"), "node_modules/\n");
+
+      const report = await evaluateReleaseReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "gitignore_missing_operator_artifacts",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails when the production cut runbook omits runtime evidence workflow", async () => {
     const root = await createTempProject();
 

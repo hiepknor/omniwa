@@ -38,3 +38,6 @@ deploy/docker/env/*.env
 
 # Logs
 *.log
+
+# Operator evidence artifacts
+artifacts/

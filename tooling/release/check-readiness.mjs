@@ -44,6 +44,7 @@ export const requiredWorkspacePackages = Object.freeze([
 ]);
 
 export const requiredReleaseEvidenceFiles = Object.freeze([
+  ".gitignore",
   "packages/interface-api/src/api-interface-adapter.ts",
   "packages/infrastructure-persistence/src/event-log-store.ts",
   "packages/infrastructure-persistence/src/event-log-runtime-publisher.ts",
@@ -179,6 +180,7 @@ export async function evaluateReleaseReadiness(options = {}) {
   await checkRootPackage(projectRoot, findings);
   await checkWorkspaceManifests(projectRoot, findings);
   await checkImplementationProgressDocuments(projectRoot, findings);
+  await checkOperatorArtifactIgnore(projectRoot, findings);
   await checkProductionCutRunbook(projectRoot, findings);
   await checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, findings);
 
@@ -273,6 +275,10 @@ async function checkFiles(projectRoot, category, files, findings) {
 }
 
 function releaseEvidenceFixtureContent(file) {
+  if (file === ".gitignore") {
+    return "artifacts/\n";
+  }
+
   if (file === "docs/IMPLEMENTATION_STATUS.md") {
     return [
       "# OmniWA Implementation Status",
@@ -528,6 +534,23 @@ async function checkProductionCutRunbook(projectRoot, findings) {
   }
 }
 
+async function checkOperatorArtifactIgnore(projectRoot, findings) {
+  const gitignore = await readText(
+    join(projectRoot, ".gitignore"),
+    findings,
+    "gitignore",
+    ".gitignore",
+  );
+
+  if (gitignore === undefined) {
+    return;
+  }
+
+  if (!gitignoreIncludesPattern(gitignore, "artifacts/")) {
+    findings.push(createFinding("gitignore_missing_operator_artifacts", "blocker"));
+  }
+}
+
 async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, findings) {
   const runbook = await readText(
     join(projectRoot, "docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md"),
@@ -596,6 +619,13 @@ async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, find
       findings.push(createFinding(code, "blocker"));
     }
   }
+}
+
+function gitignoreIncludesPattern(gitignore, pattern) {
+  return gitignore
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .some((line) => line === pattern);
 }
 
 async function checkWorkspaceManifests(projectRoot, findings) {

@@ -416,6 +416,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 production-cut validation now also requires `target-env:smoke` tooling and a production-cut
   review acknowledgement for deployed API smoke evidence, keeping the production-cut gate aligned
   with all target-environment operator evidence commands.
+- N11.7 release readiness now also guards `.gitignore` so operator target-environment artifacts
+  under `artifacts/` remain ignored while the evidence collection runbook points operators at
+  `artifacts/target-env/`.
 - N11.7 production compose validation now also runs as part of `pnpm production:check`. This keeps
   the expanded production compose template under an automated local release gate while preserving
   the current `CONDITIONALLY_READY` posture until target-environment startup evidence is supplied.
