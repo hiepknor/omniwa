@@ -64,6 +64,9 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({
             code: "target_environment_alert_slo_dry_run_artifact_path_missing",
           }),
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_path_missing",
+          }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
@@ -313,6 +316,9 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({
             code: "target_environment_alert_slo_dry_run_artifact_path_missing",
           }),
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_path_missing",
+          }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
@@ -323,7 +329,7 @@ describe("target environment evidence gate", () => {
     }
   });
 
-  it("validates optional sanitized smoke, load, alert/SLO, and evidence bundle artifacts when paths are provided", async () => {
+  it("validates optional sanitized smoke, load, alert/SLO, runtime, and evidence bundle artifacts when paths are provided", async () => {
     const root = await createTempProject();
 
     try {
@@ -333,6 +339,10 @@ describe("target environment evidence gate", () => {
       await writeJson(
         join(root, "artifacts/target-env/alert-slo-dry-run.json"),
         validAlertSloDryRunArtifact(),
+      );
+      await writeJson(
+        join(root, "artifacts/target-env/runtime-evidence.json"),
+        validRuntimeEvidenceArtifact(),
       );
       await writeJson(
         join(root, "artifacts/target-env/evidence-bundle.json"),
@@ -345,6 +355,7 @@ describe("target environment evidence gate", () => {
         smokeReportPath: "artifacts/target-env/smoke-report.json",
         loadReportPath: "artifacts/target-env/load-report.json",
         alertSloDryRunReportPath: "artifacts/target-env/alert-slo-dry-run.json",
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
         evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
       });
 
@@ -544,6 +555,35 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails safe when optional runtime evidence artifact schema is invalid", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), {
+        ...validRuntimeEvidenceArtifact(),
+        backupRestore: undefined,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails safe when optional artifacts contain unsafe deployment details", async () => {
     const root = await createTempProject();
 
@@ -597,6 +637,36 @@ describe("target environment evidence gate", () => {
         expect.arrayContaining([
           expect.objectContaining({
             code: "target_environment_alert_slo_dry_run_artifact_unsafe_content",
+          }),
+        ]),
+      );
+      expect(JSON.stringify(report)).not.toContain("target.example");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails safe when optional runtime evidence artifact contains unsafe deployment details", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), {
+        ...validRuntimeEvidenceArtifact(),
+        deploymentUrl: "https://target.example.invalid/runtime",
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_unsafe_content",
           }),
         ]),
       );
@@ -702,6 +772,7 @@ function targetEnvironmentReviewWithComponentStatus(
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",
@@ -743,6 +814,7 @@ function targetEnvironmentReviewWithoutComponent(
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",
@@ -845,6 +917,42 @@ function validAlertSloDryRunArtifact(): unknown {
   };
 }
 
+function validRuntimeEvidenceArtifact(): unknown {
+  return {
+    status: "passed",
+    checkedAtIso: "2026-07-05T00:00:00.000Z",
+    runtimes: requiredTargetEnvironmentComponents.map((component) => ({
+      component,
+      started: true,
+      readinessChecked: true,
+      shutdownChecked: true,
+      versionRef: `${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-version-reviewed`,
+    })),
+    dependencies: [
+      {
+        dependency: "PostgreSQL",
+        connectivityChecked: true,
+        credentialBoundaryChecked: true,
+        migrationStatusChecked: true,
+      },
+      {
+        dependency: "Redis",
+        connectivityChecked: true,
+        credentialBoundaryChecked: true,
+      },
+    ],
+    backupRestore: {
+      drillRef: "backup-restore-drill-reviewed",
+      backupCreated: true,
+      restoreValidated: true,
+      rollbackOrForwardFixReviewed: true,
+      rpoSeconds: 300,
+      rtoSeconds: 900,
+    },
+    findings: [],
+  };
+}
+
 function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROVEN"): unknown {
   const proven = status === "PROVEN";
 
@@ -884,6 +992,10 @@ function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROV
       },
       alertSloDryRun: {
         artifactRef: "alert-slo-dry-run-reviewed",
+        status: "passed",
+      },
+      runtimeEvidence: {
+        artifactRef: "runtime-evidence-reviewed",
         status: "passed",
       },
     },

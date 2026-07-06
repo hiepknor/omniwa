@@ -9,6 +9,7 @@ import {
 } from "./create-target-environment-evidence-bundle.mjs";
 import {
   createTargetEnvironmentFixture,
+  requiredTargetEnvironmentComponents,
   validateTargetEnvironmentEvidenceBundleArtifact,
 } from "./check-target-environment-evidence.mjs";
 
@@ -28,6 +29,11 @@ type GeneratedBundle = Readonly<{
       summary?: Readonly<Record<string, unknown>>;
     }>;
     alertSloDryRun: Readonly<{
+      artifactRef: string;
+      status?: string;
+      summary?: Readonly<Record<string, unknown>>;
+    }>;
+    runtimeEvidence: Readonly<{
       artifactRef: string;
       status?: string;
       summary?: Readonly<Record<string, unknown>>;
@@ -79,7 +85,7 @@ describe("target environment evidence bundle generator", () => {
     }
   });
 
-  it("embeds validated smoke, load, and alert/SLO summaries without raw target details", async () => {
+  it("embeds validated smoke, load, alert/SLO, and runtime summaries without raw target details", async () => {
     const root = await createTempProject();
 
     try {
@@ -90,6 +96,10 @@ describe("target environment evidence bundle generator", () => {
         join(root, "artifacts/target-env/alert-slo-dry-run.json"),
         validAlertSloDryRunArtifact(),
       );
+      await writeJson(
+        join(root, "artifacts/target-env/runtime-evidence.json"),
+        validRuntimeEvidenceArtifact(),
+      );
 
       const report = await createTargetEnvironmentEvidenceBundle({
         projectRoot: root,
@@ -97,9 +107,11 @@ describe("target environment evidence bundle generator", () => {
         smokeReportPath: "artifacts/target-env/smoke-report.json",
         loadReportPath: "artifacts/target-env/load-report.json",
         alertSloDryRunReportPath: "artifacts/target-env/alert-slo-dry-run.json",
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
         smokeArtifactRef: "operator-smoke-artifact-ref",
         loadArtifactRef: "operator-load-artifact-ref",
         alertSloDryRunArtifactRef: "operator-alert-slo-artifact-ref",
+        runtimeEvidenceArtifactRef: "operator-runtime-evidence-artifact-ref",
         checkedAtIso: "2026-07-05T00:00:00.000Z",
       });
 
@@ -116,6 +128,10 @@ describe("target environment evidence bundle generator", () => {
       });
       expect(bundle.artifacts.alertSloDryRun).toMatchObject({
         artifactRef: "operator-alert-slo-artifact-ref",
+        status: "passed",
+      });
+      expect(bundle.artifacts.runtimeEvidence).toMatchObject({
+        artifactRef: "operator-runtime-evidence-artifact-ref",
         status: "passed",
       });
       expect(bundle.artifacts.smoke.summary).toMatchObject({
@@ -138,6 +154,14 @@ describe("target environment evidence bundle generator", () => {
           {
             dashboardId: "api_runtime_overview",
             accessible: true,
+          },
+        ],
+      });
+      expect(bundle.artifacts.runtimeEvidence.summary).toMatchObject({
+        dependencies: [
+          {
+            dependency: "PostgreSQL",
+            connectivityChecked: true,
           },
         ],
       });
@@ -325,6 +349,37 @@ function validAlertSloDryRunArtifact(): unknown {
         budgetPolicyChecked: true,
       },
     ],
+    findings: [],
+  };
+}
+
+function validRuntimeEvidenceArtifact(): unknown {
+  return {
+    status: "passed",
+    checkedAtIso: "2026-07-05T00:00:00.000Z",
+    runtimes: requiredTargetEnvironmentComponents.map((component) => ({
+      component,
+      started: true,
+      readinessChecked: true,
+      shutdownChecked: true,
+      versionRef: `${component.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}-version-reviewed`,
+    })),
+    dependencies: [
+      {
+        dependency: "PostgreSQL",
+        connectivityChecked: true,
+        credentialBoundaryChecked: true,
+        migrationStatusChecked: true,
+      },
+    ],
+    backupRestore: {
+      drillRef: "backup-restore-drill-reviewed",
+      backupCreated: true,
+      restoreValidated: true,
+      rollbackOrForwardFixReviewed: true,
+      rpoSeconds: 300,
+      rtoSeconds: 900,
+    },
     findings: [],
   };
 }

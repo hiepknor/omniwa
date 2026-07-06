@@ -96,6 +96,12 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
   );
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
+    "runtime_evidence",
+    options.runtimeEvidenceReportPath ?? process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH,
+    findings,
+  );
+  await checkOptionalTargetEnvironmentArtifact(
+    projectRoot,
     "bundle",
     options.evidenceBundlePath ?? process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH,
     findings,
@@ -241,6 +247,12 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
   if (!content.includes("OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH")) {
     findings.push(
       createFinding("target_environment_alert_slo_dry_run_artifact_path_missing", "blocker"),
+    );
+  }
+
+  if (!content.includes("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH")) {
+    findings.push(
+      createFinding("target_environment_runtime_evidence_artifact_path_missing", "blocker"),
     );
   }
 
@@ -460,7 +472,9 @@ async function checkOptionalTargetEnvironmentArtifact(
         ? validateTargetEnvironmentLoadArtifact(artifact)
         : artifactKind === "alert_slo_dry_run"
           ? validateTargetEnvironmentAlertSloDryRunArtifact(artifact)
-          : validateTargetEnvironmentEvidenceBundleArtifact(artifact);
+          : artifactKind === "runtime_evidence"
+            ? validateTargetEnvironmentRuntimeEvidenceArtifact(artifact)
+            : validateTargetEnvironmentEvidenceBundleArtifact(artifact);
 
   if (!schemaValid) {
     findings.push(
@@ -525,6 +539,22 @@ export function validateTargetEnvironmentAlertSloDryRunArtifact(artifact) {
   );
 }
 
+export function validateTargetEnvironmentRuntimeEvidenceArtifact(artifact) {
+  return (
+    isRecord(artifact) &&
+    isArtifactStatus(artifact.status) &&
+    isNonEmptyString(artifact.checkedAtIso) &&
+    Array.isArray(artifact.runtimes) &&
+    hasExactlyRequiredComponents(artifact.runtimes) &&
+    artifact.runtimes.every(isRuntimeEvidenceArtifact) &&
+    Array.isArray(artifact.dependencies) &&
+    artifact.dependencies.every(isDependencyEvidenceArtifact) &&
+    isBackupRestoreEvidenceArtifact(artifact.backupRestore) &&
+    Array.isArray(artifact.findings) &&
+    artifact.findings.every(isFindingArtifact)
+  );
+}
+
 export function validateTargetEnvironmentEvidenceBundleArtifact(artifact) {
   return (
     isRecord(artifact) &&
@@ -582,6 +612,9 @@ export function createTargetEnvironmentEvidenceBundleTemplate() {
       }),
       alertSloDryRun: Object.freeze({
         artifactRef: "operator-evidence-alert-slo-dry-run-pending",
+      }),
+      runtimeEvidence: Object.freeze({
+        artifactRef: "operator-evidence-runtime-evidence-pending",
       }),
     }),
     findings: Object.freeze([
@@ -674,6 +707,43 @@ function isSloWindowDryRunArtifact(value) {
   );
 }
 
+function isRuntimeEvidenceArtifact(value) {
+  return (
+    isRecord(value) &&
+    requiredTargetEnvironmentComponents.includes(value.component) &&
+    typeof value.started === "boolean" &&
+    typeof value.readinessChecked === "boolean" &&
+    typeof value.shutdownChecked === "boolean" &&
+    isNonEmptyString(value.versionRef) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isDependencyEvidenceArtifact(value) {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.dependency) &&
+    typeof value.connectivityChecked === "boolean" &&
+    typeof value.credentialBoundaryChecked === "boolean" &&
+    (value.migrationStatusChecked === undefined ||
+      typeof value.migrationStatusChecked === "boolean") &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isBackupRestoreEvidenceArtifact(value) {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.drillRef) &&
+    typeof value.backupCreated === "boolean" &&
+    typeof value.restoreValidated === "boolean" &&
+    typeof value.rollbackOrForwardFixReviewed === "boolean" &&
+    (value.rpoSeconds === undefined || isNonNegativeInteger(value.rpoSeconds)) &&
+    (value.rtoSeconds === undefined || isNonNegativeInteger(value.rtoSeconds)) &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
 function isTargetEnvironmentProofStates(value) {
   return (
     isRecord(value) &&
@@ -728,6 +798,10 @@ function isTargetEnvironmentBundleArtifacts(value) {
     isOptionalBundleArtifactRef(
       value.alertSloDryRun,
       validateTargetEnvironmentAlertSloDryRunArtifact,
+    ) &&
+    isOptionalBundleArtifactRef(
+      value.runtimeEvidence,
+      validateTargetEnvironmentRuntimeEvidenceArtifact,
     )
   );
 }
@@ -1027,6 +1101,7 @@ function fixtureReview(status) {
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
+    "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
     "",

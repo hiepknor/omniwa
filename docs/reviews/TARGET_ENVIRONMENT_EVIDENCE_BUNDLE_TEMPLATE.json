@@ -84,6 +84,9 @@
     },
     "alertSloDryRun": {
       "artifactRef": "operator-evidence-alert-slo-dry-run-pending"
+    },
+    "runtimeEvidence": {
+      "artifactRef": "operator-evidence-runtime-evidence-pending"
     }
   },
   "findings": [

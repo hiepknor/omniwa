@@ -8,6 +8,7 @@ import {
   validateTargetEnvironmentAlertSloDryRunArtifact,
   validateTargetEnvironmentEvidenceBundleArtifact,
   validateTargetEnvironmentLoadArtifact,
+  validateTargetEnvironmentRuntimeEvidenceArtifact,
   validateTargetEnvironmentSmokeArtifact,
 } from "./check-target-environment-evidence.mjs";
 
@@ -83,6 +84,22 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
       process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_ARTIFACT_REF ??
       "target-env-alert-slo-dry-run-report",
     validator: validateTargetEnvironmentAlertSloDryRunArtifact,
+    findings,
+  });
+
+  await attachOptionalArtifact({
+    projectRoot,
+    bundle,
+    kind: "runtime_evidence",
+    artifactKey: "runtimeEvidence",
+    artifactPath:
+      options.runtimeEvidenceReportPath ??
+      process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH,
+    artifactRef:
+      options.runtimeEvidenceArtifactRef ??
+      process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_ARTIFACT_REF ??
+      "target-env-runtime-evidence-report",
+    validator: validateTargetEnvironmentRuntimeEvidenceArtifact,
     findings,
   });
 

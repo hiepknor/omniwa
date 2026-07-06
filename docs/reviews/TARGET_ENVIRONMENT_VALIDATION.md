@@ -104,6 +104,20 @@ destinations, raw instance IDs, JIDs, message text, provider payloads, API keys,
 secrets. This artifact is reviewed alongside the evidence bundle and does not replace sustained SLO
 observation.
 
+Optional target-environment runtime evidence artifact validation:
+
+```text
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
+pnpm target-env:check
+```
+
+The runtime evidence artifact records sanitized startup, readiness, shutdown, dependency
+connectivity, migration-status, and backup/restore drill checks. It must not contain target URLs,
+database or Redis connection strings, API keys, raw runtime logs, raw instance IDs, QR payloads,
+JIDs, message text, provider payloads, session material, webhook secrets, or secret-provider
+values. This artifact provides operator evidence for the runtime matrix, dependency connectivity,
+and recovery drill references, but it does not by itself change the proof states above.
+
 Optional target-environment evidence bundle validation:
 
 ```text
@@ -118,8 +132,8 @@ pnpm target-env:check
 
 The evidence bundle is an operator-maintained sanitized JSON manifest that references the runtime
 evidence matrix, smoke/load artifacts, deployment profile, dependency checks, backup/restore drill,
-alert/SLO dry-run artifact, and rollback or forward-fix notes. The checker validates its schema and
-rejects unsafe fields, but it does not create target-environment evidence.
+alert/SLO dry-run artifact, runtime evidence artifact, and rollback or forward-fix notes. The checker
+validates its schema and rejects unsafe fields, but it does not create target-environment evidence.
 Use `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` as the starting skeleton, copy
 it to the operator artifact path, and replace only safe reference values with target-environment
 evidence identifiers.
@@ -138,6 +152,7 @@ Target-environment evidence must additionally record:
 - backup/restore drill identifier,
 - production-like load test summary,
 - alert/SLO dry-run summary,
+- runtime startup/dependency/backup evidence summary,
 - rollback or forward-fix notes.
 
 ## Known Constraints

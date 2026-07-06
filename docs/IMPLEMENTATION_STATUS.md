@@ -337,6 +337,11 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   covers dashboard access checks, alert-route dry-runs, and SLO window/error-budget policy checks
   without storing dashboard URLs, notification destinations, raw IDs, JIDs, message text, provider
   payloads, API keys, or secrets.
+- N11.7 target-environment evidence validation now also validates an optional sanitized runtime
+  evidence artifact when `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH` is supplied. The artifact
+  covers runtime startup/readiness/shutdown checks, dependency connectivity, migration-status
+  checks, and backup/restore drill references without storing target URLs, connection strings, raw
+  runtime logs, API keys, JIDs, message text, provider payloads, session material, or secrets.
 - N11.7 target-environment smoke evidence now validates the deployed API public response envelope and
   request/correlation metadata for successful `/v1/health`, `/v1/health/readiness`, and
   `/v1/instances` checks while still excluding response bodies, target URLs, API keys, raw IDs,
@@ -345,17 +350,17 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH` for an operator-maintained sanitized evidence bundle
   manifest. The bundle schema ties runtime component statuses to deployment profile, runtime
   versions, startup, health/readiness, dependency connectivity, backup/restore, production-load,
-  alert/SLO dry-run, rollback or forward-fix references, and smoke/load artifact refs without
-  storing raw environment details.
+  alert/SLO dry-run, runtime evidence, rollback or forward-fix references, and smoke/load artifact
+  refs without storing raw environment details.
 - N11.7 target-environment evidence validation now also keeps
   `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json` under the local evidence gate as a
   safe `NOT_PROVEN` skeleton. Operators should copy and populate that template into an external
   artifact path before passing it through `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.
 - N11.7 target-environment evidence tooling now also provides `pnpm target-env:bundle`, which writes
   a sanitized initial bundle to `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH` from the checked-in
-  template and can embed already-sanitized smoke, load, and alert/SLO dry-run summaries when their
-  report path variables are present. The generated bundle remains `NOT_PROVEN` until an operator
-  supplies target-environment evidence and updates the proof states.
+  template and can embed already-sanitized smoke, load, alert/SLO dry-run, and runtime evidence
+  summaries when their report path variables are present. The generated bundle remains `NOT_PROVEN`
+  until an operator supplies target-environment evidence and updates the proof states.
 - N11.7 target-environment evidence validation now also cross-checks optional evidence bundles
   against `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`; bundle status, proof booleans, and
   component statuses must match the review document when
