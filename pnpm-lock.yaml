@@ -313,6 +313,18 @@ importers:
         specifier: 7.0.0-rc13
         version: 7.0.0-rc13(sharp@0.35.2)
 
+  packages/infrastructure-provider-bridge:
+    dependencies:
+      '@omniwa/application':
+        specifier: workspace:*
+        version: link:../application
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@omniwa/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/infrastructure-queue:
     dependencies:
       '@omniwa/application':

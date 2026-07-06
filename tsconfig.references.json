@@ -9,6 +9,7 @@
     { "path": "./packages/application" },
     { "path": "./packages/interface-api" },
     { "path": "./packages/infrastructure-persistence" },
+    { "path": "./packages/infrastructure-provider-bridge" },
     { "path": "./packages/infrastructure-queue" },
     { "path": "./packages/infrastructure-provider-baileys" },
     { "path": "./packages/infrastructure-object-storage" },

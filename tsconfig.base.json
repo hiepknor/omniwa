@@ -32,6 +32,9 @@
         "packages/infrastructure-observability/src/index.ts"
       ],
       "@omniwa/infrastructure-persistence": ["packages/infrastructure-persistence/src/index.ts"],
+      "@omniwa/infrastructure-provider-bridge": [
+        "packages/infrastructure-provider-bridge/src/index.ts"
+      ],
       "@omniwa/infrastructure-provider-baileys": [
         "packages/infrastructure-provider-baileys/src/index.ts"
       ],
