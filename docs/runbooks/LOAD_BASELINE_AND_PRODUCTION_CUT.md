@@ -8,6 +8,9 @@ OmniWA.
 It supports Sprint PR-16 from
 `docs/platform-evolution/PRODUCTION_EXECUTION_PLAN.md`.
 
+For the complete operator sequence, use
+`docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md`.
+
 ## Commands
 
 Run the load baseline:

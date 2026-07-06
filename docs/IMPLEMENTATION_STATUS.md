@@ -353,6 +353,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   `docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md` against runtime-evidence workflow drift. The
   runbook must document `pnpm target-env:runtime`, the runtime evidence input/report paths, and the
   checked-in safe input template.
+- N11.7 now also has `docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md` as the operator
+  sequence for collecting smoke, load, runtime, and bundle evidence before any future production
+  readiness claim. `pnpm release:check` guards that runbook against missing target-environment
+  commands, artifact path variables, template references, and review-update references.
 - N11.7 target-environment smoke evidence now validates the deployed API public response envelope and
   request/correlation metadata for successful `/v1/health`, `/v1/health/readiness`, and
   `/v1/instances` checks while still excluding response bodies, target URLs, API keys, raw IDs,

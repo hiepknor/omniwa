@@ -290,6 +290,9 @@ from `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` into
 artifact path and populate only sanitized booleans, safe refs, timestamps, and safe error codes.
 The production-cut runbook now carries the same runtime-evidence workflow, and `pnpm release:check`
 guards that runbook against drift from the root `target-env:runtime` command and template path.
+The target-environment evidence collection runbook now gives operators the ordered
+smoke/load/runtime/bundle workflow and review-update rules; `pnpm release:check` guards that runbook
+against missing commands, artifact path variables, template refs, and review refs.
 It also provides the optional `pnpm target-env:bundle` command for creating a sanitized
 operator-maintained evidence bundle from the checked-in `NOT_PROVEN` template and any already
 sanitized smoke, load, alert/SLO dry-run, and runtime evidence summaries. The generated bundle

@@ -194,6 +194,57 @@ describe("release readiness check", () => {
     }
   });
 
+  it("fails when the target-environment evidence collection runbook omits required workflow steps", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createReadinessFixture(root);
+      await writeText(
+        join(root, "docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md"),
+        [
+          "# Target Environment Evidence Collection Runbook",
+          "",
+          "Collect target-environment evidence.",
+          "",
+        ].join("\n"),
+      );
+
+      const report = await evaluateReleaseReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_smoke_command",
+          }),
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_load_command",
+          }),
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_runtime_command",
+          }),
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_bundle_command",
+          }),
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_runtime_template",
+          }),
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_validation_review",
+          }),
+          expect.objectContaining({
+            code: "target_environment_collection_runbook_missing_production_cut_review",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails package manifests that are not private ESM workspace units", async () => {
     const root = await createTempProject();
 

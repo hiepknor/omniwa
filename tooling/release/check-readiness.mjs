@@ -91,6 +91,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "docs/IMPLEMENTATION_STATUS.md",
   "docs/platform-evolution/NEXT_DEVELOPMENT_PLAN.md",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
+  "docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json",
   "docs/reviews/PRODUCTION_CUT_REVIEW.md",
@@ -179,6 +180,7 @@ export async function evaluateReleaseReadiness(options = {}) {
   await checkWorkspaceManifests(projectRoot, findings);
   await checkImplementationProgressDocuments(projectRoot, findings);
   await checkProductionCutRunbook(projectRoot, findings);
+  await checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, findings);
 
   return freezeReport({
     status: findings.some((finding) => finding.severity === "blocker") ? "failed" : "passed",
@@ -303,6 +305,8 @@ function releaseEvidenceFixtureContent(file) {
     return [
       "# Load Baseline And Production Cut Runbook",
       "",
+      "See `docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md`.",
+      "",
       "Run the optional target-environment runtime evidence workflow.",
       "",
       "```text",
@@ -312,6 +316,21 @@ function releaseEvidenceFixtureContent(file) {
       "```",
       "",
       "Use `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` as the starting skeleton.",
+      "",
+    ].join("\n");
+  }
+
+  if (file === "docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md") {
+    return [
+      "# Target Environment Evidence Collection Runbook",
+      "",
+      "Run `pnpm target-env:smoke`, `pnpm target-env:load`, `pnpm target-env:runtime`, and `pnpm target-env:bundle`.",
+      "",
+      "Use `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`, `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`, `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`, and `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
+      "",
+      "Start from `docs/reviews/TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json` and `docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json`.",
+      "",
+      "Update `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` and `docs/reviews/PRODUCTION_CUT_REVIEW.md` only after sanitized evidence passes validation.",
       "",
     ].join("\n");
   }
@@ -490,6 +509,78 @@ async function checkProductionCutRunbook(projectRoot, findings) {
     findings.push(
       createFinding("load_baseline_runbook_missing_runtime_evidence_template", "blocker"),
     );
+  }
+
+  if (!runbook.includes("docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md")) {
+    findings.push(
+      createFinding("load_baseline_runbook_missing_evidence_collection_link", "blocker"),
+    );
+  }
+}
+
+async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, findings) {
+  const runbook = await readText(
+    join(projectRoot, "docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md"),
+    findings,
+    "target_environment_evidence_collection_runbook",
+    "docs/runbooks/TARGET_ENVIRONMENT_EVIDENCE_COLLECTION.md",
+  );
+
+  if (runbook === undefined) {
+    return;
+  }
+
+  const requiredFragments = [
+    ["target_environment_collection_runbook_missing_smoke_command", "pnpm target-env:smoke"],
+    ["target_environment_collection_runbook_missing_load_command", "pnpm target-env:load"],
+    ["target_environment_collection_runbook_missing_runtime_command", "pnpm target-env:runtime"],
+    ["target_environment_collection_runbook_missing_bundle_command", "pnpm target-env:bundle"],
+    [
+      "target_environment_collection_runbook_missing_smoke_report_path",
+      "OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_load_report_path",
+      "OMNIWA_TARGET_ENV_LOAD_REPORT_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_runtime_input_path",
+      "OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_runtime_report_path",
+      "OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_bundle_output_path",
+      "OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_bundle_input_path",
+      "OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH",
+    ],
+    [
+      "target_environment_collection_runbook_missing_runtime_template",
+      "TARGET_ENVIRONMENT_RUNTIME_EVIDENCE_INPUT_TEMPLATE.json",
+    ],
+    [
+      "target_environment_collection_runbook_missing_bundle_template",
+      "TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEMPLATE.json",
+    ],
+    [
+      "target_environment_collection_runbook_missing_validation_review",
+      "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
+    ],
+    [
+      "target_environment_collection_runbook_missing_production_cut_review",
+      "docs/reviews/PRODUCTION_CUT_REVIEW.md",
+    ],
+  ];
+
+  for (const [code, fragment] of requiredFragments) {
+    if (!runbook.includes(fragment)) {
+      findings.push(createFinding(code, "blocker"));
+    }
   }
 }
 
