@@ -433,6 +433,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 production-cut validation now also requires `target-env:alert-slo` tooling and a
   production-cut review acknowledgement for alert/SLO dry-run evidence, keeping production-cut
   review parity with the target-environment evidence workflow.
+- N11.7 target-environment evidence tooling now also provides `pnpm target-env:summary`, which emits
+  a safe readiness summary from `TARGET_ENVIRONMENT_VALIDATION.md`, supplied artifact booleans, and
+  evidence-gate finding codes without printing target URLs, artifact paths, API keys, raw IDs,
+  JIDs, message text, provider payloads, auth state, or secret material.
 - N11.7 release readiness now also guards `.gitignore` so operator target-environment artifacts
   under `artifacts/` remain ignored while the evidence collection runbook points operators at
   `artifacts/target-env/`.

@@ -132,6 +132,23 @@ OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH=artifacts/target-env/evidence-bundle.json
 pnpm target-env:check
 ```
 
+Summarize the review state and supplied artifact refs without printing artifact paths or target
+secrets:
+
+```text
+OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
+OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
+OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH=artifacts/target-env/evidence-bundle.json \
+pnpm target-env:summary
+```
+
+The summary command emits only safe readiness state, proof booleans, component counts, artifact
+presence booleans, finding codes, and next-action codes. It does not include the target URL, API
+key, artifact path, response body, raw IDs, JIDs, message text, provider payloads, auth state, or
+secret material.
+
 ## Review Update
 
 Only after the collected artifacts pass validation should reviewers update

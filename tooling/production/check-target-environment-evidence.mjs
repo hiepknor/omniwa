@@ -10,6 +10,7 @@ export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/production/run-target-environment-alert-slo-dry-run.mjs",
   "tooling/production/run-target-environment-runtime-evidence.mjs",
   "tooling/production/run-target-environment-smoke.mjs",
+  "tooling/production/summarize-target-environment-readiness.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
   "docs/reviews/TARGET_ENVIRONMENT_ALERT_SLO_DRY_RUN_INPUT_TEMPLATE.json",
@@ -24,6 +25,7 @@ export const requiredTargetEnvironmentEvidenceTests = Object.freeze([
   "tooling/production/run-target-environment-alert-slo-dry-run.spec.ts",
   "tooling/production/run-target-environment-runtime-evidence.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
+  "tooling/production/summarize-target-environment-readiness.spec.ts",
   "tooling/performance/run-target-environment-load.spec.ts",
 ]);
 
@@ -46,6 +48,7 @@ export const targetEnvironmentAlertSloDryRunScriptName = "target-env:alert-slo";
 export const targetEnvironmentBundleScriptName = "target-env:bundle";
 export const targetEnvironmentRuntimeScriptName = "target-env:runtime";
 export const targetEnvironmentSmokeScriptName = "target-env:smoke";
+export const targetEnvironmentSummaryScriptName = "target-env:summary";
 export const targetEnvironmentLoadScriptName = "target-env:load";
 
 const allowedTargetEnvironmentEndpointPaths = Object.freeze([
@@ -170,6 +173,8 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
         "node tooling/production/run-target-environment-runtime-evidence.mjs",
       [targetEnvironmentSmokeScriptName]:
         "node tooling/production/run-target-environment-smoke.mjs",
+      [targetEnvironmentSummaryScriptName]:
+        "node tooling/production/summarize-target-environment-readiness.mjs",
       [targetEnvironmentLoadScriptName]: "node tooling/performance/run-target-environment-load.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs",
@@ -339,6 +344,10 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
 
   if (!content.includes("pnpm target-env:bundle")) {
     findings.push(createFinding("target_environment_bundle_command_missing", "blocker"));
+  }
+
+  if (!content.includes("pnpm target-env:summary")) {
+    findings.push(createFinding("target_environment_summary_command_missing", "blocker"));
   }
 
   if (!content.includes("OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH")) {
@@ -588,6 +597,21 @@ async function checkRootPackage(projectRoot, findings) {
       createFinding("root_target_environment_runtime_script_missing", "blocker", {
         target: targetEnvironmentRuntimeScriptName,
         safeDetailCode: "root_target_environment_runtime_script_missing",
+      }),
+    );
+  }
+
+  const targetEnvironmentSummary = scripts[targetEnvironmentSummaryScriptName];
+  if (
+    typeof targetEnvironmentSummary !== "string" ||
+    !targetEnvironmentSummary.includes(
+      "node tooling/production/summarize-target-environment-readiness.mjs",
+    )
+  ) {
+    findings.push(
+      createFinding("root_target_environment_summary_script_missing", "blocker", {
+        target: targetEnvironmentSummaryScriptName,
+        safeDetailCode: "root_target_environment_summary_script_missing",
       }),
     );
   }
@@ -1499,6 +1523,7 @@ function fixtureReview(status) {
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
+    "- `pnpm target-env:summary` after artifact validation.",
     "",
     "## Known Constraints",
     "",

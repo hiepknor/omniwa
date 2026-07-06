@@ -35,6 +35,10 @@ Current tooling:
   gate wiring, and explicit readiness decision state.
 - `production/run-target-environment-alert-slo-dry-run.mjs` normalizes optional
   target-environment alert/SLO dry-run evidence from sanitized operator input.
+- `production/summarize-target-environment-readiness.mjs` emits a safe
+  target-environment readiness summary from the review file, supplied artifact
+  flags, and current evidence-gate findings without printing target URLs,
+  artifact paths, API keys, or raw payloads.
 - `production/run-target-environment-smoke.mjs` performs optional deployed API
   smoke checks and can write a sanitized target-environment evidence artifact.
 - `recovery/check-recovery-readiness.mjs` checks recovery drill evidence,

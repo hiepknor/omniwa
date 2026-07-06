@@ -87,6 +87,7 @@ export const requiredReleaseEvidenceFiles = Object.freeze([
   "tooling/production/run-target-environment-alert-slo-dry-run.mjs",
   "tooling/production/run-target-environment-runtime-evidence.mjs",
   "tooling/production/run-target-environment-smoke.mjs",
+  "tooling/production/summarize-target-environment-readiness.mjs",
   "tooling/production/check-production-cut.mjs",
   "tooling/performance/check-performance-readiness.mjs",
   "tooling/performance/run-target-environment-load.mjs",
@@ -139,6 +140,7 @@ export const requiredReleaseEvidenceTests = Object.freeze([
   "tooling/production/run-target-environment-alert-slo-dry-run.spec.ts",
   "tooling/production/run-target-environment-runtime-evidence.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
+  "tooling/production/summarize-target-environment-readiness.spec.ts",
   "tooling/production/check-production-cut.spec.ts",
   "tooling/performance/run-target-environment-load.spec.ts",
   "tooling/performance/check-performance-readiness.spec.ts",
@@ -168,6 +170,7 @@ const requiredRootScripts = Object.freeze([
   "target-env:load",
   "target-env:runtime",
   "target-env:smoke",
+  "target-env:summary",
   "production:check",
   "release:check",
   "check",
@@ -232,13 +235,14 @@ export async function createReadinessFixture(projectRoot) {
       "performance:check":
         "node tooling/performance/check-performance-readiness.mjs && pnpm load:check && pnpm exec vitest run tooling/performance/run-target-environment-load.spec.ts tooling/performance/check-performance-readiness.spec.ts",
       "target-env:check":
-        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/create-target-environment-evidence-bundle.spec.ts tooling/production/run-target-environment-alert-slo-dry-run.spec.ts tooling/production/run-target-environment-runtime-evidence.spec.ts tooling/production/run-target-environment-smoke.spec.ts tooling/performance/run-target-environment-load.spec.ts",
+        "node tooling/production/check-target-environment-evidence.mjs && pnpm exec vitest run tooling/production/check-target-environment-evidence.spec.ts tooling/production/create-target-environment-evidence-bundle.spec.ts tooling/production/run-target-environment-alert-slo-dry-run.spec.ts tooling/production/run-target-environment-runtime-evidence.spec.ts tooling/production/run-target-environment-smoke.spec.ts tooling/production/summarize-target-environment-readiness.spec.ts tooling/performance/run-target-environment-load.spec.ts",
       "target-env:alert-slo":
         "node tooling/production/run-target-environment-alert-slo-dry-run.mjs",
       "target-env:bundle": "node tooling/production/create-target-environment-evidence-bundle.mjs",
       "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
       "target-env:runtime": "node tooling/production/run-target-environment-runtime-evidence.mjs",
       "target-env:smoke": "node tooling/production/run-target-environment-smoke.mjs",
+      "target-env:summary": "node tooling/production/summarize-target-environment-readiness.mjs",
       "production:check":
         "pnpm target-env:check && pnpm slo:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
       "release:check": "node tooling/release/check-readiness.mjs",
@@ -348,7 +352,7 @@ function releaseEvidenceFixtureContent(file) {
     return [
       "# Target Environment Evidence Collection Runbook",
       "",
-      "Run `pnpm target-env:smoke`, `pnpm target-env:load`, `pnpm target-env:alert-slo`, `pnpm target-env:runtime`, and `pnpm target-env:bundle`.",
+      "Run `pnpm target-env:smoke`, `pnpm target-env:load`, `pnpm target-env:alert-slo`, `pnpm target-env:runtime`, `pnpm target-env:bundle`, and `pnpm target-env:summary`.",
       "",
       "Use `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`, `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`, `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_INPUT_PATH`, `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH`, `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`, `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`, and `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
       "",
@@ -612,6 +616,7 @@ async function checkTargetEnvironmentEvidenceCollectionRunbook(projectRoot, find
     ],
     ["target_environment_collection_runbook_missing_runtime_command", "pnpm target-env:runtime"],
     ["target_environment_collection_runbook_missing_bundle_command", "pnpm target-env:bundle"],
+    ["target_environment_collection_runbook_missing_summary_command", "pnpm target-env:summary"],
     [
       "target_environment_collection_runbook_missing_smoke_report_path",
       "OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH",

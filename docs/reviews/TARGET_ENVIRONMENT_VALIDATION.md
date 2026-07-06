@@ -177,6 +177,22 @@ If a future bundle claims `PROVEN`, every evidence reference and component refer
 non-pending, and the smoke, load, alert/SLO dry-run, and runtime evidence artifact entries must all
 include `passed` summaries.
 
+Optional target-environment readiness summary:
+
+```text
+OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH=artifacts/target-env/smoke-report.json \
+OMNIWA_TARGET_ENV_LOAD_REPORT_PATH=artifacts/target-env/load-report.json \
+OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH=artifacts/target-env/alert-slo-dry-run.json \
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
+OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH=artifacts/target-env/evidence-bundle.json \
+pnpm target-env:summary
+```
+
+The summary command emits safe readiness state, proof booleans, component counts, artifact presence
+booleans, finding codes, and next-action codes. It must not print target URLs, API keys, artifact
+paths, response bodies, raw IDs, QR payloads, JIDs, message text, provider payloads, session
+material, webhook secrets, or secret-provider values.
+
 Target-environment evidence must additionally record:
 
 - deployment profile and runtime versions,
