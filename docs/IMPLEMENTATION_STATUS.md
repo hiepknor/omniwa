@@ -337,11 +337,14 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   covers dashboard access checks, alert-route dry-runs, and SLO window/error-budget policy checks
   without storing dashboard URLs, notification destinations, raw IDs, JIDs, message text, provider
   payloads, API keys, or secrets.
-- N11.7 target-environment evidence validation now also validates an optional sanitized runtime
-  evidence artifact when `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH` is supplied. The artifact
-  covers runtime startup/readiness/shutdown checks, dependency connectivity, migration-status
-  checks, and backup/restore drill references without storing target URLs, connection strings, raw
-  runtime logs, API keys, JIDs, message text, provider payloads, session material, or secrets.
+- N11.7 target-environment evidence tooling now also provides `pnpm target-env:runtime`, which
+  normalizes sanitized operator runtime evidence input from
+  `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` into
+  `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`. The artifact covers runtime
+  startup/readiness/shutdown checks, dependency connectivity, migration-status checks, and
+  backup/restore drill references without storing target URLs, connection strings, raw runtime logs,
+  API keys, JIDs, message text, provider payloads, session material, or secrets. If no input is
+  supplied, the command emits a failed safe skeleton instead of claiming proof.
 - N11.7 target-environment smoke evidence now validates the deployed API public response envelope and
   request/correlation metadata for successful `/v1/health`, `/v1/health/readiness`, and
   `/v1/instances` checks while still excluding response bodies, target URLs, API keys, raw IDs,

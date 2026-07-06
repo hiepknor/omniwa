@@ -67,6 +67,7 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({
             code: "target_environment_runtime_evidence_artifact_path_missing",
           }),
+          expect.objectContaining({ code: "target_environment_runtime_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
@@ -181,6 +182,10 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({
             code: "root_target_environment_load_script_missing",
             target: "target-env:load",
+          }),
+          expect.objectContaining({
+            code: "root_target_environment_runtime_script_missing",
+            target: "target-env:runtime",
           }),
           expect.objectContaining({
             code: "root_target_environment_bundle_script_missing",
@@ -319,6 +324,7 @@ describe("target environment evidence gate", () => {
           expect.objectContaining({
             code: "target_environment_runtime_evidence_artifact_path_missing",
           }),
+          expect.objectContaining({ code: "target_environment_runtime_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_artifact_path_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_command_missing" }),
           expect.objectContaining({ code: "target_environment_bundle_output_path_missing" }),
@@ -772,6 +778,7 @@ function targetEnvironmentReviewWithComponentStatus(
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
+    "- `pnpm target-env:runtime` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` and `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
@@ -814,6 +821,7 @@ function targetEnvironmentReviewWithoutComponent(
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
+    "- `pnpm target-env:runtime` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` and `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",

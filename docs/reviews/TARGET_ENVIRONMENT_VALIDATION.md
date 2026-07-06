@@ -107,16 +107,24 @@ observation.
 Optional target-environment runtime evidence artifact validation:
 
 ```text
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH=artifacts/target-env/runtime-evidence-input.json \
+OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
+pnpm target-env:runtime
+```
+
+```text
 OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH=artifacts/target-env/runtime-evidence.json \
 pnpm target-env:check
 ```
 
-The runtime evidence artifact records sanitized startup, readiness, shutdown, dependency
-connectivity, migration-status, and backup/restore drill checks. It must not contain target URLs,
-database or Redis connection strings, API keys, raw runtime logs, raw instance IDs, QR payloads,
-JIDs, message text, provider payloads, session material, webhook secrets, or secret-provider
-values. This artifact provides operator evidence for the runtime matrix, dependency connectivity,
-and recovery drill references, but it does not by itself change the proof states above.
+The runtime evidence command normalizes an operator-maintained sanitized input file into a canonical
+runtime evidence artifact. If no input is supplied, it emits a failed safe skeleton instead of
+claiming proof. The artifact records startup, readiness, shutdown, dependency connectivity,
+migration-status, and backup/restore drill checks. It must not contain target URLs, database or Redis
+connection strings, API keys, raw runtime logs, raw instance IDs, QR payloads, JIDs, message text,
+provider payloads, session material, webhook secrets, or secret-provider values. This artifact
+provides operator evidence for the runtime matrix, dependency connectivity, and recovery drill
+references, but it does not by itself change the proof states above.
 
 Optional target-environment evidence bundle validation:
 

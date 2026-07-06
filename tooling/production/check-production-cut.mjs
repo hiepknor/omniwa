@@ -11,6 +11,7 @@ export const productionCutDecisions = Object.freeze([
 export const requiredProductionEvidenceFiles = Object.freeze([
   "tooling/production/check-production-cut.mjs",
   "tooling/production/create-target-environment-evidence-bundle.mjs",
+  "tooling/production/run-target-environment-runtime-evidence.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "tooling/performance/run-target-environment-load.spec.ts",
   "docs/runbooks/LOAD_BASELINE_AND_PRODUCTION_CUT.md",
@@ -29,6 +30,7 @@ export const requiredProductionScripts = Object.freeze([
   "target-env:bundle",
   "target-env:check",
   "target-env:load",
+  "target-env:runtime",
   "target-env:smoke",
   "production:check",
 ]);
@@ -67,6 +69,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
       "target-env:bundle": "node tooling/production/create-target-environment-evidence-bundle.mjs",
       "target-env:check": "node tooling/production/check-target-environment-evidence.mjs",
       "target-env:load": "node tooling/performance/run-target-environment-load.mjs",
+      "target-env:runtime": "node tooling/production/run-target-environment-runtime-evidence.mjs",
       "target-env:smoke": "node tooling/production/run-target-environment-smoke.mjs",
       "production:check":
         "pnpm target-env:check && node tooling/production/check-production-cut.mjs && pnpm load:check",
@@ -81,7 +84,7 @@ export async function createProductionCutFixture(projectRoot, decision = "CONDIT
 
   await writeText(
     join(projectRoot, "docs/reviews/PRODUCTION_CUT_REVIEW.md"),
-    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Target environment smoke\n\npnpm target-env:smoke tooling present.\n\n## Target environment load\n\npnpm target-env:load tooling present.\n\n## Target environment bundle\n\npnpm target-env:bundle tooling present.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
+    `# Production Cut Review\n\nFinal readiness decision: ${decision}\n\nProduction Ready: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nEnterprise Ready: NO\n\nTarget Environment Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nProduction Load Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\nSLO Evidence Proven: ${decision === "PRODUCTION_READY" ? "YES" : "NO"}\n\n## Load baseline\n\nRecorded.\n\n## Target environment smoke\n\npnpm target-env:smoke tooling present.\n\n## Target environment load\n\npnpm target-env:load tooling present.\n\n## Target environment runtime evidence\n\npnpm target-env:runtime tooling present.\n\n## Target environment bundle\n\npnpm target-env:bundle tooling present.\n\n## Gate 2 Review\n\nRecorded.\n\n## Known Constraints\n\nRecorded.\n`,
   );
 }
 
@@ -173,6 +176,10 @@ async function checkProductionCutReview(projectRoot, findings) {
 
   if (!/Target environment bundle|pnpm target-env:bundle/iu.test(content)) {
     findings.push(createFinding("target_environment_bundle_summary_missing", "blocker"));
+  }
+
+  if (!/Target environment runtime evidence|pnpm target-env:runtime/iu.test(content)) {
+    findings.push(createFinding("target_environment_runtime_summary_missing", "blocker"));
   }
 
   if (!/Gate 2 Review/iu.test(content)) {

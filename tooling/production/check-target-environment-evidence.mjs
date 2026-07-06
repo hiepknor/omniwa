@@ -7,6 +7,7 @@ export const targetEnvironmentEvidenceStatuses = Object.freeze(["NOT_PROVEN", "P
 export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
   "tooling/production/check-target-environment-evidence.mjs",
   "tooling/production/create-target-environment-evidence-bundle.mjs",
+  "tooling/production/run-target-environment-runtime-evidence.mjs",
   "tooling/production/run-target-environment-smoke.mjs",
   "tooling/performance/run-target-environment-load.mjs",
   "docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md",
@@ -17,6 +18,7 @@ export const requiredTargetEnvironmentEvidenceFiles = Object.freeze([
 export const requiredTargetEnvironmentEvidenceTests = Object.freeze([
   "tooling/production/check-target-environment-evidence.spec.ts",
   "tooling/production/create-target-environment-evidence-bundle.spec.ts",
+  "tooling/production/run-target-environment-runtime-evidence.spec.ts",
   "tooling/production/run-target-environment-smoke.spec.ts",
   "tooling/performance/run-target-environment-load.spec.ts",
 ]);
@@ -37,6 +39,7 @@ export const requiredTargetEnvironmentComponents = Object.freeze([
 
 export const requiredTargetEnvironmentScriptName = "target-env:check";
 export const targetEnvironmentBundleScriptName = "target-env:bundle";
+export const targetEnvironmentRuntimeScriptName = "target-env:runtime";
 export const targetEnvironmentSmokeScriptName = "target-env:smoke";
 export const targetEnvironmentLoadScriptName = "target-env:load";
 
@@ -48,8 +51,33 @@ const allowedTargetEnvironmentEndpointPaths = Object.freeze([
 
 const unsafeArtifactKeyPattern =
   /(^|[_-])(api[_-]?key|authorization|bearer|token|secret|password|base[_-]?url|url|jid|phone|text|payload|qr|auth[_-]?state|session[_-]?material|response[_-]?body|body|raw)([_-]|$)/iu;
+const unsafeArtifactNormalizedKeyFragments = Object.freeze([
+  "apikey",
+  "authorization",
+  "bearer",
+  "token",
+  "secret",
+  "password",
+  "baseurl",
+  "url",
+  "jid",
+  "phone",
+  "text",
+  "payload",
+  "qr",
+  "authstate",
+  "sessionmaterial",
+  "responsebody",
+  "body",
+  "raw",
+  "connectionstring",
+  "databaseurl",
+  "redisurl",
+]);
 const unsafeArtifactStringPatterns = Object.freeze([
   /\bhttps?:\/\//iu,
+  /\bpostgres(?:ql)?:\/\//iu,
+  /\bredis(?:s)?:\/\//iu,
   /@s\.whatsapp\.net\b/iu,
   /@g\.us\b/iu,
   /\bbearer\s+[a-z0-9._-]+/iu,
@@ -125,6 +153,8 @@ export async function createTargetEnvironmentFixture(projectRoot, status = "NOT_
       [requiredTargetEnvironmentScriptName]: targetEnvironmentScript(),
       [targetEnvironmentBundleScriptName]:
         "node tooling/production/create-target-environment-evidence-bundle.mjs",
+      [targetEnvironmentRuntimeScriptName]:
+        "node tooling/production/run-target-environment-runtime-evidence.mjs",
       [targetEnvironmentSmokeScriptName]:
         "node tooling/production/run-target-environment-smoke.mjs",
       [targetEnvironmentLoadScriptName]: "node tooling/performance/run-target-environment-load.mjs",
@@ -254,6 +284,10 @@ async function checkTargetEnvironmentReview(projectRoot, findings) {
     findings.push(
       createFinding("target_environment_runtime_evidence_artifact_path_missing", "blocker"),
     );
+  }
+
+  if (!content.includes("pnpm target-env:runtime")) {
+    findings.push(createFinding("target_environment_runtime_command_missing", "blocker"));
   }
 
   if (!content.includes("OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH")) {
@@ -415,6 +449,21 @@ async function checkRootPackage(projectRoot, findings) {
       createFinding("root_target_environment_bundle_script_missing", "blocker", {
         target: targetEnvironmentBundleScriptName,
         safeDetailCode: "root_target_environment_bundle_script_missing",
+      }),
+    );
+  }
+
+  const targetEnvironmentRuntime = scripts[targetEnvironmentRuntimeScriptName];
+  if (
+    typeof targetEnvironmentRuntime !== "string" ||
+    !targetEnvironmentRuntime.includes(
+      "node tooling/production/run-target-environment-runtime-evidence.mjs",
+    )
+  ) {
+    findings.push(
+      createFinding("root_target_environment_runtime_script_missing", "blocker", {
+        target: targetEnvironmentRuntimeScriptName,
+        safeDetailCode: "root_target_environment_runtime_script_missing",
       }),
     );
   }
@@ -966,7 +1015,7 @@ export function findUnsafeArtifactContent(value) {
 
   if (isRecord(value)) {
     for (const [key, nestedValue] of Object.entries(value)) {
-      if (unsafeArtifactKeyPattern.test(key)) {
+      if (isUnsafeArtifactKey(key)) {
         return key;
       }
 
@@ -985,6 +1034,16 @@ export function findUnsafeArtifactContent(value) {
   }
 
   return undefined;
+}
+
+function isUnsafeArtifactKey(key) {
+  if (unsafeArtifactKeyPattern.test(key)) {
+    return true;
+  }
+
+  const normalizedKey = key.replaceAll(/[^a-z0-9]+/giu, "").toLowerCase();
+
+  return unsafeArtifactNormalizedKeyFragments.some((fragment) => normalizedKey.includes(fragment));
 }
 
 function readYesNo(content, label, missingCode, findings) {
@@ -1101,6 +1160,7 @@ function fixtureReview(status) {
     "- `pnpm target-env:smoke` with `OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH`.",
     "- `pnpm target-env:load` with `OMNIWA_TARGET_ENV_LOAD_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH`.",
+    "- `pnpm target-env:runtime` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_INPUT_PATH` and `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH`.",
     "- `pnpm target-env:check` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`.",
     "- `pnpm target-env:bundle` with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH`.",
