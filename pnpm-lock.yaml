@@ -152,6 +152,9 @@ importers:
       '@omniwa/infrastructure-provider-bridge':
         specifier: workspace:*
         version: link:../../packages/infrastructure-provider-bridge
+      '@omniwa/infrastructure-secrets':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-secrets
       '@omniwa/observability':
         specifier: workspace:*
         version: link:../../packages/observability

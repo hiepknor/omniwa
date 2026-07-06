@@ -22,6 +22,7 @@ import {
   startSessionPairing,
 } from "@omniwa/domain";
 import {
+  DurableJsonOutboundMessageIntentStore,
   PostgresqlGuardrailDecisionRepository,
   PostgresqlHealthStatusRepository,
   PostgresqlInstanceRepository,
@@ -476,6 +477,20 @@ describe("Worker runtime composition", () => {
         OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@postgres:5432/omniwa",
       }),
     ).toThrow(/OMNIWA_EVENT_LOG_PATH durable EventLog path/u);
+
+    expect(() =>
+      createWorkerRuntimeComposition({
+        OMNIWA_WORKER_RUNTIME_PROFILE: "production",
+        OMNIWA_WORKER_REPOSITORY_PROFILE: "postgresql",
+        OMNIWA_WORKER_QUEUE_PROFILE: "durable-worker-job",
+        OMNIWA_WORKER_PROVIDER_MODE: "provider-runtime-bridge",
+        OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:
+          "http://provider-runtime:3011/internal/provider-command/v1/commands",
+        OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: "provider-runtime-command-bridge-token",
+        OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@postgres:5432/omniwa",
+        OMNIWA_EVENT_LOG_PATH: "/var/lib/omniwa/event-log.json",
+      }),
+    ).toThrow(/OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH shared intent store/u);
   });
 
   it("composes the production worker profile through PostgreSQL, durable queue, and provider bridge", () => {
@@ -491,6 +506,10 @@ describe("Worker runtime composition", () => {
       OMNIWA_POSTGRES_DATABASE_URL: "postgresql://omniwa:omniwa@postgres:5432/omniwa",
       OMNIWA_POSTGRES_AUTO_MIGRATE: "false",
       OMNIWA_EVENT_LOG_PATH: join(directory, "worker-event-log.json"),
+      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: join(
+        directory,
+        "outbound-message-intents.secret.json",
+      ),
     });
 
     expect(composition).toMatchObject({
@@ -503,6 +522,9 @@ describe("Worker runtime composition", () => {
       PostgresqlInstanceRepository,
     );
     expect(composition.queueProvider).toBeInstanceOf(DurableWorkerJobQueueProvider);
+    expect(composition.outboundMessageIntentStore).toBeInstanceOf(
+      DurableJsonOutboundMessageIntentStore,
+    );
     expect(composition.messagingProvider).toBeInstanceOf(ProviderCommandMessagingProviderAdapter);
     expect(composition.providerCommandTransport).toBeInstanceOf(FetchProviderCommandTransport);
     expect(composition.socketProvider).toBeUndefined();

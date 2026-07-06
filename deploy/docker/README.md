@@ -17,10 +17,11 @@ Important current constraints:
   the production profile when PostgreSQL, durable queue, fetch gateway, signing secret, metrics, and
   audit sinks are configured.
 - `apps/provider-runtime` starts the provider supervisor loop and local live helpers. Its production
-  profile remains fail-closed; use `local` only for a controlled pilot until production auth-state
-  encryption and distributed ownership evidence are complete.
-- `apps/worker` production profile remains fail-closed until provider-runtime IPC/shared socket
-  ownership is implemented. The production template uses a controlled-pilot profile for the worker.
+  profile is fail-closed unless encrypted auth state, PostgreSQL ownership, explicit owner identity,
+  command bridge auth, and shared outbound intent storage are configured.
+- `apps/worker` production profile uses the provider-runtime command bridge and remains fail-closed
+  unless PostgreSQL repositories, durable queue, durable EventLog, bridge token, and shared outbound
+  intent storage are configured.
 - `OMNIWA_API_RUNTIME_PROFILE=production` is now composable only when PostgreSQL, Redis rate
   limiting, repository-backed ownership, audit records, durable queue, and metric sinks are
   configured.

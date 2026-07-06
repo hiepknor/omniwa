@@ -114,7 +114,7 @@ export async function runProductionComposeTemplateCheck(options = {}) {
     };
   });
 
-  await recordCheck(checks, "provider_bridge_declared", async () => {
+  await recordCheck(checks, "provider_bridge_production_declared", async () => {
     assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_RUNTIME_PROFILE", ["production"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_REPOSITORY_PROFILE", ["postgresql"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_WORKER_QUEUE_PROFILE", ["durable-worker-job"]);
@@ -131,7 +131,14 @@ export async function runProductionComposeTemplateCheck(options = {}) {
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP", ["true"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HOST", ["0.0.0.0"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_PORT", ["3011"]);
-    assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_RUNTIME_PROFILE", ["local"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_RUNTIME_PROFILE", ["production"]);
+    assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_RUNTIME_OWNER_REF", /.+/u);
+    assertRenderedAssignmentCount(renderedConfig, "OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH", 3);
+    assertRenderedAssignment(
+      renderedConfig,
+      "OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH",
+      /^\/var\/lib\/omniwa\/outbound-message-intents\.secret\.json$/u,
+    );
 
     return {
       workerRuntimeProfile: "production",
@@ -139,7 +146,8 @@ export async function runProductionComposeTemplateCheck(options = {}) {
       workerQueueProfile: "durable-worker-job",
       workerProviderMode: "provider-runtime-bridge",
       bridgeEndpoint: "provider-runtime:3011",
-      providerRuntimeProfile: "local",
+      providerRuntimeProfile: "production",
+      outboundIntentStore: "shared-durable-json",
     };
   });
 

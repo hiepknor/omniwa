@@ -26,6 +26,7 @@ services:
       OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true"
       OMNIWA_API_METRICS_JSONL_PATH: /var/lib/omniwa/observability/api-metrics.jsonl
       OMNIWA_EVENT_LOG_BACKEND: postgresql
+      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json
     ports:
       - "127.0.0.1:${OMNIWA_API_PUBLIC_PORT:-3000}:3000"
     volumes:
@@ -68,6 +69,7 @@ services:
       OMNIWA_POSTGRES_DATABASE_URL: ${OMNIWA_POSTGRES_DATABASE_URL:?Set OMNIWA_POSTGRES_DATABASE_URL}
       OMNIWA_POSTGRES_AUTO_MIGRATE: "false"
       OMNIWA_EVENT_LOG_PATH: /var/lib/omniwa/event-log.json
+      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json
     volumes:
       - omniwa-production-data:/var/lib/omniwa
     depends_on:
@@ -118,12 +120,14 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      # Provider runtime production profile still fails closed until production auth encryption
-      # and distributed ownership evidence are complete. Use local only for a controlled pilot.
-      OMNIWA_PROVIDER_RUNTIME_PROFILE: ${OMNIWA_PROVIDER_RUNTIME_PROFILE:?Set local for controlled pilot; production remains blocked until provider runtime production profile is enabled}
+      # Provider runtime production profile is fail-closed and requires encrypted auth state,
+      # PostgreSQL ownership, a bridge token, explicit owner identity, and shared intent storage.
+      OMNIWA_PROVIDER_RUNTIME_PROFILE: ${OMNIWA_PROVIDER_RUNTIME_PROFILE:-production}
       OMNIWA_LIVE_DEMO_MODE: ${OMNIWA_LIVE_DEMO_MODE:-disabled}
       OMNIWA_RUNTIME_STATE_DIR: /var/lib/omniwa
       OMNIWA_EVENT_LOG_PATH: /var/lib/omniwa/event-log.json
+      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json
+      OMNIWA_PROVIDER_RUNTIME_OWNER_REF: ${OMNIWA_PROVIDER_RUNTIME_OWNER_REF:-provider-runtime-primary}
       OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: postgresql
       OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL: ${OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL:?Set OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL}
       OMNIWA_BAILEYS_AUTH_STATE_PATH: /var/lib/omniwa/provider-runtime/baileys-auth-state.json

@@ -27,7 +27,7 @@ describe("production Docker compose template check", () => {
       "postgresql_eventlog_declared",
       "background_event_outbox_declared",
       "postgres_auto_migrate_disabled",
-      "provider_bridge_declared",
+      "provider_bridge_production_declared",
     ]);
     expect(report.checks.every((check) => check.status === "passed")).toBe(true);
   });
@@ -161,7 +161,7 @@ describe("production Docker compose template check", () => {
     expect(report.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          name: "provider_bridge_declared",
+          name: "provider_bridge_production_declared",
           status: "failed",
           error: "Missing rendered assignment for OMNIWA_PROVIDER_COMMAND_BRIDGE_URL.",
         }),
@@ -184,7 +184,7 @@ describe("production Docker compose template check", () => {
     expect(report.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          name: "provider_bridge_declared",
+          name: "provider_bridge_production_declared",
           status: "failed",
           error: "Unexpected rendered assignment for OMNIWA_WORKER_RUNTIME_PROFILE.",
         }),
@@ -207,7 +207,7 @@ describe("production Docker compose template check", () => {
     expect(report.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          name: "provider_bridge_declared",
+          name: "provider_bridge_production_declared",
           status: "failed",
           error: "Unexpected rendered assignment for OMNIWA_WORKER_QUEUE_PROFILE.",
         }),
@@ -268,6 +268,7 @@ function renderedProductionComposeConfig(): string {
     "      OMNIWA_API_KEY_HASH: sha256:replace-with-api-key-sha256-hex",
     "      OMNIWA_API_RATE_LIMIT_BACKEND: redis",
     "      OMNIWA_API_RATE_LIMIT_REDIS_URL: redis://:replace-with-redis-secret@redis:6379/0",
+    "      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json",
     '      OMNIWA_POSTGRES_AUTO_MIGRATE: "false"',
     "  worker:",
     "    environment:",
@@ -277,12 +278,15 @@ function renderedProductionComposeConfig(): string {
     "      OMNIWA_WORKER_PROVIDER_MODE: provider-runtime-bridge",
     "      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: http://provider-runtime:3011/internal/provider-command/v1/commands",
     "      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: replace-with-provider-command-bridge-token",
+    "      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json",
     "  webhook-dispatcher:",
     "    environment:",
     "      OMNIWA_WEBHOOK_DISPATCHER_RUNTIME_PROFILE: production",
     "  provider-runtime:",
     "    environment:",
-    "      OMNIWA_PROVIDER_RUNTIME_PROFILE: local",
+    "      OMNIWA_PROVIDER_RUNTIME_PROFILE: production",
+    "      OMNIWA_PROVIDER_RUNTIME_OWNER_REF: provider-runtime-primary",
+    "      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json",
     '      OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP: "true"',
     "      OMNIWA_PROVIDER_COMMAND_BRIDGE_HOST: 0.0.0.0",
     '      OMNIWA_PROVIDER_COMMAND_BRIDGE_PORT: "3011"',

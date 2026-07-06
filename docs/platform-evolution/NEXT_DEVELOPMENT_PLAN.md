@@ -199,8 +199,9 @@ The production Docker template hardening slice expands `deploy/docker/compose.pr
 an API-only template to a full runtime template with API, worker, webhook dispatcher, provider
 runtime, PostgreSQL, and Redis services. Worker production profile composition is now guarded by
 PostgreSQL repositories, the durable WorkerJob queue profile, a durable EventLog path, and the
-provider-runtime bridge. Provider Runtime intentionally remains in controlled-pilot profile until
-its production profile and target-environment bridge evidence are complete.
+provider-runtime bridge. Provider Runtime production profile composition is now guarded by
+encrypted auth state, PostgreSQL ownership, explicit owner identity, shared outbound intent
+storage, and command bridge authentication; target-environment bridge evidence remains required.
 `ADR-0010` is now accepted for the Provider Runtime Worker Bridge. The first implementation slices
 add the internal provider command transport contract/fake package and a Provider Runtime command
 receiver that maps bridge commands to lifecycle operations and safe provider outcomes. Worker runtime
@@ -212,16 +213,18 @@ bridge token or transport is missing, and Worker runtime can compose a
 `FetchProviderCommandTransport` from bridge endpoint/token env configuration in
 `provider-runtime-bridge` mode. Worker production profile now fails closed unless PostgreSQL
 repositories, durable WorkerJob queue, provider-runtime bridge endpoint/token, and a durable
-EventLog path are configured. The production compose template/check now declares Worker production
-bridge wiring to the Provider Runtime controlled-pilot profile, and target-environment runtime
-evidence now requires sanitized bridge client/server/auth/round-trip proof. Provider Runtime
-production profile enablement and actual target-environment evidence collection remain open.
+EventLog path are configured. API, Worker, and Provider Runtime production composition now also
+require a shared `OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH` so API-created outbound intents are
+resolvable across process boundaries. The production compose template/check now declares Worker
+production bridge wiring to the Provider Runtime production profile, and target-environment runtime
+evidence now requires sanitized bridge client/server/auth/round-trip proof. Actual
+target-environment evidence collection remains open.
 The production compose validation slice adds `pnpm docker:production:check` and wires it into
 `pnpm production:check`, so the checked-in production template must render successfully with
 `deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key
-posture, Redis rate limiting, disabled auto-migration, PostgreSQL API EventLog backend, and Worker
-production plus Provider Runtime controlled-pilot bridge profiles before the root quality gate can
-pass.
+posture, Redis rate limiting, disabled auto-migration, PostgreSQL API EventLog backend, shared
+outbound intent storage, and Worker production plus Provider Runtime production bridge profiles
+before the root quality gate can pass.
 The EventLog/outbox consumer hardening slice adds a generic `EventOutboxConsumer` foundation for
 safe pending-outbox drain loops. `ADR-0009` is Accepted, so the async PostgreSQL EventLog backend
 migration can proceed in small reviewed slices.

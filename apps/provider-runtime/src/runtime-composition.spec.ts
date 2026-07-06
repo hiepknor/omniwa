@@ -10,10 +10,14 @@ import {
   RealBaileysSocketProvider,
 } from "@omniwa/infrastructure-provider-baileys";
 import { InMemoryProviderCommandTransport } from "@omniwa/infrastructure-provider-bridge";
-import { createInMemoryEventLogStore } from "@omniwa/infrastructure-persistence";
+import {
+  createInMemoryEventLogStore,
+  DurableJsonOutboundMessageIntentStore,
+} from "@omniwa/infrastructure-persistence";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { ProviderRuntimeCommandReceiver } from "./provider-command-receiver.js";
 import { ProviderRuntimeSupervisor } from "./provider-runtime-supervisor.js";
 import {
   createProviderRuntimeComposition,
@@ -118,7 +122,7 @@ describe("provider runtime composition", () => {
     composition.shutdown();
   });
 
-  it("blocks production local live mode until encryption and distributed ownership exist", () => {
+  it("keeps production profile fail-closed until required production guardrails are configured", () => {
     const unsafeStateDirectory = [rawAuthPayload, rawQrPayload, rawProviderPayload].join("-");
     let caught: unknown;
 
@@ -132,12 +136,43 @@ describe("provider runtime composition", () => {
       caught = error;
     }
 
-    expect(String(caught)).toContain(
-      "requires encrypted auth state and distributed ownership before composition is allowed",
-    );
+    expect(String(caught)).toContain("provider runtime production profile is not composable");
+    expect(String(caught)).toContain("OMNIWA_LIVE_DEMO_MODE=disabled");
+    expect(String(caught)).toContain("OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY");
+    expect(String(caught)).toContain("OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH");
+    expect(String(caught)).toContain("OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN");
     expect(String(caught)).not.toContain(rawAuthPayload);
     expect(String(caught)).not.toContain(rawQrPayload);
     expect(String(caught)).not.toContain(rawProviderPayload);
+  });
+
+  it("composes production profile with encrypted auth, PostgreSQL ownership, shared intents, and bridge receiver", () => {
+    const stateDirectory = createTemporaryDirectory();
+    const productionEnv = productionEnvFor(stateDirectory);
+    const composition = createProviderRuntimeComposition(productionEnv);
+
+    expect(composition.profile).toBe("production");
+    expect(composition.liveMode).toBe("disabled");
+    expect(composition.readiness).toEqual({
+      liveMode: "disabled",
+      localOnly: false,
+      productionReady: false,
+      authStateEncryption: "configured",
+      ownershipMode: "postgresql_lease",
+    });
+    expect(composition.outboundMessageIntentStore).toBeInstanceOf(
+      DurableJsonOutboundMessageIntentStore,
+    );
+    expect(composition.providerCommandTransport).toBeInstanceOf(ProviderRuntimeCommandReceiver);
+    expect(composition.paths.stateDirectory).toBe(stateDirectory);
+    expect(JSON.stringify(composition.providerCommandTransport)).not.toContain(
+      productionEnv.OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN,
+    );
+    expect(JSON.stringify(composition.providerCommandTransport)).not.toContain(
+      productionEnv.OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY,
+    );
+
+    composition.shutdown();
   });
 
   it("uses the shared durable EventLog path", () => {
@@ -453,6 +488,25 @@ function envFor(stateDirectory: string): NodeJS.ProcessEnv {
     OMNIWA_PROVIDER_RUNTIME_PROFILE: "local",
     OMNIWA_PROVIDER_RUNTIME_STATE_DIR: stateDirectory,
     OMNIWA_PROVIDER_RUNTIME_OWNER_REF: "provider-runtime-composition-owner",
+  };
+}
+
+function productionEnvFor(stateDirectory: string): NodeJS.ProcessEnv {
+  return {
+    OMNIWA_PROVIDER_RUNTIME_PROFILE: "production",
+    OMNIWA_LIVE_DEMO_MODE: "disabled",
+    OMNIWA_PROVIDER_RUNTIME_STATE_DIR: stateDirectory,
+    OMNIWA_PROVIDER_RUNTIME_OWNER_REF: "provider-runtime-production-owner",
+    OMNIWA_BAILEYS_AUTH_STATE_ENCRYPTION_KEY: rawAuthStateEncryptionKey,
+    OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_MODE: "postgresql",
+    OMNIWA_PROVIDER_RUNTIME_OWNERSHIP_DATABASE_URL:
+      "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+    OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: join(
+      stateDirectory,
+      "outbound-message-intents.secret.json",
+    ),
+    OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP: "true",
+    OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: "provider-runtime-command-bridge-token",
   };
 }
 

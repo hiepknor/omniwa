@@ -118,6 +118,7 @@ export function createWorkerRuntimeComposition(
   const providerCommandTransport =
     overrides.providerCommandTransport ?? createWorkerProviderCommandTransport(env, providerMode);
   const eventLogPath = readOptionalEnv(env.OMNIWA_EVENT_LOG_PATH);
+  const outboundMessageIntentStorePath = readOutboundMessageIntentStorePath(env);
 
   assertWorkerRuntimeProfileIsComposable({
     profile,
@@ -126,6 +127,7 @@ export function createWorkerRuntimeComposition(
     queueProfile,
     providerCommandTransport,
     eventLogPath,
+    outboundMessageIntentStorePath,
   });
 
   const repositories = createWorkerRuntimeRepositories(env, repositoryProfile);
@@ -136,6 +138,7 @@ export function createWorkerRuntimeComposition(
   const outboundMessageIntentStore = createRuntimeOutboundMessageIntentStore(
     env,
     repositoryProfile,
+    outboundMessageIntentStorePath,
   );
   const domainEventPublisher = createDomainEventPublisher({
     eventLog,
@@ -346,6 +349,7 @@ type WorkerRuntimeProfileValidationInput = Readonly<{
   queueProfile: WorkerQueueProfile;
   providerCommandTransport: ProviderCommandTransport | undefined;
   eventLogPath: string | undefined;
+  outboundMessageIntentStorePath: string | undefined;
 }>;
 
 function assertWorkerRuntimeProfileIsComposable(input: WorkerRuntimeProfileValidationInput): void {
@@ -375,6 +379,10 @@ function assertWorkerRuntimeProfileIsComposable(input: WorkerRuntimeProfileValid
     missingRequirements.push("OMNIWA_EVENT_LOG_PATH durable EventLog path");
   }
 
+  if (input.outboundMessageIntentStorePath === undefined) {
+    missingRequirements.push("OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH shared intent store");
+  }
+
   if (missingRequirements.length > 0) {
     throw new Error(
       `OmniWA Worker production profile is not composable. Missing: ${missingRequirements.join(", ")}.`,
@@ -385,7 +393,12 @@ function assertWorkerRuntimeProfileIsComposable(input: WorkerRuntimeProfileValid
 function createRuntimeOutboundMessageIntentStore(
   env: NodeJS.ProcessEnv,
   repositoryProfile: WorkerRepositoryProfile,
+  outboundMessageIntentStorePath = readOutboundMessageIntentStorePath(env),
 ): InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore {
+  if (outboundMessageIntentStorePath !== undefined) {
+    return new DurableJsonOutboundMessageIntentStore(outboundMessageIntentStorePath);
+  }
+
   if (repositoryProfile !== "durable-json") {
     return new InMemoryOutboundMessageIntentStore();
   }
@@ -402,6 +415,10 @@ function createRuntimeOutboundMessageIntentStore(
   return new DurableJsonOutboundMessageIntentStore(
     join(stateDirectory, "outbound-message-intents.json"),
   );
+}
+
+function readOutboundMessageIntentStorePath(env: NodeJS.ProcessEnv): string | undefined {
+  return readOptionalEnv(env.OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH);
 }
 
 type WorkerMessagingProviderComposition = Readonly<{

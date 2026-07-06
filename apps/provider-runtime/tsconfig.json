@@ -16,6 +16,7 @@
     { "path": "../../packages/infrastructure-persistence" },
     { "path": "../../packages/infrastructure-provider-baileys" },
     { "path": "../../packages/infrastructure-provider-bridge" },
+    { "path": "../../packages/infrastructure-secrets" },
     { "path": "../../packages/observability" },
     { "path": "../../packages/shared" }
   ]

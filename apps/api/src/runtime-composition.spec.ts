@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { SecretValue, type SecretDescriptor, type SecretProvider } from "@omniwa/config";
 import type { ApiCredential } from "@omniwa/interface-api";
+import { DurableJsonOutboundMessageIntentStore } from "@omniwa/infrastructure-persistence";
 import type { MetricPoint, MetricRecorder } from "@omniwa/observability";
 import { createCorrelationId, createRequestContext, createRequestId, ok } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
@@ -1000,7 +1001,34 @@ describe("API runtime composition", () => {
     ).toThrow(/requires OMNIWA_API_METRICS_JSONL_PATH or an injected metric recorder/u);
   });
 
+  it("requires shared outbound message intent storage for production runtime composition", () => {
+    expect(() =>
+      createApiRuntimeComposition(
+        {
+          OMNIWA_API_KEY_HASH: hashApiKey("production-secret"),
+          OMNIWA_API_RUNTIME_PROFILE: "production",
+          OMNIWA_API_REPOSITORY_PROFILE: "postgresql",
+          OMNIWA_POSTGRES_DATABASE_URL:
+            "postgresql://omniwa_prod_app:strong-prod-password@db.prod.example/omniwa",
+          OMNIWA_API_RATE_LIMIT_BACKEND: "redis",
+          OMNIWA_API_RATE_LIMIT_MAX_REQUESTS: "100",
+          OMNIWA_API_RATE_LIMIT_WINDOW_MS: "60000",
+          OMNIWA_API_SECURITY_AUDIT_RECORDS: "true",
+          OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
+          OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
+          OMNIWA_EVENT_LOG_BACKEND: "postgresql",
+        },
+        {
+          redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
+          metricRecorder: new CapturingMetricRecorder(),
+        },
+      ),
+    ).toThrow(/requires OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH/u);
+  });
+
   it("composes production runtime when required production adapters are configured", () => {
+    const directory = mkdtempSync(join(tmpdir(), "omniwa-api-production-intents-"));
+    temporaryDirectories.push(directory);
     const metricRecorder = new CapturingMetricRecorder();
     const composition = createApiRuntimeComposition(
       {
@@ -1016,6 +1044,10 @@ describe("API runtime composition", () => {
         OMNIWA_API_RESOURCE_OWNERSHIP_REPOSITORY: "true",
         OMNIWA_API_QUEUE_PROFILE: "durable-worker-job",
         OMNIWA_EVENT_LOG_BACKEND: "postgresql",
+        OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: join(
+          directory,
+          "outbound-message-intents.secret.json",
+        ),
       },
       {
         redisRateLimitScriptClient: new FakeRedisRateLimitScriptClient(),
@@ -1028,6 +1060,9 @@ describe("API runtime composition", () => {
     expect(composition.queueProfile).toBe("durable-worker-job");
     expect(composition.eventLogBackend).toBe("postgresql");
     expect(composition.options.metricRecorder).toBe(metricRecorder);
+    expect(composition.options.outboundMessageIntentStore).toBeInstanceOf(
+      DurableJsonOutboundMessageIntentStore,
+    );
   });
 
   it("requires an API key for local runtime composition", () => {

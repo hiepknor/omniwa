@@ -63,6 +63,15 @@ describe("ProviderRuntimeCommandReceiver", () => {
     expect(provider.outboundRequests).toHaveLength(0);
   });
 
+  it("does not serialize app or provider dependencies", () => {
+    const receiver = new ProviderRuntimeCommandReceiver({
+      app: new RecordingProviderRuntimeApp(),
+      provider: new RecordingMessagingProvider(),
+    });
+
+    expect(JSON.stringify(receiver)).toBe("{}");
+  });
+
   it("routes outbound send and capability commands through MessagingProviderPort", async () => {
     const app = new RecordingProviderRuntimeApp();
     const provider = new RecordingMessagingProvider();

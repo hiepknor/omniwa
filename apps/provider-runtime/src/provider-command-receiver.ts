@@ -23,12 +23,12 @@ export type ProviderRuntimeCommandReceiverOptions = Readonly<{
 }>;
 
 export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport {
-  private readonly app: Pick<ProviderRuntimeApp, "runOnce">;
-  private readonly provider: MessagingProviderPort;
+  readonly #app: Pick<ProviderRuntimeApp, "runOnce">;
+  readonly #provider: MessagingProviderPort;
 
   constructor(options: ProviderRuntimeCommandReceiverOptions) {
-    this.app = options.app;
-    this.provider = options.provider;
+    this.#app = options.app;
+    this.#provider = options.provider;
   }
 
   async execute(
@@ -84,7 +84,7 @@ export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport 
               ...optional("sessionId", command.request.sessionId),
             },
           };
-    const result = await this.app.runOnce(runtimeCommand, context);
+    const result = await this.#app.runOnce(runtimeCommand, context);
 
     if (!result.result.ok) {
       return runtimeFailure(result.result.failure, result.result.state);
@@ -106,7 +106,7 @@ export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport 
     command: Extract<ProviderCommand, { kind: "request_qr_pairing" }>,
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<ProviderCommandOutcome>> {
-    const result = await this.app.runOnce(
+    const result = await this.#app.runOnce(
       {
         action: "request_qr_pairing",
         input: {
@@ -139,7 +139,7 @@ export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport 
     command: Extract<ProviderCommand, { kind: "disconnect" }>,
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<ProviderCommandOutcome>> {
-    const result = await this.app.runOnce(
+    const result = await this.#app.runOnce(
       {
         action: "disconnect",
         input: {
@@ -172,7 +172,7 @@ export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport 
     command: Extract<ProviderCommand, { kind: "send_outbound_message" }>,
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<ProviderCommandOutcome>> {
-    const result = await this.provider.sendOutboundMessage(command.request, context);
+    const result = await this.#provider.sendOutboundMessage(command.request, context);
 
     if (!result.ok) {
       return result;
@@ -188,7 +188,7 @@ export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport 
     command: Extract<ProviderCommand, { kind: "get_capability_summary" }>,
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<ProviderCommandOutcome>> {
-    const result = await this.provider.getCapabilitySummary(command.providerId, context);
+    const result = await this.#provider.getCapabilitySummary(command.providerId, context);
 
     if (!result.ok) {
       return result;

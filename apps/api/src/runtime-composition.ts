@@ -139,6 +139,7 @@ export function createApiRuntimeComposition(
     rateLimitBackend,
   );
   const metricRecorder = createRuntimeMetricRecorder(env, adapters);
+  const outboundMessageIntentStorePath = readOutboundMessageIntentStorePath(env);
 
   assertRuntimeProfileIsComposable(profile, {
     hasConfiguredApiKey:
@@ -158,6 +159,7 @@ export function createApiRuntimeComposition(
     eventLogBackend,
     hasMetricRecorder: metricRecorder !== undefined,
     metricsJsonlPath: readOptionalStringEnv(env, "OMNIWA_API_METRICS_JSONL_PATH"),
+    outboundMessageIntentStorePath,
   });
 
   const repositories = createRuntimeRepositories(env, repositoryProfile);
@@ -166,6 +168,7 @@ export function createApiRuntimeComposition(
   const outboundMessageIntentStore = createRuntimeOutboundMessageIntentStore(
     env,
     repositoryProfile,
+    outboundMessageIntentStorePath,
   );
   const groupMutationIntentStore = createRuntimeGroupMutationIntentStore(env, repositoryProfile);
   const webhookDeliveryOperationIntentStore = createRuntimeWebhookDeliveryOperationIntentStore(
@@ -621,7 +624,12 @@ function createRuntimeWebhookDeliveryOperationIntentStore(
 function createRuntimeOutboundMessageIntentStore(
   env: NodeJS.ProcessEnv,
   repositoryProfile: ApiRepositoryProfile,
+  outboundMessageIntentStorePath = readOutboundMessageIntentStorePath(env),
 ): InMemoryOutboundMessageIntentStore | DurableJsonOutboundMessageIntentStore {
+  if (outboundMessageIntentStorePath !== undefined) {
+    return new DurableJsonOutboundMessageIntentStore(outboundMessageIntentStorePath);
+  }
+
   if (repositoryProfile !== "durable-json") {
     return new InMemoryOutboundMessageIntentStore();
   }
@@ -637,6 +645,12 @@ function createRuntimeOutboundMessageIntentStore(
   return new DurableJsonOutboundMessageIntentStore(
     join(stateDirectory, "outbound-message-intents.json"),
   );
+}
+
+function readOutboundMessageIntentStorePath(env: NodeJS.ProcessEnv): string | undefined {
+  const value = env.OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH?.trim();
+
+  return value === undefined || value.length === 0 ? undefined : value;
 }
 
 function optional<TKey extends string, TValue>(
@@ -728,7 +742,9 @@ function createRuntimeEventLog(
     const eventLogPath = env.OMNIWA_EVENT_LOG_PATH?.trim();
 
     if (eventLogPath === undefined || eventLogPath.length === 0) {
-      throw new Error("OMNIWA_EVENT_LOG_PATH is required when OMNIWA_EVENT_LOG_BACKEND=durable-json.");
+      throw new Error(
+        "OMNIWA_EVENT_LOG_PATH is required when OMNIWA_EVENT_LOG_BACKEND=durable-json.",
+      );
     }
 
     return createDurableJsonEventLogStore(eventLogPath);
@@ -737,7 +753,9 @@ function createRuntimeEventLog(
   const databaseUrl = env.OMNIWA_POSTGRES_DATABASE_URL?.trim();
 
   if (databaseUrl === undefined || databaseUrl.length === 0) {
-    throw new Error("OMNIWA_POSTGRES_DATABASE_URL is required when OMNIWA_EVENT_LOG_BACKEND=postgresql.");
+    throw new Error(
+      "OMNIWA_POSTGRES_DATABASE_URL is required when OMNIWA_EVENT_LOG_BACKEND=postgresql.",
+    );
   }
 
   const connection = createPostgresqlConnectionPool(databaseUrl);
@@ -847,6 +865,7 @@ function assertRuntimeProfileIsComposable(
     eventLogBackend: ApiEventLogBackend;
     hasMetricRecorder: boolean;
     metricsJsonlPath: string | undefined;
+    outboundMessageIntentStorePath: string | undefined;
   }>,
 ): void {
   if (profile === "production") {
@@ -863,11 +882,22 @@ function assertRuntimeProfileIsComposable(
     assertProductionQueueConfiguration(options.queueProfile);
     assertProductionEventLogConfiguration(options.eventLogBackend);
     assertProductionObservabilityConfiguration(options);
+    assertProductionOutboundMessageIntentConfiguration(options.outboundMessageIntentStorePath);
   }
 
   if (profile !== "test" && !options.hasConfiguredApiKey) {
     throw new Error(
       "OmniWA API runtime requires OMNIWA_API_KEY or OMNIWA_API_KEY_HASH for local and production profiles.",
+    );
+  }
+}
+
+function assertProductionOutboundMessageIntentConfiguration(
+  outboundMessageIntentStorePath: string | undefined,
+): void {
+  if (outboundMessageIntentStorePath === undefined) {
+    throw new Error(
+      "OmniWA API production profile requires OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH for cross-runtime outbound message dispatch.",
     );
   }
 }
@@ -896,9 +926,7 @@ function assertProductionQueueConfiguration(queueProfile: ApiQueueProfile): void
 
 function assertProductionEventLogConfiguration(eventLogBackend: ApiEventLogBackend): void {
   if (eventLogBackend !== "postgresql") {
-    throw new Error(
-      "OmniWA API production profile requires OMNIWA_EVENT_LOG_BACKEND=postgresql.",
-    );
+    throw new Error("OmniWA API production profile requires OMNIWA_EVENT_LOG_BACKEND=postgresql.");
   }
 }
 
