@@ -35,7 +35,7 @@ The counts below use two views:
 | `packages/domain/src`                          | 71             | 90                    |
 | `packages/application/src`                     | 36             | 48                    |
 | `packages/infrastructure-persistence/src`      | 15             | 25                    |
-| `packages/infrastructure-provider-bridge/src`  | 2              | 3                     |
+| `packages/infrastructure-provider-bridge/src`  | 3              | 5                     |
 | `packages/infrastructure-provider-baileys/src` | 5              | 9                     |
 | `packages/infrastructure-queue/src`            | 3              | 5                     |
 | `packages/interface-api/src`                   | 2              | 3                     |
@@ -178,11 +178,13 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   bridge remain open before any production-ready claim.
 - `ADR-0010` is accepted, and `@omniwa/infrastructure-provider-bridge` now provides the internal
   Provider Command Bridge contract, a `MessagingProviderPort` adapter, and fake in-memory transport
-  tests without importing Baileys. Provider Runtime now has a command receiver that maps bridge
-  commands to `ProviderRuntimeApp` lifecycle operations and safe provider outcomes. Worker runtime
-  now has an explicit `provider-runtime-bridge` mode that routes through an injected
-  `ProviderCommandTransport` and fails closed when that transport is missing. Production bridge
-  transport/auth and production profile enablement remain open follow-up work.
+  tests without importing Baileys. It also has a framework-agnostic HTTP transport/handler
+  foundation with internal token authentication and safe failure mapping. Provider Runtime now has a
+  command receiver that maps bridge commands to `ProviderRuntimeApp` lifecycle operations and safe
+  provider outcomes. Worker runtime now has an explicit `provider-runtime-bridge` mode that routes
+  through an injected `ProviderCommandTransport` and fails closed when that transport is missing.
+  Runtime HTTP server/client wiring, production profile enablement, and target-environment evidence
+  remain open follow-up work.
 - N11.3 added durable local and PostgreSQL provider-runtime ownership lease guards, active lease
   renewal during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`.
   Production profile enablement remains blocked by secret hardening and final production validation.

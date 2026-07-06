@@ -204,8 +204,10 @@ IPC/shared socket ownership and target-environment evidence are complete.
 add the internal provider command transport contract/fake package and a Provider Runtime command
 receiver that maps bridge commands to lifecycle operations and safe provider outcomes. Worker runtime
 now has an explicit `provider-runtime-bridge` mode that uses an injected provider command transport
-and fails closed when that transport is missing. Production bridge transport/auth, production profile
-enablement, compose validation, and target-environment evidence remain open.
+and fails closed when that transport is missing. The bridge package now also has a framework-agnostic
+HTTP transport/handler foundation with internal token authentication and safe failure mapping.
+Runtime HTTP server/client wiring, production profile enablement, compose validation, and
+target-environment evidence remain open.
 The production compose validation slice adds `pnpm docker:production:check` and wires it into
 `pnpm production:check`, so the checked-in production template must render successfully with
 `deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key
