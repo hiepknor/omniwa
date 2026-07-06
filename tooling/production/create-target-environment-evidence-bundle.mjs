@@ -17,9 +17,10 @@ const defaultTemplatePath = "docs/reviews/TARGET_ENVIRONMENT_EVIDENCE_BUNDLE_TEM
 export async function createTargetEnvironmentEvidenceBundle(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
   const checkedAtIso = options.checkedAtIso ?? new Date().toISOString();
+  const env = options.env ?? {};
   const findings = [];
   const outputPath = normalizeOptionalString(
-    options.outputPath ?? process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH,
+    options.outputPath ?? env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_OUTPUT_PATH,
   );
 
   if (outputPath === undefined) {
@@ -53,7 +54,7 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
     key: "providerCommandBridgeRef",
     value:
       options.providerCommandBridgeEvidenceRef ??
-      process.env.OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF,
+      env.OMNIWA_TARGET_ENV_PROVIDER_COMMAND_BRIDGE_EVIDENCE_REF,
     findingCode: "target_environment_provider_command_bridge_evidence_ref_unsafe_content",
     findings,
   });
@@ -62,10 +63,10 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
     projectRoot,
     bundle,
     kind: "smoke",
-    artifactPath: options.smokeReportPath ?? process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH,
+    artifactPath: options.smokeReportPath ?? env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH,
     artifactRef:
       options.smokeArtifactRef ??
-      process.env.OMNIWA_TARGET_ENV_SMOKE_ARTIFACT_REF ??
+      env.OMNIWA_TARGET_ENV_SMOKE_ARTIFACT_REF ??
       "target-env-smoke-report",
     validator: validateTargetEnvironmentSmokeArtifact,
     findings,
@@ -75,10 +76,10 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
     projectRoot,
     bundle,
     kind: "load",
-    artifactPath: options.loadReportPath ?? process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH,
+    artifactPath: options.loadReportPath ?? env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH,
     artifactRef:
       options.loadArtifactRef ??
-      process.env.OMNIWA_TARGET_ENV_LOAD_ARTIFACT_REF ??
+      env.OMNIWA_TARGET_ENV_LOAD_ARTIFACT_REF ??
       "target-env-load-report",
     validator: validateTargetEnvironmentLoadArtifact,
     findings,
@@ -90,11 +91,10 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
     kind: "alert_slo_dry_run",
     artifactKey: "alertSloDryRun",
     artifactPath:
-      options.alertSloDryRunReportPath ??
-      process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH,
+      options.alertSloDryRunReportPath ?? env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH,
     artifactRef:
       options.alertSloDryRunArtifactRef ??
-      process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_ARTIFACT_REF ??
+      env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_ARTIFACT_REF ??
       "target-env-alert-slo-dry-run-report",
     validator: validateTargetEnvironmentAlertSloDryRunArtifact,
     findings,
@@ -106,11 +106,10 @@ export async function createTargetEnvironmentEvidenceBundle(options = {}) {
     kind: "runtime_evidence",
     artifactKey: "runtimeEvidence",
     artifactPath:
-      options.runtimeEvidenceReportPath ??
-      process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH,
+      options.runtimeEvidenceReportPath ?? env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH,
     artifactRef:
       options.runtimeEvidenceArtifactRef ??
-      process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_ARTIFACT_REF ??
+      env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_ARTIFACT_REF ??
       "target-env-runtime-evidence-report",
     validator: validateTargetEnvironmentRuntimeEvidenceArtifact,
     findings,
@@ -269,7 +268,7 @@ function freezeBundleReport(report) {
 }
 
 async function main() {
-  const report = await createTargetEnvironmentEvidenceBundle();
+  const report = await createTargetEnvironmentEvidenceBundle({ env: process.env });
 
   if (report.status === "passed") {
     console.log("Target environment evidence bundle written.");

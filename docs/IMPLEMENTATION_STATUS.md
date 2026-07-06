@@ -407,6 +407,10 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
 - N11.7 target-environment evidence validation now also rejects future `PROVEN` evidence bundles
   unless every evidence/component reference is non-pending and the smoke, load, alert/SLO dry-run,
   and runtime evidence artifact entries all include `passed` summaries.
+- N11.7 target-environment evidence tooling now isolates imported checker/bundle functions from
+  ambient operator artifact path environment variables. The CLI entrypoints still consume those env
+  vars, but unit tests and fixture evaluations no longer fail when an operator runs
+  `pnpm target-env:check` with artifact paths set.
 - N11.7 target-environment evidence validation now also requires `Background Runtime` in both
   `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md` and sanitized evidence bundles. This prevents the
   EventLog outbox runtime from being skipped during production evidence collection.

@@ -89,6 +89,40 @@ describe("target environment evidence bundle generator", () => {
     }
   });
 
+  it("ignores ambient artifact path env vars when artifact paths are not explicitly provided", async () => {
+    const root = await createTempProject();
+    const previousSmokePath = process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH;
+    const previousLoadPath = process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH;
+    const previousRuntimePath = process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH;
+
+    try {
+      process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH = "artifacts/target-env/smoke-report.json";
+      process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH = "artifacts/target-env/load-report.json";
+      process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH =
+        "artifacts/target-env/runtime-evidence.json";
+
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+
+      const report = await createTargetEnvironmentEvidenceBundle({
+        projectRoot: root,
+        outputPath: "artifacts/target-env/evidence-bundle.json",
+        checkedAtIso: "2026-07-05T00:00:00.000Z",
+      });
+
+      expect(report).toEqual({
+        status: "passed",
+        checkedAtIso: "2026-07-05T00:00:00.000Z",
+        findings: [],
+        written: true,
+      });
+    } finally {
+      restoreEnv("OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH", previousSmokePath);
+      restoreEnv("OMNIWA_TARGET_ENV_LOAD_REPORT_PATH", previousLoadPath);
+      restoreEnv("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH", previousRuntimePath);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("embeds validated smoke, load, alert/SLO, and runtime summaries without raw target details", async () => {
     const root = await createTempProject();
 
@@ -465,4 +499,13 @@ async function writeJson(path: string, data: unknown): Promise<void> {
 async function writeText(path: string, content: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, "utf8");
+}
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    Reflect.deleteProperty(process.env, key);
+    return;
+  }
+
+  process.env[key] = value;
 }

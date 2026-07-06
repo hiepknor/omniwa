@@ -34,6 +34,42 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("ignores ambient artifact path env vars when artifact paths are not explicitly provided", async () => {
+    const root = await createTempProject();
+    const previousSmokePath = process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH;
+    const previousLoadPath = process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH;
+    const previousRuntimePath = process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH;
+    const previousBundlePath = process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH;
+
+    try {
+      process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH = "artifacts/target-env/smoke-report.json";
+      process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH = "artifacts/target-env/load-report.json";
+      process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH =
+        "artifacts/target-env/runtime-evidence.json";
+      process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH =
+        "artifacts/target-env/evidence-bundle.json";
+
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report).toEqual({
+        status: "passed",
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        findings: [],
+      });
+    } finally {
+      restoreEnv("OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH", previousSmokePath);
+      restoreEnv("OMNIWA_TARGET_ENV_LOAD_REPORT_PATH", previousLoadPath);
+      restoreEnv("OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH", previousRuntimePath);
+      restoreEnv("OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH", previousBundlePath);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails when target-environment evidence is incomplete", async () => {
     const root = await createTempProject();
 
@@ -1214,4 +1250,13 @@ function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROV
 async function writeText(path: string, content: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, "utf8");
+}
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    Reflect.deleteProperty(process.env, key);
+    return;
+  }
+
+  process.env[key] = value;
 }

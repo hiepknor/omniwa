@@ -88,6 +88,7 @@ const unsafeArtifactStringPatterns = Object.freeze([
 export async function evaluateTargetEnvironmentEvidence(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
   const checkedAtEpochMilliseconds = options.checkedAtEpochMilliseconds ?? Date.now();
+  const env = options.env ?? {};
   const findings = [];
 
   await checkFiles(
@@ -109,31 +110,31 @@ export async function evaluateTargetEnvironmentEvidence(options = {}) {
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
     "smoke",
-    options.smokeReportPath ?? process.env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH,
+    options.smokeReportPath ?? env.OMNIWA_TARGET_ENV_SMOKE_REPORT_PATH,
     findings,
   );
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
     "load",
-    options.loadReportPath ?? process.env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH,
+    options.loadReportPath ?? env.OMNIWA_TARGET_ENV_LOAD_REPORT_PATH,
     findings,
   );
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
     "alert_slo_dry_run",
-    options.alertSloDryRunReportPath ?? process.env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH,
+    options.alertSloDryRunReportPath ?? env.OMNIWA_TARGET_ENV_ALERT_SLO_DRY_RUN_REPORT_PATH,
     findings,
   );
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
     "runtime_evidence",
-    options.runtimeEvidenceReportPath ?? process.env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH,
+    options.runtimeEvidenceReportPath ?? env.OMNIWA_TARGET_ENV_RUNTIME_EVIDENCE_REPORT_PATH,
     findings,
   );
   await checkOptionalTargetEnvironmentArtifact(
     projectRoot,
     "bundle",
-    options.evidenceBundlePath ?? process.env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH,
+    options.evidenceBundlePath ?? env.OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH,
     findings,
     reviewSnapshot,
   );
@@ -1350,7 +1351,7 @@ function fixtureReview(status) {
 }
 
 async function main() {
-  const report = await evaluateTargetEnvironmentEvidence();
+  const report = await evaluateTargetEnvironmentEvidence({ env: process.env });
 
   if (report.status === "passed") {
     console.log(`Target environment evidence gate passed with ${report.findings.length} findings.`);
