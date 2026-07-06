@@ -206,8 +206,9 @@ receiver that maps bridge commands to lifecycle operations and safe provider out
 now has an explicit `provider-runtime-bridge` mode that uses an injected provider command transport
 and fails closed when that transport is missing. The bridge package now also has a framework-agnostic
 HTTP transport/handler foundation with internal token authentication and safe failure mapping.
-Runtime HTTP server/client wiring, production profile enablement, compose validation, and
-target-environment evidence remain open.
+Provider Runtime now has an opt-in internal HTTP bridge server endpoint that fails closed when the
+bridge token or transport is missing. Worker HTTP client runtime wiring, production profile
+enablement, compose validation, and target-environment evidence remain open.
 The production compose validation slice adds `pnpm docker:production:check` and wires it into
 `pnpm production:check`, so the checked-in production template must render successfully with
 `deploy/docker/env/production.env.example` and preserve the required service set, hash-only API-key

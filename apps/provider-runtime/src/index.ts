@@ -7,10 +7,12 @@ import {
 import { startProviderRuntimeLocalLiveSession } from "./local-live-session-starter.js";
 import { startProviderRuntimeLocalLiveOutboundWorker } from "./local-live-outbound-worker.js";
 import { startProviderRuntimeLocalLiveApiServer } from "./local-live-api-server.js";
+import { startProviderRuntimeCommandBridgeHttpServer } from "./provider-command-http-server.js";
 
 export * from "./provider-runtime.js";
 export * from "./provider-runtime-app.js";
 export * from "./provider-command-receiver.js";
+export * from "./provider-command-http-server.js";
 export * from "./provider-runtime-ownership-guard.js";
 export * from "./provider-runtime-supervisor.js";
 export * from "./local-qr-operator-output.js";
@@ -44,22 +46,28 @@ async function runProviderRuntime(): Promise<void> {
       localLiveOutboundWorker.workerComposition,
       process.env,
     );
+    const commandBridgeHttpServer = await startProviderRuntimeCommandBridgeHttpServer(
+      composition.providerCommandTransport,
+      process.env,
+    );
 
     const stop = (signal: NodeJS.Signals): void => {
-      void localLiveApiServer.stop().finally(() => {
-        void localLiveOutboundWorker.stop().finally(() => {
-          loop.shutdown();
-          console.log(
-            JSON.stringify(
-              {
-                runtime: "provider",
-                status: "stopped",
-                signal,
-              },
-              null,
-              2,
-            ),
-          );
+      void commandBridgeHttpServer.stop().finally(() => {
+        void localLiveApiServer.stop().finally(() => {
+          void localLiveOutboundWorker.stop().finally(() => {
+            loop.shutdown();
+            console.log(
+              JSON.stringify(
+                {
+                  runtime: "provider",
+                  status: "stopped",
+                  signal,
+                },
+                null,
+                2,
+              ),
+            );
+          });
         });
       });
     };
@@ -85,6 +93,7 @@ async function runProviderRuntime(): Promise<void> {
           localLiveSession,
           localLiveOutboundWorker: localLiveOutboundWorker.status,
           localLiveApiServer: localLiveApiServer.status,
+          commandBridgeHttpServer: commandBridgeHttpServer.status,
         },
         null,
         2,

@@ -16,6 +16,7 @@ import {
   createDurableJsonEventLogStore,
   createPostgresqlConnectionPool,
 } from "@omniwa/infrastructure-persistence";
+import type { ProviderCommandTransport } from "@omniwa/infrastructure-provider-bridge";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { randomUUID } from "node:crypto";
 
@@ -90,6 +91,7 @@ export type ProviderRuntimeComposition = Readonly<{
   authStateStore: BaileysAuthStateStore;
   socketProvider: BaileysSocketProvider;
   signalIngress: ProviderSignalIngress;
+  providerCommandTransport?: ProviderCommandTransport;
   supervisor: ProviderRuntimeSupervisor;
   startDrainLoop(
     context?: ApplicationPortContext,
@@ -103,6 +105,7 @@ export type ProviderRuntimeCompositionOverrides = Readonly<{
   authStateStore?: BaileysAuthStateStore;
   socketProvider?: BaileysSocketProvider;
   signalIngress?: ProviderSignalIngress;
+  providerCommandTransport?: ProviderCommandTransport;
   ownershipGuard?: ProviderRuntimeSupervisorOwnershipGuard;
   ownerRef?: string;
   nowIso?: () => string;
@@ -173,6 +176,7 @@ export function createProviderRuntimeComposition(
     authStateStore,
     socketProvider,
     signalIngress,
+    ...optional("providerCommandTransport", overrides.providerCommandTransport),
     supervisor,
     startDrainLoop(
       context: ApplicationPortContext = createProviderRuntimeCompositionContext(),

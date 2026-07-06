@@ -42,7 +42,7 @@ The counts below use two views:
 | `apps/api/src`                                 | 10             | 20                    |
 | `apps/worker/src`                              | 6              | 11                    |
 | `apps/webhook-dispatcher/src`                  | 4              | 7                     |
-| `apps/provider-runtime/src`                    | 12             | 23                    |
+| `apps/provider-runtime/src`                    | 13             | 25                    |
 
 Verification commands used:
 
@@ -183,8 +183,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   command receiver that maps bridge commands to `ProviderRuntimeApp` lifecycle operations and safe
   provider outcomes. Worker runtime now has an explicit `provider-runtime-bridge` mode that routes
   through an injected `ProviderCommandTransport` and fails closed when that transport is missing.
-  Runtime HTTP server/client wiring, production profile enablement, and target-environment evidence
-  remain open follow-up work.
+  Provider Runtime now has an opt-in internal HTTP bridge server endpoint that fails closed when the
+  bridge token or transport is missing. Worker HTTP client runtime wiring, production profile
+  enablement, and target-environment evidence remain open follow-up work.
 - N11.3 added durable local and PostgreSQL provider-runtime ownership lease guards, active lease
   renewal during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`.
   Production profile enablement remains blocked by secret hardening and final production validation.

@@ -9,6 +9,7 @@ import {
   FakeBaileysSocketProvider,
   RealBaileysSocketProvider,
 } from "@omniwa/infrastructure-provider-baileys";
+import { InMemoryProviderCommandTransport } from "@omniwa/infrastructure-provider-bridge";
 import { createInMemoryEventLogStore } from "@omniwa/infrastructure-persistence";
 import { createCorrelationId, createRequestContext, createRequestId } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
@@ -266,6 +267,19 @@ describe("provider runtime composition", () => {
     expect(composition.supervisor.snapshot().sessions).toEqual([]);
   });
 
+  it("retains an injected provider command transport for the bridge HTTP server", () => {
+    const transport = new InMemoryProviderCommandTransport();
+    const composition = createProviderRuntimeComposition(envFor(createTemporaryDirectory()), {
+      eventLog: createInMemoryEventLogStore(),
+      socketProvider: new FakeBaileysSocketProvider(),
+      providerCommandTransport: transport,
+    });
+
+    expect(composition.providerCommandTransport).toBe(transport);
+
+    composition.shutdown();
+  });
+
   it("can explicitly use the in-memory ownership mode for deterministic tests", () => {
     const composition = createProviderRuntimeComposition({
       ...envFor(createTemporaryDirectory()),
@@ -322,9 +336,11 @@ describe("provider runtime composition", () => {
     expect(source).toContain("startProviderRuntimeLocalLiveSession");
     expect(source).toContain("startProviderRuntimeLocalLiveOutboundWorker");
     expect(source).toContain("startProviderRuntimeLocalLiveApiServer");
+    expect(source).toContain("startProviderRuntimeCommandBridgeHttpServer");
     expect(source).toContain("localLiveSession");
     expect(source).toContain("localLiveOutboundWorker");
     expect(source).toContain("localLiveApiServer");
+    expect(source).toContain("commandBridgeHttpServer");
     expect(source).not.toContain("requires MessagingProviderPort and SecretProvider");
   });
 
