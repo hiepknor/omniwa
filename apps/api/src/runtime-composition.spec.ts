@@ -314,6 +314,9 @@ describe("API runtime composition", () => {
       }),
       actorRef: "api_key:local",
       idempotencyKey: "runtime-durable-idempotency",
+      safeInput: {
+        displayName: "Runtime Durable Instance",
+      },
     });
 
     const secondComposition = createApiRuntimeComposition(env);
@@ -336,6 +339,48 @@ describe("API runtime composition", () => {
         queryRef: "runtime-list-durable-instances",
         outcome: "result",
         resultRef: "instances:list:1",
+        items: [
+          expect.objectContaining({
+            status: "created",
+            displayName: "Runtime Durable Instance",
+          }),
+        ],
+      }),
+    );
+
+    const createdInstance = Array.isArray(queryOutcome?.items) ? queryOutcome.items[0] : undefined;
+    const createdInstanceId =
+      typeof createdInstance === "object" &&
+      createdInstance !== null &&
+      "id" in createdInstance &&
+      typeof createdInstance.id === "string"
+        ? createdInstance.id
+        : undefined;
+
+    expect(createdInstanceId).toMatch(/^inst:/u);
+
+    const statusOutcome = await secondComposition.options.dispatcher?.executeQuery({
+      kind: "query",
+      name: "GetInstanceStatus",
+      queryRef: "runtime-get-durable-instance",
+      requestContext: createRequestContext({
+        requestId: createRequestId("runtime-durable-get-request"),
+        correlationId: createCorrelationId("runtime-durable-get-correlation"),
+      }),
+      actorRef: "api_key:local",
+      targetRef: createdInstanceId,
+    });
+
+    expect(statusOutcome).toEqual(
+      expect.objectContaining({
+        kind: "query_outcome",
+        queryRef: "runtime-get-durable-instance",
+        outcome: "result",
+        resource: expect.objectContaining({
+          id: createdInstanceId,
+          status: "created",
+          displayName: "Runtime Durable Instance",
+        }),
       }),
     );
   });

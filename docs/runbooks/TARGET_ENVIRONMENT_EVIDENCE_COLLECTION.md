@@ -67,6 +67,9 @@ and safe error codes. Do not write raw deployment values into the copied input.
 For provider-command bridge proof, fill only safe evidence refs for startup, worker client
 configuration, provider-runtime server configuration, authentication boundary, and command
 round-trip checks. Refs that still contain `pending` keep runtime evidence failed by design.
+For queue runtime proof, fill only safe evidence refs for durable queue profile selection, atomic
+reservation, retry recovery, dead-letter behavior, and expired lease recovery. Refs that still
+contain `pending` keep runtime evidence failed by design.
 For observability signal proof, fill only safe evidence refs for the metrics exporter, structured
 logging, queue backlog metrics, EventLog outbox metrics, and redaction review. Refs that still
 contain `pending` keep runtime evidence failed by design.

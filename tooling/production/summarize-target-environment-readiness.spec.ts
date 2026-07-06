@@ -301,6 +301,18 @@ function runtimeEvidenceSummary() {
       authenticationProofRef: "bridge-authentication-reviewed",
       roundTripProofRef: "bridge-round-trip-reviewed",
     },
+    queueRuntime: {
+      durableQueueProfileChecked: true,
+      atomicReservationChecked: true,
+      retryRecoveryChecked: true,
+      deadLetterChecked: true,
+      expiredLeaseRecoveryChecked: true,
+      queueProfileProofRef: "queue-profile-reviewed",
+      atomicReservationProofRef: "queue-atomic-reservation-reviewed",
+      retryRecoveryProofRef: "queue-retry-recovery-reviewed",
+      deadLetterProofRef: "queue-dead-letter-reviewed",
+      expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    },
     observabilitySignals: {
       metricExporterChecked: true,
       structuredLoggingChecked: true,

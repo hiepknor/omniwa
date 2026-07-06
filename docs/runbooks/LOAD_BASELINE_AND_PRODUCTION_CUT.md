@@ -163,6 +163,9 @@ session material, webhook secrets, or secret-provider values.
 Provider-command bridge evidence must include safe refs for startup, worker client configuration,
 provider-runtime server configuration, authentication boundary, and command round-trip checks. Refs
 that still contain `pending` keep runtime evidence failed even if the boolean checks are set.
+Queue runtime evidence must include safe refs for durable queue profile selection, atomic
+reservation, retry recovery, dead-letter behavior, and expired lease recovery. Refs that still
+contain `pending` keep runtime evidence failed even if the boolean checks are set.
 Observability signal evidence must include safe refs for the metrics exporter, structured logging,
 queue backlog metrics, EventLog outbox metrics, and redaction review. Refs that still contain
 `pending` keep runtime evidence failed even if the boolean checks are set.

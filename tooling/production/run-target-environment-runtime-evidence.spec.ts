@@ -56,6 +56,19 @@ describe("target environment runtime evidence runner", () => {
       roundTripProofRef: "target-runtime-provider-command-bridge-round-trip-pending",
       safeErrorCode: "target_runtime_evidence_not_supplied",
     });
+    expect(report.queueRuntime).toEqual({
+      durableQueueProfileChecked: false,
+      atomicReservationChecked: false,
+      retryRecoveryChecked: false,
+      deadLetterChecked: false,
+      expiredLeaseRecoveryChecked: false,
+      queueProfileProofRef: "target-runtime-queue-profile-pending",
+      atomicReservationProofRef: "target-runtime-queue-atomic-reservation-pending",
+      retryRecoveryProofRef: "target-runtime-queue-retry-recovery-pending",
+      deadLetterProofRef: "target-runtime-queue-dead-letter-pending",
+      expiredLeaseRecoveryProofRef: "target-runtime-queue-expired-lease-recovery-pending",
+      safeErrorCode: "target_runtime_evidence_not_supplied",
+    });
     expect(report.observabilitySignals).toEqual({
       metricExporterChecked: false,
       structuredLoggingChecked: false,
@@ -120,6 +133,18 @@ describe("target environment runtime evidence runner", () => {
       authenticationProofRef: "provider-command-bridge-authentication-reviewed",
       roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
     });
+    expect(report.queueRuntime).toEqual({
+      durableQueueProfileChecked: true,
+      atomicReservationChecked: true,
+      retryRecoveryChecked: true,
+      deadLetterChecked: true,
+      expiredLeaseRecoveryChecked: true,
+      queueProfileProofRef: "queue-profile-reviewed",
+      atomicReservationProofRef: "queue-atomic-reservation-reviewed",
+      retryRecoveryProofRef: "queue-retry-recovery-reviewed",
+      deadLetterProofRef: "queue-dead-letter-reviewed",
+      expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
+    });
     expect(report.observabilitySignals).toEqual({
       metricExporterChecked: true,
       structuredLoggingChecked: true,
@@ -167,6 +192,24 @@ describe("target environment runtime evidence runner", () => {
     expect(report.status).toBe("failed");
     expect(report.providerCommandBridge.roundTripProofRef).toBe(
       "operator-evidence-provider-command-bridge-round-trip-pending",
+    );
+  });
+
+  it("keeps runtime evidence failed when queue proof refs remain pending", async () => {
+    const input = validRuntimeEvidenceInput("passed");
+    const report = await runTargetEnvironmentRuntimeEvidence({
+      input: {
+        ...input,
+        queueRuntime: {
+          ...input.queueRuntime,
+          retryRecoveryProofRef: "operator-evidence-queue-retry-recovery-pending",
+        },
+      },
+    });
+
+    expect(report.status).toBe("failed");
+    expect(report.queueRuntime.retryRecoveryProofRef).toBe(
+      "operator-evidence-queue-retry-recovery-pending",
     );
   });
 
@@ -339,6 +382,18 @@ function validRuntimeEvidenceInput(status: "passed" | "failed" = "passed") {
       providerRuntimeServerProofRef: "provider-command-bridge-server-reviewed",
       authenticationProofRef: "provider-command-bridge-authentication-reviewed",
       roundTripProofRef: "provider-command-bridge-round-trip-reviewed",
+    },
+    queueRuntime: {
+      durableQueueProfileChecked: true,
+      atomicReservationChecked: true,
+      retryRecoveryChecked: true,
+      deadLetterChecked: true,
+      expiredLeaseRecoveryChecked: true,
+      queueProfileProofRef: "queue-profile-reviewed",
+      atomicReservationProofRef: "queue-atomic-reservation-reviewed",
+      retryRecoveryProofRef: "queue-retry-recovery-reviewed",
+      deadLetterProofRef: "queue-dead-letter-reviewed",
+      expiredLeaseRecoveryProofRef: "queue-expired-lease-recovery-reviewed",
     },
     observabilitySignals: {
       metricExporterChecked: true,

@@ -137,18 +137,21 @@ The runtime evidence command normalizes an operator-maintained sanitized input f
 runtime evidence artifact. If no input is supplied, it emits a failed safe skeleton instead of
 claiming proof. The checked-in input template is validated by `pnpm target-env:check` and must remain
 a failed safe skeleton. The generated artifact records startup, readiness, shutdown, dependency
-connectivity, migration-status, provider-command bridge configuration/auth/round-trip proof,
-observability signal proof, and backup/restore drill checks. Provider-command bridge proof must
-include safe refs for startup, worker client configuration, provider-runtime server configuration,
-authentication boundary, and a command round trip; refs that still contain `pending` keep the
-artifact failed even if booleans are set. Observability signal proof must include safe refs for the
-metrics exporter, structured logging, queue backlog metrics, EventLog outbox metrics, and redaction
-review; refs that still contain `pending` keep the artifact failed. It must not contain target URLs,
+connectivity, migration-status, provider-command bridge configuration/auth/round-trip proof, queue
+runtime proof, observability signal proof, and backup/restore drill checks. Provider-command bridge
+proof must include safe refs for startup, worker client configuration, provider-runtime server
+configuration, authentication boundary, and a command round trip; refs that still contain `pending`
+keep the artifact failed even if booleans are set. Queue runtime proof must include safe refs for
+the durable queue profile, atomic reservation, retry recovery, dead-letter behavior, and expired
+lease recovery; refs that still contain `pending` keep the artifact failed even if booleans are set.
+Observability signal proof must include safe refs for the metrics exporter, structured logging,
+queue backlog metrics, EventLog outbox metrics, and redaction review; refs that still contain
+`pending` keep the artifact failed. It must not contain target URLs,
 database or Redis connection strings, API keys, raw runtime logs, raw instance IDs, QR payloads,
 JIDs, message text, provider payloads, session material, webhook secrets, or secret-provider values.
 This artifact provides operator evidence for the runtime matrix, dependency connectivity, bridge
-behavior, observability signals, and recovery drill references, but it does not by itself change the
-proof states above.
+behavior, queue runtime behavior, observability signals, and recovery drill references, but it does
+not by itself change the proof states above.
 
 Optional target-environment evidence bundle validation:
 
@@ -203,6 +206,8 @@ Target-environment evidence must additionally record:
 - health/readiness results,
 - dependency connectivity results,
 - provider-command bridge startup/client/server/auth/round-trip evidence reference,
+- durable queue profile, atomic reservation, retry recovery, dead-letter behavior, and expired
+  lease recovery evidence references,
 - metrics exporter, structured logging, queue backlog metric, EventLog outbox metric, and redaction
   evidence references,
 - backup/restore drill identifier,
