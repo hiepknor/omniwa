@@ -151,6 +151,9 @@ describe("application dispatcher", () => {
         requestContext,
         actorRef: "api_key:test",
         idempotencyKey: "idem-create-instance",
+        safeInput: {
+          displayName: "Primary Demo Instance",
+        },
       }),
     );
 
@@ -164,6 +167,39 @@ describe("application dispatcher", () => {
     });
     expect(instanceRepository.list()).toHaveLength(1);
     expect(instanceRepository.list()[0]?.status).toBe("created");
+    expect(instanceRepository.list()[0]?.metadata.displayName).toBe("Primary Demo Instance");
+  });
+
+  it("rejects invalid CreateInstance displayName without saving an instance", async () => {
+    const instanceRepository = new FakeInstanceRepository();
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository },
+      uuidGenerator: fixedUuidGenerator,
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "CreateInstance",
+        commandRef: "cmd-create-instance-invalid-name",
+        requestContext,
+        actorRef: "api_key:test",
+        idempotencyKey: "idem-create-instance-invalid-name",
+        safeInput: {
+          displayName: "x".repeat(121),
+        },
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-create-instance-invalid-name",
+      outcome: "failed",
+      accepted: false,
+      retryable: false,
+      reasonCode: "create_instance_display_name_invalid",
+    });
+    expect(instanceRepository.list()).toHaveLength(0);
   });
 
   it("executes ListInstances as a side-effect free repository query", async () => {
@@ -181,6 +217,9 @@ describe("application dispatcher", () => {
         requestContext,
         actorRef: "api_key:test",
         idempotencyKey: "idem-create-instance",
+        safeInput: {
+          displayName: "Dispatcher Demo",
+        },
       }),
     );
     const outcome = await dispatcher.executeQuery(
@@ -207,6 +246,7 @@ describe("application dispatcher", () => {
         {
           id: "inst:550e8400-e29b-41d4-a716-446655440000",
           status: "created",
+          displayName: "Dispatcher Demo",
         },
       ],
     });
@@ -229,6 +269,9 @@ describe("application dispatcher", () => {
         requestContext,
         actorRef: "api_key:test",
         idempotencyKey: "idem-create-instance",
+        safeInput: {
+          displayName: "Dispatcher Detail",
+        },
       }),
     );
     const outcome = await dispatcher.executeQuery(
@@ -255,6 +298,7 @@ describe("application dispatcher", () => {
       resource: {
         id: "inst:550e8400-e29b-41d4-a716-446655440000",
         status: "created",
+        displayName: "Dispatcher Detail",
       },
     });
     expect(JSON.stringify(outcome)).not.toContain("domainEvents");

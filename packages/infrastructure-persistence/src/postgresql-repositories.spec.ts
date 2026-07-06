@@ -200,6 +200,10 @@ describe("PostgreSQL migration runner", () => {
         id: "pgm_20260705_0016_event_log_store",
         description: expect.stringContaining("AsyncEventLogPort"),
       }),
+      expect.objectContaining({
+        id: "pgm_20260706_0017_instance_display_name",
+        description: expect.stringContaining("display name"),
+      }),
     ]);
     expect(postgresqlInstanceRepositoryMigrations[0]?.statements.join("\n")).toContain(
       "omniwa_instances",
@@ -251,6 +255,9 @@ describe("PostgreSQL migration runner", () => {
     );
     expect(postgresqlInstanceRepositoryMigrations[15]?.statements.join("\n")).toContain(
       "omniwa_event_outbox",
+    );
+    expect(postgresqlInstanceRepositoryMigrations[16]?.statements.join("\n")).toContain(
+      "display_name",
     );
   });
 });

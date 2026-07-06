@@ -10,6 +10,7 @@
     "resultRef": "instance:inst_demo:connected",
     "id": "inst_demo",
     "status": "connected",
+    "displayName": "Demo instance",
     "resourceId": "inst_demo"
   },
   "meta": {

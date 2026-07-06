@@ -20,6 +20,7 @@ export type ApplicationCommandEnvelope<
   actorRef?: string;
   idempotencyKey?: string;
   safeInputRef?: string;
+  safeInput?: Readonly<Record<string, unknown>>;
   dataClassification?: DomainDataClassification;
 }>;
 
@@ -31,6 +32,7 @@ export type ApplicationCommandEnvelopeInput = Readonly<{
   actorRef?: string;
   idempotencyKey?: string;
   safeInputRef?: string;
+  safeInput?: Readonly<Record<string, unknown>>;
   dataClassification?: DomainDataClassification;
 }>;
 
@@ -61,6 +63,7 @@ export function createApplicationCommandEnvelope(
 
   return Object.freeze({
     ...input,
+    ...(input.safeInput === undefined ? {} : { safeInput: Object.freeze({ ...input.safeInput }) }),
     kind: "command",
     name: input.name,
   });

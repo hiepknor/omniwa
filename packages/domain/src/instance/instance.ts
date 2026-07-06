@@ -1,3 +1,5 @@
+import { createOpaqueString, type OpaqueString } from "@omniwa/shared";
+
 import { transitionStatus, type StatusTransitionMap } from "../aggregates/status-transition.js";
 import { createSafeDomainCode } from "../common/safe-domain-code.js";
 import { appendDomainEvent, type DomainEvent } from "../events/domain-event.js";
@@ -22,20 +24,38 @@ const instanceTransitions: StatusTransitionMap<InstanceStatus> = {
   destroyed: [],
 };
 
+export type InstanceDisplayName = OpaqueString<"InstanceDisplayName">;
+
+export type InstanceMetadata = Readonly<{
+  displayName?: InstanceDisplayName;
+}>;
+
 export type Instance = Readonly<{
   id: InstanceId;
   status: InstanceStatus;
+  metadata: InstanceMetadata;
   currentSessionId?: SessionId;
   actionRequiredReason?: string;
   domainEvents: readonly DomainEvent[];
 }>;
 
-export function createInstance(id: InstanceId): Instance {
+export function createInstance(id: InstanceId, metadata: InstanceMetadata = {}): Instance {
   return freezeInstance({
     id,
     status: "created",
+    metadata: normalizeInstanceMetadata(metadata),
     domainEvents: appendDomainEvent([], "Instance", id, "InstanceCreated"),
   });
+}
+
+export function createInstanceDisplayName(value: string): InstanceDisplayName {
+  const normalized = value.trim();
+
+  if (normalized.length === 0 || normalized.length > 120) {
+    throw new TypeError("InstanceDisplayName must be non-empty and bounded.");
+  }
+
+  return createOpaqueString(normalized, "InstanceDisplayName");
 }
 
 export function markInstanceConnecting(instance: Instance): Instance {
@@ -108,6 +128,7 @@ function transitionInstance(
   return freezeInstance({
     id: instance.id,
     status: nextStatus,
+    metadata: normalizeInstanceMetadata(instance.metadata ?? {}),
     ...currentSessionPatch,
     ...actionReasonPatch,
     domainEvents:
@@ -118,5 +139,14 @@ function transitionInstance(
 }
 
 function freezeInstance(instance: Instance): Instance {
-  return Object.freeze(instance);
+  return Object.freeze({
+    ...instance,
+    metadata: normalizeInstanceMetadata(instance.metadata ?? {}),
+  });
+}
+
+function normalizeInstanceMetadata(metadata: InstanceMetadata): InstanceMetadata {
+  return Object.freeze({
+    ...(metadata.displayName === undefined ? {} : { displayName: metadata.displayName }),
+  });
 }

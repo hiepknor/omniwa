@@ -841,7 +841,9 @@ describe("API HTTP transport", () => {
           "x-correlation-id": "corr-create-instance",
           "idempotency-key": "idem-create-instance",
         },
-        body: {},
+        body: {
+          displayName: "HTTP Demo Instance",
+        },
       },
       {
         dispatcher,
@@ -875,6 +877,7 @@ describe("API HTTP transport", () => {
         resourceType: "instance",
         id: expect.stringMatching(/^inst:/u),
         status: "created",
+        displayName: "HTTP Demo Instance",
       },
     ]);
     expect(JSON.stringify(listResponse.body)).not.toContain("domainEvents");
@@ -898,7 +901,9 @@ describe("API HTTP transport", () => {
           "x-correlation-id": "corr-create-instance-detail",
           "idempotency-key": "idem-create-instance-detail",
         },
-        body: {},
+        body: {
+          displayName: "HTTP Detail Instance",
+        },
       },
       {
         dispatcher,
@@ -936,6 +941,7 @@ describe("API HTTP transport", () => {
       resourceId: createdResourceId,
       id: createdResourceId,
       status: "created",
+      displayName: "HTTP Detail Instance",
       readStatus: "result",
       consistency: "strong_owner",
     });

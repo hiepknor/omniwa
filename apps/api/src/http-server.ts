@@ -1113,9 +1113,9 @@ function adapterCommand(
       required: true,
       validate: validateBody,
     },
-    build: (context) => ({
+    build: (context, body) => ({
       kind: "adapter",
-      request: createCommandRequest(boundary, name, targetRef, context),
+      request: createCommandRequest(boundary, name, targetRef, context, body),
       responseContract: createOperationResponseContract(name, targetRef),
     }),
   };
@@ -1224,6 +1224,7 @@ function createCommandRequest(
   name: string,
   targetRef: string | undefined,
   context: RouteContext,
+  body?: unknown,
 ): ApiCommandRequest {
   return Object.freeze({
     kind: "command",
@@ -1234,11 +1235,27 @@ function createCommandRequest(
     requestId: context.requestId,
     correlationId: context.correlationId,
     safeInputRef: createSafeHttpInputRef(name, context.requestRef),
+    ...optional("safeInput", createSafeHttpCommandInput(name, body)),
     dataClassification: "confidential",
     ...optional("targetRef", targetRef),
     ...optional("traceId", context.traceId),
     ...optional("idempotencyKey", context.idempotencyKey),
   });
+}
+
+function createSafeHttpCommandInput(
+  name: string,
+  body: unknown,
+): Readonly<Record<string, unknown>> | undefined {
+  if (name !== "CreateInstance" || !isPlainObject(body)) {
+    return undefined;
+  }
+
+  const displayName = body.displayName;
+
+  return typeof displayName === "string" && displayName.trim().length > 0
+    ? Object.freeze({ displayName: displayName.trim() })
+    : undefined;
 }
 
 function createSafeHttpInputRef(name: string, requestRef: string): string {

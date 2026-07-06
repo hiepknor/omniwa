@@ -35,6 +35,45 @@ const adminCredential: ApiCredential = {
 };
 
 describe("ApiInterfaceAdapter", () => {
+  it("maps safe CreateInstance input through the Application command boundary", async () => {
+    const dispatcher = new CapturingApplicationDispatcher();
+    const adapter = new ApiInterfaceAdapter({ dispatcher });
+
+    const response = await adapter.handle({
+      kind: "command",
+      boundary: "public",
+      name: "CreateInstance",
+      requestRef: "api-create-instance",
+      requestId: "request-create-instance",
+      correlationId: "correlation-create-instance",
+      credential: {
+        kind: "api_key",
+        keyId: "instance-key",
+        scopes: ["instances:write"],
+      },
+      idempotencyKey: "create-instance-1",
+      safeInput: {
+        displayName: "Interface Demo Instance",
+      },
+      dataClassification: "internal",
+    });
+
+    expect(response.ok).toBe(true);
+    expect(dispatcher.commandEnvelopes).toEqual([
+      expect.objectContaining({
+        kind: "command",
+        name: "CreateInstance",
+        commandRef: "api-create-instance",
+        actorRef: "api_key:instance-key",
+        idempotencyKey: "create-instance-1",
+        safeInput: {
+          displayName: "Interface Demo Instance",
+        },
+        dataClassification: "internal",
+      }),
+    ]);
+  });
+
   it("maps a public async command request into an Application command envelope", async () => {
     const dispatcher = new CapturingApplicationDispatcher();
     const adapter = new ApiInterfaceAdapter({ dispatcher });

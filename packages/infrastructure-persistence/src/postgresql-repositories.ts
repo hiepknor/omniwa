@@ -5,6 +5,7 @@ import {
   createDomainOwnerContext,
   createFailureCategory,
   createInstanceId,
+  createInstanceDisplayName,
   createInstanceStatus,
   createIdempotencyKey,
   createJobId,
@@ -156,6 +157,7 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       `CREATE TABLE IF NOT EXISTS omniwa_instances (
         id text PRIMARY KEY,
         status text NOT NULL,
+        display_name text NULL,
         current_session_id text NULL,
         action_required_reason text NULL,
         aggregate jsonb NOT NULL,
@@ -421,6 +423,13 @@ export const postgresqlRepositoryMigrations = Object.freeze([
       "CREATE INDEX IF NOT EXISTS omniwa_event_outbox_event_id_idx ON omniwa_event_outbox (event_id)",
     ]),
   }),
+  Object.freeze({
+    id: "pgm_20260706_0017_instance_display_name",
+    description: "Add display name projection column for InstanceRepositoryPort.",
+    statements: Object.freeze([
+      "ALTER TABLE omniwa_instances ADD COLUMN IF NOT EXISTS display_name text NULL",
+    ]),
+  }),
 ]) satisfies readonly PostgresqlSqlMigration[];
 
 export const postgresqlInstanceRepositoryMigrations = postgresqlRepositoryMigrations;
@@ -610,6 +619,10 @@ export class PostgresqlInstanceRepository
         Object.freeze({
           name: "status",
           value: (instance: Instance) => instance.status,
+        }),
+        Object.freeze({
+          name: "display_name",
+          value: (instance: Instance) => optionalNullable(instance.metadata?.displayName),
         }),
         Object.freeze({
           name: "current_session_id",
@@ -1737,6 +1750,7 @@ function decodeInstanceAggregate(value: unknown): Instance {
   return Object.freeze({
     id: createInstanceId(requiredString(aggregate.id, "Instance.id")),
     status: createInstanceStatus(requiredString(aggregate.status, "Instance.status")),
+    metadata: decodeInstanceMetadata(aggregate.metadata),
     ...optional(
       "currentSessionId",
       optionalString(aggregate.currentSessionId, "Instance.currentSessionId", createSessionId),
@@ -1747,6 +1761,23 @@ function decodeInstanceAggregate(value: unknown): Instance {
     ),
     domainEvents: Object.freeze(
       requiredArray(aggregate.domainEvents, "Instance.domainEvents").map(decodeDomainEvent),
+    ),
+  });
+}
+
+function decodeInstanceMetadata(value: unknown): Instance["metadata"] {
+  if (value === undefined || value === null) {
+    return Object.freeze({});
+  }
+
+  if (!isRecord(value)) {
+    throw new TypeError("Instance.metadata must be an object.");
+  }
+
+  return Object.freeze({
+    ...optional(
+      "displayName",
+      optionalString(value.displayName, "Instance.metadata.displayName", createInstanceDisplayName),
     ),
   });
 }

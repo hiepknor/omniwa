@@ -55,7 +55,7 @@ import type { GroupProviderCapability } from "../group/group-provider-capability
 import { createLabel, type Label } from "../label/label.js";
 import type { Jid } from "../references/jid.js";
 import type { PhoneNumber } from "../references/phone-number.js";
-import { createInstance, type Instance } from "../instance/instance.js";
+import { createInstance, type Instance, type InstanceMetadata } from "../instance/instance.js";
 import {
   acceptMediaAsset,
   createMediaAsset,
@@ -106,8 +106,8 @@ import {
 import type { WebhookUrl } from "../webhook/webhook-url.js";
 import type { FailureCategory } from "../errors/failure-category.js";
 
-export function createInstanceAggregate(id: InstanceId): Instance {
-  return createInstance(id);
+export function createInstanceAggregate(id: InstanceId, metadata?: InstanceMetadata): Instance {
+  return createInstance(id, metadata);
 }
 
 export function createSessionAggregate(input: {

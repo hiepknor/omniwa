@@ -112,6 +112,7 @@ export type ApiCommandRequest = ApiRequestBase &
     name: string;
     idempotencyKey?: string;
     safeInputRef?: string;
+    safeInput?: Readonly<Record<string, unknown>>;
   }>;
 
 export type ApiQueryRequest = ApiRequestBase &
@@ -461,6 +462,7 @@ function createCommandEnvelopeInput(
     ...optional("targetRef", request.targetRef),
     ...optional("idempotencyKey", request.idempotencyKey),
     ...optional("safeInputRef", request.safeInputRef),
+    ...optional("safeInput", request.safeInput),
     ...optional("dataClassification", request.dataClassification),
   };
 }

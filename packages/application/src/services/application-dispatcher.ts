@@ -11,6 +11,7 @@ import {
   type GroupMember,
   type GroupRepositoryPort,
   createInstance,
+  createInstanceDisplayName,
   createGroupId,
   createInstanceId,
   createMessageId,
@@ -291,7 +292,24 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     envelope: ApplicationCommandEnvelope,
   ): Promise<ApplicationCommandOutcome> {
     const instanceId = createInstanceId(`inst:${this.uuidGenerator.random()}`);
-    const instance = createInstance(instanceId);
+    const displayName = optionalSafeInputString(envelope.safeInput, "displayName", {
+      maxLength: 120,
+    });
+
+    if (displayName !== undefined && !displayName.ok) {
+      return commandOutcome(envelope, "failed", {
+        accepted: false,
+        retryable: false,
+        reasonCode: "create_instance_display_name_invalid",
+      });
+    }
+
+    const instance = createInstance(
+      instanceId,
+      displayName === undefined
+        ? {}
+        : { displayName: createInstanceDisplayName(displayName.value) },
+    );
 
     await this.repositories.instanceRepository.save(instance);
 
@@ -1114,11 +1132,33 @@ function queryOutcome(
 function instanceQueryItem(instance: Instance): Readonly<{
   id: string;
   status: Instance["status"];
+  displayName?: string;
 }> {
   return Object.freeze({
     id: String(instance.id),
     status: instance.status,
+    ...optional("displayName", instance.metadata?.displayName),
   });
+}
+
+function optionalSafeInputString(
+  input: Readonly<Record<string, unknown>> | undefined,
+  field: string,
+  options: Readonly<{ maxLength?: number }> = {},
+): { ok: true; value: string } | { ok: false } | undefined {
+  const value = input?.[field];
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = typeof value === "string" ? value.trim() : undefined;
+
+  return normalized !== undefined &&
+    normalized.length > 0 &&
+    (options.maxLength === undefined || normalized.length <= options.maxLength)
+    ? { ok: true, value: normalized }
+    : { ok: false };
 }
 
 function sessionQueryItem(session: Session): Readonly<{

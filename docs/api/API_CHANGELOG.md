@@ -15,6 +15,7 @@ Affected contract:
 - `docs/api/client-contract/fixtures/api-key.provisioned.json`
 - `docs/api/client-contract/fixtures/api-key.revoked.json`
 - `docs/api/client-contract/fixtures/api-key.rotated.json`
+- `docs/api/client-contract/fixtures/instance.detail.json`
 - `docs/api/client-contract/fixtures/message-send.queued.json`
 - `docs/api/client-contract/fixtures/message-retry.queued.json`
 - `docs/api/client-contract/fixtures/message-cancel.accepted.json`
@@ -47,6 +48,10 @@ Client impact:
   selected bulk redrive of dead-lettered webhook deliveries. The request accepts
   safe delivery ids only and returns an operation envelope without target URL,
   receiver payload, retry policy internals, or per-delivery raw details.
+- `POST /v1/instances` now carries validated `displayName` through the command
+  boundary into Instance metadata, so `GET /v1/instances` and
+  `GET /v1/instances/{instanceId}` return `displayName` when it was provided at
+  creation time.
 - Adds a required dead-letter delivery list fixture for
   `GET /v1/webhook-deliveries?status=dead_letter`, so operator clients can
   render remediation views and selected bulk redrive without guessing filter

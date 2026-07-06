@@ -4,6 +4,7 @@ import {
   createAuditRecordId,
   activateGroup,
   createInstance,
+  createInstanceDisplayName,
   createInstanceId,
   createAttemptNumber,
   createChat,
@@ -81,7 +82,9 @@ export function describeInstanceRepositoryContract(
     it("saves, loads, and reports aggregate existence by InstanceId", async () => {
       const repository = factory.create();
       const instanceId = createInstanceId(`${safeFactoryName(factory.name)}-instance-load`);
-      const instance = createInstance(instanceId);
+      const instance = createInstance(instanceId, {
+        displayName: createInstanceDisplayName("Repository Contract Instance"),
+      });
 
       await expect(repository.exists(instanceId)).resolves.toBe(false);
       await repository.save(instance);
