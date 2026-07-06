@@ -187,8 +187,9 @@ Recent history confirms the repository is no longer a bootstrap-only skeleton:
   bridge token or transport is missing, and Worker runtime can compose a
   `FetchProviderCommandTransport` from bridge endpoint/token env configuration in
   `provider-runtime-bridge` mode. The production compose template/check now declares this
-  controlled-pilot bridge wiring between Worker and Provider Runtime. Production profile enablement
-  and target-environment evidence remain open follow-up work.
+  controlled-pilot bridge wiring between Worker and Provider Runtime, and target-environment runtime
+  evidence now requires sanitized bridge client/server/auth/round-trip proof. Production profile
+  enablement and actual target-environment evidence collection remain open follow-up work.
 - N11.3 added durable local and PostgreSQL provider-runtime ownership lease guards, active lease
   renewal during the supervisor drain loop, and PostgreSQL contract coverage in `pnpm test:postgres`.
   Production profile enablement remains blocked by secret hardening and final production validation.

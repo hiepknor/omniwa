@@ -44,6 +44,13 @@ describe("target environment runtime evidence runner", () => {
         }),
       ]),
     );
+    expect(report.providerCommandBridge).toEqual({
+      workerConfigured: false,
+      providerRuntimeServerConfigured: false,
+      authenticationBoundaryChecked: false,
+      commandRoundTripChecked: false,
+      safeErrorCode: "target_runtime_evidence_not_supplied",
+    });
     expect(report.backupRestore).toEqual(
       expect.objectContaining({
         backupCreated: false,
@@ -84,6 +91,12 @@ describe("target environment runtime evidence runner", () => {
         credentialBoundaryChecked: true,
       },
     ]);
+    expect(report.providerCommandBridge).toEqual({
+      workerConfigured: true,
+      providerRuntimeServerConfigured: true,
+      authenticationBoundaryChecked: true,
+      commandRoundTripChecked: true,
+    });
     expect(JSON.stringify(report)).not.toContain("target-secret-api-key");
     expect(JSON.stringify(report)).not.toContain("postgresql://");
   });
@@ -245,6 +258,12 @@ function validRuntimeEvidenceInput(status: "passed" | "failed" = "passed") {
         credentialBoundaryChecked: true,
       },
     ],
+    providerCommandBridge: {
+      workerConfigured: true,
+      providerRuntimeServerConfigured: true,
+      authenticationBoundaryChecked: true,
+      commandRoundTripChecked: true,
+    },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",
       backupCreated: true,

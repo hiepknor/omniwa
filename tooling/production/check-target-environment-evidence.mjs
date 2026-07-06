@@ -635,6 +635,7 @@ export function validateTargetEnvironmentRuntimeEvidenceArtifact(artifact) {
     artifact.runtimes.every(isRuntimeEvidenceArtifact) &&
     Array.isArray(artifact.dependencies) &&
     artifact.dependencies.every(isDependencyEvidenceArtifact) &&
+    isProviderCommandBridgeEvidenceArtifact(artifact.providerCommandBridge) &&
     isBackupRestoreEvidenceArtifact(artifact.backupRestore) &&
     Array.isArray(artifact.findings) &&
     artifact.findings.every(isFindingArtifact)
@@ -744,6 +745,13 @@ export function createTargetEnvironmentRuntimeEvidenceInputTemplate() {
         safeErrorCode: "operator_runtime_evidence_required",
       }),
     ]),
+    providerCommandBridge: Object.freeze({
+      workerConfigured: false,
+      providerRuntimeServerConfigured: false,
+      authenticationBoundaryChecked: false,
+      commandRoundTripChecked: false,
+      safeErrorCode: "operator_runtime_evidence_required",
+    }),
     backupRestore: Object.freeze({
       drillRef: "operator-evidence-backup-restore-drill-pending",
       backupCreated: false,
@@ -861,6 +869,17 @@ function isDependencyEvidenceArtifact(value) {
     typeof value.credentialBoundaryChecked === "boolean" &&
     (value.migrationStatusChecked === undefined ||
       typeof value.migrationStatusChecked === "boolean") &&
+    (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
+  );
+}
+
+function isProviderCommandBridgeEvidenceArtifact(value) {
+  return (
+    isRecord(value) &&
+    typeof value.workerConfigured === "boolean" &&
+    typeof value.providerRuntimeServerConfigured === "boolean" &&
+    typeof value.authenticationBoundaryChecked === "boolean" &&
+    typeof value.commandRoundTripChecked === "boolean" &&
     (value.safeErrorCode === undefined || isNonEmptyString(value.safeErrorCode))
   );
 }
@@ -1053,6 +1072,11 @@ function isTargetEnvironmentRuntimeEvidenceInputTemplate(artifact) {
         dependency.migrationStatusChecked !== true &&
         dependency.safeErrorCode === "operator_runtime_evidence_required",
     ) &&
+    artifact.providerCommandBridge.workerConfigured === false &&
+    artifact.providerCommandBridge.providerRuntimeServerConfigured === false &&
+    artifact.providerCommandBridge.authenticationBoundaryChecked === false &&
+    artifact.providerCommandBridge.commandRoundTripChecked === false &&
+    artifact.providerCommandBridge.safeErrorCode === "operator_runtime_evidence_required" &&
     artifact.backupRestore.backupCreated === false &&
     artifact.backupRestore.restoreValidated === false &&
     artifact.backupRestore.rollbackOrForwardFixReviewed === false &&

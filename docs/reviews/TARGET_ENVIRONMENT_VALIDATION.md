@@ -32,8 +32,8 @@ deployment environment.
 | Component          | Status  | Evidence                                                                                                                                                                                                       |
 | ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | API Runtime        | PENDING | Needs target-environment startup with production API profile, PostgreSQL, Redis rate limiting, AuditRecord security audit, repository ownership, durable queue profile, and API metric recorder configured.    |
-| Worker Runtime     | PENDING | Needs target-environment worker startup, durable queue recovery, retry behavior, and shutdown proof.                                                                                                           |
-| Provider Runtime   | PENDING | Needs target-environment provider runtime startup, lease ownership, session restore, disconnect handling, and operator-safe signal evidence.                                                                   |
+| Worker Runtime     | PENDING | Needs target-environment worker startup, durable queue recovery, retry behavior, provider-command bridge client configuration, and shutdown proof.                                                             |
+| Provider Runtime   | PENDING | Needs target-environment provider runtime startup, internal provider-command bridge server configuration, lease ownership, session restore, disconnect handling, and operator-safe signal evidence.            |
 | Background Runtime | PENDING | Needs target-environment background runtime startup, PostgreSQL EventLog outbox drain loop proof, JSONL or approved outbox publisher evidence, backlog metric evidence, and shutdown proof.                    |
 | Webhook Dispatcher | PENDING | Needs target-environment dispatcher startup with PostgreSQL repositories, durable worker-job queue profile, fetch gateway, signing secret, JSONL or approved metric/audit sinks, retry, and dead-letter proof. |
 | PostgreSQL         | PENDING | Needs target-environment connectivity, migration/contract verification, backup participation, restore drill reference, and safe credentials.                                                                   |
@@ -125,11 +125,12 @@ The runtime evidence command normalizes an operator-maintained sanitized input f
 runtime evidence artifact. If no input is supplied, it emits a failed safe skeleton instead of
 claiming proof. The checked-in input template is validated by `pnpm target-env:check` and must remain
 a failed safe skeleton. The generated artifact records startup, readiness, shutdown, dependency
-connectivity, migration-status, and backup/restore drill checks. It must not contain target URLs,
-database or Redis connection strings, API keys, raw runtime logs, raw instance IDs, QR payloads,
-JIDs, message text, provider payloads, session material, webhook secrets, or secret-provider values.
-This artifact provides operator evidence for the runtime matrix, dependency connectivity, and
-recovery drill references, but it does not by itself change the proof states above.
+connectivity, migration-status, provider-command bridge configuration/auth/round-trip proof, and
+backup/restore drill checks. It must not contain target URLs, database or Redis connection strings,
+API keys, raw runtime logs, raw instance IDs, QR payloads, JIDs, message text, provider payloads,
+session material, webhook secrets, or secret-provider values. This artifact provides operator
+evidence for the runtime matrix, dependency connectivity, bridge behavior, and recovery drill
+references, but it does not by itself change the proof states above.
 
 Optional target-environment evidence bundle validation:
 

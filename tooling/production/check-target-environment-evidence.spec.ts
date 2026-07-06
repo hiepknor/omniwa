@@ -682,6 +682,35 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails when optional runtime evidence omits provider command bridge proof", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "NOT_PROVEN");
+      await writeJson(join(root, "artifacts/target-env/runtime-evidence.json"), {
+        ...validRuntimeEvidenceArtifact(),
+        providerCommandBridge: undefined,
+      });
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        runtimeEvidenceReportPath: "artifacts/target-env/runtime-evidence.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_runtime_evidence_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails safe when optional artifacts contain unsafe deployment details", async () => {
     const root = await createTempProject();
 
@@ -1041,6 +1070,12 @@ function validRuntimeEvidenceArtifact(): unknown {
         credentialBoundaryChecked: true,
       },
     ],
+    providerCommandBridge: {
+      workerConfigured: true,
+      providerRuntimeServerConfigured: true,
+      authenticationBoundaryChecked: true,
+      commandRoundTripChecked: true,
+    },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",
       backupCreated: true,

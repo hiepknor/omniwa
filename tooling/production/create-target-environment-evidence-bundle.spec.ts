@@ -372,6 +372,12 @@ function validRuntimeEvidenceArtifact(): unknown {
         migrationStatusChecked: true,
       },
     ],
+    providerCommandBridge: {
+      workerConfigured: true,
+      providerRuntimeServerConfigured: true,
+      authenticationBoundaryChecked: true,
+      commandRoundTripChecked: true,
+    },
     backupRestore: {
       drillRef: "backup-restore-drill-reviewed",
       backupCreated: true,

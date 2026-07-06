@@ -117,6 +117,13 @@ function createDefaultRuntimeEvidenceReport({ checkedAtIso, findings }) {
         safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
       }),
     ),
+    providerCommandBridge: Object.freeze({
+      workerConfigured: false,
+      providerRuntimeServerConfigured: false,
+      authenticationBoundaryChecked: false,
+      commandRoundTripChecked: false,
+      safeErrorCode: defaultRuntimeEvidenceSafeErrorCode,
+    }),
     backupRestore: Object.freeze({
       drillRef: "backup-restore-drill-pending",
       backupCreated: false,
@@ -143,6 +150,10 @@ function runtimeEvidenceChecksPass(report) {
         dependency.credentialBoundaryChecked &&
         dependency.migrationStatusChecked !== false,
     ) &&
+    report.providerCommandBridge.workerConfigured &&
+    report.providerCommandBridge.providerRuntimeServerConfigured &&
+    report.providerCommandBridge.authenticationBoundaryChecked &&
+    report.providerCommandBridge.commandRoundTripChecked &&
     report.backupRestore.backupCreated &&
     report.backupRestore.restoreValidated &&
     report.backupRestore.rollbackOrForwardFixReviewed &&
@@ -175,6 +186,7 @@ function freezeRuntimeEvidenceReport(report) {
     dependencies: Object.freeze(
       report.dependencies.map((dependency) => Object.freeze({ ...dependency })),
     ),
+    providerCommandBridge: Object.freeze({ ...report.providerCommandBridge }),
     backupRestore: Object.freeze({ ...report.backupRestore }),
     findings: Object.freeze(report.findings.map((finding) => Object.freeze({ ...finding }))),
   });

@@ -106,6 +106,13 @@
       "safeErrorCode": "operator_runtime_evidence_required"
     }
   ],
+  "providerCommandBridge": {
+    "workerConfigured": false,
+    "providerRuntimeServerConfigured": false,
+    "authenticationBoundaryChecked": false,
+    "commandRoundTripChecked": false,
+    "safeErrorCode": "operator_runtime_evidence_required"
+  },
   "backupRestore": {
     "drillRef": "operator-evidence-backup-restore-drill-pending",
     "backupCreated": false,
