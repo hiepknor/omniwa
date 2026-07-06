@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
@@ -116,6 +116,34 @@ describe("release readiness check", () => {
           }),
           expect.objectContaining({
             code: "next_development_plan_stale_current_increment",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when the runtime target-environment operator command is missing", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createReadinessFixture(root);
+      const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+      delete packageJson.scripts["target-env:runtime"];
+      await writeJson(join(root, "package.json"), packageJson);
+
+      const report = await evaluateReleaseReadiness({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "root_script_missing",
+            target: "target-env:runtime",
           }),
         ]),
       );
