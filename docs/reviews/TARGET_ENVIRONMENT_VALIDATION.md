@@ -161,6 +161,9 @@ bundle's provider-command bridge pending placeholder with a safe evidence refere
 When a bundle path is supplied to `target-env:check`, the bundle status, proof states, and component
 statuses must match this review file. This keeps the review document as the authoritative readiness
 state and blocks artifact/review drift.
+If a future bundle claims `PROVEN`, every evidence reference and component reference must be
+non-pending, and the smoke, load, alert/SLO dry-run, and runtime evidence artifact entries must all
+include `passed` summaries.
 
 Target-environment evidence must additionally record:
 

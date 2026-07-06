@@ -862,6 +862,39 @@ describe("target environment evidence gate", () => {
     }
   });
 
+  it("fails safe when a PROVEN evidence bundle still has pending refs or missing summaries", async () => {
+    const root = await createTempProject();
+
+    try {
+      await createTargetEnvironmentFixture(root, "PROVEN");
+      const bundle = validEvidenceBundleArtifact("PROVEN") as {
+        evidence: Record<string, string>;
+        artifacts: Record<string, Record<string, unknown>>;
+      };
+      bundle.evidence.providerCommandBridgeRef =
+        "operator-evidence-provider-command-bridge-pending";
+      delete bundle.artifacts.runtimeEvidence.summary;
+      await writeJson(join(root, "artifacts/target-env/evidence-bundle.json"), bundle);
+
+      const report = await evaluateTargetEnvironmentEvidence({
+        projectRoot: root,
+        checkedAtEpochMilliseconds: 1_800_000_000_000,
+        evidenceBundlePath: "artifacts/target-env/evidence-bundle.json",
+      });
+
+      expect(report.status).toBe("failed");
+      expect(report.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "target_environment_bundle_artifact_invalid_schema",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails safe when optional evidence bundle contains unsafe content", async () => {
     const root = await createTempProject();
 
@@ -1156,18 +1189,22 @@ function validEvidenceBundleArtifact(status: "NOT_PROVEN" | "PROVEN" = "NOT_PROV
       smoke: {
         artifactRef: "smoke-report-reviewed",
         status: "passed",
+        ...(proven ? { summary: validSmokeArtifact() } : {}),
       },
       load: {
         artifactRef: "load-report-reviewed",
         status: "passed",
+        ...(proven ? { summary: validLoadArtifact() } : {}),
       },
       alertSloDryRun: {
         artifactRef: "alert-slo-dry-run-reviewed",
         status: "passed",
+        ...(proven ? { summary: validAlertSloDryRunArtifact() } : {}),
       },
       runtimeEvidence: {
         artifactRef: "runtime-evidence-reviewed",
         status: "passed",
+        ...(proven ? { summary: validRuntimeEvidenceArtifact() } : {}),
       },
     },
     findings: [],

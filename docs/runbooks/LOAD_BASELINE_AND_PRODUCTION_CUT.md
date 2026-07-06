@@ -172,6 +172,10 @@ When validating a populated bundle with `OMNIWA_TARGET_ENV_EVIDENCE_BUNDLE_PATH`
 proof flags, and component statuses must match `docs/reviews/TARGET_ENVIRONMENT_VALIDATION.md`.
 Update both together during a target-environment review; do not let an external bundle claim a
 readiness state that the review document does not claim.
+If a future bundle claims `PROVEN`, every evidence reference and component evidence reference must
+be non-pending and every smoke, load, alert/SLO dry-run, and runtime evidence artifact entry must
+include a `passed` summary. A bundle with proof flags edited but placeholder evidence still present
+must remain invalid.
 
 It verifies:
 

@@ -994,8 +994,28 @@ function isValidProvenBundleClaim(artifact) {
     artifact.proofStates.targetEnvironmentProven === true &&
     artifact.proofStates.productionLoadProven === true &&
     artifact.proofStates.sloEvidenceProven === true &&
-    artifact.components.every((component) => component.status === "PASS")
+    artifact.components.every(
+      (component) => component.status === "PASS" && isCompleteEvidenceRef(component.evidenceRef),
+    ) &&
+    Object.values(artifact.evidence).every(isCompleteEvidenceRef) &&
+    isPassedBundleArtifact(artifact.artifacts.smoke) &&
+    isPassedBundleArtifact(artifact.artifacts.load) &&
+    isPassedBundleArtifact(artifact.artifacts.alertSloDryRun) &&
+    isPassedBundleArtifact(artifact.artifacts.runtimeEvidence)
   );
+}
+
+function isPassedBundleArtifact(value) {
+  return (
+    isRecord(value) &&
+    value.status === "passed" &&
+    value.summary !== undefined &&
+    isCompleteEvidenceRef(value.artifactRef)
+  );
+}
+
+function isCompleteEvidenceRef(value) {
+  return typeof value === "string" && value.length > 0 && !value.includes("pending");
 }
 
 function checkEvidenceBundleMatchesReview(artifact, reviewSnapshot, findings) {

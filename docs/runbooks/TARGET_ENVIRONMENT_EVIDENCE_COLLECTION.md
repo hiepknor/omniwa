@@ -122,6 +122,10 @@ Reviewers must keep these states aligned:
 - runtime component matrix statuses
 - evidence bundle proof states and component statuses
 
+For a future `PROVEN` bundle, every evidence reference and component evidence reference must be a
+non-pending safe identifier, and the smoke, load, alert/SLO dry-run, and runtime evidence artifact
+entries must all include `passed` summaries. Do not promote a bundle by editing only the proof flags.
+
 If any artifact remains failed, incomplete, unsafe, or unverifiable, keep the proof states as `NO`
 and do not claim production readiness.
 
