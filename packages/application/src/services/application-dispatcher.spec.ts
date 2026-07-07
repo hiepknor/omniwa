@@ -1,4 +1,5 @@
 import {
+  activateSession,
   classifyHealthy,
   createChat,
   createChatId,
@@ -11,6 +12,7 @@ import {
   createGroupMember,
   createJobId,
   createAttemptNumber,
+  createInstance,
   createInstanceId,
   createHealthStatus,
   createHealthStatusId,
@@ -29,6 +31,7 @@ import {
   deadLetterWebhookDelivery,
   queueWorkerJob,
   scheduleWebhookDelivery,
+  startSessionPairing,
   startWebhookDelivery,
   succeedWebhookDelivery,
   type DomainOwnerContext,
@@ -302,6 +305,95 @@ describe("application dispatcher", () => {
       resultRef: "inst:550e8400-e29b-41d4-a716-446655440000",
     });
     expect(domainEventPublisher.publishedNames()).toEqual(["InstanceDestroyed"]);
+  });
+
+  it("cleans up related sessions and pending jobs when destroying an instance", async () => {
+    const instanceRepository = new FakeInstanceRepository();
+    const sessionRepository = new FakeSessionRepository([
+      activateSession(
+        startSessionPairing(
+          createSession(createSessionId("sess:cleanup-active"), createInstanceId("inst:cleanup")),
+        ),
+      ),
+      createSession(createSessionId("sess:other"), createInstanceId("inst:other")),
+    ]);
+    const workerJobRepository = new FakeWorkerJobRepository([
+      queueWorkerJob(
+        createJobId("job:cleanup-outbound"),
+        "messaging",
+        "outbound_message",
+        retryPolicy,
+        {
+          jobKind: "outbound_message",
+          instanceId: "inst:cleanup",
+          messageId: "msg:cleanup",
+          outboundIntentRef: "outbound_intent:cleanup",
+        },
+      ),
+      queueWorkerJob(
+        createJobId("job:other-outbound"),
+        "messaging",
+        "outbound_message",
+        retryPolicy,
+        {
+          jobKind: "outbound_message",
+          instanceId: "inst:other",
+          messageId: "msg:other",
+          outboundIntentRef: "outbound_intent:other",
+        },
+      ),
+    ]);
+    const domainEventPublisher = new CapturingDomainEventPublisher();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository,
+        sessionRepository,
+        workerJobRepository,
+      },
+      clock: fixedClock,
+      domainEventPublisher,
+    });
+
+    await instanceRepository.save(createInstance(createInstanceId("inst:cleanup")));
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "DestroyInstance",
+        commandRef: "cmd-destroy-instance-cleanup",
+        requestContext,
+        actorRef: "api_key:admin",
+        targetRef: "inst:cleanup",
+      }),
+    );
+
+    expect(outcome).toMatchObject({
+      outcome: "accepted",
+      accepted: true,
+      resultRef: "inst:cleanup",
+    });
+    expect((await sessionRepository.load(createSessionId("sess:cleanup-active")))?.status).toBe(
+      "revoked",
+    );
+    expect(
+      (await sessionRepository.load(createSessionId("sess:cleanup-active")))?.requiresRecovery,
+    ).toBe(true);
+    expect((await sessionRepository.load(createSessionId("sess:other")))?.status).toBe("empty");
+    expect((await workerJobRepository.load(createJobId("job:cleanup-outbound")))?.status).toBe(
+      "dead",
+    );
+    expect(
+      (await workerJobRepository.load(createJobId("job:cleanup-outbound")))?.deadLetterReason,
+    ).toEqual({
+      code: "instance_destroyed",
+      category: "worker",
+    });
+    expect((await workerJobRepository.load(createJobId("job:other-outbound")))?.status).toBe(
+      "queued",
+    );
+    expect(domainEventPublisher.publishedNames()).toEqual([
+      "SessionRevoked",
+      "WorkerJobDead",
+      "InstanceDestroyed",
+    ]);
   });
 
   it("fails DestroyInstance safely when the target is missing", async () => {

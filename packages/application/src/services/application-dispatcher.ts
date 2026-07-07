@@ -12,7 +12,9 @@ import {
   type GroupRepositoryPort,
   createInstance,
   createInstanceDisplayName,
+  createDeadLetterReason,
   destroyInstance as destroyDomainInstance,
+  cleanupSession,
   createGroupId,
   createInstanceId,
   createMessageId,
@@ -22,11 +24,14 @@ import {
   type HealthStatusRepositoryPort,
   type Instance,
   type InstanceRepositoryPort,
+  type DomainEvent,
   createJobId,
   jobStatuses,
+  markWorkerJobDead,
   type Message,
   type MessageRepositoryPort,
   messageStatuses,
+  revokeSession,
   type Session,
   type SessionRepositoryPort,
   type WebhookDelivery,
@@ -357,6 +362,8 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     const destroyed = destroyDomainInstance(instance);
 
     await this.repositories.instanceRepository.save(destroyed);
+    await this.cleanupDestroyedInstanceSessions(destroyed.id, envelope);
+    await this.cleanupDestroyedInstanceWorkerJobs(destroyed.id, envelope);
 
     if (this.domainEventPublisher !== undefined) {
       const publishResult = await this.domainEventPublisher.publishNewEvents({
@@ -381,6 +388,100 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       retryable: false,
       resultRef: destroyed.id,
     });
+  }
+
+  private async cleanupDestroyedInstanceSessions(
+    instanceId: Instance["id"],
+    envelope: ApplicationCommandEnvelope,
+  ): Promise<void> {
+    const sessionRepository = this.repositories.sessionRepository;
+
+    if (sessionRepository === undefined) {
+      return;
+    }
+
+    const sessions = await sessionRepository.findByInstance(instanceId);
+
+    for (const session of sessions) {
+      const baseEventCount = session.domainEvents.length;
+      const cleaned =
+        session.status === "empty"
+          ? cleanupSession(session)
+          : session.status === "revoked" || session.status === "cleanup"
+            ? session
+            : revokeSession(session);
+
+      if (cleaned === session) {
+        continue;
+      }
+
+      await sessionRepository.save(cleaned);
+      await this.publishCleanupEvents(cleaned.domainEvents, baseEventCount, envelope, {
+        suffix: `session:${cleaned.id}`,
+      });
+    }
+  }
+
+  private async cleanupDestroyedInstanceWorkerJobs(
+    instanceId: Instance["id"],
+    envelope: ApplicationCommandEnvelope,
+  ): Promise<void> {
+    const workerJobRepository = this.repositories.workerJobRepository;
+
+    if (workerJobRepository === undefined) {
+      return;
+    }
+
+    const candidateJobs = await Promise.all(
+      (["queued", "reserved", "running", "retrying"] as const).map((status) =>
+        workerJobRepository.findByStatus(status),
+      ),
+    );
+    const jobsById = new Map<string, WorkerJob>();
+
+    for (const job of candidateJobs.flat()) {
+      if (job.safeMetadata?.instanceId === instanceId) {
+        jobsById.set(job.id, job);
+      }
+    }
+
+    for (const job of jobsById.values()) {
+      const baseEventCount = job.domainEvents.length;
+      const dead = markWorkerJobDead(
+        job,
+        createDeadLetterReason({
+          code: "instance_destroyed",
+          category: "worker",
+        }),
+      );
+
+      await workerJobRepository.save(dead);
+      await this.publishCleanupEvents(dead.domainEvents, baseEventCount, envelope, {
+        suffix: `worker-job:${dead.id}`,
+      });
+    }
+  }
+
+  private async publishCleanupEvents(
+    aggregateEvents: readonly DomainEvent[],
+    baseEventCount: number,
+    envelope: ApplicationCommandEnvelope,
+    options: Readonly<{ suffix: string }>,
+  ): Promise<void> {
+    if (this.domainEventPublisher === undefined) {
+      return;
+    }
+
+    const publishResult = await this.domainEventPublisher.publishNewEvents({
+      aggregateEvents,
+      baseEventCount,
+      executionRef: `${envelope.commandRef}:${options.suffix}`,
+      context: commandContext(envelope),
+    });
+
+    if (!publishResult.ok) {
+      throw new Error("instance cleanup event publication failed");
+    }
   }
 
   private createSendTextMessageHandler(): CommandHandler | undefined {
