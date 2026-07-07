@@ -149,7 +149,7 @@ describe("production Docker compose template check", () => {
   it("fails when the provider command bridge wiring is missing", async () => {
     const report = await runProductionComposeTemplateCheck({
       commandRunner: async () => ({
-        stdout: renderedProductionComposeConfig().replace(
+        stdout: renderedProductionComposeConfig().replaceAll(
           "      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: http://provider-runtime:3011/internal/provider-command/v1/commands\n",
           "",
         ),
@@ -269,6 +269,8 @@ function renderedProductionComposeConfig(): string {
     "      OMNIWA_API_RATE_LIMIT_BACKEND: redis",
     "      OMNIWA_API_RATE_LIMIT_REDIS_URL: redis://:replace-with-redis-secret@redis:6379/0",
     "      OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json",
+    "      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: http://provider-runtime:3011/internal/provider-command/v1/commands",
+    "      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: replace-with-provider-command-bridge-token",
     '      OMNIWA_POSTGRES_AUTO_MIGRATE: "false"',
     "  worker:",
     "    environment:",

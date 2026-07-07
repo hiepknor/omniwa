@@ -27,6 +27,8 @@ services:
       OMNIWA_API_METRICS_JSONL_PATH: /var/lib/omniwa/observability/api-metrics.jsonl
       OMNIWA_EVENT_LOG_BACKEND: postgresql
       OMNIWA_OUTBOUND_MESSAGE_INTENT_STORE_PATH: /var/lib/omniwa/outbound-message-intents.secret.json
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL: ${OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:-http://provider-runtime:3011/internal/provider-command/v1/commands}
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: ${OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN:?Set OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN from a protected secret source}
     ports:
       - "127.0.0.1:${OMNIWA_API_PUBLIC_PORT:-3000}:3000"
     volumes:

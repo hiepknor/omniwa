@@ -36,6 +36,7 @@ import type { ProviderRuntimeApp, ProviderRuntimeAppResult } from "./provider-ru
 import type {
   ProviderRuntimeSupervisorSessionSnapshot,
   ProviderRuntimeSupervisorStartInput,
+  ProviderRuntimeSupervisorStopInput,
 } from "./provider-runtime-supervisor.js";
 
 const instanceId = createInstanceId("bridge-receiver-instance");
@@ -96,6 +97,37 @@ describe("ProviderRuntimeCommandReceiver", () => {
         instanceId,
         providerId,
         reasonCode: "receiver.connect",
+        sessionId,
+      },
+    ]);
+    expect(app.actions).toEqual([]);
+  });
+
+  it("stops the provider session through the supervisor for disconnect intent", async () => {
+    const app = new RecordingProviderRuntimeApp();
+    const supervisor = new RecordingSessionStarter();
+    const receiver = new ProviderRuntimeCommandReceiver({
+      app,
+      provider: new RecordingMessagingProvider(),
+      supervisor,
+    });
+
+    const result = await receiver.execute(disconnectCommand(), context);
+
+    expect(result.ok ? result.value : undefined).toEqual({
+      kind: "disconnect",
+      result: {
+        instanceId,
+        providerId,
+        providerSignalRef: "signal.disconnected.safe-ref",
+        state: "disconnected",
+      },
+    });
+    expect(supervisor.stopInputs).toEqual([
+      {
+        instanceId,
+        providerId,
+        reasonCode: "receiver.disconnect",
         sessionId,
       },
     ]);
@@ -436,6 +468,7 @@ class RecordingMessagingProvider implements MessagingProviderPort {
 
 class RecordingSessionStarter implements ProviderRuntimeSessionStarter {
   readonly startInputs: ProviderRuntimeSupervisorStartInput[] = [];
+  readonly stopInputs: ProviderRuntimeSupervisorStopInput[] = [];
   private readonly failWithCode: string | undefined;
 
   constructor(options: Readonly<{ failWithCode?: string }> = {}) {
@@ -471,6 +504,39 @@ class RecordingSessionStarter implements ProviderRuntimeSessionStarter {
         sessionId: input.sessionId,
         state: "PAIRING",
         transitions: ["CREATED", "STARTING", "PAIRING"],
+      }),
+    );
+  }
+
+  stopSession(
+    input: ProviderRuntimeSupervisorStopInput,
+    stopContext: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<ProviderRuntimeSupervisorSessionSnapshot>> {
+    void stopContext;
+    this.stopInputs.push(input);
+
+    if (this.failWithCode !== undefined) {
+      return Promise.resolve(
+        err(
+          createApplicationPortFailure({
+            category: "conflict",
+            code: this.failWithCode,
+            message: "Supervisor session stop failed.",
+            retryable: true,
+          }),
+        ),
+      );
+    }
+
+    return Promise.resolve(
+      ok({
+        instanceId: input.instanceId,
+        lastSignalRef: "signal.disconnected.safe-ref",
+        ownerRef: "receiver-test",
+        providerId: input.providerId,
+        sessionId: input.sessionId,
+        state: "DESTROYED",
+        transitions: ["CREATED", "STARTING", "CONNECTED", "DESTROYED"],
       }),
     );
   }

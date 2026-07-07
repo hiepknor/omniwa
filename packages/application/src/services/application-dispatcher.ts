@@ -18,6 +18,7 @@ import {
   createGroupId,
   createInstanceId,
   createMessageId,
+  createProviderId,
   createWebhookDeliveryId,
   createWebhookId,
   type GuardrailDecisionRepositoryPort,
@@ -31,6 +32,7 @@ import {
   type Message,
   type MessageRepositoryPort,
   messageStatuses,
+  type ProviderId,
   revokeSession,
   type Session,
   type SessionRepositoryPort,
@@ -43,7 +45,7 @@ import {
   type WorkerJob,
   type WorkerJobRepositoryPort,
 } from "@omniwa/domain";
-import { cryptoUUIDGenerator, systemClock, type Clock, type UUIDGenerator } from "@omniwa/shared";
+import { cryptoUUIDGenerator, ok, systemClock, type Clock, type UUIDGenerator } from "@omniwa/shared";
 
 import {
   type ApplicationCommandEnvelope,
@@ -63,6 +65,7 @@ import type {
   EventLogReplayPort,
   PlatformEventRecord,
 } from "../ports/event-log.js";
+import type { ApplicationPortResult } from "../ports/application-port.js";
 import type { GroupMutationIntentStorePort } from "../ports/group-mutation-intent-store.js";
 import type {
   CommandHandler,
@@ -101,6 +104,7 @@ const groupMutationCommands: readonly GroupMutationCommandName[] = Object.freeze
   "PromoteGroupMember",
   "DemoteGroupMember",
 ]);
+const defaultProviderId = createProviderId("baileys");
 
 export type ApplicationDispatcherRepositories = Readonly<{
   instanceRepository: InstanceRepositoryPort;
@@ -156,6 +160,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private readonly guardrailService: MinimalMessageGuardrailService | undefined;
   private readonly queueProvider: QueueProviderPort | undefined;
   private readonly messagingProvider: MessagingProviderPort | undefined;
+  private readonly providerId: ProviderId;
   private readonly domainEventPublisher: DomainEventPublisher | undefined;
   private readonly eventLog: EventLogReplayPort | AsyncEventLogReplayPort | undefined;
   private readonly commandHandlers: CommandHandlerRegistry;
@@ -173,6 +178,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     this.guardrailService = options.guardrailService;
     this.queueProvider = options.queueProvider;
     this.messagingProvider = options.messagingProvider;
+    this.providerId = defaultProviderId;
     this.domainEventPublisher = options.domainEventPublisher;
     this.eventLog = options.eventLog;
     this.commandHandlers = this.buildCommandHandlers();
@@ -361,9 +367,26 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     const baseEventCount = instance.domainEvents.length;
     const destroyed = destroyDomainInstance(instance);
 
+    const relatedSessions = await this.findDestroyedInstanceSessions(destroyed.id);
+
     await this.repositories.instanceRepository.save(destroyed);
-    await this.cleanupDestroyedInstanceSessions(destroyed.id, envelope);
+    await this.cleanupDestroyedInstanceSessions(relatedSessions, envelope);
     await this.cleanupDestroyedInstanceWorkerJobs(destroyed.id, envelope);
+
+    const providerDisconnectResult = await this.disconnectDestroyedInstanceProviderSessions(
+      destroyed.id,
+      relatedSessions,
+      envelope,
+    );
+
+    if (!providerDisconnectResult.ok) {
+      return commandOutcome(envelope, "failed", {
+        accepted: true,
+        retryable: providerDisconnectResult.error.retryable,
+        reasonCode: providerDisconnectResult.error.code,
+        resultRef: destroyed.id,
+      });
+    }
 
     if (this.domainEventPublisher !== undefined) {
       const publishResult = await this.domainEventPublisher.publishNewEvents({
@@ -391,7 +414,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   }
 
   private async cleanupDestroyedInstanceSessions(
-    instanceId: Instance["id"],
+    sessions: readonly Session[],
     envelope: ApplicationCommandEnvelope,
   ): Promise<void> {
     const sessionRepository = this.repositories.sessionRepository;
@@ -399,8 +422,6 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
     if (sessionRepository === undefined) {
       return;
     }
-
-    const sessions = await sessionRepository.findByInstance(instanceId);
 
     for (const session of sessions) {
       const baseEventCount = session.domainEvents.length;
@@ -420,6 +441,49 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
         suffix: `session:${cleaned.id}`,
       });
     }
+  }
+
+  private async findDestroyedInstanceSessions(instanceId: Instance["id"]): Promise<readonly Session[]> {
+    const sessionRepository = this.repositories.sessionRepository;
+
+    if (sessionRepository === undefined) {
+      return Object.freeze([]);
+    }
+
+    return sessionRepository.findByInstance(instanceId);
+  }
+
+  private async disconnectDestroyedInstanceProviderSessions(
+    instanceId: Instance["id"],
+    sessions: readonly Session[],
+    envelope: ApplicationCommandEnvelope,
+  ): Promise<ApplicationPortResult<void>> {
+    if (this.messagingProvider === undefined) {
+      return ok(undefined);
+    }
+
+    for (const session of sessions) {
+      if (!shouldDisconnectProviderSession(session)) {
+        continue;
+      }
+
+      const result = await this.messagingProvider.disconnect(
+        {
+          instanceId,
+          providerId: this.providerId,
+          sessionId: session.id,
+          intent: "disconnect",
+          reasonCode: "instance_destroyed",
+        },
+        commandContext(envelope),
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+    }
+
+    return ok(undefined);
   }
 
   private async cleanupDestroyedInstanceWorkerJobs(
@@ -1524,6 +1588,10 @@ function webhookDeliveryQueryItem(delivery: WebhookDelivery): Readonly<{
     ...optional("failureCategory", delivery.failureCategory),
     ...optional("reasonCode", delivery.deadLetterReason?.code),
   });
+}
+
+function shouldDisconnectProviderSession(session: Session): boolean {
+  return ["active", "expired", "pending"].includes(session.status);
 }
 
 function optional<TKey extends string, TValue>(

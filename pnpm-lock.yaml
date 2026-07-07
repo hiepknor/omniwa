@@ -44,6 +44,9 @@ importers:
       '@omniwa/infrastructure-persistence':
         specifier: workspace:*
         version: link:../../packages/infrastructure-persistence
+      '@omniwa/infrastructure-provider-bridge':
+        specifier: workspace:*
+        version: link:../../packages/infrastructure-provider-bridge
       '@omniwa/infrastructure-queue':
         specifier: workspace:*
         version: link:../../packages/infrastructure-queue

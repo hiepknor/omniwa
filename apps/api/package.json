@@ -18,6 +18,7 @@
     "@omniwa/config": "workspace:*",
     "@omniwa/infrastructure-observability": "workspace:*",
     "@omniwa/infrastructure-persistence": "workspace:*",
+    "@omniwa/infrastructure-provider-bridge": "workspace:*",
     "@omniwa/infrastructure-queue": "workspace:*",
     "@omniwa/infrastructure-secrets": "workspace:*",
     "@omniwa/interface-api": "workspace:*",

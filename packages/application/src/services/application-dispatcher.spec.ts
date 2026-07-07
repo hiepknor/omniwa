@@ -21,6 +21,7 @@ import {
   createMessageId,
   createOutboundMessageIntent,
   createPhoneNumber,
+  createProviderId,
   createRetryPolicy,
   createSession,
   createSessionId,
@@ -94,6 +95,16 @@ import { describe, expect, it } from "vitest";
 
 import { createApplicationCommandEnvelope } from "../commands/command-model.js";
 import type { ApplicationPortContext, ApplicationPortResult } from "../ports/application-port.js";
+import type {
+  MessagingProviderPort,
+  ProviderCapabilitySummary,
+  ProviderConnectionRequest,
+  ProviderConnectionResult,
+  ProviderOutboundMessageRequest,
+  ProviderOutboundMessageResult,
+  ProviderQrPairingChallenge,
+  ProviderQrPairingRequest,
+} from "../ports/messaging-provider.js";
 import {
   createWebhookDeliveryOperationIntentRef,
   type StoredWebhookDeliveryOperationIntent,
@@ -344,6 +355,7 @@ describe("application dispatcher", () => {
       ),
     ]);
     const domainEventPublisher = new CapturingDomainEventPublisher();
+    const messagingProvider = new FakeDisconnectingMessagingProvider();
     const dispatcher = createApplicationDispatcher({
       repositories: {
         instanceRepository,
@@ -352,6 +364,7 @@ describe("application dispatcher", () => {
       },
       clock: fixedClock,
       domainEventPublisher,
+      messagingProvider,
     });
 
     await instanceRepository.save(createInstance(createInstanceId("inst:cleanup")));
@@ -389,6 +402,15 @@ describe("application dispatcher", () => {
     expect((await workerJobRepository.load(createJobId("job:other-outbound")))?.status).toBe(
       "queued",
     );
+    expect(messagingProvider.disconnectRequests).toEqual([
+      {
+        instanceId: "inst:cleanup",
+        intent: "disconnect",
+        providerId: "baileys",
+        reasonCode: "instance_destroyed",
+        sessionId: "sess:cleanup-active",
+      },
+    ]);
     expect(domainEventPublisher.publishedNames()).toEqual([
       "SessionRevoked",
       "WorkerJobDead",
@@ -2537,6 +2559,71 @@ class FakeWorkerJobRepository implements WorkerJobRepositoryPort {
 
   private list(): readonly WorkerJob[] {
     return Object.freeze([...this.records.values()]);
+  }
+}
+
+class FakeDisconnectingMessagingProvider implements MessagingProviderPort {
+  readonly disconnectRequests: ProviderConnectionRequest[] = [];
+
+  requestConnection(
+    request: ProviderConnectionRequest,
+  ): Promise<ApplicationPortResult<ProviderConnectionResult>> {
+    return Promise.resolve(
+      ok({
+        instanceId: request.instanceId,
+        providerId: request.providerId,
+        state: "connected",
+      }),
+    );
+  }
+
+  requestQrPairing(
+    request: ProviderQrPairingRequest,
+  ): Promise<ApplicationPortResult<ProviderQrPairingChallenge>> {
+    return Promise.resolve(
+      ok({
+        challengeRef: "challenge.safe-ref",
+        dataClassification: "secret",
+        instanceId: request.instanceId,
+        sessionId: request.sessionId,
+      }),
+    );
+  }
+
+  disconnect(
+    request: ProviderConnectionRequest,
+  ): Promise<ApplicationPortResult<ProviderConnectionResult>> {
+    this.disconnectRequests.push(request);
+
+    return Promise.resolve(
+      ok({
+        instanceId: request.instanceId,
+        providerId: request.providerId,
+        state: "disconnected",
+      }),
+    );
+  }
+
+  sendOutboundMessage(
+    request: ProviderOutboundMessageRequest,
+  ): Promise<ApplicationPortResult<ProviderOutboundMessageResult>> {
+    return Promise.resolve(
+      ok({
+        messageId: request.messageId,
+        retryable: false,
+        status: "accepted",
+      }),
+    );
+  }
+
+  getCapabilitySummary(): Promise<ApplicationPortResult<ProviderCapabilitySummary>> {
+    return Promise.resolve(
+      ok({
+        degraded: false,
+        providerId: createProviderId("baileys"),
+        supportedMessageTypes: ["text"],
+      }),
+    );
   }
 }
 

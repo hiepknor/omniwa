@@ -20,12 +20,17 @@ import type { ProviderRuntimeFailure, ProviderRuntimeLifecycleState } from "./pr
 import type {
   ProviderRuntimeSupervisorSessionSnapshot,
   ProviderRuntimeSupervisorStartInput,
+  ProviderRuntimeSupervisorStopInput,
   ProviderRuntimeSupervisorState,
 } from "./provider-runtime-supervisor.js";
 
 export type ProviderRuntimeSessionStarter = Readonly<{
   startSession(
     input: ProviderRuntimeSupervisorStartInput,
+    context: ApplicationPortContext,
+  ): Promise<ApplicationPortResult<ProviderRuntimeSupervisorSessionSnapshot>>;
+  stopSession?(
+    input: ProviderRuntimeSupervisorStopInput,
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<ProviderRuntimeSupervisorSessionSnapshot>>;
 }>;
@@ -184,6 +189,31 @@ export class ProviderRuntimeCommandReceiver implements ProviderCommandTransport 
     command: Extract<ProviderCommand, { kind: "disconnect" }>,
     context: ApplicationPortContext,
   ): Promise<ApplicationPortResult<ProviderCommandOutcome>> {
+    if (this.#supervisor?.stopSession !== undefined && command.request.sessionId !== undefined) {
+      const stopped = await this.#supervisor.stopSession(
+        {
+          instanceId: command.request.instanceId,
+          providerId: command.request.providerId,
+          reasonCode: command.request.reasonCode,
+          sessionId: command.request.sessionId,
+        },
+        context,
+      );
+
+      if (stopped.ok) {
+        return ok({
+          kind: "disconnect",
+          result: connectionResultFromSupervisorSnapshot(command.request, stopped.value),
+        });
+      }
+
+      if (stopped.error.code !== "provider_runtime_supervisor_session_missing") {
+        return err(stopped.error);
+      }
+      // The long-lived supervisor does not own this session, so retain the
+      // legacy runtime path for idempotent disconnect behavior.
+    }
+
     const result = await this.#app.runOnce(
       {
         action: "disconnect",

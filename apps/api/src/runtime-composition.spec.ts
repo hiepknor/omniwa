@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { SecretValue, type SecretDescriptor, type SecretProvider } from "@omniwa/config";
 import type { ApiCredential } from "@omniwa/interface-api";
 import { DurableJsonOutboundMessageIntentStore } from "@omniwa/infrastructure-persistence";
+import { InMemoryProviderCommandTransport } from "@omniwa/infrastructure-provider-bridge";
 import type { MetricPoint, MetricRecorder } from "@omniwa/observability";
 import { createCorrelationId, createRequestContext, createRequestId, ok } from "@omniwa/shared";
 import { afterEach, describe, expect, it } from "vitest";
@@ -105,6 +106,34 @@ describe("API runtime composition", () => {
 
     expect(composition.queueProfile).toBe("durable-worker-job");
     expect(composition.options.dispatcher).toBeDefined();
+  });
+
+  it("wires an injected provider command bridge into the API runtime dispatcher", () => {
+    const providerCommandTransport = new InMemoryProviderCommandTransport();
+    const composition = createApiRuntimeComposition(
+      {
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_RUNTIME_PROFILE: "local",
+      },
+      { providerCommandTransport },
+    );
+
+    expect(composition.providerCommandTransport).toBe(providerCommandTransport);
+    expect(composition.options.dispatcher).toBeDefined();
+  });
+
+  it("wires provider command bridge transport from env without exposing the bridge token", () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_URL:
+        "http://provider-runtime:3011/internal/provider-command/v1/commands",
+      OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN: "private-provider-bridge-token",
+    });
+
+    expect(composition.providerCommandTransport).toBeDefined();
+    expect(composition.options.dispatcher).toBeDefined();
+    expect(JSON.stringify(composition)).not.toContain("private-provider-bridge-token");
   });
 
   it("composes local runtime from a hashed API key without keeping plaintext config", () => {

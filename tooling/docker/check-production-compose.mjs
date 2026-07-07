@@ -126,7 +126,7 @@ export async function runProductionComposeTemplateCheck(options = {}) {
       "OMNIWA_PROVIDER_COMMAND_BRIDGE_URL",
       /^http:\/\/provider-runtime:3011\/internal\/provider-command\/v1\/commands$/u,
     );
-    assertRenderedAssignmentCount(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN", 2);
+    assertRenderedAssignmentCount(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN", 3);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN", /.+/u);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HTTP", ["true"]);
     assertRenderedAssignment(renderedConfig, "OMNIWA_PROVIDER_COMMAND_BRIDGE_HOST", ["0.0.0.0"]);

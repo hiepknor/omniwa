@@ -35,6 +35,11 @@ import {
 } from "@omniwa/infrastructure-persistence";
 import { JsonLineFileSink, JsonLineMetricRecorder } from "@omniwa/infrastructure-observability";
 import { DurableWorkerJobQueueProvider, InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
+import {
+  FetchProviderCommandTransport,
+  ProviderCommandMessagingProviderAdapter,
+  type ProviderCommandTransport,
+} from "@omniwa/infrastructure-provider-bridge";
 import type { MetricRecorder } from "@omniwa/observability";
 
 import {
@@ -90,12 +95,14 @@ export type ApiRuntimeComposition = Readonly<{
   repositoryProfile: ApiRepositoryProfile;
   queueProfile: ApiQueueProfile;
   eventLogBackend: ApiEventLogBackend;
+  providerCommandTransport?: ProviderCommandTransport;
   options: ApiHttpServerOptions;
 }>;
 
 export type ApiRuntimeCompositionAdapterOptions = Readonly<{
   redisRateLimitScriptClient?: RedisRateLimitScriptClient;
   metricRecorder?: MetricRecorder;
+  providerCommandTransport?: ProviderCommandTransport;
 }>;
 
 export type ApiRuntimeSecretCompositionOptions = Readonly<{
@@ -185,6 +192,12 @@ export function createApiRuntimeComposition(
     queueProfile,
     workerJobRepository: repositories.workerJobRepository,
   });
+  const providerCommandTransport =
+    adapters.providerCommandTransport ?? createRuntimeProviderCommandTransport(env);
+  const messagingProvider =
+    providerCommandTransport === undefined
+      ? undefined
+      : new ProviderCommandMessagingProviderAdapter({ transport: providerCommandTransport });
   const domainEventPublisher = createDomainEventPublisher({
     eventLog,
     nowIso: () => new Date().toISOString(),
@@ -207,6 +220,7 @@ export function createApiRuntimeComposition(
     groupMutationIntentStore,
     webhookDeliveryOperationIntentStore,
     queueProvider,
+    ...optional("messagingProvider", messagingProvider),
     domainEventPublisher,
     eventLog,
   });
@@ -216,6 +230,7 @@ export function createApiRuntimeComposition(
     repositoryProfile,
     queueProfile,
     eventLogBackend,
+    ...optional("providerCommandTransport", providerCommandTransport),
     options: Object.freeze({
       dispatcher,
       outboundMessageIntentStore,
@@ -504,6 +519,30 @@ function createRuntimeQueueProvider(input: {
 
   return new InMemoryQueueProvider({
     workerJobRepository: input.workerJobRepository,
+  });
+}
+
+function createRuntimeProviderCommandTransport(
+  env: NodeJS.ProcessEnv,
+): ProviderCommandTransport | undefined {
+  const endpointUrl =
+    readOptionalStringEnv(env, "OMNIWA_API_PROVIDER_COMMAND_BRIDGE_URL") ??
+    readOptionalStringEnv(env, "OMNIWA_PROVIDER_COMMAND_BRIDGE_URL");
+  const bridgeToken =
+    readOptionalStringEnv(env, "OMNIWA_API_PROVIDER_COMMAND_BRIDGE_TOKEN") ??
+    readOptionalStringEnv(env, "OMNIWA_PROVIDER_COMMAND_BRIDGE_TOKEN");
+
+  if (endpointUrl === undefined || bridgeToken === undefined) {
+    return undefined;
+  }
+
+  return new FetchProviderCommandTransport({
+    endpointUrl,
+    bridgeToken,
+    timeoutMilliseconds:
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_API_PROVIDER_COMMAND_BRIDGE_TIMEOUT_MS") ??
+      readOptionalPositiveIntegerEnv(env, "OMNIWA_PROVIDER_COMMAND_BRIDGE_TIMEOUT_MS") ??
+      5_000,
   });
 }
 
