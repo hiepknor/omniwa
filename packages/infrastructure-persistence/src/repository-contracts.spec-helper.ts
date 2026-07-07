@@ -36,6 +36,7 @@ import {
   createWebhookId,
   createWebhookSubscriptionAggregate,
   createWebhookUrl,
+  destroyInstance,
   expireAuditRetention,
   queueMessage,
   validateWebhookSubscription,
@@ -104,16 +105,22 @@ export function describeInstanceRepositoryContract(
         ),
         createSessionId(`${safeFactoryName(factory.name)}-session-connected`),
       );
+      const destroyed = destroyInstance(
+        createInstance(createInstanceId(`${safeFactoryName(factory.name)}-instance-destroyed`)),
+      );
 
       await repository.save(created);
       await repository.save(connected);
+      await repository.save(destroyed);
 
       await expect(repository.findByStatus("created")).resolves.toEqual([created]);
       await expect(repository.findByStatus("connected")).resolves.toEqual([connected]);
+      await expect(repository.findByStatus("destroyed")).resolves.toEqual([destroyed]);
       const nonTerminal = await repository.findNonTerminal();
 
       expect(nonTerminal).toHaveLength(2);
       expect(nonTerminal).toEqual(expect.arrayContaining([created, connected]));
+      expect(nonTerminal).not.toEqual(expect.arrayContaining([destroyed]));
     });
 
     it("returns the current SessionId owned by the Instance aggregate", async () => {

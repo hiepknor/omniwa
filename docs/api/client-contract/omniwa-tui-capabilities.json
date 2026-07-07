@@ -264,9 +264,10 @@
       "status": "implemented_public",
       "authRequired": true,
       "dto": "OperationData",
+      "requiredScope": "instances:destroy",
       "idempotencyRequired": true,
       "responseEnvelope": "SuccessEnvelope",
-      "notes": "Returns operationStatus=accepted. TUI should remove the item from active lists after success and may keep detail views able to show status=destroyed. Provider disconnect is attempted through the provider-runtime bridge when configured; raw provider/session payloads are not exposed."
+      "notes": "Requires an admin_key with instances:destroy or admin:*. Returns operationStatus=accepted. TUI should remove the item from active lists after success and may keep detail views able to show status=destroyed. Provider disconnect is attempted through the provider-runtime bridge when configured; raw provider/session payloads are not exposed."
     },
     {
       "feature": "sessions",

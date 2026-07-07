@@ -20,6 +20,7 @@ services:
       OMNIWA_API_KEY: ${OMNIWA_API_KEY:-local-dev-secret-change-me}
       OMNIWA_API_KEY_ID: ${OMNIWA_API_KEY_ID:-local-dev-key}
       OMNIWA_API_KEY_KIND: ${OMNIWA_API_KEY_KIND:-admin_key}
+      OMNIWA_API_KEY_SCOPES: ${OMNIWA_API_KEY_SCOPES:-instances:read,instances:write,instances:connect,instances:destroy,messages:send,messages:read,messages:retry,messages:cancel,media:write,media:read,chats:read,contacts:read,labels:read,groups:read,groups:write,groups:message,groups:admin,webhooks:write,webhooks:read,webhooks:retry,webhooks:redrive,health:read,events:read}
       OMNIWA_EVENT_LOG_PATH: /var/lib/omniwa/event-log.json
     ports:
       - "${OMNIWA_API_PUBLIC_PORT:-3000}:3000"

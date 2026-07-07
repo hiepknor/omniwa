@@ -28,6 +28,7 @@ exists there.
 | Base path             | `/v1`                        |
 | API key header        | `x-api-key`                  |
 | Local API key         | `local-dev-secret-change-me` |
+| Local delete scope    | `instances:destroy`          |
 | Request id header     | `x-request-id`               |
 | Correlation id header | `x-correlation-id`           |
 | Trace id header       | `x-trace-id`                 |
@@ -117,6 +118,7 @@ an admin profile.
 | Instances | `GET /v1/instances`                          | `implemented_public` | Instance list screen with empty/loading/error support.                                                                                          |
 | Instances | `GET /v1/instances/{id}`                     | `implemented_public` | Instance detail/status panel after selecting a list item.                                                                                       |
 | Instances | `POST /v1/instances`                         | `implemented_public` | Optional create-instance action; requires `idempotency-key`.                                                                                    |
+| Instances | `DELETE /v1/instances/{id}`                  | `implemented_public` | Admin/elevated destroy action; requires `instances:destroy` or `admin:*` and `idempotency-key`.                                                 |
 | Sessions  | `GET /v1/instances/{id}/sessions`            | `implemented_public` | Instance-scoped sessions screen. Top-level `/v1/sessions` remains unavailable.                                                                  |
 | Events    | `GET /v1/events`                             | `implemented_public` | Event history screen backed by EventLog replay; payload is redacted from DTOs.                                                                  |
 | Realtime  | `GET /v1/events/stream`                      | `implemented_public` | SSE connection status and heartbeat support.                                                                                                    |
@@ -289,7 +291,9 @@ member actions is still outside the current scope. Group metadata and local-stat
 Instance deletion returns `operationStatus: "accepted"` and tombstones the instance. TUI clients
 should remove it from active list views after success, may keep detail views able to render
 `status: "destroyed"`, and must treat provider-runtime disconnect as best-effort through the backend
-bridge rather than as a raw provider operation.
+bridge rather than as a raw provider operation. The action requires an `admin_key` with
+`instances:destroy` or `admin:*`; clients should disable the destructive action when that capability is
+absent.
 
 Negative-state checks:
 

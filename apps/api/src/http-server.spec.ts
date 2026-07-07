@@ -49,6 +49,9 @@ import {
 import {
   createInMemoryEventLogStore,
   createInMemoryRepositorySet,
+  createPostgresqlConnectionPool,
+  createPostgresqlRepositorySet,
+  runPostgresqlSqlMigrations,
 } from "@omniwa/infrastructure-persistence";
 import { InMemoryQueueProvider } from "@omniwa/infrastructure-queue";
 import type { ApiCredential, ApplicationInterfaceDispatcher } from "@omniwa/interface-api";
@@ -131,6 +134,7 @@ const adminApiKey: ApiKeyConfig = {
 };
 
 const apiKeys = [apiKey, monitoringApiKey, adminApiKey] as const;
+const postgresqlTestDatabaseUrl = process.env.OMNIWA_POSTGRES_TEST_DATABASE_URL?.trim();
 
 describe("API HTTP transport", () => {
   it("serves health through the interface adapter", async () => {
@@ -1021,6 +1025,129 @@ describe("API HTTP transport", () => {
     ]);
     expect(JSON.stringify(deleteResponse.body)).not.toContain("domainEvents");
   });
+
+  if (postgresqlTestDatabaseUrl === undefined || postgresqlTestDatabaseUrl.length === 0) {
+    it.skip("destroys instances through PostgreSQL-backed runtime repositories", () => {
+      expect(true).toBe(true);
+    });
+  } else {
+    it("destroys instances through PostgreSQL-backed runtime repositories", async () => {
+      const connection = createPostgresqlConnectionPool(postgresqlTestDatabaseUrl);
+
+      try {
+        await runPostgresqlSqlMigrations(connection);
+        await connection.query(
+          "TRUNCATE TABLE omniwa_event_outbox, omniwa_event_log, omniwa_media_assets, omniwa_labels, omniwa_audit_records, omniwa_health_statuses, omniwa_guardrail_decisions, omniwa_groups, omniwa_contacts, omniwa_chats, omniwa_worker_jobs, omniwa_webhook_deliveries, omniwa_webhook_subscriptions, omniwa_messages, omniwa_sessions, omniwa_instances RESTART IDENTITY",
+        );
+
+        const repositories = createPostgresqlRepositorySet(connection);
+        const dispatcher = createApplicationDispatcher({
+          repositories: {
+            instanceRepository: repositories.instanceRepository,
+            sessionRepository: repositories.sessionRepository,
+            workerJobRepository: repositories.workerJobRepository,
+          },
+        });
+        const createResponse = await handleApiHttpRequest(
+          {
+            method: "POST",
+            url: "/v1/instances",
+            headers: {
+              "x-api-key": "admin-secret",
+              "x-request-id": "pg-create-instance-for-destroy",
+              "x-correlation-id": "pg-destroy-correlation",
+              "idempotency-key": "pg-create-instance-for-destroy",
+            },
+            body: {
+              displayName: "PostgreSQL Destroy Candidate",
+            },
+          },
+          {
+            dispatcher,
+            apiKeys,
+            now: fixedNow,
+            requestRefGenerator: () => "pg-create-instance-for-destroy",
+          },
+        );
+        const instanceId = safeResponseString(createResponse, "resultRef");
+        const deleteResponse = await handleApiHttpRequest(
+          {
+            method: "DELETE",
+            url: `/v1/instances/${encodeURIComponent(instanceId)}`,
+            headers: {
+              "x-api-key": "admin-secret",
+              "x-request-id": "pg-destroy-instance",
+              "x-correlation-id": "pg-destroy-correlation",
+              "idempotency-key": "pg-destroy-instance",
+            },
+          },
+          {
+            dispatcher,
+            apiKeys,
+            now: fixedNow,
+            requestRefGenerator: () => "pg-destroy-instance",
+          },
+        );
+        const listResponse = await handleApiHttpRequest(
+          {
+            method: "GET",
+            url: "/v1/instances",
+            headers: {
+              "x-api-key": "admin-secret",
+              "x-request-id": "pg-list-after-destroy",
+              "x-correlation-id": "pg-destroy-correlation",
+            },
+          },
+          {
+            dispatcher,
+            apiKeys,
+            now: fixedNow,
+            requestRefGenerator: () => "pg-list-after-destroy",
+          },
+        );
+        const detailResponse = await handleApiHttpRequest(
+          {
+            method: "GET",
+            url: `/v1/instances/${encodeURIComponent(instanceId)}`,
+            headers: {
+              "x-api-key": "admin-secret",
+              "x-request-id": "pg-detail-after-destroy",
+              "x-correlation-id": "pg-destroy-correlation",
+            },
+          },
+          {
+            dispatcher,
+            apiKeys,
+            now: fixedNow,
+            requestRefGenerator: () => "pg-detail-after-destroy",
+          },
+        );
+
+        expect(createResponse.statusCode).toBe(200);
+        expect(deleteResponse.statusCode).toBe(202);
+        expect("data" in deleteResponse.body ? deleteResponse.body.data : undefined).toMatchObject({
+          resourceType: "instance",
+          resourceId: instanceId,
+          operationStatus: "accepted",
+          accepted: true,
+          retryable: false,
+          resultRef: instanceId,
+        });
+        expect(listResponse.statusCode).toBe(200);
+        expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([]);
+        expect(detailResponse.statusCode).toBe(200);
+        expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+          resourceType: "instance",
+          id: instanceId,
+          status: "destroyed",
+          displayName: "PostgreSQL Destroy Candidate",
+        });
+        expect(JSON.stringify(deleteResponse.body)).not.toContain("domainEvents");
+      } finally {
+        await connection.end?.();
+      }
+    });
+  }
 
   it("materializes instance detail from the real Application query into public resource data", async () => {
     const repositories = createInMemoryRepositorySet();

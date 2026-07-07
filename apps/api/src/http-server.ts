@@ -3095,6 +3095,7 @@ function parseScopes(value: string | undefined): readonly ApiScope[] {
       "instances:read",
       "instances:write",
       "instances:connect",
+      "instances:destroy",
       "messages:send",
       "messages:read",
       "messages:retry",

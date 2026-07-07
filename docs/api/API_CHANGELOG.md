@@ -56,7 +56,9 @@ Client impact:
   admin-scoped clients. It returns `operationStatus: "accepted"`, tombstones the
   instance, hides it from active instance lists, cleans up related local
   sessions/jobs, and attempts provider-runtime disconnect through the provider
-  command bridge when configured. Public DTOs do not expose provider payloads,
+  command bridge when configured. It requires `instances:destroy` or `admin:*`,
+  and local default API-key scopes now include `instances:destroy` for the
+  disposable development key. Public DTOs do not expose provider payloads,
   session secrets, or domain events.
 - Adds a required dead-letter delivery list fixture for
   `GET /v1/webhook-deliveries?status=dead_letter`, so operator clients can

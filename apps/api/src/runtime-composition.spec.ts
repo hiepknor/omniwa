@@ -19,7 +19,7 @@ import {
   readRuntimeProfile,
 } from "./runtime-composition.js";
 import { hashApiKey } from "./api-key-auth.js";
-import { handleApiHttpRequest } from "./http-server.js";
+import { handleApiHttpRequest, readApiKeysFromEnv, type ApiHttpResponse } from "./http-server.js";
 import { ApiKeyLifecycleService, DurableJsonApiKeyLifecycleStore } from "./api-key-lifecycle.js";
 import {
   DomainAuditRecordApiSecurityAuditSink,
@@ -72,6 +72,102 @@ describe("API runtime composition", () => {
         accepted: true,
       }),
     );
+  });
+
+  it("grants local admin env keys the destroy scope by default", () => {
+    expect(
+      readApiKeysFromEnv({
+        OMNIWA_API_KEY: "local-secret",
+        OMNIWA_API_KEY_ID: "local-admin-key",
+        OMNIWA_API_KEY_KIND: "admin_key",
+      })[0]?.credential,
+    ).toMatchObject({
+      kind: "admin_key",
+      keyId: "local-admin-key",
+      scopes: expect.arrayContaining(["instances:read", "instances:write", "instances:destroy"]),
+    });
+  });
+
+  it("routes instance destruction through the local runtime dispatcher and hides destroyed instances", async () => {
+    const composition = createApiRuntimeComposition({
+      OMNIWA_API_KEY: "local-secret",
+      OMNIWA_API_KEY_ID: "local-admin-key",
+      OMNIWA_API_KEY_KIND: "admin_key",
+      OMNIWA_API_RUNTIME_PROFILE: "local",
+    });
+
+    const created = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-create-delete-local",
+          "x-correlation-id": "runtime-create-delete-correlation",
+          "idempotency-key": "runtime-create-delete-local",
+        },
+        body: {
+          displayName: "Runtime Delete Candidate",
+        },
+      },
+      composition.options,
+    );
+    const instanceId = responseDataString(created, "resultRef");
+    const destroyed = await handleApiHttpRequest(
+      {
+        method: "DELETE",
+        url: `/v1/instances/${encodeURIComponent(instanceId)}`,
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-destroy-local",
+          "x-correlation-id": "runtime-create-delete-correlation",
+          "idempotency-key": "runtime-destroy-local",
+        },
+      },
+      composition.options,
+    );
+    const listed = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-list-after-delete-local",
+          "x-correlation-id": "runtime-create-delete-correlation",
+        },
+      },
+      composition.options,
+    );
+    const detail = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: `/v1/instances/${encodeURIComponent(instanceId)}`,
+        headers: {
+          "x-api-key": "local-secret",
+          "x-request-id": "runtime-detail-after-delete-local",
+          "x-correlation-id": "runtime-create-delete-correlation",
+        },
+      },
+      composition.options,
+    );
+
+    expect(created.statusCode).toBe(200);
+    expect(destroyed.statusCode).toBe(202);
+    expect(responseData(destroyed)).toMatchObject({
+      resourceType: "instance",
+      operationStatus: "accepted",
+      accepted: true,
+      resultRef: instanceId,
+    });
+    expect(listed.statusCode).toBe(200);
+    expect(responseData(listed)).toEqual([]);
+    expect(detail.statusCode).toBe(200);
+    expect(responseData(detail)).toMatchObject({
+      resourceType: "instance",
+      id: instanceId,
+      status: "destroyed",
+      displayName: "Runtime Delete Candidate",
+    });
   });
 
   it("allows test runtime without env API key for unit tests", () => {
@@ -1294,6 +1390,30 @@ class FakeSecretProvider implements SecretProvider {
 function requiredString(value: string | undefined, label: string): string {
   if (value === undefined) {
     throw new TypeError(`${label} is required.`);
+  }
+
+  return value;
+}
+
+function responseData(response: ApiHttpResponse): unknown {
+  if (!("data" in response.body)) {
+    throw new TypeError("Expected a success envelope.");
+  }
+
+  return response.body.data;
+}
+
+function responseDataString(response: ApiHttpResponse, key: string): string {
+  const data = responseData(response);
+
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    throw new TypeError("Expected response data to be an object.");
+  }
+
+  const value = (data as Readonly<Record<string, unknown>>)[key];
+
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TypeError(`Expected response data field '${key}' to be a non-empty string.`);
   }
 
   return value;
