@@ -12,6 +12,7 @@ import {
   type GroupRepositoryPort,
   createInstance,
   createInstanceDisplayName,
+  destroyInstance as destroyDomainInstance,
   createGroupId,
   createInstanceId,
   createMessageId,
@@ -216,6 +217,7 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
   private buildCommandHandlers(): CommandHandlerRegistry {
     const handlers = new Map<ApplicationCommandName, CommandHandler>([
       ["CreateInstance", (envelope) => this.createInstance(envelope)],
+      ["DestroyInstance", (envelope) => this.destroyInstance(envelope)],
     ]);
     const sendTextHandler = this.createSendTextMessageHandler();
 
@@ -317,6 +319,67 @@ class DefaultApplicationDispatcher implements ApplicationDispatcher {
       accepted: true,
       retryable: false,
       resultRef: instance.id,
+    });
+  }
+
+  private async destroyInstance(
+    envelope: ApplicationCommandEnvelope,
+  ): Promise<ApplicationCommandOutcome> {
+    if (envelope.targetRef === undefined) {
+      return commandOutcome(envelope, "failed", {
+        accepted: false,
+        retryable: false,
+        reasonCode: "instance_target_required",
+      });
+    }
+
+    const instance = await this.repositories.instanceRepository.load(
+      createInstanceId(envelope.targetRef),
+    );
+
+    if (instance === undefined) {
+      return commandOutcome(envelope, "failed", {
+        accepted: false,
+        retryable: false,
+        reasonCode: "instance_not_found",
+      });
+    }
+
+    if (instance.status === "destroyed") {
+      return commandOutcome(envelope, "accepted", {
+        accepted: true,
+        retryable: false,
+        resultRef: instance.id,
+      });
+    }
+
+    const baseEventCount = instance.domainEvents.length;
+    const destroyed = destroyDomainInstance(instance);
+
+    await this.repositories.instanceRepository.save(destroyed);
+
+    if (this.domainEventPublisher !== undefined) {
+      const publishResult = await this.domainEventPublisher.publishNewEvents({
+        aggregateEvents: destroyed.domainEvents,
+        baseEventCount,
+        executionRef: `${envelope.commandRef}:instance`,
+        context: commandContext(envelope),
+      });
+
+      if (!publishResult.ok) {
+        return commandOutcome(envelope, "failed", {
+          accepted: true,
+          retryable: publishResult.error.retryable,
+          reasonCode: publishResult.error.code,
+          resultRef: destroyed.id,
+        });
+      }
+    }
+
+    return commandOutcome(envelope, "accepted", {
+      accepted: true,
+      retryable: false,
+      resultRef: destroyed.id,
     });
   }
 
@@ -1127,6 +1190,19 @@ function queryOutcome(
     ...optional("resource", input.resource),
     ...optional("items", input.items),
   });
+}
+
+function commandContext(
+  envelope: ApplicationCommandEnvelope,
+): Parameters<DomainEventPublisher["publishNewEvents"]>[0]["context"] {
+  return {
+    requestContext: envelope.requestContext,
+    ...(envelope.actorRef === undefined ? {} : { actorRef: envelope.actorRef }),
+    ...(envelope.idempotencyKey === undefined ? {} : { idempotencyKey: envelope.idempotencyKey }),
+    ...(envelope.dataClassification === undefined
+      ? {}
+      : { dataClassification: envelope.dataClassification }),
+  };
 }
 
 function instanceQueryItem(instance: Instance): Readonly<{

@@ -883,6 +883,109 @@ describe("API HTTP transport", () => {
     expect(JSON.stringify(listResponse.body)).not.toContain("domainEvents");
   });
 
+  it("destroys instances through the real Application command and hides them from public lists", async () => {
+    const repositories = createInMemoryRepositorySet();
+    const dispatcher = createApplicationDispatcher({
+      repositories: {
+        instanceRepository: repositories.instanceRepository,
+      },
+    });
+
+    const createResponse = await handleApiHttpRequest(
+      {
+        method: "POST",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "test-secret",
+          "x-request-id": "req-create-instance-for-destroy",
+          "x-correlation-id": "corr-create-instance-for-destroy",
+          "idempotency-key": "idem-create-instance-for-destroy",
+        },
+        body: {
+          displayName: "HTTP Destroy Candidate",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-create-instance-for-destroy",
+      },
+    );
+    const instanceId = safeResponseString(createResponse, "resultRef");
+    const deleteResponse = await handleApiHttpRequest(
+      {
+        method: "DELETE",
+        url: `/v1/instances/${instanceId}`,
+        headers: {
+          "x-api-key": "admin-secret",
+          "x-request-id": "req-destroy-instance",
+          "x-correlation-id": "corr-destroy-instance",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-destroy-instance",
+      },
+    );
+    const listResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: "/v1/instances",
+        headers: {
+          "x-api-key": "admin-secret",
+          "x-request-id": "req-list-after-destroy",
+          "x-correlation-id": "corr-list-after-destroy",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-list-after-destroy",
+      },
+    );
+    const detailResponse = await handleApiHttpRequest(
+      {
+        method: "GET",
+        url: `/v1/instances/${instanceId}`,
+        headers: {
+          "x-api-key": "admin-secret",
+          "x-request-id": "req-detail-after-destroy",
+          "x-correlation-id": "corr-detail-after-destroy",
+        },
+      },
+      {
+        dispatcher,
+        apiKeys,
+        now: fixedNow,
+        requestRefGenerator: () => "http-detail-after-destroy",
+      },
+    );
+
+    expect(deleteResponse.statusCode).toBe(202);
+    expect("data" in deleteResponse.body ? deleteResponse.body.data : undefined).toMatchObject({
+      resourceType: "instance",
+      resourceId: instanceId,
+      operationStatus: "accepted",
+      accepted: true,
+      retryable: false,
+      resultRef: instanceId,
+    });
+    expect(listResponse.statusCode).toBe(200);
+    expect("data" in listResponse.body ? listResponse.body.data : undefined).toEqual([]);
+    expect(detailResponse.statusCode).toBe(200);
+    expect("data" in detailResponse.body ? detailResponse.body.data : undefined).toMatchObject({
+      resourceType: "instance",
+      id: instanceId,
+      status: "destroyed",
+      displayName: "HTTP Destroy Candidate",
+    });
+    expect(JSON.stringify(deleteResponse.body)).not.toContain("domainEvents");
+  });
+
   it("materializes instance detail from the real Application query into public resource data", async () => {
     const repositories = createInMemoryRepositorySet();
     const dispatcher = createApplicationDispatcher({

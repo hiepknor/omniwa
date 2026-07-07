@@ -113,6 +113,11 @@ import type {
 } from "../ports/queue-provider.js";
 import { createApplicationQueryEnvelope } from "../queries/query-model.js";
 import { createApplicationDispatcher } from "./application-dispatcher.js";
+import type {
+  DomainEventPublicationReceipt,
+  DomainEventPublisher,
+  DomainEventPublisherInput,
+} from "./domain-event-publisher.js";
 
 const requestContext = createRequestContext({
   requestId: createRequestId("dispatcher-request"),
@@ -200,6 +205,154 @@ describe("application dispatcher", () => {
       reasonCode: "create_instance_display_name_invalid",
     });
     expect(instanceRepository.list()).toHaveLength(0);
+  });
+
+  it("destroys an existing instance as a tombstone and publishes only the destroy event", async () => {
+    const instanceRepository = new FakeInstanceRepository();
+    const domainEventPublisher = new CapturingDomainEventPublisher();
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository },
+      uuidGenerator: fixedUuidGenerator,
+      clock: fixedClock,
+      domainEventPublisher,
+    });
+
+    await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "CreateInstance",
+        commandRef: "cmd-create-instance-before-destroy",
+        requestContext,
+        actorRef: "api_key:test",
+        idempotencyKey: "idem-create-instance-before-destroy",
+        safeInput: {
+          displayName: "Destroy Candidate",
+        },
+      }),
+    );
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "DestroyInstance",
+        commandRef: "cmd-destroy-instance",
+        requestContext,
+        actorRef: "api_key:admin",
+        targetRef: "inst:550e8400-e29b-41d4-a716-446655440000",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-destroy-instance",
+      outcome: "accepted",
+      accepted: true,
+      retryable: false,
+      resultRef: "inst:550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(instanceRepository.list()[0]?.status).toBe("destroyed");
+    await expect(instanceRepository.findNonTerminal()).resolves.toEqual([]);
+    expect(domainEventPublisher.inputs).toHaveLength(1);
+    expect(domainEventPublisher.inputs[0]?.baseEventCount).toBe(1);
+    expect(domainEventPublisher.publishedNames()).toEqual(["InstanceDestroyed"]);
+    expect(JSON.stringify(outcome)).not.toContain("domainEvents");
+  });
+
+  it("treats already destroyed instances as an idempotent destroy outcome", async () => {
+    const instanceRepository = new FakeInstanceRepository();
+    const domainEventPublisher = new CapturingDomainEventPublisher();
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository },
+      uuidGenerator: fixedUuidGenerator,
+      clock: fixedClock,
+      domainEventPublisher,
+    });
+
+    await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "CreateInstance",
+        commandRef: "cmd-create-instance-for-repeat-destroy",
+        requestContext,
+        actorRef: "api_key:test",
+        idempotencyKey: "idem-create-instance-for-repeat-destroy",
+      }),
+    );
+    await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "DestroyInstance",
+        commandRef: "cmd-destroy-instance-first",
+        requestContext,
+        actorRef: "api_key:admin",
+        targetRef: "inst:550e8400-e29b-41d4-a716-446655440000",
+      }),
+    );
+    const repeated = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "DestroyInstance",
+        commandRef: "cmd-destroy-instance-repeat",
+        requestContext,
+        actorRef: "api_key:admin",
+        targetRef: "inst:550e8400-e29b-41d4-a716-446655440000",
+      }),
+    );
+
+    expect(repeated).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-destroy-instance-repeat",
+      outcome: "accepted",
+      accepted: true,
+      retryable: false,
+      resultRef: "inst:550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(domainEventPublisher.publishedNames()).toEqual(["InstanceDestroyed"]);
+  });
+
+  it("fails DestroyInstance safely when the target is missing", async () => {
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository: new FakeInstanceRepository() },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "DestroyInstance",
+        commandRef: "cmd-destroy-missing-instance",
+        requestContext,
+        actorRef: "api_key:admin",
+        targetRef: "inst_missing",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-destroy-missing-instance",
+      outcome: "failed",
+      accepted: false,
+      retryable: false,
+      reasonCode: "instance_not_found",
+    });
+  });
+
+  it("fails DestroyInstance safely when targetRef is missing", async () => {
+    const dispatcher = createApplicationDispatcher({
+      repositories: { instanceRepository: new FakeInstanceRepository() },
+      clock: fixedClock,
+    });
+
+    const outcome = await dispatcher.executeCommand(
+      createApplicationCommandEnvelope({
+        name: "DestroyInstance",
+        commandRef: "cmd-destroy-instance-without-target",
+        requestContext,
+        actorRef: "api_key:admin",
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "command_outcome",
+      commandRef: "cmd-destroy-instance-without-target",
+      outcome: "failed",
+      accepted: false,
+      retryable: false,
+      reasonCode: "instance_target_required",
+    });
   });
 
   it("executes ListInstances as a side-effect free repository query", async () => {
@@ -1971,6 +2124,28 @@ class FakeInstanceRepository implements InstanceRepositoryPort {
 
   list(): readonly Instance[] {
     return Object.freeze([...this.records.values()]);
+  }
+}
+
+class CapturingDomainEventPublisher implements DomainEventPublisher {
+  readonly inputs: DomainEventPublisherInput[] = [];
+
+  publishNewEvents(
+    input: DomainEventPublisherInput,
+  ): Promise<ApplicationPortResult<DomainEventPublicationReceipt>> {
+    this.inputs.push(input);
+
+    return Promise.resolve(
+      ok({
+        publishedEvents: Object.freeze([]),
+      }),
+    );
+  }
+
+  publishedNames(): readonly string[] {
+    return this.inputs.flatMap((input) =>
+      input.aggregateEvents.slice(input.baseEventCount).map((event) => event.name),
+    );
   }
 }
 
