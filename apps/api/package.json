@@ -16,6 +16,7 @@
   "dependencies": {
     "@omniwa/application": "workspace:*",
     "@omniwa/config": "workspace:*",
+    "@omniwa/domain": "workspace:*",
     "@omniwa/infrastructure-observability": "workspace:*",
     "@omniwa/infrastructure-persistence": "workspace:*",
     "@omniwa/infrastructure-provider-bridge": "workspace:*",

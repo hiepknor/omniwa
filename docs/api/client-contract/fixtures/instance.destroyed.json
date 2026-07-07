@@ -1,0 +1,16 @@
+{
+  "data": {
+    "resourceType": "instance",
+    "resourceId": "inst_demo",
+    "operationStatus": "accepted",
+    "accepted": true,
+    "retryable": false,
+    "async": true,
+    "resultRef": "inst_demo"
+  },
+  "meta": {
+    "requestId": "req_instance_destroyed",
+    "correlationId": "corr_instance_destroyed",
+    "timestamp": "2026-07-05T00:00:00.000Z"
+  }
+}

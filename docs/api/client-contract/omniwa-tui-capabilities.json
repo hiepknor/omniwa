@@ -101,7 +101,7 @@
       "status": "implemented_public",
       "recommendedForTui": true,
       "dto": "InstanceDto|OperationData",
-      "notes": "List and create routes are public. List returns safe instance collection items from the Application query outcome."
+      "notes": "List, create, detail, and destroy routes are public. Destroy returns an accepted operation envelope, tombstones the instance, hides it from ListInstances, cleans up related local sessions/jobs, and disconnects provider runtime sessions when the provider command bridge is configured."
     },
     "sessions": {
       "status": "implemented_public",
@@ -256,6 +256,17 @@
       "dto": "InstanceDto",
       "responseEnvelope": "SuccessEnvelope",
       "notes": "Returns a safe instance resource with readStatus, consistency, resultRef, id, and status."
+    },
+    {
+      "feature": "instances",
+      "method": "DELETE",
+      "path": "/v1/instances/{instanceId}",
+      "status": "implemented_public",
+      "authRequired": true,
+      "dto": "OperationData",
+      "idempotencyRequired": true,
+      "responseEnvelope": "SuccessEnvelope",
+      "notes": "Returns operationStatus=accepted. TUI should remove the item from active lists after success and may keep detail views able to show status=destroyed. Provider disconnect is attempted through the provider-runtime bridge when configured; raw provider/session payloads are not exposed."
     },
     {
       "feature": "sessions",
@@ -970,6 +981,7 @@
     "instancesEmpty": "docs/api/client-contract/fixtures/instances.empty.json",
     "instancesList": "docs/api/client-contract/fixtures/instances.list.json",
     "instanceDetail": "docs/api/client-contract/fixtures/instance.detail.json",
+    "instanceDestroyed": "docs/api/client-contract/fixtures/instance.destroyed.json",
     "instanceSessionsList": "docs/api/client-contract/fixtures/instance-sessions.list.json",
     "messagesList": "docs/api/client-contract/fixtures/messages.list.json",
     "messageDetail": "docs/api/client-contract/fixtures/message.detail.json",

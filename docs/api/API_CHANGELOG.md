@@ -52,6 +52,12 @@ Client impact:
   boundary into Instance metadata, so `GET /v1/instances` and
   `GET /v1/instances/{instanceId}` return `displayName` when it was provided at
   creation time.
+- `DELETE /v1/instances/{instanceId}` is now `implemented_public` for
+  admin-scoped clients. It returns `operationStatus: "accepted"`, tombstones the
+  instance, hides it from active instance lists, cleans up related local
+  sessions/jobs, and attempts provider-runtime disconnect through the provider
+  command bridge when configured. Public DTOs do not expose provider payloads,
+  session secrets, or domain events.
 - Adds a required dead-letter delivery list fixture for
   `GET /v1/webhook-deliveries?status=dead_letter`, so operator clients can
   render remediation views and selected bulk redrive without guessing filter

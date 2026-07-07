@@ -38,6 +38,9 @@ importers:
       '@omniwa/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@omniwa/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@omniwa/infrastructure-observability':
         specifier: workspace:*
         version: link:../../packages/infrastructure-observability

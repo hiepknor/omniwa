@@ -15,6 +15,7 @@ export const implementedPublicEndpointAllowList = Object.freeze([
   "GET /v1/instances/{instanceId}/messages",
   "POST /v1/instances/{instanceId}/messages/text",
   "POST /v1/instances",
+  "DELETE /v1/instances/{instanceId}",
   "GET /v1/messages/{messageId}",
   "POST /v1/messages/{messageId}/retry",
   "POST /v1/messages/{messageId}/cancel",

@@ -119,6 +119,36 @@ fn message_client_exposes_retry_and_cancel_mutations() {
 }
 
 #[test]
+fn instances_client_exposes_destroy_mutation() {
+    let client = client_with_fixture(
+        "destroyInstance",
+        SdkResponse::json(
+            202,
+            r#"{"data":{"resourceType":"instance","resourceId":"inst_demo","operationStatus":"accepted","accepted":true,"retryable":false,"async":true,"resultRef":"inst_demo"},"meta":{"requestId":"req_instance_destroyed","correlationId":"corr_instance_destroyed","timestamp":"2026-07-05T00:00:00.000Z"}}"#,
+        ),
+    );
+    let options = RequestOptions {
+        idempotency_key: Some(
+            IdempotencyKey::new("idem-instance-destroy-demo")
+                .expect("valid instance destroy idempotency key"),
+        ),
+        ..RequestOptions::default()
+    };
+
+    let destroyed = client
+        .instances()
+        .destroy("inst_demo", options)
+        .expect("destroy fixture response")
+        .success_envelope::<PublicOperationData>()
+        .expect("destroy operation envelope");
+
+    assert_eq!(destroyed.data.resource_type, "instance");
+    assert_eq!(destroyed.data.operation_status, "accepted");
+    assert_eq!(destroyed.data.result_ref.as_deref(), Some("inst_demo"));
+    assert_eq!(destroyed.data.asynchronous, Some(true));
+}
+
+#[test]
 fn webhooks_client_exposes_delivery_retry_mutation() {
     let api_key = ApiKey::new("test-api-key").expect("valid API key");
     let config = OmniwaClientConfig::new("http://localhost:3000", api_key).expect("valid config");

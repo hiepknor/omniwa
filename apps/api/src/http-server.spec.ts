@@ -12,6 +12,14 @@ import {
   type ApplicationPortResult,
   type ApplicationQueryEnvelope,
   type ApplicationQueryOutcome,
+  type MessagingProviderPort,
+  type ProviderCapabilitySummary,
+  type ProviderConnectionRequest,
+  type ProviderConnectionResult,
+  type ProviderOutboundMessageRequest,
+  type ProviderOutboundMessageResult,
+  type ProviderQrPairingChallenge,
+  type ProviderQrPairingRequest,
   type GroupMutationIntentInput,
   type GroupMutationIntentReceipt,
   type GroupMutationIntentRef,
@@ -29,7 +37,15 @@ import {
   type WebhookDeliveryOperationIntentRef,
   type WebhookDeliveryOperationIntentStorePort,
 } from "@omniwa/application";
-import type { MessageId } from "@omniwa/domain";
+import {
+  activateSession,
+  createInstanceId,
+  createProviderId,
+  createSession,
+  createSessionId,
+  startSessionPairing,
+  type MessageId,
+} from "@omniwa/domain";
 import {
   createInMemoryEventLogStore,
   createInMemoryRepositorySet,
@@ -885,10 +901,14 @@ describe("API HTTP transport", () => {
 
   it("destroys instances through the real Application command and hides them from public lists", async () => {
     const repositories = createInMemoryRepositorySet();
+    const messagingProvider = new CapturingDisconnectMessagingProvider();
     const dispatcher = createApplicationDispatcher({
       repositories: {
         instanceRepository: repositories.instanceRepository,
+        sessionRepository: repositories.sessionRepository,
+        workerJobRepository: repositories.workerJobRepository,
       },
+      messagingProvider,
     });
 
     const createResponse = await handleApiHttpRequest(
@@ -913,6 +933,13 @@ describe("API HTTP transport", () => {
       },
     );
     const instanceId = safeResponseString(createResponse, "resultRef");
+    await repositories.sessionRepository.save(
+      activateSession(
+        startSessionPairing(
+          createSession(createSessionId("sess:http-destroy"), createInstanceId(instanceId)),
+        ),
+      ),
+    );
     const deleteResponse = await handleApiHttpRequest(
       {
         method: "DELETE",
@@ -983,6 +1010,15 @@ describe("API HTTP transport", () => {
       status: "destroyed",
       displayName: "HTTP Destroy Candidate",
     });
+    expect(messagingProvider.disconnectRequests).toEqual([
+      {
+        instanceId,
+        intent: "disconnect",
+        providerId: "baileys",
+        reasonCode: "instance_destroyed",
+        sessionId: "sess:http-destroy",
+      },
+    ]);
     expect(JSON.stringify(deleteResponse.body)).not.toContain("domainEvents");
   });
 
@@ -3189,6 +3225,71 @@ class CapturingWebhookDeliveryOperationIntentStore implements WebhookDeliveryOpe
         kind: "bulk_redrive",
         deliveryRefs: ["webhook-delivery:stored"],
         createdAtEpochMilliseconds: 1,
+      }),
+    );
+  }
+}
+
+class CapturingDisconnectMessagingProvider implements MessagingProviderPort {
+  readonly disconnectRequests: ProviderConnectionRequest[] = [];
+
+  requestConnection(
+    request: ProviderConnectionRequest,
+  ): Promise<ApplicationPortResult<ProviderConnectionResult>> {
+    return Promise.resolve(
+      ok({
+        instanceId: request.instanceId,
+        providerId: request.providerId,
+        state: "connected",
+      }),
+    );
+  }
+
+  requestQrPairing(
+    request: ProviderQrPairingRequest,
+  ): Promise<ApplicationPortResult<ProviderQrPairingChallenge>> {
+    return Promise.resolve(
+      ok({
+        challengeRef: "challenge.safe-ref",
+        dataClassification: "secret",
+        instanceId: request.instanceId,
+        sessionId: request.sessionId,
+      }),
+    );
+  }
+
+  disconnect(
+    request: ProviderConnectionRequest,
+  ): Promise<ApplicationPortResult<ProviderConnectionResult>> {
+    this.disconnectRequests.push(request);
+
+    return Promise.resolve(
+      ok({
+        instanceId: request.instanceId,
+        providerId: request.providerId,
+        state: "disconnected",
+      }),
+    );
+  }
+
+  sendOutboundMessage(
+    request: ProviderOutboundMessageRequest,
+  ): Promise<ApplicationPortResult<ProviderOutboundMessageResult>> {
+    return Promise.resolve(
+      ok({
+        messageId: request.messageId,
+        retryable: false,
+        status: "accepted",
+      }),
+    );
+  }
+
+  getCapabilitySummary(): Promise<ApplicationPortResult<ProviderCapabilitySummary>> {
+    return Promise.resolve(
+      ok({
+        degraded: false,
+        providerId: createProviderId("baileys"),
+        supportedMessageTypes: ["text"],
       }),
     );
   }

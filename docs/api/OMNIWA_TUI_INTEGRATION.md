@@ -261,6 +261,8 @@ curl -sS -X POST -H "x-api-key: $ADMIN_KEY" -H "idempotency-key: bulk-redrive-we
   "$BASE/v1/webhook-deliveries/redrive"
 curl -sS -H "x-api-key: $KEY" -H "idempotency-key: tui-create-1" \
   -H "content-type: application/json" -X POST "$BASE/v1/instances" -d '{}'
+curl -sS -X DELETE -H "x-api-key: $ADMIN_KEY" -H "idempotency-key: destroy-instance-demo" \
+  "$BASE/v1/instances/inst_demo"
 curl -sS -N -H "x-api-key: $KEY" "$BASE/v1/events/stream"
 ```
 
@@ -283,6 +285,11 @@ Group member mutations return `operationStatus: "accepted"` because the backend 
 controlled local action and audit evidence. Provider-backed WhatsApp synchronization for these
 member actions is still outside the current scope. Group metadata and local-state mutations return
 `completed` because they complete against OmniWA-owned local state.
+
+Instance deletion returns `operationStatus: "accepted"` and tombstones the instance. TUI clients
+should remove it from active list views after success, may keep detail views able to render
+`status: "destroyed"`, and must treat provider-runtime disconnect as best-effort through the backend
+bridge rather than as a raw provider operation.
 
 Negative-state checks:
 

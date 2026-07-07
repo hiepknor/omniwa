@@ -25,7 +25,7 @@ Implemented public surfaces currently include:
 | Capability         | Public Surface                                                                                          | Status                 |
 | ------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------- |
 | Health             | `GET /v1/health`                                                                                        | Implemented            |
-| Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`                             | Implemented            |
+| Instances          | `GET /v1/instances`, `GET /v1/instances/{instanceId}`, `POST /v1/instances`, `DELETE /v1/instances/{instanceId}` | Implemented            |
 | Sessions           | `GET /v1/instances/{instanceId}/sessions`                                                               | Implemented            |
 | Messages           | `GET /v1/instances/{instanceId}/messages`, `GET /v1/messages/{messageId}`                               | Implemented            |
 | Chats              | `GET /v1/instances/{instanceId}/chats`, `GET /v1/chats/{chatId}`                                        | Implemented            |
